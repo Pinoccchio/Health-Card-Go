@@ -1,0 +1,140 @@
+'use client';
+
+import { useSearchParams } from 'next/navigation';
+import Link from 'next/link';
+import { Mail, CheckCircle, XCircle, Clock } from 'lucide-react';
+import { AuthCard, Alert } from '@/components/auth';
+import { Button } from '@/components/ui';
+
+export default function VerifyEmailPage() {
+  const searchParams = useSearchParams();
+  const status = searchParams.get('status'); // 'success' | 'error' | 'pending'
+
+  // Default to pending (for patient registration)
+  const verificationStatus = status || 'pending';
+
+  return (
+    <div className="flex justify-center">
+      {verificationStatus === 'success' && (
+        <AuthCard
+          title="Email Verified!"
+          subtitle="Your email has been successfully verified"
+          showLogo={false}
+        >
+          <div className="space-y-6">
+            <div className="flex justify-center">
+              <div className="w-20 h-20 bg-success/10 rounded-full flex items-center justify-center">
+                <CheckCircle className="w-12 h-12 text-success" />
+              </div>
+            </div>
+
+            <Alert
+              variant="success"
+              title="Verification Successful"
+              message="Your email address has been verified. You can now log in to your account."
+            />
+
+            <Link href="/login">
+              <Button variant="primary" size="lg" className="w-full">
+                Go to Login
+              </Button>
+            </Link>
+          </div>
+        </AuthCard>
+      )}
+
+      {verificationStatus === 'error' && (
+        <AuthCard
+          title="Verification Failed"
+          subtitle="We couldn't verify your email address"
+          showLogo={false}
+        >
+          <div className="space-y-6">
+            <div className="flex justify-center">
+              <div className="w-20 h-20 bg-danger/10 rounded-full flex items-center justify-center">
+                <XCircle className="w-12 h-12 text-danger" />
+              </div>
+            </div>
+
+            <Alert
+              variant="error"
+              title="Verification Failed"
+              message="The verification link is invalid or has expired. Please request a new verification email."
+            />
+
+            <Button variant="primary" size="lg" className="w-full">
+              Resend Verification Email
+            </Button>
+
+            <Link href="/login">
+              <Button variant="ghost" size="lg" className="w-full">
+                Back to Login
+              </Button>
+            </Link>
+          </div>
+        </AuthCard>
+      )}
+
+      {verificationStatus === 'pending' && (
+        <AuthCard
+          title="Registration Pending"
+          subtitle="Your account is awaiting approval"
+          showLogo={false}
+        >
+          <div className="space-y-6">
+            <div className="flex justify-center">
+              <div className="w-20 h-20 bg-warning/10 rounded-full flex items-center justify-center">
+                <Clock className="w-12 h-12 text-warning" />
+              </div>
+            </div>
+
+            <Alert
+              variant="info"
+              title="Account Pending Approval"
+              message="Thank you for registering! Your account is currently pending approval from our healthcare administrators. You will receive an email notification once your account has been approved."
+            />
+
+            <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+              <div className="flex items-start gap-3">
+                <Mail className="w-5 h-5 text-primary-teal mt-0.5 flex-shrink-0" />
+                <div className="text-sm text-gray-700">
+                  <p className="font-semibold mb-1">What happens next?</p>
+                  <ul className="space-y-1 text-gray-600">
+                    <li>• Our team will review your registration</li>
+                    <li>• Approval typically takes 1-2 business days</li>
+                    <li>• You'll receive an email once approved</li>
+                    <li>• You can then log in and book appointments</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <Link href="/">
+                <Button variant="primary" size="lg" className="w-full">
+                  Back to Home
+                </Button>
+              </Link>
+
+              <Link href="/login">
+                <Button variant="outline" size="lg" className="w-full">
+                  Try to Login
+                </Button>
+              </Link>
+            </div>
+
+            <div className="text-center text-sm text-gray-600">
+              Have questions?{' '}
+              <a
+                href="mailto:support@healthcard.com"
+                className="font-medium text-primary-teal hover:text-primary-teal-dark transition-colors"
+              >
+                Contact Support
+              </a>
+            </div>
+          </div>
+        </AuthCard>
+      )}
+    </div>
+  );
+}

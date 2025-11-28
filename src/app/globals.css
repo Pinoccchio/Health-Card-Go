@@ -43,10 +43,12 @@
   --color-primary: var(--primary-teal);
   --color-primary-dark: var(--primary-teal-dark);
   --color-primary-light: var(--primary-teal-light);
+  --color-primary-teal: var(--primary-teal);
 
   --color-secondary: var(--cta-orange);
   --color-secondary-dark: var(--cta-orange-dark);
   --color-secondary-light: var(--cta-orange-light);
+  --color-cta-orange: var(--cta-orange);
 
   --color-success: var(--success);
   --color-danger: var(--danger);
