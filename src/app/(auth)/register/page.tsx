@@ -12,7 +12,6 @@ import {
   Calendar,
   Stethoscope,
   FileText,
-  Shield,
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import {
@@ -32,7 +31,7 @@ export default function RegisterPage() {
   const { register, loading } = useAuth();
 
   const [formData, setFormData] = useState<Partial<RegisterData>>({
-    role_id: 4, // Default to Patient
+    role: 'patient', // Default to Patient
     acceptTerms: false,
   });
 
@@ -44,21 +43,35 @@ export default function RegisterPage() {
    * Validate form fields
    */
   const validate = (): boolean => {
+    console.log('🔍 [VALIDATION] Starting validation with formData:', formData);
     const newErrors: Record<string, string> = {};
 
     // Common validations
-    if (!formData.first_name?.trim()) {
-      newErrors.first_name = 'First name is required';
+    if (!formData.firstName?.trim()) {
+      console.log('❌ [VALIDATION] First name is missing');
+      newErrors.firstName = 'First name is required';
     }
 
-    if (!formData.last_name?.trim()) {
-      newErrors.last_name = 'Last name is required';
+    if (!formData.lastName?.trim()) {
+      console.log('❌ [VALIDATION] Last name is missing');
+      newErrors.lastName = 'Last name is required';
     }
 
     if (!formData.email) {
+      console.log('❌ [VALIDATION] Email is missing');
       newErrors.email = 'Email is required';
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
-      newErrors.email = 'Please enter a valid email address';
+    } else {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      const isValidEmail = emailRegex.test(formData.email);
+      console.log('📧 [VALIDATION] Email:', formData.email);
+      console.log('📧 [VALIDATION] Email regex test result:', isValidEmail);
+
+      if (!isValidEmail) {
+        console.log('❌ [VALIDATION] Email failed regex validation');
+        newErrors.email = 'Please enter a valid email address';
+      } else {
+        console.log('✅ [VALIDATION] Email passed validation');
+      }
     }
 
     if (!formData.password) {
@@ -74,40 +87,44 @@ export default function RegisterPage() {
     }
 
     // Role-specific validations
-    if (formData.role_id === 2 && !formData.admin_category) {
-      newErrors.admin_category = 'Please select an admin category';
+    if (formData.role === 'healthcare_admin' && !formData.adminCategory) {
+      newErrors.adminCategory = 'Please select an admin category';
     }
 
-    if (formData.role_id === 4) {
-      if (!formData.barangay_id) {
-        newErrors.barangay_id = 'Please select your barangay';
+    if (formData.role === 'patient') {
+      if (!formData.barangayId) {
+        newErrors.barangayId = 'Please select your barangay';
       }
-      if (!formData.date_of_birth) {
-        newErrors.date_of_birth = 'Date of birth is required';
+      if (!formData.dateOfBirth) {
+        newErrors.dateOfBirth = 'Date of birth is required';
       }
       if (!formData.gender) {
         newErrors.gender = 'Please select your gender';
       }
-      if (!formData.contact_number) {
-        newErrors.contact_number = 'Contact number is required';
+      if (!formData.contactNumber) {
+        newErrors.contactNumber = 'Contact number is required';
       }
     }
 
-    if (formData.role_id === 3) {
+    if (formData.role === 'doctor') {
       if (!formData.specialization?.trim()) {
         newErrors.specialization = 'Specialization is required';
       }
-      if (!formData.license_number?.trim()) {
-        newErrors.license_number = 'License number is required';
+      if (!formData.licenseNumber?.trim()) {
+        newErrors.licenseNumber = 'License number is required';
       }
     }
 
     if (!formData.acceptTerms) {
+      console.log('❌ [VALIDATION] Terms not accepted');
       newErrors.acceptTerms = 'You must accept the terms and conditions';
     }
 
     setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+    const isValid = Object.keys(newErrors).length === 0;
+    console.log('🔍 [VALIDATION] Validation complete. Errors:', newErrors);
+    console.log('🔍 [VALIDATION] Is valid:', isValid);
+    return isValid;
   };
 
   /**
@@ -115,23 +132,45 @@ export default function RegisterPage() {
    */
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    console.log('📝 [FORM SUBMIT] Form submitted');
     setServerError('');
     setSuccessMessage('');
 
-    if (!validate()) return;
+    console.log('📝 [FORM SUBMIT] Starting validation...');
+    if (!validate()) {
+      console.log('❌ [FORM SUBMIT] Validation failed, stopping submission');
+      return;
+    }
+
+    console.log('✅ [FORM SUBMIT] Validation passed, proceeding with registration');
+    console.log('📝 [FORM SUBMIT] Registration data:', {
+      ...formData,
+      password: '***REDACTED***',
+      confirmPassword: '***REDACTED***'
+    });
 
     try {
+      console.log('🚀 [FORM SUBMIT] Calling register function...');
       await register(formData as RegisterData);
+      console.log('✅ [FORM SUBMIT] Registration successful!');
+
       setSuccessMessage(
-        formData.role_id === 4
+        formData.role === 'patient'
           ? 'Registration successful! Your account is pending approval.'
           : 'Registration successful! Redirecting...'
       );
 
       setTimeout(() => {
-        router.push(formData.role_id === 4 ? '/verify-email' : '/login');
+        router.push(formData.role === 'patient' ? '/verify-email' : '/login');
       }, 2000);
     } catch (error) {
+      console.error('❌ [FORM SUBMIT] Registration failed:', error);
+      console.error('❌ [FORM SUBMIT] Error details:', {
+        message: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : undefined,
+        error
+      });
+
       setServerError(
         error instanceof Error
           ? error.message
@@ -157,10 +196,10 @@ export default function RegisterPage() {
 
   // Prepare select options
   const roleOptions = [
-    { value: 4, label: ROLE_NAMES[4] },
-    { value: 3, label: ROLE_NAMES[3] },
-    { value: 2, label: ROLE_NAMES[2] },
-    { value: 1, label: ROLE_NAMES[1] },
+    { value: 'patient', label: ROLE_NAMES[4] },
+    { value: 'doctor', label: ROLE_NAMES[3] },
+    { value: 'healthcare_admin', label: ROLE_NAMES[2] },
+    { value: 'super_admin', label: ROLE_NAMES[1] },
   ];
 
   const adminCategoryOptions = [
@@ -202,38 +241,38 @@ export default function RegisterPage() {
 
           {/* Role Selection */}
           <Select
-            id="role_id"
+            id="role"
             options={roleOptions}
             placeholder="Select your role"
-            value={formData.role_id || ''}
-            onChange={(e) => handleChange('role_id', Number(e.target.value))}
-            error={errors.role_id}
+            value={formData.role || ''}
+            onChange={(e) => handleChange('role', e.target.value)}
+            error={errors.role}
             disabled={loading}
           />
 
           {/* Common Fields */}
           <div className="grid grid-cols-2 gap-6">
             <FormField
-              id="first_name"
+              id="firstName"
               label="First Name"
               type="text"
               placeholder="Juan"
-              value={formData.first_name || ''}
-              onChange={(e) => handleChange('first_name', e.target.value)}
-              error={errors.first_name}
+              value={formData.firstName || ''}
+              onChange={(e) => handleChange('firstName', e.target.value)}
+              error={errors.firstName}
               icon={User}
               required
               disabled={loading}
             />
 
             <FormField
-              id="last_name"
+              id="lastName"
               label="Last Name"
               type="text"
               placeholder="Dela Cruz"
-              value={formData.last_name || ''}
-              onChange={(e) => handleChange('last_name', e.target.value)}
-              error={errors.last_name}
+              value={formData.lastName || ''}
+              onChange={(e) => handleChange('lastName', e.target.value)}
+              error={errors.lastName}
               icon={User}
               required
               disabled={loading}
@@ -292,21 +331,21 @@ export default function RegisterPage() {
           </div>
 
           {/* Healthcare Admin Category */}
-          {formData.role_id === 2 && (
+          {formData.role === 'healthcare_admin' && (
             <div>
               <label
-                htmlFor="admin_category"
+                htmlFor="adminCategory"
                 className="block text-sm font-medium text-gray-700 mb-1.5"
               >
                 Admin Category <span className="text-danger">*</span>
               </label>
               <Select
-                id="admin_category"
+                id="adminCategory"
                 options={adminCategoryOptions}
                 placeholder="Select admin category"
-                value={formData.admin_category || ''}
-                onChange={(e) => handleChange('admin_category', e.target.value)}
-                error={errors.admin_category}
+                value={formData.adminCategory || ''}
+                onChange={(e) => handleChange('adminCategory', e.target.value)}
+                error={errors.adminCategory}
                 disabled={loading}
                 helperText="Choose your area of specialization"
               />
@@ -314,36 +353,36 @@ export default function RegisterPage() {
           )}
 
           {/* Patient-specific Fields */}
-          {formData.role_id === 4 && (
+          {formData.role === 'patient' && (
             <>
               <div>
                 <label
-                  htmlFor="barangay_id"
+                  htmlFor="barangayId"
                   className="block text-sm font-medium text-gray-700 mb-1.5"
                 >
                   Barangay <span className="text-danger">*</span>
                 </label>
                 <Select
-                  id="barangay_id"
+                  id="barangayId"
                   options={barangayOptions}
                   placeholder="Select your barangay"
-                  value={formData.barangay_id || ''}
+                  value={formData.barangayId || ''}
                   onChange={(e) =>
-                    handleChange('barangay_id', Number(e.target.value))
+                    handleChange('barangayId', Number(e.target.value))
                   }
-                  error={errors.barangay_id}
+                  error={errors.barangayId}
                   disabled={loading}
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-6">
                 <FormField
-                  id="date_of_birth"
+                  id="dateOfBirth"
                   label="Date of Birth"
                   type="date"
-                  value={formData.date_of_birth || ''}
-                  onChange={(e) => handleChange('date_of_birth', e.target.value)}
-                  error={errors.date_of_birth}
+                  value={formData.dateOfBirth || ''}
+                  onChange={(e) => handleChange('dateOfBirth', e.target.value)}
+                  error={errors.dateOfBirth}
                   icon={Calendar}
                   required
                   disabled={loading}
@@ -369,13 +408,13 @@ export default function RegisterPage() {
               </div>
 
               <FormField
-                id="contact_number"
+                id="contactNumber"
                 label="Contact Number"
                 type="tel"
                 placeholder="+63 912 345 6789"
-                value={formData.contact_number || ''}
-                onChange={(e) => handleChange('contact_number', e.target.value)}
-                error={errors.contact_number}
+                value={formData.contactNumber || ''}
+                onChange={(e) => handleChange('contactNumber', e.target.value)}
+                error={errors.contactNumber}
                 icon={Phone}
                 required
                 disabled={loading}
@@ -384,7 +423,7 @@ export default function RegisterPage() {
           )}
 
           {/* Doctor-specific Fields */}
-          {formData.role_id === 3 && (
+          {formData.role === 'doctor' && (
             <>
               <FormField
                 id="specialization"
@@ -400,13 +439,13 @@ export default function RegisterPage() {
               />
 
               <FormField
-                id="license_number"
+                id="licenseNumber"
                 label="License Number"
                 type="text"
                 placeholder="e.g., PRC-12345678"
-                value={formData.license_number || ''}
-                onChange={(e) => handleChange('license_number', e.target.value)}
-                error={errors.license_number}
+                value={formData.licenseNumber || ''}
+                onChange={(e) => handleChange('licenseNumber', e.target.value)}
+                error={errors.licenseNumber}
                 icon={FileText}
                 required
                 disabled={loading}
@@ -414,26 +453,33 @@ export default function RegisterPage() {
             </>
           )}
 
-          {/* Super Admin Code (optional security) */}
-          {formData.role_id === 1 && (
-            <FormField
-              id="admin_code"
-              label="Admin Code"
-              type="password"
-              placeholder="Enter admin code"
-              value={formData.admin_code || ''}
-              onChange={(e) => handleChange('admin_code', e.target.value)}
-              error={errors.admin_code}
-              icon={Shield}
-              helperText="Contact system administrator for the code"
-              disabled={loading}
-            />
-          )}
-
           {/* Terms Checkbox */}
           <Checkbox
             id="acceptTerms"
-            label="I accept the Terms and Conditions and Privacy Policy"
+            label={
+              <span>
+                I accept the{' '}
+                <Link
+                  href="/terms"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-primary-teal hover:text-primary-teal-dark underline font-medium transition-colors"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  Terms and Conditions
+                </Link>{' '}
+                and{' '}
+                <Link
+                  href="/privacy-policy"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-primary-teal hover:text-primary-teal-dark underline font-medium transition-colors"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  Privacy Policy
+                </Link>
+              </span>
+            }
             checked={formData.acceptTerms}
             onChange={(e) => handleChange('acceptTerms', e.target.checked)}
             error={errors.acceptTerms}

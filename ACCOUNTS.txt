@@ -1,0 +1,598 @@
+========================================
+HEALTHCARD SYSTEM - TEST ACCOUNTS
+Next.js + Supabase Implementation
+========================================
+
+Last Updated: November 29, 2025
+Total Accounts: 12
+
+NOTE: All passwords follow the pattern [Role]@2025!
+      Use these accounts for development and testing only.
+
+========================================
+QUICK REFERENCE
+========================================
+
+SUPER ADMIN:        admin@gmail.com / Admin@2025!
+HEALTHCARD ADMIN:   healthcard.admin@gmail.com / HealthCard@2025!
+HIV ADMIN:          hiv.admin@gmail.com / HIV@2025!
+PREGNANCY ADMIN:    pregnancy.admin@gmail.com / Pregnancy@2025!
+GENERAL ADMIN:      general.admin@gmail.com / General@2025!
+LAB ADMIN:          lab.admin@gmail.com / Laboratory@2025!
+DOCTOR 1:           dr.santos@gmail.com / Doctor@2025!
+DOCTOR 2:           dr.reyes@gmail.com / Doctor@2025!
+PATIENT 1:          juan.delacruz@gmail.com / Patient@2025!
+PATIENT 2:          maria.santos@gmail.com / Patient@2025! (pending)
+PATIENT 3:          pedro.gonzales@gmail.com / Patient@2025!
+PATIENT 4:          rosa.mendoza@gmail.com / Patient@2025!
+
+========================================
+DETAILED ACCOUNT INFORMATION
+========================================
+
+-------------------------------------------
+1. SUPER ADMIN
+-------------------------------------------
+Email: admin@gmail.com
+Password: Admin@2025!
+Role: super_admin
+First Name: Admin
+Last Name: System
+
+CAPABILITIES:
+✓ Full system access
+✓ User management (create/edit Healthcare Admins & Doctors)
+✓ Patient approval/rejection
+✓ View ALL records (including encrypted HIV/Pregnancy)
+✓ Feedback management (EXCLUSIVE)
+✓ Disease surveillance dashboard
+✓ Combined reports from all categories
+✓ System configuration
+
+-------------------------------------------
+2. HEALTHCARE ADMINS (5 Categories)
+-------------------------------------------
+
+All Healthcare Admins can:
+✓ Approve patient registrations
+✓ Create/edit/delete announcements
+✓ Access category-specific records
+✓ Generate category reports
+
+--- HEALTHCARD ADMIN ---
+Email: healthcard.admin@gmail.com
+Password: HealthCard@2025!
+Role: healthcare_admin
+Category: healthcard
+First Name: Healthcard
+Last Name: Administrator
+Access: Healthcard patient records only
+
+--- HIV ADMIN ---
+Email: hiv.admin@gmail.com
+Password: HIV@2025!
+Role: healthcare_admin
+Category: hiv
+First Name: HIV
+Last Name: Administrator
+Access: HIV patient records only (encrypted)
+Special: RA 8504 compliance required
+
+--- PREGNANCY ADMIN ---
+Email: pregnancy.admin@gmail.com
+Password: Pregnancy@2025!
+Role: healthcare_admin
+Category: pregnancy
+First Name: Pregnancy
+Last Name: Administrator
+Access: Pregnancy patient records only (encrypted)
+
+--- GENERAL ADMIN ---
+Email: general.admin@gmail.com
+Password: General@2025!
+Role: healthcare_admin
+Category: general_admin
+First Name: General
+Last Name: Administrator
+Access: ALL patient records (except encrypted sensitive)
+Special: Can register walk-in patients, combined reports
+
+--- LABORATORY ADMIN ---
+Email: lab.admin@gmail.com
+Password: Laboratory@2025!
+Role: healthcare_admin
+Category: laboratory
+First Name: Laboratory
+Last Name: Administrator
+Access: Laboratory patient records only
+
+-------------------------------------------
+3. DOCTORS
+-------------------------------------------
+
+All Doctors can:
+✓ View ALL records during active appointments
+✓ Create medical records (5 template types)
+✓ Enter diagnoses (auto-triggers disease surveillance)
+✓ Complete appointments
+✓ QR code scanning
+
+--- GENERAL PRACTITIONER ---
+Email: dr.santos@gmail.com
+Password: Doctor@2025!
+Role: doctor
+First Name: Juan
+Last Name: Santos
+Specialization: General Practitioner
+License Number: PRC-123456789
+
+--- PEDIATRICIAN ---
+Email: dr.reyes@gmail.com
+Password: Doctor@2025!
+Role: doctor
+First Name: Maria
+Last Name: Reyes
+Specialization: Pediatrician
+License Number: PRC-987654321
+
+-------------------------------------------
+4. PATIENTS
+-------------------------------------------
+
+--- APPROVED PATIENT (Active) ---
+Email: juan.delacruz@gmail.com
+Password: Patient@2025!
+Role: patient
+Status: active (can book appointments)
+First Name: Juan
+Last Name: Dela Cruz
+Date of Birth: 1990-01-15 (January 15, 1990)
+Gender: male
+Barangay: San Nicolas (ID: 1)
+Contact Number: +63 912 345 6789
+Emergency Contact:
+  - Name: Maria Dela Cruz
+  - Phone: +63 912 999 9999
+  - Email: maria@email.com
+Use Case: Appointment booking, health card download, feedback
+
+--- PENDING PATIENT (Needs Approval) ---
+Email: maria.santos@gmail.com
+Password: Patient@2025!
+Role: patient
+Status: pending (awaiting approval)
+First Name: Maria
+Last Name: Santos
+Date of Birth: 1995-03-20 (March 20, 1995)
+Gender: female
+Barangay: Gredu (ID: 2)
+Contact Number: +63 923 456 7890
+Emergency Contact:
+  - Name: Jose Santos
+  - Phone: +63 923 888 8888
+  - Email: jose@email.com
+Use Case: Test patient approval workflow
+
+--- ACTIVE PATIENT (With History) ---
+Email: pedro.gonzales@gmail.com
+Password: Patient@2025!
+Role: patient
+Status: active
+First Name: Pedro
+Last Name: Gonzales
+Date of Birth: 1988-07-10 (July 10, 1988)
+Gender: male
+Barangay: Salvacion (ID: 3)
+Contact Number: +63 934 567 8901
+Emergency Contact:
+  - Name: Ana Gonzales
+  - Phone: +63 934 777 7777
+  - Email: ana@email.com
+Use Case: Appointment history, medical records
+
+--- FEMALE PATIENT (Prenatal Services) ---
+Email: rosa.mendoza@gmail.com
+Password: Patient@2025!
+Role: patient
+Status: active
+First Name: Rosa
+Last Name: Mendoza
+Date of Birth: 1992-12-05 (December 5, 1992)
+Gender: female
+Barangay: Quezon (ID: 4)
+Contact Number: +63 945 678 9012
+Emergency Contact:
+  - Name: Carlos Mendoza
+  - Phone: +63 945 666 6666
+  - Email: carlos@email.com
+Use Case: Prenatal care, immunization
+
+========================================
+REGISTRATION EXAMPLES
+========================================
+
+--- SUPER ADMIN REGISTRATION ---
+{
+  firstName: "Admin",
+  lastName: "System",
+  email: "admin@gmail.com",
+  password: "Admin@2025!",
+  role: "super_admin",
+  acceptTerms: true
+}
+
+--- HEALTHCARD ADMIN REGISTRATION ---
+{
+  firstName: "Healthcard",
+  lastName: "Administrator",
+  email: "healthcard.admin@gmail.com",
+  password: "HealthCard@2025!",
+  role: "healthcare_admin",
+  adminCategory: "healthcard",
+  acceptTerms: true
+}
+
+--- HIV ADMIN REGISTRATION ---
+{
+  firstName: "HIV",
+  lastName: "Administrator",
+  email: "hiv.admin@gmail.com",
+  password: "HIV@2025!",
+  role: "healthcare_admin",
+  adminCategory: "hiv",
+  acceptTerms: true
+}
+
+--- PREGNANCY ADMIN REGISTRATION ---
+{
+  firstName: "Pregnancy",
+  lastName: "Administrator",
+  email: "pregnancy.admin@gmail.com",
+  password: "Pregnancy@2025!",
+  role: "healthcare_admin",
+  adminCategory: "pregnancy",
+  acceptTerms: true
+}
+
+--- GENERAL ADMIN REGISTRATION ---
+{
+  firstName: "General",
+  lastName: "Administrator",
+  email: "general.admin@gmail.com",
+  password: "General@2025!",
+  role: "healthcare_admin",
+  adminCategory: "general_admin",
+  acceptTerms: true
+}
+
+--- LABORATORY ADMIN REGISTRATION ---
+{
+  firstName: "Laboratory",
+  lastName: "Administrator",
+  email: "lab.admin@gmail.com",
+  password: "Laboratory@2025!",
+  role: "healthcare_admin",
+  adminCategory: "laboratory",
+  acceptTerms: true
+}
+
+--- DOCTOR 1 REGISTRATION (General Practitioner) ---
+{
+  firstName: "Juan",
+  lastName: "Santos",
+  email: "dr.santos@gmail.com",
+  password: "Doctor@2025!",
+  role: "doctor",
+  specialization: "General Practitioner",
+  licenseNumber: "PRC-123456789",
+  acceptTerms: true
+}
+
+--- DOCTOR 2 REGISTRATION (Pediatrician) ---
+{
+  firstName: "Maria",
+  lastName: "Reyes",
+  email: "dr.reyes@gmail.com",
+  password: "Doctor@2025!",
+  role: "doctor",
+  specialization: "Pediatrician",
+  licenseNumber: "PRC-987654321",
+  acceptTerms: true
+}
+
+--- PATIENT 1 REGISTRATION (Active - Can Book) ---
+{
+  firstName: "Juan",
+  lastName: "Dela Cruz",
+  email: "juan.delacruz@gmail.com",
+  password: "Patient@2025!",
+  role: "patient",
+  barangayId: 1,
+  dateOfBirth: "1990-01-15",
+  gender: "male",
+  contactNumber: "+63 912 345 6789",
+  emergencyContact: {
+    name: "Maria Dela Cruz",
+    phone: "+63 912 999 9999",
+    email: "maria@email.com"
+  },
+  acceptTerms: true
+}
+
+--- PATIENT 2 REGISTRATION (Pending - For Approval Testing) ---
+{
+  firstName: "Maria",
+  lastName: "Santos",
+  email: "maria.santos@gmail.com",
+  password: "Patient@2025!",
+  role: "patient",
+  barangayId: 2,
+  dateOfBirth: "1995-03-20",
+  gender: "female",
+  contactNumber: "+63 923 456 7890",
+  emergencyContact: {
+    name: "Jose Santos",
+    phone: "+63 923 888 8888",
+    email: "jose@email.com"
+  },
+  acceptTerms: true
+}
+
+--- PATIENT 3 REGISTRATION (Active - With History) ---
+{
+  firstName: "Pedro",
+  lastName: "Gonzales",
+  email: "pedro.gonzales@gmail.com",
+  password: "Patient@2025!",
+  role: "patient",
+  barangayId: 3,
+  dateOfBirth: "1988-07-10",
+  gender: "male",
+  contactNumber: "+63 934 567 8901",
+  emergencyContact: {
+    name: "Ana Gonzales",
+    phone: "+63 934 777 7777",
+    email: "ana@email.com"
+  },
+  acceptTerms: true
+}
+
+--- PATIENT 4 REGISTRATION (Active - Prenatal Services) ---
+{
+  firstName: "Rosa",
+  lastName: "Mendoza",
+  email: "rosa.mendoza@gmail.com",
+  password: "Patient@2025!",
+  role: "patient",
+  barangayId: 4,
+  dateOfBirth: "1992-12-05",
+  gender: "female",
+  contactNumber: "+63 945 678 9012",
+  emergencyContact: {
+    name: "Carlos Mendoza",
+    phone: "+63 945 666 6666",
+    email: "carlos@email.com"
+  },
+  acceptTerms: true
+}
+
+========================================
+TESTING WORKFLOWS
+========================================
+
+1. PATIENT APPROVAL:
+   → Register: maria.santos@gmail.com
+   → Login as any Healthcare Admin
+   → Approve pending patient
+   → Login as maria.santos@gmail.com
+   → Book appointment
+
+2. APPOINTMENT BOOKING:
+   → Login: juan.delacruz@gmail.com
+   → Navigate to "Book Appointment"
+   → Select service (7+ days from today)
+   → Choose date and time
+   → Receive queue number
+
+3. WALK-IN REGISTRATION:
+   → Login: general.admin@gmail.com
+   → Navigate to "Add Patient"
+   → Register walk-in (no user account)
+   → Auto-generate booking number
+
+4. DOCTOR CONSULTATION:
+   → Login: dr.santos@gmail.com
+   → View today's queue
+   → Check-in patient
+   → Create medical record
+   → Complete appointment
+
+5. DISEASE SURVEILLANCE:
+   → Login: admin@gmail.com
+   → View heatmap (42 barangays)
+   → Filter by disease type
+   → Check risk levels
+
+6. FEEDBACK SUBMISSION:
+   → Complete appointment as patient
+   → Submit feedback (7-day window)
+   → Login as Super Admin to view
+
+7. ANNOUNCEMENTS:
+   → Login as Healthcare Admin
+   → Create announcement
+   → Set target audience
+   → View on patient dashboard
+
+========================================
+FIELD MAPPING REFERENCE
+========================================
+
+SUPER ADMIN FIELDS:
+- firstName: Text input
+- lastName: Text input
+- email: Email input
+- password: Password input (min 8 chars)
+- role: Select "Super Admin"
+- acceptTerms: Checkbox (required)
+
+HEALTHCARE ADMIN FIELDS:
+- firstName: Text input
+- lastName: Text input
+- email: Email input
+- password: Password input (min 8 chars)
+- role: Select "Healthcare Admin"
+- adminCategory: Select (healthcard/hiv/pregnancy/general_admin/laboratory)
+- acceptTerms: Checkbox (required)
+
+DOCTOR FIELDS:
+- firstName: Text input
+- lastName: Text input
+- email: Email input
+- password: Password input (min 8 chars)
+- role: Select "Doctor"
+- specialization: Text input
+- licenseNumber: Text input
+- acceptTerms: Checkbox (required)
+
+PATIENT FIELDS:
+- firstName: Text input
+- lastName: Text input
+- email: Email input
+- password: Password input (min 8 chars)
+- confirmPassword: Password input (must match)
+- role: Select "Patient" (default)
+- barangayId: Select dropdown (1-42)
+- dateOfBirth: Date picker (YYYY-MM-DD)
+- gender: Select (male/female/other)
+- contactNumber: Phone input (+63 format)
+- emergencyContact.name: Text input
+- emergencyContact.phone: Phone input
+- emergencyContact.email: Email input (optional)
+- acceptTerms: Checkbox (required)
+
+========================================
+BARANGAY REFERENCE (First 10 of 42)
+========================================
+
+1  - San Nicolas
+2  - Gredu
+3  - Salvacion
+4  - Quezon
+5  - New Pananaw
+6  - Cagangohan
+7  - San Pedro
+8  - Nanyo
+9  - Kauswagan
+10 - Dapco
+
+Note: Total 42 barangays + "Outside Zone" option available
+
+========================================
+PASSWORD REQUIREMENTS
+========================================
+
+All passwords must contain:
+✓ Minimum 8 characters
+✓ At least one uppercase letter
+✓ At least one lowercase letter
+✓ At least one number
+✓ At least one special character
+
+Test Password Pattern: [Role]@2025!
+
+Examples:
+- Admin@2025!       (Super Admin)
+- HealthCard@2025!  (Healthcard Admin)
+- HIV@2025!         (HIV Admin)
+- Pregnancy@2025!   (Pregnancy Admin)
+- General@2025!     (General Admin)
+- Laboratory@2025!  (Laboratory Admin)
+- Doctor@2025!      (Doctors)
+- Patient@2025!     (Patients)
+
+========================================
+IMPORTANT NOTES
+========================================
+
+⚠️  DEVELOPMENT ONLY - Do not use in production
+⚠️  Change all passwords before deployment
+⚠️  Implement encryption for HIV/Pregnancy records
+⚠️  Enable session timeout (15 minutes)
+⚠️  Enable audit logging for sensitive access
+
+========================================
+ROLE STRING VALUES (For Supabase)
+========================================
+
+ROLES:
+- super_admin
+- healthcare_admin
+- doctor
+- patient
+
+ADMIN CATEGORIES (for healthcare_admin only):
+- healthcard
+- hiv
+- pregnancy
+- general_admin
+- laboratory
+
+GENDER OPTIONS:
+- male
+- female
+- other
+
+========================================
+COPY-PASTE READY CREDENTIALS
+========================================
+
+SUPER ADMIN:
+Email: admin@gmail.com
+Password: Admin@2025!
+
+HEALTHCARD ADMIN:
+Email: healthcard.admin@gmail.com
+Password: HealthCard@2025!
+
+HIV ADMIN:
+Email: hiv.admin@gmail.com
+Password: HIV@2025!
+
+PREGNANCY ADMIN:
+Email: pregnancy.admin@gmail.com
+Password: Pregnancy@2025!
+
+GENERAL ADMIN:
+Email: general.admin@gmail.com
+Password: General@2025!
+
+LABORATORY ADMIN:
+Email: lab.admin@gmail.com
+Password: Laboratory@2025!
+
+DOCTOR 1 (GP):
+Email: dr.santos@gmail.com
+Password: Doctor@2025!
+
+DOCTOR 2 (Pediatrician):
+Email: dr.reyes@gmail.com
+Password: Doctor@2025!
+
+PATIENT 1 (Active):
+Email: juan.delacruz@gmail.com
+Password: Patient@2025!
+
+PATIENT 2 (Pending):
+Email: maria.santos@gmail.com
+Password: Patient@2025!
+
+PATIENT 3 (Active):
+Email: pedro.gonzales@gmail.com
+Password: Patient@2025!
+
+PATIENT 4 (Active):
+Email: rosa.mendoza@gmail.com
+Password: Patient@2025!
+
+========================================

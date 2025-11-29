@@ -14,6 +14,7 @@ import {
 } from '@/components/auth';
 import { Button } from '@/components/ui';
 import { LoginCredentials } from '@/types/auth';
+import { getDashboardPath } from '@/lib/utils/roleHelpers';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -60,13 +61,19 @@ export default function LoginPage() {
     if (!validate()) return;
 
     try {
-      await login(formData);
+      // Login returns user data immediately (JobSync pattern)
+      const user = await login(formData);
+
+      // Determine dashboard based on role
+      const dashboardPath = getDashboardPath(user.role_id);
+
       setSuccessMessage('Login successful! Redirecting...');
 
-      // Redirect based on role (will be handled by middleware eventually)
-      setTimeout(() => {
-        router.push('/');
-      }, 1000);
+      // Small delay to let React state updates propagate (JobSync pattern)
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      // Redirect to role-specific dashboard
+      router.push(dashboardPath);
     } catch (error) {
       setServerError(
         error instanceof Error ? error.message : 'Login failed. Please try again.'

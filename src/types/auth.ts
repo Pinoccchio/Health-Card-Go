@@ -83,20 +83,20 @@ export interface RegisterData {
   // Common fields
   email: string;
   password: string;
-  confirmPassword: string;
-  first_name: string;
-  last_name: string;
-  role_id: RoleId;
+  confirmPassword?: string; // Optional since not sent to backend
+  firstName: string; // Changed from first_name for consistency
+  lastName: string; // Changed from last_name for consistency
+  role: string; // Changed from role_id to work with Supabase string enums
 
   // Healthcare Admin specific
-  admin_category?: AdminCategory;
+  adminCategory?: AdminCategory; // Changed from admin_category for consistency
 
   // Patient specific
-  barangay_id?: number;
-  date_of_birth?: string;
+  barangayId?: number; // Changed from barangay_id for consistency
+  dateOfBirth?: string; // Changed from date_of_birth for consistency
   gender?: 'male' | 'female' | 'other';
-  contact_number?: string;
-  emergency_contact?: {
+  contactNumber?: string; // Changed from contact_number for consistency
+  emergencyContact?: {
     name: string;
     phone: string;
     email?: string;
@@ -104,13 +104,10 @@ export interface RegisterData {
 
   // Doctor specific
   specialization?: string;
-  license_number?: string;
-
-  // Super Admin specific
-  admin_code?: string; // Secret code for super admin registration
+  licenseNumber?: string; // Changed from license_number for consistency
 
   // Terms
-  acceptTerms: boolean;
+  acceptTerms?: boolean; // Optional since not sent to backend
 }
 
 export interface ForgotPasswordData {
@@ -135,7 +132,7 @@ export interface AuthState {
 }
 
 export interface AuthContextType extends AuthState {
-  login: (credentials: LoginCredentials) => Promise<void>;
+  login: (credentials: LoginCredentials) => Promise<User>;
   register: (data: RegisterData) => Promise<void>;
   logout: () => Promise<void>;
   forgotPassword: (data: ForgotPasswordData) => Promise<void>;
