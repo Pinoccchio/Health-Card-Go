@@ -54,3 +54,42 @@ export async function createClient() {
     }
   );
 }
+
+/**
+ * Create a Supabase admin client that bypasses Row Level Security (RLS)
+ *
+ * IMPORTANT: Only use this in API routes after verifying user permissions!
+ * This client has full database access and bypasses all RLS policies.
+ *
+ * Usage:
+ * ```tsx
+ * import { createAdminClient } from '@/lib/supabase/server';
+ *
+ * export async function GET() {
+ *   const supabase = await createClient(); // Regular client
+ *   const { data: { user } } = await supabase.auth.getUser(); // Verify auth
+ *
+ *   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+ *
+ *   // Now use admin client for queries that need to bypass RLS
+ *   const adminClient = createAdminClient();
+ *   const { data } = await adminClient.from('table').select();
+ * }
+ * ```
+ */
+export function createAdminClient() {
+  return createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    {
+      cookies: {
+        getAll() {
+          return [];
+        },
+        setAll() {
+          // Admin client doesn't need cookies
+        },
+      },
+    }
+  );
+}

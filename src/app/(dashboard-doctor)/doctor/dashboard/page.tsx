@@ -69,8 +69,8 @@ export default function DoctorDashboard() {
 
   const fetchTodaysQueue = async () => {
     try {
-      const today = new Date().toISOString().split('T')[0];
-      const response = await fetch(`/api/appointments?date=${today}`);
+      // Fetch all upcoming appointments (not just today)
+      const response = await fetch(`/api/appointments`);
       const data = await response.json();
 
       if (data.success) {
@@ -170,10 +170,10 @@ export default function DoctorDashboard() {
           </div>
           <div>
             <h4 className="font-semibold text-gray-900">
-              {appointment.patients.profiles.first_name} {appointment.patients.profiles.last_name}
+              {appointment.patients?.profiles?.first_name || 'Unknown'} {appointment.patients?.profiles?.last_name || 'Patient'}
             </h4>
             <p className="text-xs text-gray-500">
-              Patient #{appointment.patients.patient_number}
+              Patient #{appointment.patients?.patient_number || 'N/A'}
             </p>
           </div>
         </div>
@@ -187,7 +187,7 @@ export default function DoctorDashboard() {
           <Clock className="w-4 h-4 mr-1" />
           {formatTime(appointment.appointment_time)}
         </div>
-        {appointment.patients.profiles.barangays && (
+        {appointment.patients?.profiles?.barangays && (
           <div className="flex items-center">
             <Users className="w-4 h-4 mr-1" />
             {appointment.patients.profiles.barangays.name}

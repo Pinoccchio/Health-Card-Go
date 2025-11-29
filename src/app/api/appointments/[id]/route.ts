@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server';
+import { createClient, createAdminClient } from '@/lib/supabase/server';
 import { NextRequest, NextResponse } from 'next/server';
 
 /**
@@ -210,8 +210,12 @@ export async function PATCH(
       );
     }
 
+    // Use admin client to bypass RLS for update operation
+    // We've already verified authentication and authorization above
+    const adminClient = createAdminClient();
+
     // Update appointment
-    const { data: appointment, error: updateError } = await supabase
+    const { data: appointment, error: updateError } = await adminClient
       .from('appointments')
       .update(updateData)
       .eq('id', id)

@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server';
+import { createClient, createAdminClient } from '@/lib/supabase/server';
 import { NextRequest, NextResponse } from 'next/server';
 
 /**
@@ -37,8 +37,12 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    // Use admin client to bypass RLS for nested profile queries
+    // We've already verified authentication and authorization above
+    const adminClient = createAdminClient();
+
     // Fetch doctors with their profiles
-    const { data: doctors, error: fetchError } = await supabase
+    const { data: doctors, error: fetchError } = await adminClient
       .from('doctors')
       .select(`
         id,

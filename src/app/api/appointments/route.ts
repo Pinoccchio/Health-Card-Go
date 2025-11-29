@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server';
+import { createClient, createAdminClient } from '@/lib/supabase/server';
 import { NextRequest, NextResponse } from 'next/server';
 
 /**
@@ -261,16 +261,20 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Profile not found' }, { status: 404 });
     }
 
-    // Build query based on role
-    let query = supabase
+    // Use admin client to bypass RLS for nested profile queries
+    // We've already verified authentication above, so this is safe
+    const adminClient = createAdminClient();
+
+    // Build query based on role using admin client
+    let query = adminClient
       .from('appointments')
       .select(`
         *,
-        patients!inner(
+        patients(
           id,
           user_id,
           patient_number,
-          profiles!inner(
+          profiles(
             first_name,
             last_name,
             email,
@@ -288,8 +292,7 @@ export async function GET(request: NextRequest) {
           )
         )
       `)
-      .order('appointment_date', { ascending: true })
-      .order('appointment_number', { ascending: true });
+      .order('appointment_date', { ascending: true });
 
     // Role-based filtering
     if (profile.role === 'patient') {
@@ -307,9 +310,29 @@ export async function GET(request: NextRequest) {
       query = query.eq('patient_id', patientRecord.id);
 
     } else if (profile.role === 'doctor') {
-      // Doctors see all appointments (can be assigned to any)
-      // Optionally filter by date to show today's queue
+      // Doctors see only appointments assigned to them
+      console.log('🔍 [DOCTOR QUERY] User ID:', user.id);
+      console.log('🔍 [DOCTOR QUERY] Profile ID:', profile.id);
+
+      const { data: doctorRecord, error: doctorError } = await supabase
+        .from('doctors')
+        .select('id')
+        .eq('user_id', user.id)
+        .single();
+
+      console.log('🔍 [DOCTOR QUERY] Doctor Record:', doctorRecord);
+      console.log('🔍 [DOCTOR QUERY] Doctor Error:', doctorError);
+
+      if (!doctorRecord) {
+        console.error('❌ [DOCTOR QUERY] No doctor record found for user_id:', user.id);
+        return NextResponse.json({ error: 'Doctor record not found' }, { status: 404 });
+      }
+
+      console.log('✅ [DOCTOR QUERY] Found doctor_id:', doctorRecord.id);
+      query = query.eq('doctor_id', doctorRecord.id);
+
       if (date) {
+        console.log('🔍 [DOCTOR QUERY] Filtering by date:', date);
         query = query.eq('appointment_date', date);
       }
 
@@ -333,15 +356,19 @@ export async function GET(request: NextRequest) {
       query = query.eq('appointment_date', date);
     }
 
+    console.log('🔍 [QUERY] Executing final query for role:', profile.role);
     const { data: appointments, error: fetchError } = await query;
 
     if (fetchError) {
-      console.error('Error fetching appointments:', fetchError);
+      console.error('❌ [QUERY] Error fetching appointments:', fetchError);
       return NextResponse.json(
         { error: 'Failed to fetch appointments' },
         { status: 500 }
       );
     }
+
+    console.log('✅ [QUERY] Appointments found:', appointments?.length || 0);
+    console.log('📋 [QUERY] Appointment data:', JSON.stringify(appointments, null, 2));
 
     return NextResponse.json({
       success: true,

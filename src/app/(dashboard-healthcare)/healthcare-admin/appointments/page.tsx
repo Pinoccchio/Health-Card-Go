@@ -84,7 +84,6 @@ export default function HealthcareAdminAppointmentsPage() {
   const [dateFilter, setDateFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [assigningDoctor, setAssigningDoctor] = useState<string | null>(null);
-  const [checkingIn, setCheckingIn] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState('');
 
   useEffect(() => {
@@ -94,15 +93,21 @@ export default function HealthcareAdminAppointmentsPage() {
 
   const fetchDoctors = async () => {
     try {
+      console.log('🔍 [FETCH DOCTORS] Fetching doctors list...');
       const response = await fetch('/api/doctors');
       const data = await response.json();
 
+      console.log('🔍 [FETCH DOCTORS] Response:', data);
+
       if (data.success) {
+        console.log('✅ [FETCH DOCTORS] Successfully loaded', data.data?.length || 0, 'doctors');
         setDoctors(data.data || []);
       } else {
+        console.error('❌ [FETCH DOCTORS] Failed:', data.error);
         setError('Failed to load doctors list');
       }
     } catch (err) {
+      console.error('❌ [FETCH DOCTORS] Error:', err);
       setError('Error loading doctors list');
     }
   };
@@ -211,32 +216,6 @@ export default function HealthcareAdminAppointmentsPage() {
       setError('An unexpected error occurred');
     } finally {
       setAssigningDoctor(null);
-    }
-  };
-
-  const handleCheckIn = async (appointmentId: string) => {
-    setCheckingIn(appointmentId);
-    setError('');
-
-    try {
-      const response = await fetch(`/api/appointments/${appointmentId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: 'checked_in' }),
-      });
-
-      const data = await response.json();
-
-      if (data.success) {
-        // Refresh appointments list
-        await fetchAppointments();
-      } else {
-        setError(data.error || 'Failed to check in patient');
-      }
-    } catch (err) {
-      setError('An unexpected error occurred');
-    } finally {
-      setCheckingIn(null);
     }
   };
 
@@ -481,15 +460,11 @@ export default function HealthcareAdminAppointmentsPage() {
                             </div>
                           )}
 
-                          {/* Check-in Button - Show when doctor is assigned */}
+                          {/* Info message when doctor is assigned */}
                           {appointment.status === 'scheduled' && appointment.doctor_id && (
-                            <button
-                              onClick={() => handleCheckIn(appointment.id)}
-                              disabled={checkingIn === appointment.id}
-                              className="w-full px-3 py-1.5 text-xs bg-primary-teal text-white rounded-md hover:bg-primary-teal/90 disabled:opacity-50 disabled:cursor-wait font-medium transition-colors"
-                            >
-                              {checkingIn === appointment.id ? 'Checking in...' : 'Check In Patient'}
-                            </button>
+                            <div className="w-full px-3 py-1.5 text-xs bg-blue-50 text-blue-700 rounded-md border border-blue-200">
+                              ✓ Ready for check-in by doctor
+                            </div>
                           )}
 
                           {/* No actions for other statuses */}

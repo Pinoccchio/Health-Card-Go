@@ -65,8 +65,8 @@ export default function DoctorAppointmentsPage() {
 
   const fetchAppointments = async () => {
     try {
-      const today = new Date().toISOString().split('T')[0];
-      const response = await fetch(`/api/appointments?date=${today}`);
+      // Fetch all appointments (not just today)
+      const response = await fetch(`/api/appointments`);
       const data = await response.json();
 
       if (data.success) {
@@ -207,9 +207,9 @@ export default function DoctorAppointmentsPage() {
                           </div>
                           <div>
                             <h4 className="font-semibold text-gray-900">
-                              {appointment.patients.profiles.first_name} {appointment.patients.profiles.last_name}
+                              {appointment.patients?.profiles?.first_name || 'Unknown'} {appointment.patients?.profiles?.last_name || 'Patient'}
                             </h4>
-                            <p className="text-xs text-gray-500">Patient #{appointment.patients.patient_number}</p>
+                            <p className="text-xs text-gray-500">Patient #{appointment.patients?.patient_number || 'N/A'}</p>
                           </div>
                         </div>
                         <StatusBadge status={appointment.status} />
@@ -220,7 +220,7 @@ export default function DoctorAppointmentsPage() {
                           <Clock className="w-3 h-3 mr-1" />
                           {formatTime(appointment.appointment_time)}
                         </div>
-                        {appointment.patients.profiles.barangays && (
+                        {appointment.patients?.profiles?.barangays && (
                           <div className="flex items-center">
                             <MapPin className="w-3 h-3 mr-1" />
                             {appointment.patients.profiles.barangays.name}
@@ -259,17 +259,17 @@ export default function DoctorAppointmentsPage() {
                       </h4>
                       <div className="bg-gray-50 rounded-md p-3 space-y-1 text-sm">
                         <p className="font-medium text-gray-900">
-                          {selectedAppointment.patients.profiles.first_name}{' '}
-                          {selectedAppointment.patients.profiles.last_name}
+                          {selectedAppointment.patients?.profiles?.first_name || 'Unknown'}{' '}
+                          {selectedAppointment.patients?.profiles?.last_name || 'Patient'}
                         </p>
-                        <p className="text-gray-600">Patient #{selectedAppointment.patients.patient_number}</p>
-                        {selectedAppointment.patients.profiles.contact_number && (
+                        <p className="text-gray-600">Patient #{selectedAppointment.patients?.patient_number || 'N/A'}</p>
+                        {selectedAppointment.patients?.profiles?.contact_number && (
                           <p className="text-gray-600 flex items-center">
                             <Phone className="w-3 h-3 mr-1" />
                             {selectedAppointment.patients.profiles.contact_number}
                           </p>
                         )}
-                        {selectedAppointment.patients.profiles.barangays && (
+                        {selectedAppointment.patients?.profiles?.barangays && (
                           <p className="text-gray-600 flex items-center">
                             <MapPin className="w-3 h-3 mr-1" />
                             {selectedAppointment.patients.profiles.barangays.name}
