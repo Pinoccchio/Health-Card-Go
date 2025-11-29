@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, FormEvent, useEffect } from 'react';
+import { useState, FormEvent, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Lock, CheckCircle } from 'lucide-react';
@@ -8,7 +8,7 @@ import { useAuth } from '@/lib/auth';
 import { AuthCard, PasswordInput, Alert } from '@/components/auth';
 import { Button } from '@/components/ui';
 
-export default function ResetPasswordPage() {
+function ResetPasswordForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { resetPassword, loading } = useAuth();
@@ -249,5 +249,21 @@ export default function ResetPasswordPage() {
         </form>
       </AuthCard>
     </div>
+  );
+}
+
+export default function ResetPasswordPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex justify-center">
+        <AuthCard title="Reset Password" subtitle="Loading...">
+          <div className="text-center py-8">
+            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary-teal"></div>
+          </div>
+        </AuthCard>
+      </div>
+    }>
+      <ResetPasswordForm />
+    </Suspense>
   );
 }

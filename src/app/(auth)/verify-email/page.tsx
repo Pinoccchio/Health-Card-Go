@@ -1,12 +1,13 @@
 'use client';
 
+import { Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Mail, CheckCircle, XCircle, Clock } from 'lucide-react';
 import { AuthCard, Alert } from '@/components/auth';
 import { Button } from '@/components/ui';
 
-export default function VerifyEmailPage() {
+function VerifyEmailContent() {
   const searchParams = useSearchParams();
   const status = searchParams.get('status'); // 'success' | 'error' | 'pending'
 
@@ -136,5 +137,21 @@ export default function VerifyEmailPage() {
         </AuthCard>
       )}
     </div>
+  );
+}
+
+export default function VerifyEmailPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex justify-center">
+        <AuthCard title="Loading..." subtitle="Please wait">
+          <div className="text-center py-8">
+            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary-teal"></div>
+          </div>
+        </AuthCard>
+      </div>
+    }>
+      <VerifyEmailContent />
+    </Suspense>
   );
 }
