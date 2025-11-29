@@ -94,7 +94,7 @@ export async function GET(
 
 /**
  * PATCH /api/appointments/[id]
- * Update appointment status (check-in, in_progress, completed, no_show)
+ * Update appointment (assign doctor, check-in, status updates)
  * Only doctors and admins can update
  */
 export async function PATCH(
@@ -132,47 +132,82 @@ export async function PATCH(
 
     // Get request body
     const body = await request.json();
-    const { status, notes } = body;
-
-    if (!status) {
-      return NextResponse.json(
-        { error: 'Status is required' },
-        { status: 400 }
-      );
-    }
-
-    // Validate status transition
-    const validStatuses = ['checked_in', 'in_progress', 'completed', 'no_show'];
-    if (!validStatuses.includes(status)) {
-      return NextResponse.json(
-        { error: 'Invalid status' },
-        { status: 400 }
-      );
-    }
+    const { status, notes, doctor_id } = body;
 
     // Build update object
-    const updateData: any = { status };
+    const updateData: any = {};
 
-    // Set timestamps based on status
-    if (status === 'checked_in') {
-      updateData.checked_in_at = new Date().toISOString();
-    } else if (status === 'in_progress') {
-      updateData.started_at = new Date().toISOString();
-    } else if (status === 'completed') {
-      updateData.completed_at = new Date().toISOString();
+    // Handle doctor assignment (healthcare admin action)
+    if (doctor_id !== undefined) {
+      if (!['healthcare_admin', 'super_admin'].includes(profile.role)) {
+        return NextResponse.json(
+          { error: 'Only admins can assign doctors' },
+          { status: 403 }
+        );
+      }
+
+      // Allow null to unassign doctor
+      if (doctor_id !== null) {
+        // Only validate if assigning a doctor (not unassigning)
+        const { data: doctorExists } = await supabase
+          .from('doctors')
+          .select('id')
+          .eq('id', doctor_id)
+          .single();
+
+        if (!doctorExists) {
+          return NextResponse.json(
+            { error: 'Invalid doctor ID' },
+            { status: 400 }
+          );
+        }
+      }
+
+      updateData.doctor_id = doctor_id;
     }
 
-    // Assign doctor if in_progress and not already assigned
-    if (status === 'in_progress' && profile.role === 'doctor') {
-      const { data: doctorRecord } = await supabase
-        .from('doctors')
-        .select('id')
-        .eq('user_id', user.id)
-        .single();
-
-      if (doctorRecord) {
-        updateData.doctor_id = doctorRecord.id;
+    // Handle status updates
+    if (status) {
+      // Validate status transition
+      const validStatuses = ['checked_in', 'in_progress', 'completed', 'no_show'];
+      if (!validStatuses.includes(status)) {
+        return NextResponse.json(
+          { error: 'Invalid status' },
+          { status: 400 }
+        );
       }
+
+      updateData.status = status;
+
+      // Set timestamps based on status
+      if (status === 'checked_in') {
+        updateData.checked_in_at = new Date().toISOString();
+      } else if (status === 'in_progress') {
+        updateData.started_at = new Date().toISOString();
+      } else if (status === 'completed') {
+        updateData.completed_at = new Date().toISOString();
+      }
+
+      // Assign doctor if in_progress and not already assigned
+      if (status === 'in_progress' && profile.role === 'doctor' && !doctor_id) {
+        const { data: doctorRecord } = await supabase
+          .from('doctors')
+          .select('id')
+          .eq('user_id', user.id)
+          .single();
+
+        if (doctorRecord) {
+          updateData.doctor_id = doctorRecord.id;
+        }
+      }
+    }
+
+    // Ensure we have something to update
+    if (Object.keys(updateData).length === 0) {
+      return NextResponse.json(
+        { error: 'No valid update fields provided' },
+        { status: 400 }
+      );
     }
 
     // Update appointment
@@ -305,14 +340,15 @@ export async function DELETE(
     const cancellation_reason = body.reason || 'Cancelled by user';
 
     // Update appointment to cancelled
-    const { error: updateError } = await supabase
+    const { data: updatedRows, error: updateError } = await supabase
       .from('appointments')
       .update({
         status: 'cancelled',
         cancellation_reason,
         cancelled_at: new Date().toISOString(),
       })
-      .eq('id', id);
+      .eq('id', id)
+      .select();
 
     if (updateError) {
       console.error('Error cancelling appointment:', updateError);
@@ -322,30 +358,35 @@ export async function DELETE(
       );
     }
 
-    // Recalculate queue numbers for remaining appointments on the same day
-    const { error: recalcError } = await supabase.rpc('recalculate_queue_numbers', {
-      cancelled_date: appointment.appointment_date,
-      cancelled_number: appointment.appointment_number,
-    }).catch(() => {
-      // If function doesn't exist, manually recalculate
-      return supabase
-        .from('appointments')
-        .select('id, appointment_number')
-        .eq('appointment_date', appointment.appointment_date)
-        .gt('appointment_number', appointment.appointment_number)
-        .in('status', ['scheduled', 'checked_in'])
-        .then(async ({ data: laterAppointments }) => {
-          if (laterAppointments && laterAppointments.length > 0) {
-            for (const apt of laterAppointments) {
-              await supabase
-                .from('appointments')
-                .update({ appointment_number: apt.appointment_number - 1 })
-                .eq('id', apt.id);
-            }
-          }
-          return { error: null };
-        });
-    });
+    // Check if any rows were actually updated (catches RLS policy issues)
+    if (!updatedRows || updatedRows.length === 0) {
+      console.error('Failed to cancel appointment - no rows updated (possible RLS issue)');
+      return NextResponse.json(
+        { error: 'Failed to cancel appointment. You may not have permission to cancel this appointment.' },
+        { status: 403 }
+      );
+    }
+
+    // Recalculate queue numbers for remaining appointments on the same day and service
+    // Since queue numbers are now per-service, we only recalculate for the same service
+    const { data: laterAppointments } = await supabase
+      .from('appointments')
+      .select('id, appointment_number')
+      .eq('appointment_date', appointment.appointment_date)
+      .eq('service_id', appointment.service_id)
+      .gt('appointment_number', appointment.appointment_number)
+      .in('status', ['scheduled', 'checked_in'])
+      .order('appointment_number', { ascending: true });
+
+    // Update queue numbers for appointments after the cancelled one
+    if (laterAppointments && laterAppointments.length > 0) {
+      for (const apt of laterAppointments) {
+        await supabase
+          .from('appointments')
+          .update({ appointment_number: apt.appointment_number - 1 })
+          .eq('id', apt.id);
+      }
+    }
 
     // Send cancellation notification
     await supabase.from('notifications').insert({

@@ -144,9 +144,28 @@ export default function PatientBookAppointmentPage() {
   };
 
   const getMinDate = () => {
-    const date = new Date();
-    date.setDate(date.getDate() + 7);
-    return date.toISOString().split('T')[0];
+    // Get current date in Philippine timezone (UTC+8)
+    const nowPhilippines = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Manila' }));
+
+    // Add 7 days
+    nowPhilippines.setDate(nowPhilippines.getDate() + 7);
+
+    // Skip to next weekday if it lands on weekend
+    const dayOfWeek = nowPhilippines.getDay();
+    if (dayOfWeek === 0) {
+      // Sunday → skip to Monday
+      nowPhilippines.setDate(nowPhilippines.getDate() + 1);
+    } else if (dayOfWeek === 6) {
+      // Saturday → skip to Monday
+      nowPhilippines.setDate(nowPhilippines.getDate() + 2);
+    }
+
+    // Format as YYYY-MM-DD
+    const year = nowPhilippines.getFullYear();
+    const month = String(nowPhilippines.getMonth() + 1).padStart(2, '0');
+    const day = String(nowPhilippines.getDate()).padStart(2, '0');
+
+    return `${year}-${month}-${day}`;
   };
 
   if (success) {

@@ -24,6 +24,8 @@ interface AdminAppointment {
   appointment_time: string;
   status: 'scheduled' | 'checked_in' | 'in_progress' | 'completed' | 'cancelled' | 'no_show';
   reason?: string;
+  doctor_id?: string;
+  service_id: number;
   patients: {
     patient_number: string;
     profiles: {
@@ -37,10 +39,20 @@ interface AdminAppointment {
     };
   };
   doctors?: {
+    id: string;
     profiles: {
       first_name: string;
       last_name: string;
     };
+  };
+}
+
+interface Doctor {
+  id: string;
+  profiles: {
+    first_name: string;
+    last_name: string;
+    specialization?: string;
   };
 }
 
@@ -64,16 +76,36 @@ const statusConfig = {
 export default function HealthcareAdminAppointmentsPage() {
   const { user } = useAuth();
   const [appointments, setAppointments] = useState<AdminAppointment[]>([]);
+  const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [stats, setStats] = useState<Stats>({ total: 0, scheduled: 0, completed: 0, cancelled: 0, noShow: 0 });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [dateFilter, setDateFilter] = useState<string>('today');
+  const [dateFilter, setDateFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [assigningDoctor, setAssigningDoctor] = useState<string | null>(null);
+  const [checkingIn, setCheckingIn] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState('');
 
   useEffect(() => {
     fetchAppointments();
+    fetchDoctors();
   }, [dateFilter]);
+
+  const fetchDoctors = async () => {
+    try {
+      const response = await fetch('/api/doctors');
+      const data = await response.json();
+
+      if (data.success) {
+        setDoctors(data.data || []);
+      } else {
+        setError('Failed to load doctors list');
+      }
+    } catch (err) {
+      setError('Error loading doctors list');
+    }
+  };
 
   const fetchAppointments = async () => {
     setLoading(true);
@@ -151,6 +183,63 @@ export default function HealthcareAdminAppointmentsPage() {
     );
   };
 
+  const handleAssignDoctor = async (appointmentId: string, doctorId: string | null) => {
+    setAssigningDoctor(appointmentId);
+    setError('');
+    setSuccessMessage('');
+
+    try {
+      const response = await fetch(`/api/appointments/${appointmentId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ doctor_id: doctorId }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        // Show success message
+        setSuccessMessage(doctorId ? 'Doctor assigned successfully' : 'Doctor unassigned successfully');
+        // Refresh appointments list to show updated data
+        await fetchAppointments();
+        // Clear success message after 3 seconds
+        setTimeout(() => setSuccessMessage(''), 3000);
+      } else {
+        setError(data.error || 'Failed to update doctor assignment');
+      }
+    } catch (err) {
+      setError('An unexpected error occurred');
+    } finally {
+      setAssigningDoctor(null);
+    }
+  };
+
+  const handleCheckIn = async (appointmentId: string) => {
+    setCheckingIn(appointmentId);
+    setError('');
+
+    try {
+      const response = await fetch(`/api/appointments/${appointmentId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'checked_in' }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        // Refresh appointments list
+        await fetchAppointments();
+      } else {
+        setError(data.error || 'Failed to check in patient');
+      }
+    } catch (err) {
+      setError('An unexpected error occurred');
+    } finally {
+      setCheckingIn(null);
+    }
+  };
+
   const exportToCSV = () => {
     const headers = ['Queue #', 'Patient Name', 'Patient #', 'Date', 'Time', 'Status', 'Doctor', 'Reason'];
     const rows = filteredAppointments.map(apt => [
@@ -188,6 +277,13 @@ export default function HealthcareAdminAppointmentsPage() {
           <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-md flex items-start">
             <AlertCircle className="w-5 h-5 text-red-600 mt-0.5 mr-3 flex-shrink-0" />
             <p className="text-sm font-medium text-red-800">{error}</p>
+          </div>
+        )}
+
+        {successMessage && (
+          <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded-md flex items-start">
+            <CheckCircle className="w-5 h-5 text-green-600 mt-0.5 mr-3 flex-shrink-0" />
+            <p className="text-sm font-medium text-green-800">{successMessage}</p>
           </div>
         )}
 
@@ -247,9 +343,9 @@ export default function HealthcareAdminAppointmentsPage() {
                     onChange={(e) => setDateFilter(e.target.value)}
                     className="px-3 py-1.5 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary-teal"
                   >
+                    <option value="all">All Time</option>
                     <option value="today">Today</option>
                     <option value="week">This Week</option>
-                    <option value="all">All Time</option>
                   </select>
                 </div>
 
@@ -311,6 +407,7 @@ export default function HealthcareAdminAppointmentsPage() {
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Status</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Doctor</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Reason</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
@@ -351,6 +448,55 @@ export default function HealthcareAdminAppointmentsPage() {
                         <span className="text-sm text-gray-700 line-clamp-2">
                           {appointment.reason || '-'}
                         </span>
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        <div className="flex flex-col items-start gap-2">
+                          {/* Doctor Assignment Dropdown - Always show for scheduled */}
+                          {appointment.status === 'scheduled' && (
+                            <div className="w-full">
+                              {doctors.length > 0 ? (
+                                <select
+                                  value={appointment.doctor_id || ''}
+                                  onChange={(e) => {
+                                    const value = e.target.value;
+                                    // Allow unassigning by selecting empty option
+                                    handleAssignDoctor(appointment.id, value || null);
+                                  }}
+                                  disabled={assigningDoctor === appointment.id}
+                                  className="w-full px-2 py-1.5 text-xs border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-teal disabled:opacity-50 disabled:cursor-wait"
+                                >
+                                  <option value="">
+                                    {assigningDoctor === appointment.id ? 'Updating...' : '-- Unassign Doctor --'}
+                                  </option>
+                                  {doctors.map((doctor) => (
+                                    <option key={doctor.id} value={doctor.id}>
+                                      Dr. {doctor.profiles.first_name} {doctor.profiles.last_name}
+                                      {doctor.profiles.specialization && ` - ${doctor.profiles.specialization}`}
+                                    </option>
+                                  ))}
+                                </select>
+                              ) : (
+                                <span className="text-xs text-red-600">⚠ No doctors available</span>
+                              )}
+                            </div>
+                          )}
+
+                          {/* Check-in Button - Show when doctor is assigned */}
+                          {appointment.status === 'scheduled' && appointment.doctor_id && (
+                            <button
+                              onClick={() => handleCheckIn(appointment.id)}
+                              disabled={checkingIn === appointment.id}
+                              className="w-full px-3 py-1.5 text-xs bg-primary-teal text-white rounded-md hover:bg-primary-teal/90 disabled:opacity-50 disabled:cursor-wait font-medium transition-colors"
+                            >
+                              {checkingIn === appointment.id ? 'Checking in...' : 'Check In Patient'}
+                            </button>
+                          )}
+
+                          {/* No actions for other statuses */}
+                          {appointment.status !== 'scheduled' && (
+                            <span className="text-xs text-gray-400">-</span>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   ))}

@@ -94,13 +94,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Validate 7-day advance booking
-    const appointmentDate = new Date(appointment_date);
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    appointmentDate.setHours(0, 0, 0, 0);
+    // Validate 7-day advance booking (using Philippine timezone UTC+8)
+    const appointmentDate = new Date(appointment_date + 'T00:00:00+08:00');
 
-    const daysDifference = Math.ceil((appointmentDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+    // Get current date in Philippine timezone
+    const nowPhilippines = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Manila' }));
+    const todayPhilippines = new Date(nowPhilippines.getFullYear(), nowPhilippines.getMonth(), nowPhilippines.getDate());
+
+    const daysDifference = Math.ceil((appointmentDate.getTime() - todayPhilippines.getTime()) / (1000 * 60 * 60 * 24));
 
     if (daysDifference < 7) {
       return NextResponse.json(
@@ -144,10 +145,12 @@ export async function POST(request: NextRequest) {
     }
 
     // Get next queue number for this date and service
+    // Each service has its own independent queue (1-100)
     const { data: maxQueueData } = await supabase
       .from('appointments')
       .select('appointment_number')
       .eq('appointment_date', appointment_date)
+      .eq('service_id', service_id)
       .order('appointment_number', { ascending: false })
       .limit(1);
 
@@ -158,7 +161,7 @@ export async function POST(request: NextRequest) {
     // Check if we've reached capacity (100 per day per service)
     if (nextQueueNumber > 100) {
       return NextResponse.json(
-        { error: 'This date is fully booked. Please select another date.' },
+        { error: `This service is fully booked for ${appointment_date}. Please select another date.` },
         { status: 400 }
       );
     }
