@@ -9,12 +9,29 @@
  */
 
 // ============================================================================
-// User Roles and Categories
+// User Roles and Categories (Updated to match Supabase schema)
 // ============================================================================
 
+// Database uses string enums, but we keep numeric IDs for backward compatibility
 export type RoleId = 1 | 2 | 3 | 4;
+export type UserRole = 'super_admin' | 'healthcare_admin' | 'doctor' | 'patient';
 
-export const ROLE_NAMES = {
+// Mapping between role_id and role enum
+export const ROLE_ID_TO_ENUM: Record<RoleId, UserRole> = {
+  1: 'super_admin',
+  2: 'healthcare_admin',
+  3: 'doctor',
+  4: 'patient',
+} as const;
+
+export const ROLE_ENUM_TO_ID: Record<UserRole, RoleId> = {
+  super_admin: 1,
+  healthcare_admin: 2,
+  doctor: 3,
+  patient: 4,
+} as const;
+
+export const ROLE_NAMES: Record<RoleId, string> = {
   1: 'Super Admin',
   2: 'Healthcare Admin',
   3: 'Doctor',
@@ -36,7 +53,7 @@ export const ADMIN_CATEGORY_NAMES = {
   laboratory: 'Laboratory Admin',
 } as const;
 
-export type UserStatus = 'pending' | 'active' | 'inactive' | 'rejected';
+export type UserStatus = 'pending' | 'active' | 'inactive' | 'rejected' | 'suspended';
 
 // ============================================================================
 // User Interface

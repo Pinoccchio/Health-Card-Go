@@ -25,8 +25,16 @@ export default function HealthcareAdminDashboardLayout({
         router.push('/login');
         return;
       }
-      if (user && user.role_id !== 2) {
-        router.push(getDashboardPath(user.role_id));
+      if (user) {
+        // Check user status - only active users can access dashboard
+        if (user.status !== 'active') {
+          router.push('/login');
+          return;
+        }
+        // Check role
+        if (user.role_id !== 2) {
+          router.push(getDashboardPath(user.role_id));
+        }
       }
     }
   }, [isAuthenticated, loading, user, router]);
@@ -44,7 +52,7 @@ export default function HealthcareAdminDashboardLayout({
   }
 
   // Show redirecting spinner instead of blank screen
-  if (!isAuthenticated || !user || user.role_id !== 2) {
+  if (!isAuthenticated || !user || user.status !== 'active' || user.role_id !== 2) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gray-50">
         <div className="text-center">

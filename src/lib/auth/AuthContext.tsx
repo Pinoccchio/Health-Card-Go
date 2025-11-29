@@ -191,6 +191,34 @@ export function AuthProvider({ children }: AuthProviderProps) {
           if (!profile) {
             throw new Error('Failed to load user profile. Please try logging in again.');
           }
+
+          // Validate user status - only active users can log in
+          if (profile.status !== 'active') {
+            // Sign out the user immediately
+            await supabase.auth.signOut();
+
+            // Provide specific error messages based on status
+            let errorMessage = 'Unable to log in';
+            switch (profile.status) {
+              case 'pending':
+                errorMessage = 'Your account is pending approval. Please wait for an administrator to approve your registration.';
+                break;
+              case 'rejected':
+                errorMessage = 'Your account has been rejected. Please contact support for more information.';
+                break;
+              case 'inactive':
+                errorMessage = 'Your account is inactive. Please contact support to reactivate your account.';
+                break;
+              case 'suspended':
+                errorMessage = 'Your account has been suspended. Please contact support for assistance.';
+                break;
+              default:
+                errorMessage = 'Your account status does not allow login. Please contact support.';
+            }
+            setError(errorMessage);
+            throw new Error(errorMessage);
+          }
+
           setUser(profile);
           return profile; // Return user data immediately for redirect
         }
@@ -205,7 +233,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         setLoading(false);
       }
     },
-    [supabase, fetchUserProfile]
+    [fetchUserProfile] // Fixed: removed supabase from deps (memoized in closure)
   );
 
   /**
@@ -352,7 +380,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         setLoading(false);
       }
     },
-    [supabase, fetchUserProfile]
+    [fetchUserProfile] // Fixed: removed supabase from deps (memoized in closure)
   );
 
   /**
@@ -372,7 +400,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     } finally {
       setLoading(false);
     }
-  }, [supabase]);
+  }, []); // Fixed: removed supabase from deps (memoized in closure)
 
   /**
    * Forgot password function
@@ -402,7 +430,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         setLoading(false);
       }
     },
-    [supabase]
+    [] // Fixed: removed supabase from deps (memoized in closure)
   );
 
   /**
@@ -433,7 +461,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         setLoading(false);
       }
     },
-    [supabase]
+    [] // Fixed: removed supabase from deps (memoized in closure)
   );
 
   /**

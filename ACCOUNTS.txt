@@ -4,7 +4,7 @@ Next.js + Supabase Implementation
 ========================================
 
 Last Updated: November 29, 2025
-Total Accounts: 12
+Total Accounts: 13
 
 NOTE: All passwords follow the pattern [Role]@2025!
       Use these accounts for development and testing only.
@@ -25,6 +25,7 @@ PATIENT 1:          juan.delacruz@gmail.com / Patient@2025!
 PATIENT 2:          maria.santos@gmail.com / Patient@2025! (pending)
 PATIENT 3:          pedro.gonzales@gmail.com / Patient@2025!
 PATIENT 4:          rosa.mendoza@gmail.com / Patient@2025!
+PATIENT 5:          jexxejs@gmail.com / [User's Password] (pending - REAL ACCOUNT)
 
 ========================================
 DETAILED ACCOUNT INFORMATION

@@ -62,6 +62,7 @@ export default function LoginPage() {
 
     try {
       // Login returns user data immediately (JobSync pattern)
+      // Note: login() validates user status - only 'active' users can proceed
       const user = await login(formData);
 
       // Determine dashboard based on role
@@ -75,6 +76,7 @@ export default function LoginPage() {
       // Redirect to role-specific dashboard
       router.push(dashboardPath);
     } catch (error) {
+      // Display error from login (includes status validation errors)
       setServerError(
         error instanceof Error ? error.message : 'Login failed. Please try again.'
       );
