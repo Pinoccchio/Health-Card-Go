@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { DashboardLayout } from '@/components/dashboard';
-import { Container } from '@/components/ui';
+import { Container, ConfirmDialog } from '@/components/ui';
 import { Calendar, Clock, MapPin, FileText, AlertCircle, XCircle, CheckCircle2, Loader2 } from 'lucide-react';
 
 interface Appointment {
@@ -65,6 +65,12 @@ export default function PatientAppointmentsPage() {
   const [error, setError] = useState('');
   const [cancellingId, setCancellingId] = useState<string | null>(null);
   const [filter, setFilter] = useState<'upcoming' | 'past'>('upcoming');
+  const [showCancelDialog, setShowCancelDialog] = useState(false);
+  const [appointmentToCancel, setAppointmentToCancel] = useState<{
+    id: string;
+    date: string;
+    time: string;
+  } | null>(null);
 
   useEffect(() => {
     fetchAppointments();
@@ -88,7 +94,7 @@ export default function PatientAppointmentsPage() {
     }
   };
 
-  const handleCancel = async (appointmentId: string, appointmentDate: string, appointmentTime: string) => {
+  const handleCancelClick = (appointmentId: string, appointmentDate: string, appointmentTime: string) => {
     // Check 24-hour policy
     const appointmentDateTime = new Date(`${appointmentDate}T${appointmentTime}`);
     const now = new Date();
@@ -99,13 +105,23 @@ export default function PatientAppointmentsPage() {
       return;
     }
 
-    const reason = window.prompt('Please provide a reason for cancellation (optional):');
-
-    setCancellingId(appointmentId);
+    // Open confirmation dialog
+    setAppointmentToCancel({
+      id: appointmentId,
+      date: appointmentDate,
+      time: appointmentTime,
+    });
+    setShowCancelDialog(true);
     setError('');
+  };
+
+  const handleCancelConfirm = async (reason?: string) => {
+    if (!appointmentToCancel) return;
+
+    setCancellingId(appointmentToCancel.id);
 
     try {
-      const response = await fetch(`/api/appointments/${appointmentId}`, {
+      const response = await fetch(`/api/appointments/${appointmentToCancel.id}`, {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ reason }),
@@ -116,6 +132,8 @@ export default function PatientAppointmentsPage() {
       if (data.success) {
         // Refresh appointments list
         await fetchAppointments();
+        setShowCancelDialog(false);
+        setAppointmentToCancel(null);
       } else {
         setError(data.error || 'Failed to cancel appointment');
       }
@@ -124,6 +142,12 @@ export default function PatientAppointmentsPage() {
     } finally {
       setCancellingId(null);
     }
+  };
+
+  const handleCancelDialogClose = () => {
+    if (cancellingId) return; // Prevent closing while cancelling
+    setShowCancelDialog(false);
+    setAppointmentToCancel(null);
   };
 
   const formatDate = (dateString: string) => {
@@ -233,7 +257,7 @@ export default function PatientAppointmentsPage() {
           {canCancelAppointment(appointment) ? (
             <button
               onClick={() =>
-                handleCancel(
+                handleCancelClick(
                   appointment.id,
                   appointment.appointment_date,
                   appointment.appointment_time
@@ -348,6 +372,26 @@ export default function PatientAppointmentsPage() {
             )}
           </div>
         )}
+
+        {/* Cancellation Confirmation Dialog */}
+        <ConfirmDialog
+          isOpen={showCancelDialog}
+          onClose={handleCancelDialogClose}
+          onConfirm={handleCancelConfirm}
+          title="Cancel Appointment"
+          message={
+            appointmentToCancel
+              ? `Are you sure you want to cancel your appointment on ${formatDate(appointmentToCancel.date)} at ${formatTime(appointmentToCancel.time)}?`
+              : ''
+          }
+          confirmText="Cancel Appointment"
+          cancelText="Keep Appointment"
+          variant="danger"
+          showReasonInput={true}
+          reasonLabel="Reason for cancellation (optional)"
+          reasonPlaceholder="Please let us know why you're cancelling..."
+          isLoading={!!cancellingId}
+        />
       </Container>
     </DashboardLayout>
   );

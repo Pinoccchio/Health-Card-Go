@@ -168,6 +168,7 @@ export async function POST(request: NextRequest) {
       .from('appointments')
       .insert({
         patient_id: patient.id,
+        service_id: service_id, // Links to service for category-based routing
         doctor_id: null, // Will be assigned later
         appointment_date,
         appointment_time,

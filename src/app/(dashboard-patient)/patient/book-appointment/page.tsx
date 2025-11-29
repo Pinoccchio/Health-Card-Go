@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { DashboardLayout } from '@/components/dashboard';
 import { Container } from '@/components/ui';
 import { Calendar, Clock, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { getReasonTemplates } from '@/lib/config/appointmentTemplates';
 
 interface Service {
   id: number;
@@ -26,6 +27,8 @@ export default function PatientBookAppointmentPage() {
   const [selectedService, setSelectedService] = useState<number | null>(null);
   const [selectedDate, setSelectedDate] = useState('');
   const [selectedTime, setSelectedTime] = useState('');
+  const [reasonTemplate, setReasonTemplate] = useState('');
+  const [customReason, setCustomReason] = useState('');
   const [reason, setReason] = useState('');
   const [availableSlots, setAvailableSlots] = useState<TimeSlot[]>([]);
   const [loading, setLoading] = useState(false);
@@ -101,6 +104,16 @@ export default function PatientBookAppointmentPage() {
     setLoading(true);
     setError('');
 
+    // Validate if "Other" is selected but no custom reason provided
+    if (reasonTemplate === 'Other (please specify)' && !customReason.trim()) {
+      setError('Please provide a reason for your visit');
+      setLoading(false);
+      return;
+    }
+
+    // Combine template and custom reason
+    const finalReason = reasonTemplate === 'Other (please specify)' ? customReason : reasonTemplate;
+
     try {
       const response = await fetch('/api/appointments', {
         method: 'POST',
@@ -109,7 +122,7 @@ export default function PatientBookAppointmentPage() {
           service_id: selectedService,
           appointment_date: selectedDate,
           appointment_time: selectedTime,
-          reason,
+          reason: finalReason,
         }),
       });
 
@@ -355,13 +368,44 @@ export default function PatientBookAppointmentPage() {
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Reason for Visit (Optional)
                   </label>
-                  <textarea
-                    value={reason}
-                    onChange={(e) => setReason(e.target.value)}
-                    rows={3}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-teal"
-                    placeholder="Briefly describe your reason for this appointment..."
-                  />
+
+                  {/* Dropdown for template selection */}
+                  <select
+                    value={reasonTemplate}
+                    onChange={(e) => {
+                      setReasonTemplate(e.target.value);
+                      if (e.target.value !== 'other') {
+                        setCustomReason(''); // Clear custom input when not "Other"
+                      }
+                    }}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-teal mb-3"
+                  >
+                    <option value="">Select a reason...</option>
+                    {getReasonTemplates(
+                      services.find((s) => s.id === selectedService)?.category
+                    ).map((template) => (
+                      <option key={template.value} value={template.label}>
+                        {template.label}
+                      </option>
+                    ))}
+                  </select>
+
+                  {/* Conditional textarea for "Other" */}
+                  {reasonTemplate === 'Other (please specify)' && (
+                    <>
+                      <textarea
+                        value={customReason}
+                        onChange={(e) => setCustomReason(e.target.value.slice(0, 500))}
+                        rows={3}
+                        maxLength={500}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-teal"
+                        placeholder="Please describe your reason for this appointment..."
+                      />
+                      <p className="text-xs text-gray-500 mt-1 text-right">
+                        {customReason.length}/500 characters
+                      </p>
+                    </>
+                  )}
                 </div>
 
                 <div className="flex items-center justify-between">

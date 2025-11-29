@@ -349,6 +349,44 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
         console.log('✅ [AUTH CONTEXT] Profile updated successfully');
 
+        // Create patient record if role is patient
+        if (role === 'patient') {
+          console.log('🔐 [AUTH CONTEXT] Creating patient record...');
+
+          // Get the next patient number
+          const { data: lastPatient } = await supabase
+            .from('patients')
+            .select('patient_number')
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .single();
+
+          let nextNumber = 1;
+          if (lastPatient?.patient_number) {
+            const currentNumber = parseInt(lastPatient.patient_number.replace('P', ''));
+            nextNumber = currentNumber + 1;
+          }
+
+          const patientNumber = 'P' + String(nextNumber).padStart(6, '0');
+          console.log('🔐 [AUTH CONTEXT] Generated patient number:', patientNumber);
+
+          const { error: patientError } = await supabase
+            .from('patients')
+            .insert({
+              user_id: authData.user.id,
+              patient_number: patientNumber,
+            });
+
+          if (patientError) {
+            console.error('❌ [AUTH CONTEXT] Patient record creation error:', patientError);
+            console.error('⚠️ [AUTH CONTEXT] Profile exists but patient record failed - manual cleanup may be needed');
+            setError('Failed to create patient record: ' + patientError.message);
+            throw new Error('Failed to create patient record: ' + patientError.message);
+          }
+
+          console.log('✅ [AUTH CONTEXT] Patient record created successfully');
+        }
+
         // Wait to ensure database transaction is committed (matches JobSync pattern)
         console.log('⏳ [AUTH CONTEXT] Waiting 1000ms for database commit...');
         await new Promise(resolve => setTimeout(resolve, 1000));
