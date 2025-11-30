@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { DashboardLayout } from '@/components/dashboard';
 import { Container } from '@/components/ui';
 import { Button } from '@/components/ui/Button';
@@ -10,15 +10,18 @@ import { QuickFilters } from '@/components/ui/QuickFilters';
 import { EnhancedTable } from '@/components/ui/EnhancedTable';
 import { Drawer } from '@/components/ui/Drawer';
 import MedicalRecordViewer from '@/components/medical-records/MedicalRecordViewer';
+import { PatientSearchModal } from '@/components/medical-records/PatientSearchModal';
 import { MedicalRecord } from '@/types/medical-records';
 import { getTemplate } from '@/lib/config/medicalRecordTemplates';
-import { FileText, Heart, AlertCircle, Baby, Syringe, Download, Calendar, User, Eye, Lock } from 'lucide-react';
+import { FileText, Heart, AlertCircle, Baby, Syringe, Download, Calendar, User, Eye, Lock, Plus } from 'lucide-react';
 
 export default function DoctorMedicalRecordsPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [records, setRecords] = useState<MedicalRecord[]>([]);
   const [selectedRecord, setSelectedRecord] = useState<MedicalRecord | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+  const [isPatientSearchOpen, setIsPatientSearchOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -53,6 +56,32 @@ export default function DoctorMedicalRecordsPage() {
 
     fetchRecords();
   }, []);
+
+  // Auto-open medical record from URL parameter (e.g., from "View Full Medical Record" button)
+  useEffect(() => {
+    if (!loading && records.length > 0) {
+      const appointmentId = searchParams.get('appointment_id');
+      const recordId = searchParams.get('record_id');
+
+      if (appointmentId || recordId) {
+        // Find the matching record
+        const matchingRecord = records.find(record => {
+          if (recordId) {
+            return record.id === recordId;
+          }
+          if (appointmentId) {
+            return record.appointment_id === appointmentId;
+          }
+          return false;
+        });
+
+        if (matchingRecord) {
+          setSelectedRecord(matchingRecord);
+          setIsDetailModalOpen(true);
+        }
+      }
+    }
+  }, [loading, records, searchParams]);
 
   // Get unique patients for filter dropdown
   const uniquePatients = useMemo(() => {
@@ -423,10 +452,16 @@ export default function DoctorMedicalRecordsPage() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                 </svg>
                 <h3 className="text-lg font-semibold text-gray-900 mb-2">No Medical Records Yet</h3>
-                <p className="text-gray-600 mb-4">You haven't created any medical records yet. Create your first one from the appointments page.</p>
-                <Button variant="primary" onClick={() => router.push('/doctor/appointments')}>
-                  Go to Appointments
-                </Button>
+                <p className="text-gray-600 mb-4">You haven't created any medical records yet. Create your first one by selecting a patient.</p>
+                <div className="flex justify-center gap-3">
+                  <Button variant="primary" onClick={() => setIsPatientSearchOpen(true)}>
+                    <Plus className="w-4 h-4 mr-2" />
+                    Create New Medical Record
+                  </Button>
+                  <Button variant="secondary" onClick={() => router.push('/doctor/appointments')}>
+                    Go to Appointments
+                  </Button>
+                </div>
               </div>
             ) : (
               <>
@@ -447,8 +482,9 @@ export default function DoctorMedicalRecordsPage() {
                       <Button
                         variant="primary"
                         size="sm"
-                        onClick={() => router.push('/doctor/appointments')}
+                        onClick={() => setIsPatientSearchOpen(true)}
                       >
+                        <Plus className="w-4 h-4 mr-2" />
                         Create New Record
                       </Button>
                     </div>
@@ -573,6 +609,22 @@ export default function DoctorMedicalRecordsPage() {
                 <MedicalRecordViewer record={selectedRecord} />
               </Drawer>
             )}
+
+            {/* Patient Search Modal for Creating New Records */}
+            <PatientSearchModal
+              isOpen={isPatientSearchOpen}
+              onClose={() => setIsPatientSearchOpen(false)}
+              onSelectPatient={(patientId, appointmentId) => {
+                // Navigate to create page with patient_id and optional appointment_id
+                if (appointmentId) {
+                  // Patient has appointment - link record to appointment
+                  router.push(`/doctor/medical-records/create?appointment_id=${appointmentId}`);
+                } else {
+                  // Walk-in visit - create standalone record
+                  router.push(`/doctor/medical-records/create?patient_id=${patientId}`);
+                }
+              }}
+            />
           </>
         )}
       </Container>

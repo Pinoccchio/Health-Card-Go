@@ -304,6 +304,9 @@ export default function HealthcareAdminAppointmentsPage() {
       if (data.success) {
         setSuccessMessage(doctorId ? 'Doctor assigned successfully' : 'Doctor unassigned successfully');
         await fetchAppointments();
+        // Close drawer to prevent showing stale data
+        setSelectedAppointment(null);
+        setIsDrawerOpen(false);
         setTimeout(() => setSuccessMessage(''), 3000);
       } else {
         setError(data.error || 'Failed to update doctor assignment');

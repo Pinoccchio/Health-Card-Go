@@ -159,21 +159,31 @@ export default function MedicalRecordForm({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!validateForm()) {
-      // Scroll to first error
-      const firstErrorField = document.querySelector('[data-error]');
-      firstErrorField?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    // LAYER 1: Immediate disable to prevent rapid double-clicks
+    // Set submitting state BEFORE validation to block the button immediately
+    if (isSubmitting) {
+      console.warn('Form already submitting, ignoring duplicate submission');
       return;
     }
 
     setIsSubmitting(true);
+
+    // Validate form
+    if (!validateForm()) {
+      // Scroll to first error
+      const firstErrorField = document.querySelector('[data-error]');
+      firstErrorField?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      setIsSubmitting(false); // Re-enable if validation fails
+      return;
+    }
+
     try {
       await onSubmit(formData);
     } catch (error) {
       console.error('Form submission error:', error);
-    } finally {
-      setIsSubmitting(false);
+      setIsSubmitting(false); // Re-enable if submission fails
     }
+    // Note: Don't re-enable on success - let parent component handle navigation
   };
 
   // Render field based on type

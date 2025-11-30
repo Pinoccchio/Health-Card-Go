@@ -38,6 +38,7 @@ export async function GET(request: NextRequest) {
     const template_type = searchParams.get('template_type');
     const start_date = searchParams.get('start_date');
     const end_date = searchParams.get('end_date');
+    const date = searchParams.get('date'); // Specific date for filtering (YYYY-MM-DD)
 
     // Use admin client to bypass RLS for nested joins
     // Security: Authentication verified above, role-based filtering applied below
@@ -124,11 +125,19 @@ export async function GET(request: NextRequest) {
     if (template_type) {
       query = query.eq('template_type', template_type);
     }
-    if (start_date) {
-      query = query.gte('created_at', start_date);
-    }
-    if (end_date) {
-      query = query.lte('created_at', end_date);
+    if (date) {
+      // Filter by specific date (matches records created on this date)
+      const startOfDay = `${date}T00:00:00`;
+      const endOfDay = `${date}T23:59:59`;
+      query = query.gte('created_at', startOfDay).lte('created_at', endOfDay);
+    } else {
+      // Use start_date and end_date only if date is not specified
+      if (start_date) {
+        query = query.gte('created_at', start_date);
+      }
+      if (end_date) {
+        query = query.lte('created_at', end_date);
+      }
     }
 
     const { data: records, error: fetchError } = await query;
@@ -279,6 +288,76 @@ export async function POST(request: NextRequest) {
         return NextResponse.json(
           { error: 'Appointment does not belong to this patient' },
           { status: 400 }
+        );
+      }
+    }
+
+    // LAYER 2: API-side duplicate detection
+    // Check for recent duplicates (same patient + template + category within last 30 seconds)
+    // This catches accidental double-clicks while allowing legitimate multiple records
+    const thirtySecondsAgo = new Date(Date.now() - 30 * 1000).toISOString();
+
+    const { data: recentRecords, error: duplicateCheckError } = await adminClient
+      .from('medical_records')
+      .select('id, created_at, appointment_id')
+      .eq('patient_id', patient_id)
+      .eq('template_type', template_type)
+      .eq('category', category)
+      .gte('created_at', thirtySecondsAgo)
+      .order('created_at', { ascending: false })
+      .limit(1);
+
+    if (duplicateCheckError) {
+      console.error('Duplicate check error:', duplicateCheckError);
+      // Don't fail the request if duplicate check fails, just log it
+    }
+
+    if (recentRecords && recentRecords.length > 0) {
+      const existingRecord = recentRecords[0];
+      const timeDiff = Math.floor((Date.now() - new Date(existingRecord.created_at).getTime()) / 1000);
+
+      console.warn('Duplicate medical record detected:', {
+        existing_id: existingRecord.id,
+        existing_created_at: existingRecord.created_at,
+        time_difference_seconds: timeDiff,
+        patient_id,
+        template_type,
+        category,
+      });
+
+      return NextResponse.json(
+        {
+          error: `A medical record was just created ${timeDiff} seconds ago. This appears to be a duplicate submission. Please refresh the page to view the existing record.`,
+          duplicate: true,
+          existing_record_id: existingRecord.id,
+          created_at: existingRecord.created_at,
+        },
+        { status: 409 } // Conflict status code
+      );
+    }
+
+    // LAYER 3: Appointment-linked validation
+    // If appointment_id is provided, check if a record already exists for this appointment
+    if (appointment_id) {
+      const { data: appointmentRecords } = await adminClient
+        .from('medical_records')
+        .select('id')
+        .eq('appointment_id', appointment_id)
+        .limit(1);
+
+      if (appointmentRecords && appointmentRecords.length > 0) {
+        console.warn('Medical record already exists for appointment:', {
+          appointment_id,
+          existing_record_id: appointmentRecords[0].id,
+        });
+
+        return NextResponse.json(
+          {
+            error: 'A medical record already exists for this appointment.',
+            duplicate: true,
+            existing_record_id: appointmentRecords[0].id,
+          },
+          { status: 409 }
         );
       }
     }

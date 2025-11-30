@@ -9,6 +9,7 @@ import { Drawer } from '@/components/ui/Drawer';
 import { StatusHistoryModal } from '@/components/appointments/StatusHistoryModal';
 import { TimeElapsedBadge } from '@/components/appointments/TimeElapsedBadge';
 import { MedicalContextPanel } from '@/components/appointments/MedicalContextPanel';
+import { MedicalRecordStatusBadge } from '@/components/medical-records/MedicalRecordStatusBadge';
 import {
   Calendar,
   Clock,
@@ -40,6 +41,7 @@ interface DetailedAppointment {
   checked_in_at?: string;
   started_at?: string;
   completed_at?: string;
+  has_medical_record?: boolean; // Added for medical record status
   patients: {
     id: string;
     patient_number: string;
@@ -128,11 +130,33 @@ export default function DoctorAppointmentsPage() {
 
   const checkMedicalRecords = async (appointmentId: string) => {
     try {
+      // First try: Check for medical records linked to this appointment
       const response = await fetch(`/api/medical-records?appointment_id=${appointmentId}`);
       const data = await response.json();
 
-      if (data.success) {
-        setHasMedicalRecords(data.has_records);
+      if (data.success && data.has_records) {
+        setHasMedicalRecords(true);
+        return;
+      }
+
+      // Fallback: Check for unlinked medical records created on the same day
+      // This catches records created via patient search that weren't linked to the appointment
+      if (selectedAppointment && data.success && !data.has_records) {
+        const patientId = selectedAppointment.patients.id;
+        const appointmentDate = selectedAppointment.appointment_date;
+
+        const fallbackResponse = await fetch(
+          `/api/medical-records?patient_id=${patientId}&date=${appointmentDate}`
+        );
+        const fallbackData = await fallbackResponse.json();
+
+        if (fallbackData.success) {
+          setHasMedicalRecords(fallbackData.has_records);
+        } else {
+          setHasMedicalRecords(false);
+        }
+      } else if (data.success) {
+        setHasMedicalRecords(false);
       } else {
         console.error('Failed to check medical records:', data.error);
         setHasMedicalRecords(null);
@@ -456,6 +480,17 @@ export default function DoctorAppointmentsPage() {
       accessor: 'status',
       sortable: true,
       render: (value: DetailedAppointment['status']) => getStatusBadge(value),
+    },
+    {
+      header: 'Medical Record',
+      accessor: 'has_medical_record',
+      sortable: true,
+      render: (_: any, row: DetailedAppointment) => (
+        <MedicalRecordStatusBadge
+          hasRecord={row.has_medical_record || false}
+          size="sm"
+        />
+      ),
     },
     {
       header: 'Actions',

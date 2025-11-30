@@ -311,6 +311,9 @@ export async function GET(request: NextRequest) {
             last_name,
             specialization
           )
+        ),
+        medical_records(
+          id
         )
       `)
       .order('appointment_date', { ascending: true });
@@ -370,7 +373,9 @@ export async function GET(request: NextRequest) {
 
     // Apply common filters
     if (status) {
-      query = query.eq('status', status);
+      // Support comma-separated status values for filtering multiple statuses
+      const statusValues = status.split(',').map(s => s.trim());
+      query = query.in('status', statusValues);
     }
 
     if (date && profile.role !== 'doctor') {
@@ -391,9 +396,15 @@ export async function GET(request: NextRequest) {
     console.log('✅ [QUERY] Appointments found:', appointments?.length || 0);
     console.log('📋 [QUERY] Appointment data:', JSON.stringify(appointments, null, 2));
 
+    // Add has_medical_record field based on medical_records join
+    const appointmentsWithRecordStatus = (appointments || []).map(appointment => ({
+      ...appointment,
+      has_medical_record: appointment.medical_records && appointment.medical_records.length > 0
+    }));
+
     return NextResponse.json({
       success: true,
-      data: appointments || [],
+      data: appointmentsWithRecordStatus,
     });
 
   } catch (error) {

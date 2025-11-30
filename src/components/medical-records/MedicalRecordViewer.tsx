@@ -41,49 +41,6 @@ export default function MedicalRecordViewer({ record }: MedicalRecordViewerProps
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="bg-primary-teal text-white p-6 rounded-lg shadow-md">
-        <div className="flex items-start justify-between">
-          <div>
-            <h2 className="text-2xl font-bold mb-2">{template.name}</h2>
-            <p className="text-white/90">{template.description}</p>
-          </div>
-          {template.requiresEncryption && (
-            <div className="inline-flex items-center px-3 py-1 rounded-md bg-yellow-500 text-white text-sm font-medium">
-              <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
-              </svg>
-              Encrypted Record
-            </div>
-          )}
-        </div>
-
-        {/* Metadata */}
-        <div className="mt-4 pt-4 border-t border-white/20 grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-          <div>
-            <span className="text-white/70">Created on:</span>
-            <span className="ml-2 font-medium">
-              {new Date(record.created_at).toLocaleDateString('en-US', {
-                year: 'numeric',
-                month: 'long',
-                day: 'numeric',
-                hour: '2-digit',
-                minute: '2-digit',
-              })}
-            </span>
-          </div>
-          {record.doctors && (
-            <div>
-              <span className="text-white/70">Doctor:</span>
-              <span className="ml-2 font-medium">
-                Dr. {record.doctors.profiles.first_name} {record.doctors.profiles.last_name}
-                {record.doctors.profiles.specialization && ` (${record.doctors.profiles.specialization})`}
-              </span>
-            </div>
-          )}
-        </div>
-      </div>
-
       {/* Record Data Sections */}
       {template.sections.map((section, sectionIndex) => (
         <div key={sectionIndex} className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm">
