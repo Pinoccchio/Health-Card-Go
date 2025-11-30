@@ -20,7 +20,7 @@ import {
   History,
   RotateCcw,
 } from 'lucide-react';
-import { formatPhilippineDateLong } from '@/lib/utils/timezone';
+import { formatPhilippineDateLong, getPhilippineTime } from '@/lib/utils/timezone';
 import { APPOINTMENT_STATUS_CONFIG } from '@/lib/constants/colors';
 
 interface DetailedAppointment {
@@ -622,22 +622,43 @@ export default function DoctorAppointmentsPage() {
                         </>
                       )}
 
-                      {selectedAppointment.status === 'scheduled' && (
-                        <button
-                          onClick={() => {
-                            setPendingAction({
-                              appointmentId: selectedAppointment.id,
-                              status: 'no_show',
-                              patientName: `${selectedAppointment.patients.profiles.first_name} ${selectedAppointment.patients.profiles.last_name}`
-                            });
-                            setShowNoShowDialog(true);
-                          }}
-                          disabled={actionLoading}
-                          className="w-full px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 font-medium disabled:opacity-50"
-                        >
-                          {actionLoading ? 'Processing...' : 'Mark as No Show'}
-                        </button>
-                      )}
+                      {selectedAppointment.status === 'scheduled' && (() => {
+                        // Check if appointment date is today or in the past (can mark no-show)
+                        const philippineNow = getPhilippineTime();
+                        const appointmentDate = new Date(selectedAppointment.appointment_date);
+                        philippineNow.setHours(0, 0, 0, 0);
+                        appointmentDate.setHours(0, 0, 0, 0);
+                        const isFutureAppointment = appointmentDate.getTime() > philippineNow.getTime();
+
+                        if (isFutureAppointment) {
+                          return (
+                            <button
+                              disabled
+                              className="w-full px-4 py-2 bg-gray-100 text-gray-500 rounded-md font-medium cursor-not-allowed border border-gray-300"
+                              title="Cannot mark future appointments as no-show. Please wait until the appointment date."
+                            >
+                              Mark as No Show
+                            </button>
+                          );
+                        }
+
+                        return (
+                          <button
+                            onClick={() => {
+                              setPendingAction({
+                                appointmentId: selectedAppointment.id,
+                                status: 'no_show',
+                                patientName: `${selectedAppointment.patients.profiles.first_name} ${selectedAppointment.patients.profiles.last_name}`
+                              });
+                              setShowNoShowDialog(true);
+                            }}
+                            disabled={actionLoading}
+                            className="w-full px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 font-medium disabled:opacity-50"
+                          >
+                            {actionLoading ? 'Processing...' : 'Mark as No Show'}
+                          </button>
+                        );
+                      })()}
                     </div>
                   </div>
                 </div>

@@ -1,6 +1,6 @@
 import { createClient, createAdminClient } from '@/lib/supabase/server';
 import { NextRequest, NextResponse } from 'next/server';
-import { canCancelAppointment } from '@/lib/utils/timezone';
+import { canCancelAppointment, getPhilippineTime } from '@/lib/utils/timezone';
 
 /**
  * GET /api/appointments/[id]
@@ -151,13 +151,16 @@ async function handleStatusReversion(
     }
   }
 
-  // Business rule: Cannot revert cancelled or no_show appointments
-  if (['cancelled', 'no_show'].includes(currentAppointment.status)) {
+  // Business rule: Cannot revert cancelled appointments (terminal status)
+  if (currentAppointment.status === 'cancelled') {
     return NextResponse.json(
-      { error: `Cannot revert ${currentAppointment.status} appointments` },
+      { error: 'Cannot revert cancelled appointments' },
       { status: 400 }
     );
   }
+
+  // Note: no_show appointments can be reverted at any time
+  // The audit trail (is_reversion flag and reason field) provides accountability
 
   // Prepare update data - reset timestamps for reverted status
   const updateData: any = {
@@ -313,6 +316,23 @@ export async function PATCH(
           { error: 'Invalid status' },
           { status: 400 }
         );
+      }
+
+      // Business rule: Cannot mark future appointments as no_show
+      if (status === 'no_show') {
+        const philippineNow = getPhilippineTime();
+        const appointmentDate = new Date(appointment.appointment_date);
+
+        // Set to midnight for date-only comparison
+        philippineNow.setHours(0, 0, 0, 0);
+        appointmentDate.setHours(0, 0, 0, 0);
+
+        if (appointmentDate.getTime() > philippineNow.getTime()) {
+          return NextResponse.json(
+            { error: 'Cannot mark future appointments as no_show. Please wait until the appointment date.' },
+            { status: 400 }
+          );
+        }
       }
 
       updateData.status = status;
