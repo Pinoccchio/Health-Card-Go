@@ -690,14 +690,52 @@ export default function PatientAppointmentsPage() {
                 )}
 
                 {/* Submit Feedback for Completed Appointments */}
-                {selectedAppointment.status === 'completed' && (
-                  <a
-                    href="/patient/feedback"
-                    className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-primary-teal text-white rounded-md hover:bg-primary-teal/90 font-medium text-sm"
-                  >
-                    Submit Feedback
-                  </a>
-                )}
+                {selectedAppointment.status === 'completed' && (() => {
+                  // Check if within 7-day window
+                  const completedAt = selectedAppointment.completed_at ? new Date(selectedAppointment.completed_at) : null;
+                  const now = new Date();
+                  const daysSince = completedAt
+                    ? Math.floor((now.getTime() - completedAt.getTime()) / (1000 * 60 * 60 * 24))
+                    : null;
+                  const isEligible = daysSince !== null && daysSince <= 7;
+                  const hasFeedback = selectedAppointment.has_feedback; // This field needs to be added to the appointment data
+
+                  if (hasFeedback) {
+                    return (
+                      <div className="w-full px-4 py-2 bg-green-50 border border-green-200 rounded-md text-center">
+                        <p className="text-sm font-medium text-green-700">Feedback Submitted</p>
+                        <a
+                          href="/patient/feedback"
+                          className="text-xs text-green-600 hover:text-green-700 underline mt-1 inline-block"
+                        >
+                          View feedback
+                        </a>
+                      </div>
+                    );
+                  }
+
+                  if (!isEligible) {
+                    return (
+                      <div className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-md text-center">
+                        <p className="text-xs text-gray-600">
+                          Feedback window expired (7 days after completion)
+                        </p>
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <a
+                      href={`/patient/feedback?appointment_id=${selectedAppointment.id}`}
+                      className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-primary-teal text-white rounded-md hover:bg-primary-teal/90 font-medium text-sm"
+                    >
+                      Submit Feedback
+                      <span className="text-xs opacity-80">
+                        ({7 - (daysSince || 0)} days remaining)
+                      </span>
+                    </a>
+                  );
+                })()}
               </div>
             </div>
           </Drawer>

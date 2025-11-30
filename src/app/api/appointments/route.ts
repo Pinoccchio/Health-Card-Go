@@ -320,6 +320,9 @@ export async function GET(request: NextRequest) {
         ),
         medical_records(
           id
+        ),
+        feedback(
+          id
         )
       `)
       .order('appointment_date', { ascending: true });
@@ -447,13 +450,38 @@ export async function GET(request: NextRequest) {
     }
 
     console.log('✅ [QUERY] Appointments found:', appointments?.length || 0);
-    console.log('📋 [QUERY] Appointment data:', JSON.stringify(appointments, null, 2));
 
-    // Add has_medical_record field based on medical_records join
-    const appointmentsWithRecordStatus = (appointments || []).map(appointment => ({
-      ...appointment,
-      has_medical_record: appointment.medical_records && appointment.medical_records.length > 0
-    }));
+    // Add has_medical_record and has_feedback fields based on joins
+    const appointmentsWithRecordStatus = (appointments || []).map(appointment => {
+      const hasMedicalRecord = appointment.medical_records && appointment.medical_records.length > 0;
+      // Handle both single object and array responses from Supabase
+      // PostgREST returns object for single record, array for multiple, null for none
+      const hasFeedback = appointment.feedback
+        ? (Array.isArray(appointment.feedback)
+            ? appointment.feedback.length > 0
+            : true)
+        : false;
+
+      // DEBUG: Log the mapping for each appointment
+      console.log(`\n📋 [API MAPPING] ${appointment.services?.name}:`);
+      console.log('  feedback array:', appointment.feedback);
+      console.log('  feedback is null?', appointment.feedback === null);
+      console.log('  feedback is array?', Array.isArray(appointment.feedback));
+      console.log('  feedback.length:', appointment.feedback?.length);
+      console.log('  CALCULATED has_feedback:', hasFeedback);
+
+      return {
+        ...appointment,
+        has_medical_record: hasMedicalRecord,
+        has_feedback: hasFeedback
+      };
+    });
+
+    // DEBUG: Log final response data
+    console.log('\n📤 [API RESPONSE] Sending response:');
+    appointmentsWithRecordStatus.forEach((apt: any) => {
+      console.log(`  ${apt.services?.name}: has_feedback = ${apt.has_feedback} (type: ${typeof apt.has_feedback})`);
+    });
 
     return NextResponse.json({
       success: true,
