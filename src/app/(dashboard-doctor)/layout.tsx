@@ -1,7 +1,8 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { NextIntlClientProvider } from 'next-intl';
 import { useAuth } from '@/lib/auth';
 import { getDashboardPath } from '@/lib/utils/roleHelpers';
 import { ToastProvider } from '@/lib/contexts/ToastContext';
@@ -18,6 +19,27 @@ export default function DoctorDashboardLayout({
 }) {
   const { isAuthenticated, loading, user } = useAuth();
   const router = useRouter();
+  const [locale, setLocale] = useState('en');
+  const [messages, setMessages] = useState<any>(null);
+
+  useEffect(() => {
+    const loadLocaleAndMessages = async () => {
+      try {
+        const response = await fetch('/api/locale');
+        if (response.ok) {
+          const data = await response.json();
+          setLocale(data.locale);
+          const messagesModule = await import(`../../../messages/${data.locale}.json`);
+          setMessages(messagesModule.default);
+        }
+      } catch (error) {
+        console.error('Failed to load locale/messages:', error);
+        const messagesModule = await import(`../../../messages/en.json`);
+        setMessages(messagesModule.default);
+      }
+    };
+    loadLocaleAndMessages();
+  }, []);
 
   // Redirect unauthorized users to login or their correct dashboard
   useEffect(() => {
@@ -40,8 +62,8 @@ export default function DoctorDashboardLayout({
     }
   }, [isAuthenticated, loading, user, router]);
 
-  // Show loading spinner while checking auth
-  if (loading) {
+  // Show loading spinner while checking auth or loading messages
+  if (loading || !messages) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gray-50">
         <div className="text-center">
@@ -64,5 +86,9 @@ export default function DoctorDashboardLayout({
     );
   }
 
-  return <ToastProvider>{children}</ToastProvider>;
+  return (
+    <NextIntlClientProvider locale={locale} messages={messages}>
+      <ToastProvider>{children}</ToastProvider>
+    </NextIntlClientProvider>
+  );
 }

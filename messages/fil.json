@@ -152,5 +152,77 @@
     "all_barangays": "Lahat ng Barangay",
     "message": "Mensahe",
     "send": "Ipadala ang Update"
+  },
+  "landing": {
+    "nav": {
+      "home": "Home",
+      "about": "Tungkol Sa Amin",
+      "services": "Mga Serbisyo",
+      "heatmap": "Heat Map",
+      "blog": "Blog",
+      "announcements": "Mga Pabilis"
+    },
+    "hero": {
+      "title": "Nagbibigay ng Pambihirang Karanasan sa Pasyente",
+      "subtitle": "Maligayang pagdating, kung saan ang pambihirang karanasan ng pasyente ay aming priyoridad. Sa mahabagin na pag-aalaga, modernong mga pasilidad, at pasyente-sentrik na diskarte, nakatuon kami sa inyong kabutihan. Magtiwala sa amin sa inyong kalusugan at maranasan ang pagkakaiba.",
+      "cta": "Mag-book ng Appointment"
+    },
+    "services": {
+      "title": "Aming Mga Serbisyo",
+      "healthcard": {
+        "title": "Health Card",
+        "description": "Tumpak na Diagnosis, Mabilisang Resulta: Maranasan ang pinakamahusay na Laboratory Testing sa aming pasilidad."
+      },
+      "hiv": {
+        "title": "HIV",
+        "description": "Ang aming masusing pagsusuri at dalubhasang ebalwasyon ay tumutulong sa inyo na maging proactive tungkol sa inyong kalusugan."
+      },
+      "pregnancy": {
+        "title": "Pagbubuntis",
+        "description": "Maranasan ang komprehensibong pangangalaga sa bibig gamit ang Dentistry. Magtiwala sa amin upang panatilihing malusog at maliwanag ang inyong ngiti."
+      }
+    },
+    "about": {
+      "title": "Tungkol Sa Amin",
+      "paragraph1": "Maligayang pagdating sa aming healthcare website, ang inyong one-stop destination para sa maaasahang at komprehensibong impormasyon sa pangangalaga sa kalusugan. Nakatuon kami sa pagpopromote ng wellness at pagbibigay ng mahalagang mapagkukunan upang bigyan kayo ng kapangyarihan sa inyong health journey.",
+      "paragraph2": "Tuklasin ang aming malawak na koleksyon ng dalubhasang isinulat na mga artikulo at gabay na sumasaklaw sa malawak na hanay ng mga paksa sa kalusugan. Mula sa pag-unawa sa mga karaniwang medikal na kondisyon hanggang sa mga tips para sa pagpapanatili ng malusog na pamumuhay, ang aming nilalaman ay idinisenyo upang turuan, magbigay ng inspirasyon, at suportahan kayo sa paggawa ng matalinong pagpili para sa inyong kalusugan.",
+      "paragraph3": "Tuklasin ang mga praktikal na health tips at lifestyle advice upang ma-optimize ang inyong pisikal at mental na kabutihan. Naniniwala kami na ang maliliit na pagbabago ay maaaring humantong sa makabuluhang pagpapabuti sa inyong kalidad ng buhay, at nandito kami upang gabayan kayo sa inyong landas tungo sa mas malusog at mas masayang kayo."
+    },
+    "whychoose": {
+      "title": "Bakit Kami ang Piliin",
+      "subtitle": "Sa matatag na pangako sa inyong kabutihan, ang aming koponan ng lubhang sinanay na mga propesyonal sa kalusugan ay nagsisiguro na makakatanggap kayo ng walang iba kundi mga pambihirang karanasan ng pasyente.",
+      "intensivecare": {
+        "title": "Intensive Care",
+        "description": "Ang aming Intensive Care Unit ay nilagyan ng advanced na teknolohiya at may koponan ng mga propesyonal"
+      },
+      "ambulance": {
+        "title": "Libreng Ambulansya",
+        "description": "Isang mahabagin na inisyatiba upang unahin ang inyong kalusugan at kabutihan nang walang anumang pinansyal na pasanin."
+      },
+      "medicalsurgical": {
+        "title": "Medical at Surgical",
+        "description": "Ang aming Medical at Surgical na serbisyo ay nag-aalok ng advanced na healthcare solutions upang matugunan ang mga medikal na pangangailangan."
+      }
+    },
+    "heatmap": {
+      "title": "Heat Map",
+      "description": "Ipinagmamalaki namin ang aming pambihirang koponan ng mga doktor, bawat isa ay espesyalista sa kanilang mga larangan."
+    },
+    "footer": {
+      "description": "Kami ay narangalang maging bahagi ng inyong healthcare journey at nakatuon sa paghahatid ng mahabagin, personalized, at pinakamahusay na pag-aalaga sa bawat hakbang ng paraan.",
+      "trust": "Magtiwala sa amin sa inyong kalusugan, at magtulungan tayo upang makamit ang pinakamahusay na posibleng resulta para sa inyo at sa inyong mga mahal sa buhay.",
+      "aboutus": "Tungkol Sa Amin",
+      "services": "Mga Serbisyo",
+      "contact": "Makipag-ugnayan Sa Amin",
+      "links": "Mga Link",
+      "home": "Home",
+      "workwithus": "Magtrabaho Sa Amin",
+      "ourblog": "Aming Blog",
+      "pregnancycheckup": "Pregnancy Checkup",
+      "privacypolicy": "Patakaran sa Privacy",
+      "ourstores": "Aming Mga Tindahan",
+      "terms": "Mga Tuntunin at Kundisyon",
+      "copyright": "Makipag-ugnayan. Copyright © 2025"
+    }
   }
 }

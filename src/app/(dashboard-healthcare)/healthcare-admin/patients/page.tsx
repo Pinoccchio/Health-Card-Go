@@ -73,6 +73,15 @@ export default function HealthcareAdminPatientsPage() {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
 
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize] = useState(20);
+  const [totalRecords, setTotalRecords] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
+
+  // Search state
+  const [searchQuery, setSearchQuery] = useState('');
+
   // Toast notifications
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
 
@@ -81,9 +90,30 @@ export default function HealthcareAdminPatientsPage() {
   const [showRejectDialog, setShowRejectDialog] = useState(false);
   const [pendingAction, setPendingAction] = useState<Patient | null>(null);
 
+  // Reset to page 1 when filter changes
+  // Reset to page 1 when filter or search changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filter, searchQuery]);
+
+  // Debounced search effect
+  useEffect(() => {
+    // Debounce search by 300ms to avoid excessive API calls
+    const timeoutId = setTimeout(() => {
+      if (currentPage === 1) {
+        // If already on page 1, trigger fetch directly
+        fetchPatients();
+      }
+      // Otherwise, the page change will trigger the fetch via the dependency below
+    }, 300);
+
+    return () => clearTimeout(timeoutId);
+  }, [searchQuery]);
+
+  // Fetch patients when page or filter changes
   useEffect(() => {
     fetchPatients();
-  }, []);
+  }, [currentPage, filter]);
 
   // Toast helper functions
   const showToast = (message: string, variant: ToastVariant) => {
@@ -99,8 +129,23 @@ export default function HealthcareAdminPatientsPage() {
     try {
       setLoading(true);
 
-      // Fetch ALL patients, not just pending
-      const response = await fetch('/api/admin/patients');
+      // Build query parameters
+      const params = new URLSearchParams({
+        page: currentPage.toString(),
+        limit: pageSize.toString(),
+      });
+
+      // Add search query
+      if (searchQuery.trim()) {
+        params.append('search', searchQuery.trim());
+      }
+
+      // Add status filter if not 'all'
+      if (filter !== 'all') {
+        params.append('status', filter);
+      }
+
+      const response = await fetch(`/api/admin/patients?${params.toString()}`);
       const result = await response.json();
 
       if (!response.ok) {
@@ -108,6 +153,12 @@ export default function HealthcareAdminPatientsPage() {
       }
 
       setPatients(result.data || []);
+
+      // Update pagination metadata
+      if (result.pagination) {
+        setTotalRecords(result.pagination.total);
+        setTotalPages(result.pagination.totalPages);
+      }
     } catch (err) {
       console.error('Error fetching patients:', err);
       showToast(err instanceof Error ? err.message : 'An error occurred', 'error');
@@ -117,8 +168,10 @@ export default function HealthcareAdminPatientsPage() {
   };
 
   // Calculate statistics
+  // Note: With pagination and server-side filtering, stats show counts for current page only
+  // Total count from API pagination metadata shows all records
   const stats = useMemo(() => {
-    const total = patients.length;
+    const total = totalRecords; // Use total from API instead of current page
     const pending = patients.filter(p => p.status === 'pending').length;
     const active = patients.filter(p => p.status === 'active').length;
     const rejected = patients.filter(p => p.status === 'rejected').length;
@@ -126,13 +179,7 @@ export default function HealthcareAdminPatientsPage() {
     const inactive = patients.filter(p => p.status === 'inactive').length;
 
     return { total, pending, active, rejected, suspended, inactive };
-  }, [patients]);
-
-  // Filter patients
-  const filteredPatients = useMemo(() => {
-    if (filter === 'all') return patients;
-    return patients.filter(p => p.status === filter);
-  }, [patients, filter]);
+  }, [patients, totalRecords]);
 
   const handleApprove = async () => {
     if (!pendingAction) return;
@@ -216,7 +263,7 @@ export default function HealthcareAdminPatientsPage() {
   // CSV Export
   const exportToCSV = () => {
     const headers = ['Name', 'Email', 'Contact', 'Status', 'Barangay', 'Registered Date'];
-    const rows = filteredPatients.map(p => [
+    const rows = patients.map(p => [
       `${p.first_name} ${p.last_name}`,
       p.email,
       p.contact_number || 'N/A',
@@ -246,7 +293,7 @@ export default function HealthcareAdminPatientsPage() {
     { accessor: 'actions', header: 'Actions', sortable: false },
   ];
 
-  const tableData = filteredPatients.map(patient => {
+  const tableData = patients.map(patient => {
     const StatusIcon = statusConfig[patient.status as PatientStatus]?.icon || AlertCircle;
     const patientNumber = patient.patients?.patient_number || 'N/A';
 
@@ -436,7 +483,7 @@ export default function HealthcareAdminPatientsPage() {
 
           <button
             onClick={exportToCSV}
-            disabled={filteredPatients.length === 0}
+            disabled={patients.length === 0}
             className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-teal disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             <Download className="w-4 h-4 mr-2" />
@@ -452,12 +499,75 @@ export default function HealthcareAdminPatientsPage() {
               <p className="mt-2 text-sm text-gray-500">Loading patients...</p>
             </div>
           ) : (
-            <EnhancedTable
-              columns={tableColumns}
-              data={tableData}
-              searchable={true}
-              searchPlaceholder="Search patients by name, email, or patient number..."
-            />
+            <>
+              <EnhancedTable
+                columns={tableColumns}
+                data={tableData}
+                searchable={true}
+                searchPlaceholder="Search patients by name, email, or patient number..."
+                searchValue={searchQuery}
+                onSearchChange={setSearchQuery}
+                paginated={false}
+              />
+
+              {/* Server-Side Pagination Controls */}
+              {totalPages > 1 && (
+                <div className="px-6 py-4 flex items-center justify-between border-t border-gray-200">
+                  <div className="flex items-center gap-2 text-sm text-gray-600">
+                    <span>
+                      Showing {((currentPage - 1) * pageSize) + 1} to {Math.min(currentPage * pageSize, totalRecords)} of {totalRecords} results
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                      disabled={currentPage === 1}
+                      className="px-3 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      Previous
+                    </button>
+
+                    {/* Page Numbers */}
+                    <div className="flex items-center gap-1">
+                      {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                        let pageNum;
+                        if (totalPages <= 5) {
+                          pageNum = i + 1;
+                        } else if (currentPage <= 3) {
+                          pageNum = i + 1;
+                        } else if (currentPage >= totalPages - 2) {
+                          pageNum = totalPages - 4 + i;
+                        } else {
+                          pageNum = currentPage - 2 + i;
+                        }
+
+                        return (
+                          <button
+                            key={pageNum}
+                            onClick={() => setCurrentPage(pageNum)}
+                            className={`px-3 py-2 border rounded-md text-sm font-medium ${
+                              currentPage === pageNum
+                                ? 'bg-primary-teal text-white border-primary-teal'
+                                : 'border-gray-300 text-gray-700 hover:bg-gray-50'
+                            }`}
+                          >
+                            {pageNum}
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    <button
+                      onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                      disabled={currentPage === totalPages}
+                      className="px-3 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      Next
+                    </button>
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </div>
 

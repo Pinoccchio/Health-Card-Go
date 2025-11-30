@@ -247,6 +247,8 @@ export async function POST(request: NextRequest) {
  * - status: filter by status
  * - date: filter by date
  * - patient_id: filter by patient (admin/doctor only)
+ * - page: page number (default: 1)
+ * - limit: records per page (default: 20, max: 100)
  */
 export async function GET(request: NextRequest) {
   try {
@@ -263,6 +265,12 @@ export async function GET(request: NextRequest) {
     const status = searchParams.get('status');
     const date = searchParams.get('date');
     const patientId = searchParams.get('patient_id');
+    const search = searchParams.get('search')?.trim() || '';
+
+    // Pagination parameters
+    const page = Math.max(1, parseInt(searchParams.get('page') || '1'));
+    const limit = Math.min(100, Math.max(1, parseInt(searchParams.get('limit') || '20')));
+    const offset = (page - 1) * limit;
 
     // Get user profile
     const { data: profile } = await supabase
@@ -438,7 +446,307 @@ export async function GET(request: NextRequest) {
       query = query.eq('appointment_date', date);
     }
 
+    // Declare search variables outside if block so they're accessible to count query
+    let matchingPatientIds: string[] = [];
+    let matchingDoctorIds: string[] = [];
+
+    // Apply search filter
+    if (search) {
+      console.log('🔍 [SEARCH] Search query:', search);
+
+      // Check if search is a number (queue number search)
+      const searchAsNumber = parseInt(search);
+      const isNumericSearch = !isNaN(searchAsNumber);
+
+      // Search for matching patients by name or patient number
+      // Query profiles directly (not with nested joins) to avoid PostgREST syntax issues
+      const matchingPatientIdsSet = new Set<string>();
+      const searchWords = search.trim().split(/\s+/);
+
+      console.log('🔍 [SEARCH] Search words:', searchWords);
+
+      if (searchWords.length > 1) {
+        // Multi-word: search each word separately and combine results
+        console.log('🔍 [SEARCH] Multi-word search, searching for each word separately');
+        for (const word of searchWords) {
+          // Search profiles by name or email
+          const { data: matchingProfiles } = await adminClient
+            .from('profiles')
+            .select('id')
+            .eq('role', 'patient')
+            .or(`first_name.ilike.%${word}%,last_name.ilike.%${word}%,email.ilike.%${word}%`);
+
+          if (matchingProfiles && matchingProfiles.length > 0) {
+            console.log(`🔍 [SEARCH] Word "${word}" matched ${matchingProfiles.length} profiles`);
+            const profileUserIds = matchingProfiles.map(p => p.id);
+
+            // Get patient IDs for these profiles (patients.user_id -> profiles.id)
+            const { data: patientsFromProfiles } = await adminClient
+              .from('patients')
+              .select('id')
+              .in('user_id', profileUserIds);
+
+            if (patientsFromProfiles && patientsFromProfiles.length > 0) {
+              console.log(`🔍 [SEARCH] Found ${patientsFromProfiles.length} patients from profiles`);
+              patientsFromProfiles.forEach(p => matchingPatientIdsSet.add(p.id));
+            }
+          }
+
+          // Also search patient_number
+          const { data: patientNumberMatches } = await adminClient
+            .from('patients')
+            .select('id')
+            .ilike('patient_number', `%${word}%`);
+
+          if (patientNumberMatches && patientNumberMatches.length > 0) {
+            console.log(`🔍 [SEARCH] Word "${word}" matched ${patientNumberMatches.length} patient numbers`);
+            patientNumberMatches.forEach(p => matchingPatientIdsSet.add(p.id));
+          }
+        }
+      } else {
+        // Single-word: same logic
+        console.log('🔍 [SEARCH] Single-word search');
+
+        // Search profiles by name or email
+        const { data: matchingProfiles } = await adminClient
+          .from('profiles')
+          .select('id')
+          .eq('role', 'patient')
+          .or(`first_name.ilike.%${search}%,last_name.ilike.%${search}%,email.ilike.%${search}%`);
+
+        if (matchingProfiles && matchingProfiles.length > 0) {
+          console.log(`🔍 [SEARCH] Found ${matchingProfiles.length} matching profiles`);
+          const profileUserIds = matchingProfiles.map(p => p.id);
+
+          // Get patient IDs for these profiles
+          const { data: patientsFromProfiles } = await adminClient
+            .from('patients')
+            .select('id')
+            .in('user_id', profileUserIds);
+
+          if (patientsFromProfiles && patientsFromProfiles.length > 0) {
+            console.log(`🔍 [SEARCH] Found ${patientsFromProfiles.length} patients from profiles`);
+            patientsFromProfiles.forEach(p => matchingPatientIdsSet.add(p.id));
+          }
+        }
+
+        // Also search patient_number
+        const { data: patientNumberMatches } = await adminClient
+          .from('patients')
+          .select('id')
+          .ilike('patient_number', `%${search}%`);
+
+        if (patientNumberMatches && patientNumberMatches.length > 0) {
+          console.log(`🔍 [SEARCH] Found ${patientNumberMatches.length} patient numbers`);
+          patientNumberMatches.forEach(p => matchingPatientIdsSet.add(p.id));
+        }
+      }
+
+      // Convert Set to Array
+      matchingPatientIds = Array.from(matchingPatientIdsSet);
+
+      if (matchingPatientIds.length > 0) {
+        console.log('🔍 [SEARCH] Total unique patients found:', matchingPatientIds.length);
+        console.log('🔍 [SEARCH] Patient IDs:', matchingPatientIds);
+      } else {
+        console.log('⚠️ [SEARCH] No matching patients found for query:', search);
+      }
+
+      // Search for matching doctors by name (query profiles directly)
+      const matchingDoctorIdsSet = new Set<string>();
+
+      if (searchWords.length > 1) {
+        // Multi-word: search each word separately
+        for (const word of searchWords) {
+          // Search profiles by name
+          const { data: matchingProfiles } = await adminClient
+            .from('profiles')
+            .select('id')
+            .eq('role', 'doctor')
+            .or(`first_name.ilike.%${word}%,last_name.ilike.%${word}%`);
+
+          if (matchingProfiles && matchingProfiles.length > 0) {
+            console.log(`🔍 [SEARCH] Word "${word}" matched ${matchingProfiles.length} doctor profiles`);
+            const profileUserIds = matchingProfiles.map(p => p.id);
+
+            // Get doctor IDs for these profiles (doctors.user_id -> profiles.id)
+            const { data: doctorsFromProfiles } = await adminClient
+              .from('doctors')
+              .select('id')
+              .in('user_id', profileUserIds);
+
+            if (doctorsFromProfiles && doctorsFromProfiles.length > 0) {
+              console.log(`🔍 [SEARCH] Found ${doctorsFromProfiles.length} doctors from profiles`);
+              doctorsFromProfiles.forEach(d => matchingDoctorIdsSet.add(d.id));
+            }
+          }
+        }
+      } else {
+        // Single-word search
+        const { data: matchingProfiles } = await adminClient
+          .from('profiles')
+          .select('id')
+          .eq('role', 'doctor')
+          .or(`first_name.ilike.%${search}%,last_name.ilike.%${search}%`);
+
+        if (matchingProfiles && matchingProfiles.length > 0) {
+          console.log(`🔍 [SEARCH] Found ${matchingProfiles.length} matching doctor profiles`);
+          const profileUserIds = matchingProfiles.map(p => p.id);
+
+          // Get doctor IDs for these profiles
+          const { data: doctorsFromProfiles } = await adminClient
+            .from('doctors')
+            .select('id')
+            .in('user_id', profileUserIds);
+
+          if (doctorsFromProfiles && doctorsFromProfiles.length > 0) {
+            console.log(`🔍 [SEARCH] Found ${doctorsFromProfiles.length} doctors from profiles`);
+            doctorsFromProfiles.forEach(d => matchingDoctorIdsSet.add(d.id));
+          }
+        }
+      }
+
+      // Convert Set to Array
+      matchingDoctorIds = Array.from(matchingDoctorIdsSet);
+
+      if (matchingDoctorIds.length > 0) {
+        console.log('🔍 [SEARCH] Total unique doctors found:', matchingDoctorIds.length);
+        console.log('🔍 [SEARCH] Doctor IDs:', matchingDoctorIds);
+      }
+
+      // Build OR conditions for search
+      const searchConditions: string[] = [];
+
+      // Queue number search (if numeric)
+      if (isNumericSearch) {
+        searchConditions.push(`appointment_number.eq.${searchAsNumber}`);
+      }
+
+      // Patient ID matches
+      if (matchingPatientIds.length > 0) {
+        searchConditions.push(`patient_id.in.(${matchingPatientIds.join(',')})`);
+      }
+
+      // Doctor ID matches
+      if (matchingDoctorIds.length > 0) {
+        searchConditions.push(`doctor_id.in.(${matchingDoctorIds.join(',')})`);
+      }
+
+      // Reason contains search term
+      searchConditions.push(`reason.ilike.%${search}%`);
+
+      // Apply OR filter if we have any conditions
+      if (searchConditions.length > 0) {
+        query = query.or(searchConditions.join(','));
+        console.log('🔍 [SEARCH] Applied conditions:', searchConditions.length);
+      } else {
+        // No matches found - force empty result
+        query = query.eq('id', '00000000-0000-0000-0000-000000000000');
+        console.log('🔍 [SEARCH] No matches found, returning empty result');
+      }
+    }
+
     console.log('🔍 [QUERY] Executing final query for role:', profile.role);
+    console.log('🔍 [PAGINATION] Page:', page, 'Limit:', limit, 'Offset:', offset);
+
+    // Get total count for pagination with a separate simple query (no nested joins)
+    // This is necessary because Supabase returns null count with complex nested selects + head: true
+    let countQuery = adminClient
+      .from('appointments')
+      .select('*', { count: 'exact', head: true });
+
+    // Apply the SAME role-based filters to count query
+    if (profile.role === 'patient') {
+      const { data: patientRecord } = await supabase
+        .from('patients')
+        .select('id')
+        .eq('user_id', user.id)
+        .single();
+      if (patientRecord) {
+        countQuery = countQuery.eq('patient_id', patientRecord.id);
+      }
+    } else if (profile.role === 'doctor') {
+      const { data: doctorRecord } = await supabase
+        .from('doctors')
+        .select('id')
+        .eq('user_id', user.id)
+        .single();
+      if (doctorRecord) {
+        countQuery = countQuery.eq('doctor_id', doctorRecord.id);
+      }
+      if (date) {
+        countQuery = countQuery.eq('appointment_date', date);
+      }
+    } else if (profile.role === 'healthcare_admin') {
+      if (profile.admin_category !== 'general_admin') {
+        const { data: categoryServices } = await supabase
+          .from('services')
+          .select('id')
+          .eq('category', profile.admin_category);
+        if (categoryServices && categoryServices.length > 0) {
+          const serviceIds = categoryServices.map(s => s.id);
+          countQuery = countQuery.in('service_id', serviceIds);
+        } else {
+          // No services for this category, count will be 0
+          countQuery = countQuery.eq('id', '00000000-0000-0000-0000-000000000000'); // Force 0 results
+        }
+      }
+      if (patientId) {
+        countQuery = countQuery.eq('patient_id', patientId);
+      }
+    } else if (profile.role === 'super_admin') {
+      if (patientId) {
+        countQuery = countQuery.eq('patient_id', patientId);
+      }
+    }
+
+    // Apply common filters to count query
+    if (status) {
+      const statusValues = status.split(',').map(s => s.trim());
+      countQuery = countQuery.in('status', statusValues);
+    }
+    if (date && profile.role !== 'doctor') {
+      countQuery = countQuery.eq('appointment_date', date);
+    }
+
+    // Apply search filter to count query (same logic as main query)
+    if (search) {
+      const searchAsNumber = parseInt(search);
+      const isNumericSearch = !isNaN(searchAsNumber);
+
+      // Use the same matching patient/doctor IDs from earlier search
+      const countSearchConditions: string[] = [];
+
+      if (isNumericSearch) {
+        countSearchConditions.push(`appointment_number.eq.${searchAsNumber}`);
+      }
+      if (matchingPatientIds.length > 0) {
+        countSearchConditions.push(`patient_id.in.(${matchingPatientIds.join(',')})`);
+      }
+      if (matchingDoctorIds.length > 0) {
+        countSearchConditions.push(`doctor_id.in.(${matchingDoctorIds.join(',')})`);
+      }
+      countSearchConditions.push(`reason.ilike.%${search}%`);
+
+      if (countSearchConditions.length > 0) {
+        countQuery = countQuery.or(countSearchConditions.join(','));
+      } else {
+        countQuery = countQuery.eq('id', '00000000-0000-0000-0000-000000000000');
+      }
+    }
+
+    // Execute count query
+    const { count: totalCount, error: countError } = await countQuery;
+
+    if (countError) {
+      console.error('❌ [COUNT QUERY] Error:', countError);
+    }
+
+    console.log('✅ [COUNT QUERY] Total count:', totalCount);
+
+    // Apply pagination
+    query = query.range(offset, offset + limit - 1);
+
     const { data: appointments, error: fetchError } = await query;
 
     if (fetchError) {
@@ -449,7 +757,8 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    console.log('✅ [QUERY] Appointments found:', appointments?.length || 0);
+    const totalPages = Math.ceil((totalCount || 0) / limit);
+    console.log('✅ [QUERY] Appointments found:', appointments?.length || 0, 'of', totalCount, 'total');
 
     // Add has_medical_record and has_feedback fields based on joins
     const appointmentsWithRecordStatus = (appointments || []).map(appointment => {
@@ -486,6 +795,14 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       success: true,
       data: appointmentsWithRecordStatus,
+      pagination: {
+        page,
+        limit,
+        total: totalCount || 0,
+        totalPages,
+        hasNextPage: page < totalPages,
+        hasPreviousPage: page > 1,
+      },
     });
 
   } catch (error) {

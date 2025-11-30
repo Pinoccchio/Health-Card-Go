@@ -1,9 +1,8 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import Image from 'next/image';
 import Link from 'next/link';
-import { Menu, X, ChevronDown, User, LogOut } from 'lucide-react';
+import { Menu, X, ChevronDown, User, LogOut, Globe } from 'lucide-react';
 import { Button, Logo } from '@/components/ui';
 import { NAV_ITEMS } from '@/lib/config/landingConfig';
 import { cn } from '@/lib/utils';
@@ -11,9 +10,9 @@ import { useAuth } from '@/lib/auth';
 import { ROLE_NAMES } from '@/types/auth';
 
 const LANGUAGES = [
-  { code: 'en', name: 'English', flag: '/images/icons/flags/en-us.png' },
-  { code: 'tl', name: 'Tagalog', flag: '/images/icons/flags/ph.png' },
-  { code: 'ceb', name: 'Bisaya', flag: '/images/icons/flags/ph.png' },
+  { code: 'en', name: 'English' },
+  { code: 'fil', name: 'Tagalog' },
+  { code: 'ceb', name: 'Bisaya' },
 ];
 
 export function Header() {
@@ -33,6 +32,26 @@ export function Header() {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
+  // Load current locale from cookie on mount
+  useEffect(() => {
+    const getCurrentLocale = async () => {
+      try {
+        const response = await fetch('/api/locale');
+        if (response.ok) {
+          const data = await response.json();
+          const language = LANGUAGES.find((lang) => lang.code === data.locale);
+          if (language) {
+            setSelectedLanguage(language);
+          }
+        }
+      } catch (error) {
+        console.error('Failed to get current locale:', error);
+      }
+    };
+
+    getCurrentLocale();
+  }, []);
+
   const handleNavClick = (href: string) => {
     setIsMobileMenuOpen(false);
 
@@ -47,6 +66,33 @@ export function Header() {
   const handleLogout = async () => {
     await logout();
     setIsUserMenuOpen(false);
+  };
+
+  const handleLanguageChange = async (languageCode: string) => {
+    try {
+      // Call the locale API to set the cookie
+      const response = await fetch('/api/locale', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ locale: languageCode }),
+      });
+
+      if (response.ok) {
+        // Update selected language
+        const language = LANGUAGES.find((lang) => lang.code === languageCode);
+        if (language) {
+          setSelectedLanguage(language);
+        }
+        setIsLanguageMenuOpen(false);
+
+        // Reload the page to apply the new locale
+        window.location.reload();
+      }
+    } catch (error) {
+      console.error('Failed to change language:', error);
+    }
   };
 
   // Close menus when clicking outside
@@ -106,13 +152,7 @@ export function Header() {
                 onClick={() => setIsLanguageMenuOpen(!isLanguageMenuOpen)}
                 className="flex items-center space-x-2 px-3 py-2 rounded-lg text-sm font-medium text-white hover:bg-white/10 transition-all"
               >
-                <Image
-                  src={selectedLanguage.flag}
-                  alt={selectedLanguage.name}
-                  width={20}
-                  height={20}
-                  className="rounded"
-                />
+                <Globe className="h-4 w-4" />
                 <span>{selectedLanguage.name}</span>
                 <ChevronDown className="h-4 w-4" />
               </button>
@@ -123,10 +163,7 @@ export function Header() {
                   {LANGUAGES.map((language) => (
                     <button
                       key={language.code}
-                      onClick={() => {
-                        setSelectedLanguage(language);
-                        setIsLanguageMenuOpen(false);
-                      }}
+                      onClick={() => handleLanguageChange(language.code)}
                       className={cn(
                         'w-full flex items-center gap-3 px-4 py-2 text-sm transition-colors',
                         selectedLanguage.code === language.code
@@ -134,13 +171,7 @@ export function Header() {
                           : 'text-gray-700 hover:bg-primary-teal/10 hover:text-primary-teal'
                       )}
                     >
-                      <Image
-                        src={language.flag}
-                        alt={language.name}
-                        width={20}
-                        height={20}
-                        className="rounded"
-                      />
+                      <Globe className="h-4 w-4" />
                       {language.name}
                     </button>
                   ))}
@@ -261,9 +292,7 @@ export function Header() {
                   {LANGUAGES.map((language) => (
                     <button
                       key={language.code}
-                      onClick={() => {
-                        setSelectedLanguage(language);
-                      }}
+                      onClick={() => handleLanguageChange(language.code)}
                       className={cn(
                         'w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all',
                         selectedLanguage.code === language.code
@@ -271,13 +300,7 @@ export function Header() {
                           : 'text-white/90 hover:bg-white/10'
                       )}
                     >
-                      <Image
-                        src={language.flag}
-                        alt={language.name}
-                        width={24}
-                        height={24}
-                        className="rounded"
-                      />
+                      <Globe className="h-5 w-5" />
                       {language.name}
                     </button>
                   ))}

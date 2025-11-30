@@ -65,3 +65,28 @@ export interface MapConfig {
   zoom: number;
   barangays: BarangayData[];
 }
+
+// Announcement Types
+export type TargetAudience = 'all' | 'patients' | 'healthcare_admin' | 'doctor';
+
+export interface Announcement {
+  id: string;
+  title: string;
+  content: string;
+  created_by: string;
+  target_audience: TargetAudience;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+  profiles?: {
+    first_name: string;
+    last_name: string;
+  };
+}
+
+export interface AnnouncementFormData {
+  title: string;
+  content: string;
+  target_audience: TargetAudience;
+  is_active: boolean;
+}

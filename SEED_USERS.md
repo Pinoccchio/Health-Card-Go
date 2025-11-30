@@ -1,7 +1,7 @@
-# HealthCard Test Users Seeding Guide
+# HealthCardGo Test Users Seeding Guide
 
 ## Overview
-This guide provides instructions for creating test users in the HealthCard system using the Next.js registration flow.
+This guide provides instructions for creating test users in the HealthCardGo system using the Next.js registration flow.
 
 ## Important Notes
 

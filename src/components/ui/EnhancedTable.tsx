@@ -18,6 +18,8 @@ interface EnhancedTableProps {
   className?: string;
   searchable?: boolean;
   searchPlaceholder?: string;
+  searchValue?: string;
+  onSearchChange?: (value: string) => void;
   paginated?: boolean;
   pageSize?: number;
   onExport?: () => void;
@@ -33,6 +35,8 @@ export const EnhancedTable: React.FC<EnhancedTableProps> = ({
   className = '',
   searchable = false,
   searchPlaceholder = 'Search...',
+  searchValue,
+  onSearchChange,
   paginated = false,
   pageSize = 10,
   onExport,
@@ -41,7 +45,11 @@ export const EnhancedTable: React.FC<EnhancedTableProps> = ({
   getRowColor,
   onRowClick,
 }) => {
-  const [searchQuery, setSearchQuery] = useState('');
+  const [internalSearchQuery, setInternalSearchQuery] = useState('');
+
+  // Use controlled search value if provided, otherwise use internal state
+  const searchQuery = searchValue !== undefined ? searchValue : internalSearchQuery;
+  const setSearchQuery = onSearchChange || setInternalSearchQuery;
   const [sortConfig, setSortConfig] = useState<{
     key: string;
     direction: 'asc' | 'desc';
@@ -49,7 +57,14 @@ export const EnhancedTable: React.FC<EnhancedTableProps> = ({
   const [currentPage, setCurrentPage] = useState(1);
 
   // Filter data based on search query
+  // Skip client-side filtering if using controlled search (server-side search)
   const filteredData = useMemo(() => {
+    if (onSearchChange) {
+      // Controlled search - filtering handled by parent (server-side)
+      return data;
+    }
+
+    // Internal search - client-side filtering
     if (!searchQuery) return data;
 
     return data.filter(row =>
@@ -58,7 +73,7 @@ export const EnhancedTable: React.FC<EnhancedTableProps> = ({
         return value?.toString().toLowerCase().includes(searchQuery.toLowerCase());
       })
     );
-  }, [data, searchQuery, columns]);
+  }, [data, searchQuery, columns, onSearchChange]);
 
   // Sort data
   const sortedData = useMemo(() => {

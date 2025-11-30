@@ -152,5 +152,77 @@
     "all_barangays": "All Barangays",
     "message": "Message",
     "send": "Send Update"
+  },
+  "landing": {
+    "nav": {
+      "home": "Home",
+      "about": "About Us",
+      "services": "Services",
+      "heatmap": "Heat Map",
+      "blog": "Blog",
+      "announcements": "Announcements"
+    },
+    "hero": {
+      "title": "Providing an Exceptional Patient Experience",
+      "subtitle": "Welcome, where exceptional patient experiences are our priority. With compassionate care, state-of-the-art facilities, and a patient-centered approach, we're dedicated to your well-being. Trust us with your health and experience the difference.",
+      "cta": "Book an Appointment"
+    },
+    "services": {
+      "title": "Our Services",
+      "healthcard": {
+        "title": "Health Card",
+        "description": "Accurate Diagnostics, Swift Results: Experience top-notch Laboratory Testing at our facility."
+      },
+      "hiv": {
+        "title": "HIV",
+        "description": "Our thorough assessments and expert evaluations help you stay proactive about your health."
+      },
+      "pregnancy": {
+        "title": "Pregnancy",
+        "description": "Experience comprehensive oral care with Dentistry. Trust us to keep your smile healthy and bright."
+      }
+    },
+    "about": {
+      "title": "About Us",
+      "paragraph1": "Welcome to our healthcare website, your one-stop destination for reliable and comprehensive health care information. We are committed to promoting wellness and providing valuable resources to empower you on your health journey.",
+      "paragraph2": "Explore our extensive collection of expertly written articles and guides covering a wide range of health topics. From understanding common medical conditions to tips for maintaining a healthy lifestyle, our content is designed to educate, inspire, and support you in making informed choices for your health.",
+      "paragraph3": "Discover practical health tips and lifestyle advice to optimize your physical and mental well-being. We believe that small changes can lead to significant improvements in your quality of life, and we're here to guide you on your path to a healthier and happier you."
+    },
+    "whychoose": {
+      "title": "Why Choose Us",
+      "subtitle": "With a steadfast commitment to your well-being, our team of highly trained healthcare professionals ensures that you receive nothing short of exceptional patient experiences.",
+      "intensivecare": {
+        "title": "Intensive Care",
+        "description": "Our Intensive Care Unit is equipped with advanced technology and staffed by team of professionals"
+      },
+      "ambulance": {
+        "title": "Free Ambulance Car",
+        "description": "A compassionate initiative to prioritize your health and well-being without any financial burden."
+      },
+      "medicalsurgical": {
+        "title": "Medical and Surgical",
+        "description": "Our Medical and Surgical services offer advanced healthcare solutions to address medical needs."
+      }
+    },
+    "heatmap": {
+      "title": "Heat Map",
+      "description": "We take pride in our exceptional team of doctors, each a specialist in their respective fields."
+    },
+    "footer": {
+      "description": "We are honored to be a part of your healthcare journey and committed to delivering compassionate, personalized, and top-notch care every step of the way.",
+      "trust": "Trust us with your health, and let us work together to achieve the best possible outcomes for you and your loved ones.",
+      "aboutus": "About Us",
+      "services": "Services",
+      "contact": "Contact Us",
+      "links": "Links",
+      "home": "Home",
+      "workwithus": "Work With Us",
+      "ourblog": "Our Blog",
+      "pregnancycheckup": "Pregnancy Checkup",
+      "privacypolicy": "Privacy Policy",
+      "ourstores": "Our Stores",
+      "terms": "Terms & Conditions",
+      "copyright": "Contactus. Copyright © 2025"
+    }
   }
 }

@@ -10,11 +10,11 @@ export function Footer() {
       {/* Main Footer Content */}
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-12">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-          {/* HealthCare Column */}
+          {/* HealthCardGo Column */}
           <div>
             <div className="flex items-center space-x-1 mb-4">
-              <span className="text-xl font-bold text-[#20C997]">Health</span>
-              <span className="text-xl font-bold text-[#FF8542]">Care</span>
+              <span className="text-xl font-bold text-[#20C997]">HealthCard</span>
+              <span className="text-xl font-bold text-[#FF8542]">Go</span>
             </div>
             <p className="text-gray-600 text-sm leading-relaxed mb-6">
               We are honored to be a part of your healthcare journey and committed to delivering

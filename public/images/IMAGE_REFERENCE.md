@@ -4,7 +4,7 @@
 > **Source:** Legacy Laravel Application (docs/legacy/healthcardgo/healthcardgo/)
 > **Migration Date:** November 29, 2025
 
-This document provides a complete reference for all images migrated from the Laravel HealthCard application to the Next.js project.
+This document provides a complete reference for all images migrated from the Laravel HealthCardGo application to the Next.js project.
 
 ---
 
@@ -69,7 +69,7 @@ import Image from 'next/image'
 <div className="relative h-96">
   <Image
     src="/images/hero-background.jpg"
-    alt="HealthCard Hero"
+    alt="HealthCardGo Hero"
     fill
     className="object-cover"
     priority
@@ -100,7 +100,7 @@ import Image from 'next/image'
 
 <Image
   src="/images/about-section.jpg"
-  alt="About HealthCard Service"
+  alt="About HealthCardGo Service"
   width={940}
   height={788}
   className="rounded-lg shadow-lg"
@@ -128,7 +128,7 @@ import Image from 'next/image'
 
 <Image
   src="/images/why-choose-us-section.jpg"
-  alt="Why Choose HealthCard"
+  alt="Why Choose HealthCardGo"
   width={940}
   height={788}
   className="rounded-lg shadow-lg"

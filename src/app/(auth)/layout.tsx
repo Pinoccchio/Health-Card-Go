@@ -2,17 +2,28 @@ import { ReactNode } from 'react';
 import { Metadata } from 'next';
 import Link from 'next/link';
 import { ArrowLeft, Mail, Phone } from 'lucide-react';
+import { NextIntlClientProvider } from 'next-intl';
+import { getMessages } from 'next-intl/server';
+import { cookies } from 'next/headers';
 import '@/app/globals.css';
 import { Logo } from '@/components/ui/Logo';
 
 export const metadata: Metadata = {
-  title: 'Authentication - HealthCard System',
+  title: 'Authentication - HealthCardGo System',
   description:
-    'Login or register for HealthCard - Healthcare Appointment Management System',
+    'Login or register for HealthCardGo - Healthcare Appointment Management System',
 };
 
-export default function AuthLayout({ children }: { children: ReactNode }) {
+export default async function AuthLayout({ children }: { children: ReactNode }) {
+  // Get locale from cookie
+  const cookieStore = await cookies();
+  const locale = cookieStore.get('NEXT_LOCALE')?.value || 'en';
+
+  // Load messages for the current locale
+  const messages = await getMessages({ locale });
+
   return (
+    <NextIntlClientProvider locale={locale} messages={messages}>
     <div className="min-h-screen flex flex-col bg-gradient-to-br from-primary-teal/10 via-white to-cta-orange/10">
       {/* Background Pattern */}
       <div className="absolute inset-0 bg-[url('/images/pattern.svg')] opacity-5"></div>
@@ -67,5 +78,6 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
         </div>
       </footer>
     </div>
+    </NextIntlClientProvider>
   );
 }

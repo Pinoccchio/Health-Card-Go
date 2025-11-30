@@ -103,7 +103,16 @@ export default function HealthcareAdminAppointmentsPage() {
   const [dateFilter, setDateFilter] = useState<string>('all');
   const [assigningDoctor, setAssigningDoctor] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState('');
+
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize] = useState(20);
+  const [totalRecords, setTotalRecords] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+
+  // Search state
+  const [searchQuery, setSearchQuery] = useState('');
 
   // Doctor assignment state
   const [showAssignDialog, setShowAssignDialog] = useState(false);
@@ -133,10 +142,31 @@ export default function HealthcareAdminAppointmentsPage() {
   // Medical records check for undo validation (keyed by appointment ID)
   const [hasMedicalRecords, setHasMedicalRecords] = useState<Record<string, boolean | null>>({});
 
+  // Reset to page 1 when filters change
+  // Reset to page 1 when filters or search change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [dateFilter, filter, searchQuery]);
+
+  // Debounced search effect
+  useEffect(() => {
+    // Debounce search by 300ms to avoid excessive API calls
+    const timeoutId = setTimeout(() => {
+      if (currentPage === 1) {
+        // If already on page 1, trigger fetch directly
+        fetchAppointments();
+      }
+      // Otherwise, the page change will trigger the fetch via the dependency below
+    }, 300);
+
+    return () => clearTimeout(timeoutId);
+  }, [searchQuery]);
+
+  // Fetch appointments when page or filters change
   useEffect(() => {
     fetchAppointments();
     fetchDoctors();
-  }, [dateFilter]);
+  }, [currentPage, dateFilter, filter]);
 
   // Fetch last history entries when appointments change
   useEffect(() => {
@@ -224,34 +254,78 @@ export default function HealthcareAdminAppointmentsPage() {
 
   const fetchAppointments = async () => {
     setLoading(true);
+    setError('');
     try {
-      let url = '/api/appointments';
+      const params = new URLSearchParams({
+        page: currentPage.toString(),
+        limit: pageSize.toString(),
+      });
 
+      // Add search query
+      if (searchQuery.trim()) {
+        params.append('search', searchQuery.trim());
+      }
+
+      // Add status filter
+      if (filter !== 'all') {
+        params.append('status', filter);
+      }
+
+      // Add date filter
       if (dateFilter === 'today') {
         const nowPHT = getPhilippineTime();
         const year = nowPHT.getFullYear();
         const month = String(nowPHT.getMonth() + 1).padStart(2, '0');
         const day = String(nowPHT.getDate()).padStart(2, '0');
         const today = `${year}-${month}-${day}`;
-        url += `?date=${today}`;
+        params.append('date', today);
       } else if (dateFilter === 'week') {
         const nowPHT = getPhilippineTime();
         const year = nowPHT.getFullYear();
         const month = String(nowPHT.getMonth() + 1).padStart(2, '0');
         const day = String(nowPHT.getDate()).padStart(2, '0');
         const today = `${year}-${month}-${day}`;
-        url += `?date=${today}`;
+        params.append('date', today);
       }
 
-      const response = await fetch(url);
+      const response = await fetch(`/api/appointments?${params.toString()}`);
       const data = await response.json();
+
+      console.log('📊 [APPOINTMENTS] API Response:', {
+        success: data.success,
+        appointmentsCount: data.data?.length || 0,
+        pagination: data.pagination,
+      });
 
       if (data.success) {
         setAppointments(data.data || []);
+
+        // Update pagination metadata with fallbacks
+        if (data.pagination) {
+          const total = data.pagination.total || 0;
+          const pages = data.pagination.totalPages || Math.ceil(total / pageSize);
+
+          console.log('📄 [PAGINATION] Setting state:', {
+            totalRecords: total,
+            totalPages: pages,
+            currentPage,
+            pageSize,
+          });
+
+          setTotalRecords(total);
+          setTotalPages(pages);
+        } else {
+          // Fallback: estimate from data length
+          console.warn('⚠️ [PAGINATION] No pagination metadata in response, using fallback');
+          const dataLength = data.data?.length || 0;
+          setTotalRecords(dataLength);
+          setTotalPages(dataLength > pageSize ? Math.ceil(dataLength / pageSize) : 1);
+        }
       } else {
         setError(data.error || 'Failed to load appointments');
       }
     } catch (err) {
+      console.error('❌ [APPOINTMENTS] Fetch error:', err);
       setError('An unexpected error occurred');
     } finally {
       setLoading(false);
@@ -259,8 +333,10 @@ export default function HealthcareAdminAppointmentsPage() {
   };
 
   // Calculate statistics
+  // Note: With pagination, statistics show counts for current page only
+  // Total count shows all records from API pagination metadata
   const statistics = useMemo(() => {
-    const total = appointments.length;
+    const total = totalRecords; // Use total from API instead of current page
     const pending = appointments.filter(a => a.status === 'pending').length;
     const scheduled = appointments.filter(a => a.status === 'scheduled').length;
     const checked_in = appointments.filter(a => a.status === 'checked_in').length;
@@ -270,7 +346,7 @@ export default function HealthcareAdminAppointmentsPage() {
     const no_show = appointments.filter(a => a.status === 'no_show').length;
 
     return { total, pending, scheduled, checked_in, in_progress, completed, cancelled, no_show };
-  }, [appointments]);
+  }, [appointments, totalRecords]);
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {
@@ -408,16 +484,16 @@ export default function HealthcareAdminAppointmentsPage() {
   };
 
   const exportToCSV = () => {
-    const filteredData = filteredAppointments;
+    const filteredData = appointments;
     const headers = ['Queue #', 'Patient Name', 'Patient #', 'Date', 'Time', 'Status', 'Doctor', 'Reason'];
     const rows = filteredData.map(apt => [
       apt.appointment_number,
-      `${apt.patients.profiles.first_name} ${apt.patients.profiles.last_name}`,
-      apt.patients.patient_number,
+      `${apt.patients?.profiles?.first_name || 'N/A'} ${apt.patients?.profiles?.last_name || ''}`,
+      apt.patients?.patient_number || 'N/A',
       apt.appointment_date,
       apt.appointment_time,
       apt.status,
-      apt.doctors ? `Dr. ${apt.doctors.profiles.first_name} ${apt.doctors.profiles.last_name}` : 'Unassigned',
+      apt.doctors ? `Dr. ${apt.doctors?.profiles?.first_name || ''} ${apt.doctors?.profiles?.last_name || ''}` : 'Unassigned',
       apt.reason || '',
     ]);
 
@@ -451,9 +527,9 @@ export default function HealthcareAdminAppointmentsPage() {
       render: (_: any, row: AdminAppointment) => (
         <div>
           <p className="text-sm font-medium text-gray-900">
-            {row.patients.profiles.first_name} {row.patients.profiles.last_name}
+            {row.patients?.profiles?.first_name || 'N/A'} {row.patients?.profiles?.last_name || ''}
           </p>
-          <p className="text-xs text-gray-500">{row.patients.patient_number}</p>
+          <p className="text-xs text-gray-500">{row.patients?.patient_number || 'N/A'}</p>
         </div>
       ),
     },
@@ -546,12 +622,6 @@ export default function HealthcareAdminAppointmentsPage() {
       ),
     },
   ];
-
-  const filteredAppointments = appointments.filter((apt) => {
-    if (filter === 'all') return true;
-    if (filter === 'cancelled') return apt.status === 'cancelled' || apt.status === 'no_show';
-    return apt.status === filter;
-  });
 
   return (
     <DashboardLayout
@@ -717,7 +787,7 @@ export default function HealthcareAdminAppointmentsPage() {
             <div className="flex justify-end mb-4">
               <button
                 onClick={exportToCSV}
-                disabled={filteredAppointments.length === 0}
+                disabled={appointments.length === 0}
                 className="flex items-center gap-2 px-4 py-2 bg-primary-teal text-white rounded-md hover:bg-primary-teal/90 text-sm font-medium disabled:opacity-50"
               >
                 <Download className="w-4 h-4" />
@@ -729,13 +799,85 @@ export default function HealthcareAdminAppointmentsPage() {
             <div className="mt-6">
               <EnhancedTable
                 columns={tableColumns}
-                data={filteredAppointments}
+                data={appointments}
                 searchable
                 searchPlaceholder="Search by patient name, queue number..."
-                paginated
-                pageSize={15}
+                searchValue={searchQuery}
+                onSearchChange={setSearchQuery}
+                paginated={false}
               />
             </div>
+
+            {/* Server-Side Pagination Controls */}
+            {(() => {
+              console.log('🔍 [PAGINATION RENDER]', {
+                totalPages,
+                totalRecords,
+                currentPage,
+                pageSize,
+                condition: totalPages > 1,
+                appointmentsLength: appointments.length,
+              });
+              return null;
+            })()}
+
+            {/* Show pagination info even if totalPages might not be set correctly */}
+            {(totalPages > 1 || (totalRecords > pageSize && appointments.length >= pageSize)) && (
+              <div className="mt-6 flex items-center justify-between border-t border-gray-200 pt-4">
+                <div className="flex items-center gap-2 text-sm text-gray-600">
+                  <span>
+                    Showing {((currentPage - 1) * pageSize) + 1} to {Math.min(currentPage * pageSize, totalRecords || appointments.length)} of {totalRecords || '?'} results
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                    disabled={currentPage === 1}
+                    className="px-3 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Previous
+                  </button>
+
+                  {/* Page Numbers */}
+                  <div className="flex items-center gap-1">
+                    {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                      let pageNum;
+                      if (totalPages <= 5) {
+                        pageNum = i + 1;
+                      } else if (currentPage <= 3) {
+                        pageNum = i + 1;
+                      } else if (currentPage >= totalPages - 2) {
+                        pageNum = totalPages - 4 + i;
+                      } else {
+                        pageNum = currentPage - 2 + i;
+                      }
+
+                      return (
+                        <button
+                          key={pageNum}
+                          onClick={() => setCurrentPage(pageNum)}
+                          className={`px-3 py-2 border rounded-md text-sm font-medium ${
+                            currentPage === pageNum
+                              ? 'bg-primary-teal text-white border-primary-teal'
+                              : 'border-gray-300 text-gray-700 hover:bg-gray-50'
+                          }`}
+                        >
+                          {pageNum}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  <button
+                    onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                    disabled={currentPage === totalPages}
+                    className="px-3 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Next
+                  </button>
+                </div>
+              </div>
+            )}
           </>
         )}
 
@@ -746,7 +888,7 @@ export default function HealthcareAdminAppointmentsPage() {
             onClose={handleCloseDrawer}
             size="xl"
             title={`Appointment #${selectedAppointment.appointment_number}`}
-            subtitle={`${selectedAppointment.patients.profiles.first_name} ${selectedAppointment.patients.profiles.last_name}`}
+            subtitle={`${selectedAppointment.patients?.profiles?.first_name || 'N/A'} ${selectedAppointment.patients?.profiles?.last_name || ''}`}
             metadata={{
               createdOn: `${formatDate(selectedAppointment.appointment_date)} at ${formatTime(selectedAppointment.appointment_time)}`,
               status: selectedAppointment.status,
@@ -793,14 +935,14 @@ export default function HealthcareAdminAppointmentsPage() {
                       <div>
                         <p className="text-xs text-gray-500">Name</p>
                         <p className="font-medium text-gray-900 mt-1">
-                          {selectedAppointment.patients.profiles.first_name} {selectedAppointment.patients.profiles.last_name}
+                          {selectedAppointment.patients?.profiles?.first_name || 'N/A'} {selectedAppointment.patients?.profiles?.last_name || ''}
                         </p>
                       </div>
                       <div>
                         <p className="text-xs text-gray-500">Patient #</p>
-                        <p className="font-medium text-gray-900 mt-1">{selectedAppointment.patients.patient_number}</p>
+                        <p className="font-medium text-gray-900 mt-1">{selectedAppointment.patients?.patient_number || 'N/A'}</p>
                       </div>
-                      {selectedAppointment.patients.profiles.email && (
+                      {selectedAppointment.patients?.profiles?.email && (
                         <div>
                           <p className="text-xs text-gray-500 flex items-center">
                             <Mail className="w-3 h-3 mr-1" />
@@ -809,7 +951,7 @@ export default function HealthcareAdminAppointmentsPage() {
                           <p className="text-gray-900 mt-1">{selectedAppointment.patients.profiles.email}</p>
                         </div>
                       )}
-                      {selectedAppointment.patients.profiles.contact_number && (
+                      {selectedAppointment.patients?.profiles?.contact_number && (
                         <div>
                           <p className="text-xs text-gray-500 flex items-center">
                             <Phone className="w-3 h-3 mr-1" />
@@ -818,7 +960,7 @@ export default function HealthcareAdminAppointmentsPage() {
                           <p className="text-gray-900 mt-1">{selectedAppointment.patients.profiles.contact_number}</p>
                         </div>
                       )}
-                      {selectedAppointment.patients.profiles.date_of_birth && (
+                      {selectedAppointment.patients?.profiles?.date_of_birth && (
                         <div>
                           <p className="text-xs text-gray-500">Date of Birth</p>
                           <p className="text-gray-900 mt-1">
@@ -830,13 +972,13 @@ export default function HealthcareAdminAppointmentsPage() {
                           </p>
                         </div>
                       )}
-                      {selectedAppointment.patients.profiles.gender && (
+                      {selectedAppointment.patients?.profiles?.gender && (
                         <div>
                           <p className="text-xs text-gray-500">Gender</p>
                           <p className="text-gray-900 mt-1 capitalize">{selectedAppointment.patients.profiles.gender}</p>
                         </div>
                       )}
-                      {selectedAppointment.patients.profiles.barangays && (
+                      {selectedAppointment.patients?.profiles?.barangays && (
                         <div className="col-span-2">
                           <p className="text-xs text-gray-500 flex items-center">
                             <MapPin className="w-3 h-3 mr-1" />
@@ -850,7 +992,7 @@ export default function HealthcareAdminAppointmentsPage() {
                 </div>
 
                 {/* Emergency Contact */}
-                {selectedAppointment.patients.profiles.emergency_contact && (
+                {selectedAppointment.patients?.profiles?.emergency_contact && (
                   <div>
                     <h4 className="text-sm font-medium text-gray-700 mb-2 flex items-center">
                       <AlertCircle className="w-4 h-4 mr-2" />
@@ -989,9 +1131,9 @@ export default function HealthcareAdminAppointmentsPage() {
                               appointmentId: selectedAppointment.id,
                               doctorId: value || null,
                               doctorName: selectedDoctor
-                                ? `Dr. ${selectedDoctor.profiles.first_name} ${selectedDoctor.profiles.last_name}`
+                                ? `Dr. ${selectedDoctor.profiles?.first_name || ''} ${selectedDoctor.profiles?.last_name || ''}`
                                 : null,
-                              patientName: `${selectedAppointment.patients.profiles.first_name} ${selectedAppointment.patients.profiles.last_name}`
+                              patientName: `${selectedAppointment.patients?.profiles?.first_name || 'N/A'} ${selectedAppointment.patients?.profiles?.last_name || ''}`
                             });
                             setShowAssignDialog(true);
                           }}

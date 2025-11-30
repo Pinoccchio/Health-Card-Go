@@ -152,5 +152,77 @@
     "all_barangays": "Tanang Barangay",
     "message": "Mensahe",
     "send": "Ipadala ang Update"
+  },
+  "landing": {
+    "nav": {
+      "home": "Home",
+      "about": "Mahitungod Kanamo",
+      "services": "Mga Serbisyo",
+      "heatmap": "Heat Map",
+      "blog": "Blog",
+      "announcements": "Mga Pahibalo"
+    },
+    "hero": {
+      "title": "Naghatag ug Talagsaong Kasinatian sa Pasyente",
+      "subtitle": "Maayong pag-abot, diin ang talagsaong kasinatian sa pasyente mao ang among priyoridad. Uban sa maluluy-on nga pag-atiman, modernong mga pasilidad, ug pasyente-sentrik nga pamaagi, nakatuon kami sa inyong kaayohan. Salig kanamo sa inyong panglawas ug masinati ang kalainan.",
+      "cta": "Mag-book ug Appointment"
+    },
+    "services": {
+      "title": "Among Mga Serbisyo",
+      "healthcard": {
+        "title": "Health Card",
+        "description": "Tukma nga Diagnosis, Paspas nga Resulta: Masinati ang labing maayo nga Laboratory Testing sa among pasilidad."
+      },
+      "hiv": {
+        "title": "HIV",
+        "description": "Ang among bug-os nga pagsusi ug eksperto nga ebalwasyon nagtabang kaninyo nga mahimong proactive bahin sa inyong panglawas."
+      },
+      "pregnancy": {
+        "title": "Pagmabdos",
+        "description": "Masinati ang bug-os nga pag-atiman sa ngipon gamit ang Dentistry. Salig kanamo aron mapadayon nga limpyo ug hayag ang inyong pahiyom."
+      }
+    },
+    "about": {
+      "title": "Mahitungod Kanamo",
+      "paragraph1": "Maayong pag-abot sa among healthcare website, ang inyong one-stop destination para sa kasaligan ug bug-os nga impormasyon sa pag-atiman sa panglawas. Nakatuon kami sa pagpauswag sa wellness ug paghatag ug bililhong mga kapanguhaan aron hatagan kamog gahum sa inyong health journey.",
+      "paragraph2": "Susiha ang among halapad nga koleksyon sa eksperto nga gisulat nga mga artikulo ug giya nga naglangkob sa halapad nga sakup sa mga hilisgutan sa panglawas. Gikan sa pagsabot sa kasagarang medikal nga mga kondisyon hangtod sa mga tip para sa pagpadayon ug maayong pamumho, ang among sulod gidisenyo aron magtudlo, maghatag ug inspirasyon, ug mosuporta kaninyo sa paghimo ug maalamon nga mga pagpili para sa inyong panglawas.",
+      "paragraph3": "Diskubri ang praktikal nga health tips ug lifestyle advice aron ma-optimize ang inyong pisikal ug mental nga kaayohan. Nagtoo kami nga ang gagmay nga mga kausaban mahimong mosangpot sa hinungdanon nga mga pagpauswag sa inyong kalidad sa kinabuhi, ug naa kami dinhi aron mogiya kaninyo sa inyong dalan paingon sa mas himsog ug mas malipayon nga kamo."
+    },
+    "whychoose": {
+      "title": "Ngano Kami ang Pilion",
+      "subtitle": "Uban sa lig-on nga pasalig sa inyong kaayohan, ang among koponan sa lubhang nabansay nga mga propesyonal sa panglawas nagsiguro nga makadawat kamo ug wala na lain kondili mga talagsaong kasinatian sa pasyente.",
+      "intensivecare": {
+        "title": "Intensive Care",
+        "description": "Ang among Intensive Care Unit gisangkapan sa advanced nga teknolohiya ug gitrabaho sa koponan sa mga propesyonal"
+      },
+      "ambulance": {
+        "title": "Libre nga Ambulansya",
+        "description": "Usa ka maluluy-on nga inisyatiba aron unahon ang inyong panglawas ug kaayohan nga walay bisan unsang pinansyal nga lulan."
+      },
+      "medicalsurgical": {
+        "title": "Medical ug Surgical",
+        "description": "Ang among Medical ug Surgical nga mga serbisyo nagtanyag ug advanced nga healthcare solutions aron matubag ang medikal nga mga panginahanglan."
+      }
+    },
+    "heatmap": {
+      "title": "Heat Map",
+      "description": "Gipasigarbo namo ang among talagsaong koponan sa mga doktor, matag usa espesyalista sa ilang mga natad."
+    },
+    "footer": {
+      "description": "Kami gipasidunggan nga mahimong bahin sa inyong healthcare journey ug nakatuon sa paghatag ug maluluy-on, personalized, ug pinakamayo nga pag-atiman sa matag lakang sa dalan.",
+      "trust": "Salig kanamo sa inyong panglawas, ug magtinabangay aron makab-ot ang labing maayong posible nga mga sangputanan alang kaninyo ug sa inyong mga minahal sa kinabuhi.",
+      "aboutus": "Mahitungod Kanamo",
+      "services": "Mga Serbisyo",
+      "contact": "Kontak Kanamo",
+      "links": "Mga Link",
+      "home": "Home",
+      "workwithus": "Trabaho Uban Kanamo",
+      "ourblog": "Among Blog",
+      "pregnancycheckup": "Pregnancy Checkup",
+      "privacypolicy": "Privacy Policy",
+      "ourstores": "Among Mga Tindahan",
+      "terms": "Mga Termino ug Kondisyon",
+      "copyright": "Kontak. Copyright © 2025"
+    }
   }
 }

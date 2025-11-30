@@ -6,6 +6,11 @@ import { NextResponse } from 'next/server';
  *
  * Fetches all patients (all statuses) for admin management.
  * Accessible by Super Admin and Healthcare Admins only.
+ *
+ * Query params:
+ * - page: page number (default: 1)
+ * - limit: records per page (default: 20, max: 100)
+ * - status: filter by status (pending, active, inactive, rejected)
  */
 export async function GET(request: Request) {
   try {
@@ -46,8 +51,16 @@ export async function GET(request: Request) {
       );
     }
 
-    // Fetch ALL patients with barangay and patient information
-    const { data: allPatients, error: fetchError } = await supabase
+    // Parse query parameters
+    const { searchParams } = new URL(request.url);
+    const page = Math.max(1, parseInt(searchParams.get('page') || '1'));
+    const limit = Math.min(100, Math.max(1, parseInt(searchParams.get('limit') || '20')));
+    const offset = (page - 1) * limit;
+    const statusFilter = searchParams.get('status');
+    const search = searchParams.get('search')?.trim() || '';
+
+    // Build query with pagination
+    let query = supabase
       .from('profiles')
       .select(`
         id,
@@ -76,9 +89,44 @@ export async function GET(request: Request) {
           medical_history,
           current_medications
         )
-      `)
-      .eq('role', 'patient')
-      .order('created_at', { ascending: false });
+      `, { count: 'exact' })
+      .eq('role', 'patient');
+
+    // Apply status filter
+    if (statusFilter) {
+      query = query.eq('status', statusFilter);
+    }
+
+    // Apply search filter
+    if (search) {
+      console.log('🔍 [PATIENTS SEARCH] Search query:', search);
+      const searchWords = search.trim().split(/\s+/);
+
+      if (searchWords.length > 1) {
+        // Multi-word search: search each word separately
+        console.log('🔍 [PATIENTS SEARCH] Multi-word search, words:', searchWords.length);
+        const conditions = searchWords.map(word =>
+          `email.ilike.%${word}%,first_name.ilike.%${word}%,last_name.ilike.%${word}%`
+        ).join(',');
+        query = query.or(conditions);
+      } else {
+        // Single-word search
+        console.log('🔍 [PATIENTS SEARCH] Single-word search');
+        query = query.or(
+          `email.ilike.%${search}%,first_name.ilike.%${search}%,last_name.ilike.%${search}%`
+        );
+      }
+    }
+
+    // Get total count
+    const { count: totalCount } = await query;
+
+    // Apply pagination and ordering
+    query = query
+      .order('created_at', { ascending: false })
+      .range(offset, offset + limit - 1);
+
+    const { data: allPatients, error: fetchError } = await query;
 
     if (fetchError) {
       console.error('Error fetching patients:', fetchError);
@@ -88,10 +136,19 @@ export async function GET(request: Request) {
       );
     }
 
+    const totalPages = Math.ceil((totalCount || 0) / limit);
+
     return NextResponse.json({
       success: true,
       data: allPatients || [],
-      count: allPatients?.length || 0,
+      pagination: {
+        page,
+        limit,
+        total: totalCount || 0,
+        totalPages,
+        hasNextPage: page < totalPages,
+        hasPreviousPage: page > 1,
+      },
     });
   } catch (error) {
     console.error('Unexpected error in GET /api/admin/patients:', error);

@@ -34,9 +34,15 @@ export async function GET(request: NextRequest) {
       .limit(limit);
 
     // Filter by target audience (all, patients, healthcare_admin, doctor)
-    if (targetAudience !== 'all') {
-      query = query.or(`target_audience.eq.all,target_audience.eq.${targetAudience}`);
+    // Show announcements for 'all' OR the specific target audience
+    if (targetAudience === 'patients') {
+      query = query.or('target_audience.eq.all,target_audience.eq.patients');
+    } else if (targetAudience === 'healthcare_admin') {
+      query = query.or('target_audience.eq.all,target_audience.eq.healthcare_admin');
+    } else if (targetAudience === 'doctor') {
+      query = query.or('target_audience.eq.all,target_audience.eq.doctor');
     }
+    // If targetAudience is 'all', don't add any filter (show everything)
 
     const { data: announcements, error } = await query;
 
@@ -61,7 +67,7 @@ export async function GET(request: NextRequest) {
 
 /**
  * POST /api/announcements
- * Create a new announcement (Super Admin only)
+ * Create a new announcement (Super Admin and Healthcare Admin)
  */
 export async function POST(request: NextRequest) {
   const supabase = await createClient();
@@ -83,9 +89,9 @@ export async function POST(request: NextRequest) {
       .eq('id', user.id)
       .single();
 
-    if (profile?.role !== 'super_admin') {
+    if (profile?.role !== 'super_admin' && profile?.role !== 'healthcare_admin') {
       return NextResponse.json(
-        { success: false, error: 'Forbidden: Only Super Admins can create announcements' },
+        { success: false, error: 'Forbidden: Only Super Admins and Healthcare Admins can create announcements' },
         { status: 403 }
       );
     }
