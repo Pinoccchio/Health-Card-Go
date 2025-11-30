@@ -3,7 +3,10 @@
 import { useState, useEffect } from 'react';
 import { DashboardLayout } from '@/components/dashboard';
 import { Container, ConfirmDialog } from '@/components/ui';
-import { Calendar, Clock, MapPin, FileText, AlertCircle, XCircle, CheckCircle2, Loader2 } from 'lucide-react';
+import { StatusHistoryModal } from '@/components/appointments/StatusHistoryModal';
+import { Calendar, Clock, MapPin, FileText, AlertCircle, XCircle, CheckCircle2, Loader2, History } from 'lucide-react';
+import { canCancelAppointment as canCancelByTimezone } from '@/lib/utils/timezone';
+import { APPOINTMENT_STATUS_CONFIG } from '@/lib/constants/colors';
 
 interface Appointment {
   id: string;
@@ -26,38 +29,8 @@ interface Appointment {
   };
 }
 
-const statusConfig = {
-  scheduled: {
-    label: 'Scheduled',
-    color: 'bg-blue-100 text-blue-800',
-    icon: Calendar,
-  },
-  checked_in: {
-    label: 'Checked In',
-    color: 'bg-purple-100 text-purple-800',
-    icon: CheckCircle2,
-  },
-  in_progress: {
-    label: 'In Progress',
-    color: 'bg-yellow-100 text-yellow-800',
-    icon: Loader2,
-  },
-  completed: {
-    label: 'Completed',
-    color: 'bg-green-100 text-green-800',
-    icon: CheckCircle2,
-  },
-  cancelled: {
-    label: 'Cancelled',
-    color: 'bg-gray-100 text-gray-800',
-    icon: XCircle,
-  },
-  no_show: {
-    label: 'No Show',
-    color: 'bg-red-100 text-red-800',
-    icon: AlertCircle,
-  },
-};
+// Use centralized status config for consistent colors
+const statusConfig = APPOINTMENT_STATUS_CONFIG;
 
 export default function PatientAppointmentsPage() {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
@@ -71,6 +44,10 @@ export default function PatientAppointmentsPage() {
     date: string;
     time: string;
   } | null>(null);
+
+  // Status history modal state
+  const [showHistoryModal, setShowHistoryModal] = useState(false);
+  const [selectedHistoryAppointmentId, setSelectedHistoryAppointmentId] = useState<string | null>(null);
 
   useEffect(() => {
     fetchAppointments();
@@ -95,12 +72,8 @@ export default function PatientAppointmentsPage() {
   };
 
   const handleCancelClick = (appointmentId: string, appointmentDate: string, appointmentTime: string) => {
-    // Check 24-hour policy
-    const appointmentDateTime = new Date(`${appointmentDate}T${appointmentTime}`);
-    const now = new Date();
-    const hoursDifference = (appointmentDateTime.getTime() - now.getTime()) / (1000 * 60 * 60);
-
-    if (hoursDifference < 24) {
+    // Check 24-hour policy (using Philippine timezone)
+    if (!canCancelByTimezone(appointmentDate, appointmentTime)) {
       setError('Appointments can only be cancelled at least 24 hours in advance');
       return;
     }
@@ -150,6 +123,11 @@ export default function PatientAppointmentsPage() {
     setAppointmentToCancel(null);
   };
 
+  const handleViewHistory = (appointmentId: string) => {
+    setSelectedHistoryAppointmentId(appointmentId);
+    setShowHistoryModal(true);
+  };
+
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleDateString('en-US', {
@@ -171,11 +149,8 @@ export default function PatientAppointmentsPage() {
   const canCancelAppointment = (appointment: Appointment) => {
     if (appointment.status !== 'scheduled') return false;
 
-    const appointmentDateTime = new Date(`${appointment.appointment_date}T${appointment.appointment_time}`);
-    const now = new Date();
-    const hoursDifference = (appointmentDateTime.getTime() - now.getTime()) / (1000 * 60 * 60);
-
-    return hoursDifference >= 24;
+    // Use Philippine timezone for 24-hour cancellation rule
+    return canCancelByTimezone(appointment.appointment_date, appointment.appointment_time);
   };
 
   const isUpcoming = (appointment: Appointment) => {
@@ -252,8 +227,19 @@ export default function PatientAppointmentsPage() {
         </div>
       )}
 
+      {/* View History button for all appointments */}
+      <div className="mb-4">
+        <button
+          onClick={() => handleViewHistory(appointment.id)}
+          className="w-full text-sm text-primary-teal hover:text-primary-teal/80 font-medium flex items-center justify-center gap-1 py-2 border border-primary-teal/20 rounded-md hover:bg-primary-teal/5 transition-colors"
+        >
+          <History className="w-4 h-4" />
+          View Status History
+        </button>
+      </div>
+
       {appointment.status === 'scheduled' && (
-        <div className="flex items-center justify-between pt-4 border-t border-gray-200">
+        <div className="pt-4 border-t border-gray-200">
           {canCancelAppointment(appointment) ? (
             <button
               onClick={() =>
@@ -391,6 +377,14 @@ export default function PatientAppointmentsPage() {
           reasonLabel="Reason for cancellation (optional)"
           reasonPlaceholder="Please let us know why you're cancelling..."
           isLoading={!!cancellingId}
+        />
+
+        {/* Status History Modal (Read-only for patients) */}
+        <StatusHistoryModal
+          appointmentId={selectedHistoryAppointmentId || ''}
+          isOpen={showHistoryModal}
+          onClose={() => setShowHistoryModal(false)}
+          canRevert={false}
         />
       </Container>
     </DashboardLayout>

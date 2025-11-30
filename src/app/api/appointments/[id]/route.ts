@@ -1,5 +1,6 @@
 import { createClient, createAdminClient } from '@/lib/supabase/server';
 import { NextRequest, NextResponse } from 'next/server';
+import { canCancelAppointment } from '@/lib/utils/timezone';
 
 /**
  * GET /api/appointments/[id]
@@ -93,6 +94,138 @@ export async function GET(
 }
 
 /**
+ * Handle status reversion
+ * Revert appointment status to a previous state in history
+ */
+async function handleStatusReversion(
+  supabase: any,
+  appointmentId: string,
+  historyId: string,
+  userId: string,
+  reason?: string
+) {
+  // Fetch the history entry to revert to
+  const { data: historyEntry, error: historyError } = await supabase
+    .from('appointment_status_history')
+    .select('*')
+    .eq('id', historyId)
+    .eq('appointment_id', appointmentId)
+    .single();
+
+  if (historyError || !historyEntry) {
+    return NextResponse.json(
+      { error: 'History entry not found' },
+      { status: 404 }
+    );
+  }
+
+  // Get current appointment
+  const { data: currentAppointment } = await supabase
+    .from('appointments')
+    .select('*')
+    .eq('id', appointmentId)
+    .single();
+
+  if (!currentAppointment) {
+    return NextResponse.json(
+      { error: 'Appointment not found' },
+      { status: 404 }
+    );
+  }
+
+  const targetStatus = historyEntry.from_status || 'scheduled';
+
+  // Business rule: Cannot revert completed appointments with medical records
+  if (currentAppointment.status === 'completed') {
+    const { data: medicalRecord } = await supabase
+      .from('medical_records')
+      .select('id')
+      .eq('appointment_id', appointmentId)
+      .limit(1);
+
+    if (medicalRecord && medicalRecord.length > 0) {
+      return NextResponse.json(
+        { error: 'Cannot revert completed appointments that have medical records' },
+        { status: 400 }
+      );
+    }
+  }
+
+  // Business rule: Cannot revert cancelled or no_show appointments
+  if (['cancelled', 'no_show'].includes(currentAppointment.status)) {
+    return NextResponse.json(
+      { error: `Cannot revert ${currentAppointment.status} appointments` },
+      { status: 400 }
+    );
+  }
+
+  // Prepare update data - reset timestamps for reverted status
+  const updateData: any = {
+    status: targetStatus,
+  };
+
+  // Clear timestamps that shouldn't exist for the reverted status
+  if (targetStatus === 'scheduled') {
+    updateData.checked_in_at = null;
+    updateData.started_at = null;
+    updateData.completed_at = null;
+  } else if (targetStatus === 'checked_in') {
+    updateData.started_at = null;
+    updateData.completed_at = null;
+  } else if (targetStatus === 'in_progress') {
+    updateData.completed_at = null;
+  }
+
+  // Use admin client to update
+  const adminClient = createAdminClient();
+  const { data: updatedAppointment, error: updateError } = await adminClient
+    .from('appointments')
+    .update(updateData)
+    .eq('id', appointmentId)
+    .select(`
+      *,
+      patients!inner(
+        id,
+        user_id,
+        profiles!inner(
+          first_name,
+          last_name
+        )
+      )
+    `)
+    .single();
+
+  if (updateError) {
+    console.error('Error reverting status:', updateError);
+    return NextResponse.json(
+      { error: 'Failed to revert status' },
+      { status: 500 }
+    );
+  }
+
+  // Explicitly insert reversion history entry with correct user attribution
+  // Trigger no longer automatically logs status changes, so we do it manually here
+  await adminClient
+    .from('appointment_status_history')
+    .insert({
+      appointment_id: appointmentId,
+      change_type: 'status_change',
+      from_status: currentAppointment.status,
+      to_status: targetStatus,
+      changed_by: userId, // Use the authenticated user ID, not patient!
+      is_reversion: true,
+      reverted_from_history_id: historyId,
+      reason: reason || `Reverted from ${currentAppointment.status} to ${targetStatus}`,
+    });
+
+  return NextResponse.json({
+    success: true,
+    data: updatedAppointment,
+    message: `Status reverted to ${targetStatus}`,
+  });
+}
+
+/**
  * PATCH /api/appointments/[id]
  * Update appointment (assign doctor, check-in, status updates)
  * Only doctors and admins can update
@@ -132,7 +265,12 @@ export async function PATCH(
 
     // Get request body
     const body = await request.json();
-    const { status, notes, doctor_id } = body;
+    const { status, notes, doctor_id, revert_to_history_id, reason } = body;
+
+    // Handle status reversion
+    if (revert_to_history_id) {
+      return handleStatusReversion(supabase, id, revert_to_history_id, user.id, reason);
+    }
 
     // Build update object
     const updateData: any = {};
@@ -210,6 +348,15 @@ export async function PATCH(
       );
     }
 
+    // Get current appointment status before updating (for history logging)
+    const { data: currentAppointment } = await supabase
+      .from('appointments')
+      .select('status')
+      .eq('id', id)
+      .single();
+
+    const oldStatus = currentAppointment?.status;
+
     // Use admin client to bypass RLS for update operation
     // We've already verified authentication and authorization above
     const adminClient = createAdminClient();
@@ -238,6 +385,21 @@ export async function PATCH(
         { error: 'Failed to update appointment' },
         { status: 500 }
       );
+    }
+
+    // Explicitly insert status history entry with correct user attribution and reason
+    // Trigger no longer automatically logs status changes, so we do it manually here
+    if (appointment && status && oldStatus) {
+      await adminClient
+        .from('appointment_status_history')
+        .insert({
+          appointment_id: id,
+          change_type: 'status_change',
+          from_status: oldStatus,
+          to_status: status,
+          changed_by: user.id, // Use the authenticated user ID (doctor/admin), not patient!
+          reason: reason || null, // Include reason if provided by user
+        });
     }
 
     // Send notification to patient
@@ -326,12 +488,8 @@ export async function DELETE(
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
       }
 
-      // Check 24-hour cancellation policy
-      const appointmentDateTime = new Date(`${appointment.appointment_date}T${appointment.appointment_time}`);
-      const now = new Date();
-      const hoursDifference = (appointmentDateTime.getTime() - now.getTime()) / (1000 * 60 * 60);
-
-      if (hoursDifference < 24) {
+      // Check 24-hour cancellation policy (using Philippine timezone)
+      if (!canCancelAppointment(appointment.appointment_date, appointment.appointment_time)) {
         return NextResponse.json(
           { error: 'Appointments can only be cancelled at least 24 hours in advance' },
           { status: 400 }

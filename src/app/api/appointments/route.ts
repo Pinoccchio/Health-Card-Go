@@ -1,5 +1,6 @@
 import { createClient, createAdminClient } from '@/lib/supabase/server';
 import { NextRequest, NextResponse } from 'next/server';
+import { isValidBookingDate, isWeekday } from '@/lib/utils/timezone';
 
 /**
  * POST /api/appointments
@@ -94,16 +95,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Validate 7-day advance booking (using Philippine timezone UTC+8)
-    const appointmentDate = new Date(appointment_date + 'T00:00:00+08:00');
-
-    // Get current date in Philippine timezone
-    const nowPhilippines = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Manila' }));
-    const todayPhilippines = new Date(nowPhilippines.getFullYear(), nowPhilippines.getMonth(), nowPhilippines.getDate());
-
-    const daysDifference = Math.ceil((appointmentDate.getTime() - todayPhilippines.getTime()) / (1000 * 60 * 60 * 24));
-
-    if (daysDifference < 7) {
+    // Validate 7-day advance booking (using Philippine timezone)
+    if (!isValidBookingDate(appointment_date)) {
       return NextResponse.json(
         { error: 'Appointments must be booked at least 7 days in advance' },
         { status: 400 }
@@ -111,7 +104,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Validate weekday (Monday-Friday)
-    const dayOfWeek = appointmentDate.getDay();
+    const dayOfWeek = new Date(appointment_date + 'T00:00:00').getDay();
     if (dayOfWeek === 0 || dayOfWeek === 6) {
       return NextResponse.json(
         { error: 'Appointments are only available Monday through Friday' },
@@ -274,6 +267,10 @@ export async function GET(request: NextRequest) {
           id,
           user_id,
           patient_number,
+          medical_history,
+          allergies,
+          current_medications,
+          accessibility_requirements,
           profiles(
             first_name,
             last_name,
@@ -288,7 +285,8 @@ export async function GET(request: NextRequest) {
           user_id,
           profiles(
             first_name,
-            last_name
+            last_name,
+            specialization
           )
         )
       `)

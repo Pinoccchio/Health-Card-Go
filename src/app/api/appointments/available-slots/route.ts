@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server';
 import { NextRequest, NextResponse } from 'next/server';
+import { getPhilippineTime, isValidBookingDate, isWeekday } from '@/lib/utils/timezone';
 
 /**
  * GET /api/appointments/available-slots
@@ -33,11 +34,8 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Validate date format and that it's a weekday
-    const appointmentDate = new Date(date);
-    const dayOfWeek = appointmentDate.getDay();
-
-    if (dayOfWeek === 0 || dayOfWeek === 6) {
+    // Validate that it's a weekday (using Philippine timezone)
+    if (!isWeekday(date)) {
       return NextResponse.json({
         success: true,
         available: false,
@@ -46,14 +44,8 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // Check 7-day advance requirement
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    appointmentDate.setHours(0, 0, 0, 0);
-
-    const daysDifference = Math.ceil((appointmentDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-
-    if (daysDifference < 7) {
+    // Check 7-day advance requirement (using Philippine timezone)
+    if (!isValidBookingDate(date)) {
       return NextResponse.json({
         success: true,
         available: false,

@@ -3,7 +3,10 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/lib/auth';
 import { DashboardLayout } from '@/components/dashboard';
-import { Container } from '@/components/ui';
+import { Container, ConfirmDialog } from '@/components/ui';
+import { StatusHistoryModal } from '@/components/appointments/StatusHistoryModal';
+import { TimeElapsedBadge } from '@/components/appointments/TimeElapsedBadge';
+import { MedicalContextPanel } from '@/components/appointments/MedicalContextPanel';
 import {
   Calendar,
   Clock,
@@ -15,7 +18,14 @@ import {
   Filter,
   Download,
   Search,
+  History,
+  RotateCcw,
+  User,
+  MapPin,
+  Phone,
 } from 'lucide-react';
+import { getPhilippineTime } from '@/lib/utils/timezone';
+import { APPOINTMENT_STATUS_CONFIG } from '@/lib/constants/colors';
 
 interface AdminAppointment {
   id: string;
@@ -26,8 +36,16 @@ interface AdminAppointment {
   reason?: string;
   doctor_id?: string;
   service_id: number;
+  checked_in_at?: string | null;
+  started_at?: string | null;
+  completed_at?: string | null;
   patients: {
+    id: string;
     patient_number: string;
+    medical_history?: any;
+    allergies?: any;
+    current_medications?: any;
+    accessibility_requirements?: string | null;
     profiles: {
       first_name: string;
       last_name: string;
@@ -43,6 +61,7 @@ interface AdminAppointment {
     profiles: {
       first_name: string;
       last_name: string;
+      specialization?: string;
     };
   };
 }
@@ -64,14 +83,8 @@ interface Stats {
   noShow: number;
 }
 
-const statusConfig = {
-  scheduled: { label: 'Scheduled', color: 'bg-blue-100 text-blue-800' },
-  checked_in: { label: 'Checked In', color: 'bg-purple-100 text-purple-800' },
-  in_progress: { label: 'In Progress', color: 'bg-yellow-100 text-yellow-800' },
-  completed: { label: 'Completed', color: 'bg-green-100 text-green-800' },
-  cancelled: { label: 'Cancelled', color: 'bg-gray-100 text-gray-800' },
-  no_show: { label: 'No Show', color: 'bg-red-100 text-red-800' },
-};
+// Use centralized status config for consistent colors
+const statusConfig = APPOINTMENT_STATUS_CONFIG;
 
 export default function HealthcareAdminAppointmentsPage() {
   const { user } = useAuth();
@@ -85,11 +98,105 @@ export default function HealthcareAdminAppointmentsPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [assigningDoctor, setAssigningDoctor] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState('');
+  const [showAssignDialog, setShowAssignDialog] = useState(false);
+  const [pendingAssignment, setPendingAssignment] = useState<{
+    appointmentId: string;
+    doctorId: string | null;
+    doctorName: string | null;
+    patientName: string;
+  } | null>(null);
+
+  // Status history and reversion states
+  const [showHistoryModal, setShowHistoryModal] = useState(false);
+  const [selectedHistoryAppointmentId, setSelectedHistoryAppointmentId] = useState<string | null>(null);
+  const [showRevertDialog, setShowRevertDialog] = useState(false);
+  const [pendingRevert, setPendingRevert] = useState<{
+    historyId: string;
+    targetStatus: string;
+    appointmentId: string;
+  } | null>(null);
+  const [actionLoading, setActionLoading] = useState(false);
+  const [lastHistoryEntries, setLastHistoryEntries] = useState<Record<string, {
+    id: string;
+    from_status: string | null;
+  }>>({});
+
+  // Medical records check for undo validation (keyed by appointment ID)
+  const [hasMedicalRecords, setHasMedicalRecords] = useState<Record<string, boolean | null>>({});
 
   useEffect(() => {
     fetchAppointments();
     fetchDoctors();
   }, [dateFilter]);
+
+  // Fetch last history entries when appointments change
+  useEffect(() => {
+    if (appointments.length > 0) {
+      fetchAllLastHistoryEntries();
+    }
+  }, [appointments.length]);
+
+  const fetchAllLastHistoryEntries = async () => {
+    const entries: Record<string, { id: string; from_status: string | null }> = {};
+
+    await Promise.all(
+      appointments.map(async (appointment) => {
+        try {
+          const response = await fetch(`/api/appointments/${appointment.id}/history`);
+          const data = await response.json();
+
+          if (data.success && data.data.length > 0) {
+            const lastEntry = data.data.find((entry: any) =>
+              entry.change_type === 'status_change' && entry.from_status !== null
+            );
+            if (lastEntry) {
+              entries[appointment.id] = {
+                id: lastEntry.id,
+                from_status: lastEntry.from_status,
+              };
+            }
+          }
+        } catch (err) {
+          console.error(`Failed to fetch history for appointment ${appointment.id}:`, err);
+        }
+      })
+    );
+
+    setLastHistoryEntries(entries);
+  };
+
+  // Check medical records for completed appointments
+  useEffect(() => {
+    if (appointments.length > 0) {
+      checkAllMedicalRecords();
+    }
+  }, [appointments.length]);
+
+  const checkAllMedicalRecords = async () => {
+    const records: Record<string, boolean | null> = {};
+
+    await Promise.all(
+      appointments.map(async (appointment) => {
+        if (appointment.status === 'completed') {
+          try {
+            const response = await fetch(`/api/medical-records?appointment_id=${appointment.id}`);
+            const data = await response.json();
+
+            if (data.success) {
+              records[appointment.id] = data.has_records;
+            } else {
+              records[appointment.id] = null;
+            }
+          } catch (err) {
+            console.error(`Failed to check medical records for appointment ${appointment.id}:`, err);
+            records[appointment.id] = null;
+          }
+        }
+      })
+    );
+
+    setHasMedicalRecords(records);
+  };
 
   const fetchDoctors = async () => {
     try {
@@ -118,11 +225,20 @@ export default function HealthcareAdminAppointmentsPage() {
       let url = '/api/appointments';
 
       if (dateFilter === 'today') {
-        const today = new Date().toISOString().split('T')[0];
+        // Get today's date in Philippine timezone
+        const nowPHT = getPhilippineTime();
+        const year = nowPHT.getFullYear();
+        const month = String(nowPHT.getMonth() + 1).padStart(2, '0');
+        const day = String(nowPHT.getDate()).padStart(2, '0');
+        const today = `${year}-${month}-${day}`;
         url += `?date=${today}`;
       } else if (dateFilter === 'week') {
         // Fetch this week's appointments (implement date range in API if needed)
-        const today = new Date().toISOString().split('T')[0];
+        const nowPHT = getPhilippineTime();
+        const year = nowPHT.getFullYear();
+        const month = String(nowPHT.getMonth() + 1).padStart(2, '0');
+        const day = String(nowPHT.getDate()).padStart(2, '0');
+        const today = `${year}-${month}-${day}`;
         url += `?date=${today}`;
       }
 
@@ -216,6 +332,84 @@ export default function HealthcareAdminAppointmentsPage() {
       setError('An unexpected error occurred');
     } finally {
       setAssigningDoctor(null);
+    }
+  };
+
+  const handleAssignConfirm = async () => {
+    if (!pendingAssignment) return;
+
+    await handleAssignDoctor(pendingAssignment.appointmentId, pendingAssignment.doctorId);
+    setShowAssignDialog(false);
+    setPendingAssignment(null);
+  };
+
+  const handleAssignCancel = () => {
+    setShowAssignDialog(false);
+    setPendingAssignment(null);
+  };
+
+  // Handler for viewing status history
+  const handleViewHistory = (appointmentId: string) => {
+    setSelectedHistoryAppointmentId(appointmentId);
+    setShowHistoryModal(true);
+  };
+
+  // Handler for initiating reversion from history modal
+  const handleInitiateRevert = (historyId: string, targetStatus: string) => {
+    if (!selectedHistoryAppointmentId) return;
+
+    setPendingRevert({
+      historyId,
+      targetStatus,
+      appointmentId: selectedHistoryAppointmentId,
+    });
+    setShowHistoryModal(false);
+    setShowRevertDialog(true);
+  };
+
+  // Handler for quick undo (no modal)
+  const handleQuickUndo = (appointmentId: string) => {
+    const lastEntry = lastHistoryEntries[appointmentId];
+    if (!lastEntry) return;
+
+    setPendingRevert({
+      historyId: lastEntry.id,
+      targetStatus: lastEntry.from_status || '',
+      appointmentId,
+    });
+    setShowRevertDialog(true);
+  };
+
+  // Handler for confirming reversion
+  const handleConfirmRevert = async (reason?: string) => {
+    if (!pendingRevert) return;
+
+    setActionLoading(true);
+    try {
+      const response = await fetch(`/api/appointments/${pendingRevert.appointmentId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          revert_to_history_id: pendingRevert.historyId,
+          reason,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        await fetchAppointments();
+        setShowRevertDialog(false);
+        setPendingRevert(null);
+        setSuccessMessage('Status reverted successfully');
+        setTimeout(() => setSuccessMessage(''), 3000);
+      } else {
+        setError(data.error || 'Failed to revert status');
+      }
+    } catch (err) {
+      setError('An unexpected error occurred');
+    } finally {
+      setActionLoading(false);
     }
   };
 
@@ -411,8 +605,25 @@ export default function HealthcareAdminAppointmentsPage() {
                       <td className="px-4 py-3 whitespace-nowrap">
                         <span className="text-sm text-gray-700">{formatTime(appointment.appointment_time)}</span>
                       </td>
-                      <td className="px-4 py-3 whitespace-nowrap">
-                        <StatusBadge status={appointment.status} />
+                      <td className="px-4 py-3">
+                        <div className="flex flex-col gap-1">
+                          <StatusBadge status={appointment.status} />
+                          {/* Time Tracking Badges - Status-Aware */}
+                          {appointment.checked_in_at && appointment.status === 'checked_in' && (
+                            <TimeElapsedBadge
+                              timestamp={appointment.checked_in_at}
+                              label="Waiting"
+                              type="waiting"
+                            />
+                          )}
+                          {appointment.started_at && appointment.status === 'in_progress' && (
+                            <TimeElapsedBadge
+                              timestamp={appointment.started_at}
+                              label="Consulting"
+                              type="consulting"
+                            />
+                          )}
+                        </div>
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap">
                         {appointment.doctors ? (
@@ -438,8 +649,18 @@ export default function HealthcareAdminAppointmentsPage() {
                                   value={appointment.doctor_id || ''}
                                   onChange={(e) => {
                                     const value = e.target.value;
-                                    // Allow unassigning by selecting empty option
-                                    handleAssignDoctor(appointment.id, value || null);
+                                    const selectedDoctor = doctors.find(d => d.id === value);
+
+                                    // Set pending assignment and show confirmation dialog
+                                    setPendingAssignment({
+                                      appointmentId: appointment.id,
+                                      doctorId: value || null,
+                                      doctorName: selectedDoctor
+                                        ? `Dr. ${selectedDoctor.profiles.first_name} ${selectedDoctor.profiles.last_name}`
+                                        : null,
+                                      patientName: `${appointment.patients.profiles.first_name} ${appointment.patients.profiles.last_name}`
+                                    });
+                                    setShowAssignDialog(true);
                                   }}
                                   disabled={assigningDoctor === appointment.id}
                                   className="w-full px-2 py-1.5 text-xs border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-teal disabled:opacity-50 disabled:cursor-wait"
@@ -467,10 +688,61 @@ export default function HealthcareAdminAppointmentsPage() {
                             </div>
                           )}
 
-                          {/* No actions for other statuses */}
-                          {appointment.status !== 'scheduled' && (
-                            <span className="text-xs text-gray-400">-</span>
+                          {/* Undo Last Action button with Medical Records Validation */}
+                          {lastHistoryEntries[appointment.id] &&
+                           lastHistoryEntries[appointment.id].from_status &&
+                           appointment.status !== lastHistoryEntries[appointment.id].from_status && (
+                            appointment.status === 'completed' ? (
+                              // Special handling for completed appointments
+                              hasMedicalRecords[appointment.id] === false ? (
+                                <button
+                                  onClick={() => handleQuickUndo(appointment.id)}
+                                  disabled={actionLoading}
+                                  className="w-full px-3 py-1.5 text-xs bg-yellow-100 text-yellow-800 rounded-md hover:bg-yellow-200 font-medium flex items-center justify-center gap-1 border border-yellow-300 disabled:opacity-50 transition-colors"
+                                >
+                                  <RotateCcw className="w-3 h-3" />
+                                  Undo
+                                </button>
+                              ) : hasMedicalRecords[appointment.id] === true ? (
+                                <button
+                                  disabled
+                                  className="w-full px-3 py-1.5 text-xs bg-gray-100 text-gray-500 rounded-md font-medium flex items-center justify-center gap-1 border border-gray-300 cursor-not-allowed"
+                                  title="Cannot undo - medical record has been created"
+                                >
+                                  <RotateCcw className="w-3 h-3" />
+                                  Undo Blocked
+                                </button>
+                              ) : (
+                                // Loading state while checking medical records
+                                <button
+                                  disabled
+                                  className="w-full px-3 py-1.5 text-xs bg-gray-100 text-gray-500 rounded-md font-medium flex items-center justify-center gap-1 border border-gray-200"
+                                >
+                                  <RotateCcw className="w-3 h-3 animate-spin" />
+                                  Checking...
+                                </button>
+                              )
+                            ) : (
+                              // Normal undo button for non-completed statuses
+                              <button
+                                onClick={() => handleQuickUndo(appointment.id)}
+                                disabled={actionLoading}
+                                className="w-full px-3 py-1.5 text-xs bg-yellow-100 text-yellow-800 rounded-md hover:bg-yellow-200 font-medium flex items-center justify-center gap-1 border border-yellow-300 disabled:opacity-50 transition-colors"
+                              >
+                                <RotateCcw className="w-3 h-3" />
+                                Undo
+                              </button>
+                            )
                           )}
+
+                          {/* View Status History button */}
+                          <button
+                            onClick={() => handleViewHistory(appointment.id)}
+                            className="w-full px-3 py-1.5 text-xs text-primary-teal hover:text-primary-teal/80 font-medium flex items-center justify-center gap-1 border border-primary-teal/20 rounded-md hover:bg-primary-teal/5 transition-colors"
+                          >
+                            <History className="w-3 h-3" />
+                            View History
+                          </button>
                         </div>
                       </td>
                     </tr>
@@ -486,6 +758,46 @@ export default function HealthcareAdminAppointmentsPage() {
             </div>
           )}
         </div>
+
+        {/* Doctor Assignment Confirmation Dialog */}
+        <ConfirmDialog
+          isOpen={showAssignDialog}
+          onClose={handleAssignCancel}
+          onConfirm={handleAssignConfirm}
+          title={pendingAssignment?.doctorId ? "Assign Doctor" : "Unassign Doctor"}
+          message={
+            pendingAssignment?.doctorId
+              ? `Are you sure you want to assign ${pendingAssignment.doctorName} to ${pendingAssignment?.patientName}'s appointment?`
+              : `Are you sure you want to unassign the doctor from ${pendingAssignment?.patientName}'s appointment?`
+          }
+          confirmText={pendingAssignment?.doctorId ? "Assign Doctor" : "Unassign"}
+          cancelText="Cancel"
+          variant="info"
+          isLoading={assigningDoctor === pendingAssignment?.appointmentId}
+        />
+
+        {/* Status History Modal */}
+        <StatusHistoryModal
+          appointmentId={selectedHistoryAppointmentId || ''}
+          isOpen={showHistoryModal}
+          onClose={() => setShowHistoryModal(false)}
+        />
+
+        {/* Status Reversion Confirmation Dialog */}
+        <ConfirmDialog
+          isOpen={showRevertDialog}
+          onClose={() => setShowRevertDialog(false)}
+          onConfirm={handleConfirmRevert}
+          title="Revert Appointment Status"
+          message={`Are you sure you want to revert this appointment to "${pendingRevert?.targetStatus?.replace('_', ' ')}"? This action will be logged in the status history.`}
+          confirmText="Revert Status"
+          cancelText="Cancel"
+          variant="warning"
+          showReasonInput={true}
+          reasonLabel="Reason for reversion (required)"
+          reasonPlaceholder="E.g., Accidentally changed status, need to correct error"
+          isLoading={actionLoading}
+        />
       </Container>
     </DashboardLayout>
   );

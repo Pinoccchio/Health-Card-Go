@@ -15,6 +15,7 @@ import {
   RefreshCw,
   UserCircle,
 } from 'lucide-react';
+import { APPOINTMENT_STATUS_CONFIG } from '@/lib/constants/colors';
 
 interface QueueAppointment {
   id: string;
@@ -44,13 +45,8 @@ interface Stats {
   completed: number;
 }
 
-const statusConfig = {
-  scheduled: { label: 'Scheduled', color: 'bg-blue-100 text-blue-800' },
-  checked_in: { label: 'Checked In', color: 'bg-purple-100 text-purple-800' },
-  in_progress: { label: 'In Progress', color: 'bg-yellow-100 text-yellow-800' },
-  completed: { label: 'Completed', color: 'bg-green-100 text-green-800' },
-  no_show: { label: 'No Show', color: 'bg-red-100 text-red-800' },
-};
+// Use centralized status config for consistent colors
+const statusConfig = APPOINTMENT_STATUS_CONFIG;
 
 export default function DoctorDashboard() {
   const { user } = useAuth();

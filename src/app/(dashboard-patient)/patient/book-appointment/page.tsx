@@ -5,6 +5,7 @@ import { DashboardLayout } from '@/components/dashboard';
 import { Container } from '@/components/ui';
 import { Calendar, Clock, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { getReasonTemplates } from '@/lib/config/appointmentTemplates';
+import { getMinBookingDateString } from '@/lib/utils/timezone';
 
 interface Service {
   id: number;
@@ -144,28 +145,8 @@ export default function PatientBookAppointmentPage() {
   };
 
   const getMinDate = () => {
-    // Get current date in Philippine timezone (UTC+8)
-    const nowPhilippines = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Manila' }));
-
-    // Add 7 days
-    nowPhilippines.setDate(nowPhilippines.getDate() + 7);
-
-    // Skip to next weekday if it lands on weekend
-    const dayOfWeek = nowPhilippines.getDay();
-    if (dayOfWeek === 0) {
-      // Sunday → skip to Monday
-      nowPhilippines.setDate(nowPhilippines.getDate() + 1);
-    } else if (dayOfWeek === 6) {
-      // Saturday → skip to Monday
-      nowPhilippines.setDate(nowPhilippines.getDate() + 2);
-    }
-
-    // Format as YYYY-MM-DD
-    const year = nowPhilippines.getFullYear();
-    const month = String(nowPhilippines.getMonth() + 1).padStart(2, '0');
-    const day = String(nowPhilippines.getDate()).padStart(2, '0');
-
-    return `${year}-${month}-${day}`;
+    // Use reliable Philippine timezone utility for minimum booking date
+    return getMinBookingDateString();
   };
 
   if (success) {
