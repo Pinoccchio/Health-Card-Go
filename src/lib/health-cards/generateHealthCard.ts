@@ -1,7 +1,8 @@
 import { createClient } from '@/lib/supabase/server';
 
 export interface HealthCardData {
-  patientId: string;
+  patientId: string; // patients table ID
+  userId?: string; // profiles table ID (user_id) - optional for backward compatibility
   patientNumber: string;
   firstName: string;
   lastName: string;
@@ -41,9 +42,23 @@ export async function generateHealthCard(
     const randomNum = Math.random().toString(36).substring(2, 7).toUpperCase();
     const cardNumber = `HC-${dateStr}-${randomNum}`;
 
+    // If userId is not provided, fetch it from the patients table
+    let userId = data.userId;
+    if (!userId) {
+      const { data: patientData } = await supabase
+        .from('patients')
+        .select('user_id')
+        .eq('id', data.patientId)
+        .single();
+
+      userId = patientData?.user_id;
+    }
+
     // Generate QR code data (encrypted patient information)
+    // IMPORTANT: Include both user_id (for new system) and patient_id (for backward compatibility)
     const qrCodeData = JSON.stringify({
-      patient_id: data.patientId,
+      user_id: userId, // profiles table ID - used by new scanner
+      patient_id: data.patientId, // patients table ID - kept for backward compatibility
       patient_number: data.patientNumber,
       name: `${data.firstName} ${data.lastName}`,
       barangay_id: data.barangayId,

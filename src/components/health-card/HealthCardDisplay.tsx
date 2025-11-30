@@ -1,11 +1,12 @@
 'use client';
 
-import { Download, Calendar, Heart, Phone, MapPin, Droplet, AlertTriangle } from 'lucide-react';
+import { Download, Calendar, Heart, Phone, MapPin, Droplet, AlertTriangle, QrCode, Upload } from 'lucide-react';
 import QRCodeGenerator from './QRCodeGenerator';
 import { domToPng, domToJpeg } from 'modern-screenshot';
 import jsPDF from 'jspdf';
 import { useState, useRef } from 'react';
 import { useToast } from '@/lib/contexts/ToastContext';
+import { Html5Qrcode } from 'html5-qrcode';
 
 interface HealthCardData {
   id: string;
@@ -40,7 +41,10 @@ interface HealthCardDisplayProps {
 
 export default function HealthCardDisplay({ healthCard }: HealthCardDisplayProps) {
   const [downloading, setDownloading] = useState<'pdf' | 'png' | null>(null);
+  const [testingQR, setTestingQR] = useState(false);
+  const [qrTestResult, setQrTestResult] = useState<{ success: boolean; message: string } | null>(null);
   const cardRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const toast = useToast();
 
   const isExpired = healthCard.expiry_date
@@ -145,6 +149,86 @@ export default function HealthCardDisplay({ healthCard }: HealthCardDisplayProps
       toast.error('Failed to generate PNG. Please try again.');
     } finally {
       setDownloading(null);
+    }
+  };
+
+  const handleTestQRCode = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setTestingQR(true);
+    setQrTestResult(null);
+
+    try {
+      // Create a unique temporary element ID for file scanning
+      const tempElementId = `qr-test-scanner-${Date.now()}`;
+
+      // Create temporary div for scanning (required by html5-qrcode library)
+      const tempDiv = document.createElement('div');
+      tempDiv.id = tempElementId;
+      tempDiv.style.display = 'none';
+      document.body.appendChild(tempDiv);
+
+      try {
+        // Create scanner instance for file scanning
+        const html5QrCode = new Html5Qrcode(tempElementId);
+
+        // Scan the uploaded file
+        const decodedText = await html5QrCode.scanFile(file, true);
+        console.log('QR Code decoded:', decodedText);
+
+        // Clear the scanner
+        html5QrCode.clear();
+
+        // Parse and validate the QR data
+        try {
+          const qrData = JSON.parse(decodedText);
+          const expectedData = JSON.parse(healthCard.qr_code_data);
+
+          // Compare key fields - check both user_id and patient_id for compatibility
+          const isValid = (qrData.patient_id === expectedData.patient_id ||
+                          qrData.user_id === expectedData.user_id) &&
+                         qrData.patient_number === expectedData.patient_number;
+
+          if (isValid) {
+            setQrTestResult({
+              success: true,
+              message: 'QR code is valid and matches your health card! Healthcare staff will be able to scan this successfully.'
+            });
+            toast.success('QR code verified successfully!');
+          } else {
+            setQrTestResult({
+              success: false,
+              message: 'QR code does not match your current health card. Please download a fresh copy.'
+            });
+            toast.error('QR code mismatch detected');
+          }
+        } catch (parseError) {
+          setQrTestResult({
+            success: false,
+            message: 'QR code format is invalid. Please ensure you uploaded the correct health card QR code.'
+          });
+          toast.error('Invalid QR code format');
+        }
+      } finally {
+        // Always clean up the temporary element
+        if (document.body.contains(tempDiv)) {
+          document.body.removeChild(tempDiv);
+        }
+      }
+    } catch (err: any) {
+      console.error('Error scanning uploaded file:', err);
+      setQrTestResult({
+        success: false,
+        message: 'Failed to decode QR code from image. Please ensure the image contains a clear, readable QR code.'
+      });
+      toast.error('Failed to scan QR code');
+    } finally {
+      setTestingQR(false);
+      // Reset file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
     }
   };
 
@@ -358,6 +442,63 @@ export default function HealthCardDisplay({ healthCard }: HealthCardDisplayProps
             <span>Update your personal information if any details change</span>
           </li>
         </ul>
+      </div>
+
+      {/* QR Code Test Section */}
+      <div className="bg-purple-50 border border-purple-200 rounded-lg p-6">
+        <div className="flex items-start gap-3 mb-4">
+          <QrCode className="w-6 h-6 text-purple-600 flex-shrink-0 mt-0.5" />
+          <div className="flex-1">
+            <h3 className="font-semibold text-purple-900 mb-1">Test Your QR Code</h3>
+            <p className="text-sm text-purple-700">
+              Upload your downloaded health card image to verify that the QR code is readable and valid.
+            </p>
+          </div>
+        </div>
+
+        {/* Upload Button */}
+        <div className="flex flex-col gap-3">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            onChange={handleTestQRCode}
+            className="hidden"
+            id="qr-test-input"
+            disabled={testingQR}
+          />
+          <label
+            htmlFor="qr-test-input"
+            className={`flex items-center justify-center gap-2 px-6 py-3 rounded-lg font-medium transition-colors cursor-pointer ${
+              testingQR
+                ? 'bg-gray-400 cursor-not-allowed'
+                : 'bg-purple-600 text-white hover:bg-purple-700'
+            }`}
+          >
+            <Upload className="w-5 h-5" />
+            {testingQR ? 'Testing QR Code...' : 'Upload QR Code Image'}
+          </label>
+
+          {/* Test Result */}
+          {qrTestResult && (
+            <div className={`p-4 rounded-lg border ${
+              qrTestResult.success
+                ? 'bg-green-50 border-green-200'
+                : 'bg-red-50 border-red-200'
+            }`}>
+              <p className={`text-sm font-medium ${
+                qrTestResult.success ? 'text-green-900' : 'text-red-900'
+              }`}>
+                {qrTestResult.success ? '✓ Valid QR Code' : '✗ Invalid QR Code'}
+              </p>
+              <p className={`text-sm mt-1 ${
+                qrTestResult.success ? 'text-green-700' : 'text-red-700'
+              }`}>
+                {qrTestResult.message}
+              </p>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
