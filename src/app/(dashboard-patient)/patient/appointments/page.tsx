@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import { canCancelAppointment as canCancelByTimezone } from '@/lib/utils/timezone';
 import { APPOINTMENT_STATUS_CONFIG } from '@/lib/constants/colors';
+import { getAdminRoleLabel } from '@/lib/utils/serviceHelpers';
 
 interface Appointment {
   id: string;
@@ -38,6 +39,11 @@ interface Appointment {
   completed_at?: string;
   cancelled_at?: string;
   service_id?: number;
+  services?: {
+    id: number;
+    name: string;
+    category: string;
+  } | null;
   doctors?: {
     profiles: {
       first_name: string;
@@ -228,6 +234,23 @@ export default function PatientAppointmentsPage() {
       ),
     },
     {
+      header: 'Service',
+      accessor: 'service',
+      sortable: false,
+      render: (_: any, row: Appointment) => (
+        <div className="text-sm">
+          {row.services ? (
+            <>
+              <div className="font-medium text-gray-900">{row.services.name}</div>
+              <div className="text-xs text-gray-500 capitalize">{row.services.category}</div>
+            </>
+          ) : (
+            <span className="text-gray-400 italic">Not specified</span>
+          )}
+        </div>
+      ),
+    },
+    {
       header: 'Date',
       accessor: 'appointment_date',
       sortable: true,
@@ -254,16 +277,21 @@ export default function PatientAppointmentsPage() {
       accessor: 'doctor',
       sortable: false,
       render: (_: any, row: Appointment) => (
-        <div className="text-sm text-gray-700">
+        <div className="text-sm">
           {row.doctors ? (
-            <>
-              Dr. {row.doctors.profiles.first_name} {row.doctors.profiles.last_name}
+            <div className="text-gray-900">
+              <div className="font-medium">Dr. {row.doctors.profiles.first_name} {row.doctors.profiles.last_name}</div>
               {row.doctors.profiles.specialization && (
                 <div className="text-xs text-gray-500">{row.doctors.profiles.specialization}</div>
               )}
-            </>
+            </div>
           ) : (
-            <span className="text-gray-400 italic">Pending assignment</span>
+            <div className="flex items-center gap-1.5">
+              <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-orange-100 text-orange-800">
+                <Clock className="w-3 h-3 mr-1" />
+                Awaiting Assignment
+              </span>
+            </div>
           )}
         </div>
       ),
@@ -496,6 +524,15 @@ export default function PatientAppointmentsPage() {
                       <span className="text-gray-600">Queue Number:</span>
                       <span className="font-mono font-semibold text-gray-900">#{selectedAppointment.appointment_number}</span>
                     </div>
+                    {selectedAppointment.services && (
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">Service:</span>
+                        <div className="text-right">
+                          <div className="font-medium text-gray-900">{selectedAppointment.services.name}</div>
+                          <div className="text-xs text-gray-500 capitalize">{selectedAppointment.services.category}</div>
+                        </div>
+                      </div>
+                    )}
                     <div className="flex justify-between">
                       <span className="text-gray-600">Date:</span>
                       <span className="font-medium text-gray-900">{formatDate(selectedAppointment.appointment_date)}</span>
@@ -508,12 +545,12 @@ export default function PatientAppointmentsPage() {
                 </div>
 
                 {/* Doctor Information */}
-                {selectedAppointment.doctors && (
-                  <div>
-                    <h4 className="text-sm font-medium text-gray-700 mb-2 flex items-center">
-                      <User className="w-4 h-4 mr-2" />
-                      Assigned Doctor
-                    </h4>
+                <div>
+                  <h4 className="text-sm font-medium text-gray-700 mb-2 flex items-center">
+                    <User className="w-4 h-4 mr-2" />
+                    {selectedAppointment.doctors ? 'Assigned Doctor' : 'Doctor Assignment'}
+                  </h4>
+                  {selectedAppointment.doctors ? (
                     <div className="bg-gray-50 rounded-md p-3 space-y-1 text-sm">
                       <p className="font-medium text-gray-900">
                         Dr. {selectedAppointment.doctors.profiles.first_name} {selectedAppointment.doctors.profiles.last_name}
@@ -522,8 +559,34 @@ export default function PatientAppointmentsPage() {
                         <p className="text-gray-600">{selectedAppointment.doctors.profiles.specialization}</p>
                       )}
                     </div>
-                  </div>
-                )}
+                  ) : (
+                    <div className="bg-orange-50 border border-orange-200 rounded-md p-4">
+                      <div className="flex items-start gap-3">
+                        <Clock className="w-5 h-5 text-orange-600 mt-0.5 flex-shrink-0" />
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-2">
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-orange-100 text-orange-800">
+                              Awaiting Doctor Assignment
+                            </span>
+                          </div>
+                          <p className="text-sm text-orange-800">
+                            {selectedAppointment.services && (
+                              <>
+                                Our <strong>{getAdminRoleLabel(selectedAppointment.services.category)}</strong> is reviewing your appointment and will assign an appropriate doctor based on your needs and availability.
+                              </>
+                            )}
+                            {!selectedAppointment.services && (
+                              <>A healthcare administrator is reviewing your appointment and will assign an appropriate doctor.</>
+                            )}
+                          </p>
+                          <p className="text-xs text-orange-700 mt-2">
+                            You'll receive a notification once a doctor is assigned (usually within 24 hours).
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
 
                 {/* Reason for Visit */}
                 {selectedAppointment.reason && (

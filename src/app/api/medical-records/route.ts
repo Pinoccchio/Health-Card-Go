@@ -75,7 +75,13 @@ export async function GET(request: NextRequest) {
           id,
           appointment_date,
           appointment_time,
-          status
+          status,
+          service_id,
+          services(
+            id,
+            name,
+            category
+          )
         )
       `)
       .order('created_at', { ascending: false});

@@ -11,7 +11,7 @@
 
 export type TemplateType = 'general_checkup' | 'immunization' | 'prenatal' | 'hiv' | 'laboratory';
 
-export type MedicalRecordCategory = 'general' | 'healthcard' | 'hiv' | 'pregnancy' | 'immunization';
+export type MedicalRecordCategory = 'general' | 'healthcard' | 'hiv' | 'pregnancy' | 'immunization' | 'laboratory';
 
 // Field types for dynamic form generation
 export type FieldType = 'text' | 'textarea' | 'number' | 'select' | 'date' | 'checkbox' | 'radio' | 'multiselect';
@@ -410,7 +410,7 @@ export const hivTemplate: MedicalRecordTemplate = {
  */
 export const laboratoryTemplate: MedicalRecordTemplate = {
   type: 'laboratory',
-  category: 'general',
+  category: 'laboratory',
   name: 'Laboratory Results',
   description: 'Medical laboratory test results',
   requiresEncryption: false,

@@ -3,9 +3,18 @@
 import { useState, useEffect } from 'react';
 import { DashboardLayout } from '@/components/dashboard';
 import { Container } from '@/components/ui';
-import { Calendar, Clock, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { Calendar, Clock, AlertCircle, CheckCircle2, Lock, Sparkles, Info } from 'lucide-react';
 import { getReasonTemplates } from '@/lib/config/appointmentTemplates';
 import { getMinBookingDateString } from '@/lib/utils/timezone';
+import { ProcessingTimeline } from '@/components/appointments/ProcessingTimeline';
+import {
+  getCategoryLabel,
+  getAdminRoleLabel,
+  isConfidentialCategory,
+  isFreeService,
+  getCategoryColors,
+  getExpectedProcessingTime,
+} from '@/lib/utils/serviceHelpers';
 
 interface Service {
   id: number;
@@ -133,7 +142,7 @@ export default function PatientBookAppointmentPage() {
         setSuccess(true);
         setTimeout(() => {
           window.location.href = '/patient/appointments';
-        }, 2000);
+        }, 3000);
       } else {
         setError(data.error || 'Failed to book appointment');
       }
@@ -149,21 +158,47 @@ export default function PatientBookAppointmentPage() {
     return getMinBookingDateString();
   };
 
-  if (success) {
+  // Get selected service details
+  const selectedServiceDetails = services.find(s => s.id === selectedService);
+
+  if (success && selectedServiceDetails) {
     return (
       <DashboardLayout roleId={4} pageTitle="Appointment Booked" pageDescription="">
         <Container size="full">
           <div className="bg-white rounded-lg shadow p-8">
-            <div className="text-center py-12">
+            <div className="text-center mb-8">
               <CheckCircle2 className="w-16 h-16 text-green-500 mx-auto mb-4" />
               <h2 className="text-2xl font-bold text-gray-900 mb-2">
-                Appointment Booked Successfully!
+                Appointment Booking Submitted!
               </h2>
-              <p className="text-gray-600 mb-4">
-                Your appointment has been confirmed. You will receive a reminder 3 days before your appointment.
+              <p className="text-gray-600">
+                Your appointment request has been received and is currently <strong>pending</strong> processing.
               </p>
-              <p className="text-sm text-gray-500">Redirecting to your appointments...</p>
             </div>
+
+            {/* Processing Timeline */}
+            <div className="max-w-2xl mx-auto mb-8">
+              <ProcessingTimeline
+                currentStep="booking"
+                serviceCategory={selectedServiceDetails.category}
+              />
+            </div>
+
+            {/* Important Information */}
+            <div className="max-w-2xl mx-auto bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+              <div className="flex items-start">
+                <Info className="w-5 h-5 text-blue-600 mr-3 mt-0.5 flex-shrink-0" />
+                <div className="text-sm text-blue-800">
+                  <h4 className="font-semibold mb-1">What Happens Next?</h4>
+                  <p>
+                    Our {getAdminRoleLabel(selectedServiceDetails.category)} will review your booking and assign an appropriate doctor.
+                    You'll receive a confirmation notification {getExpectedProcessingTime(selectedServiceDetails.category).toLowerCase()}.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <p className="text-sm text-gray-500 text-center">Redirecting to your appointments...</p>
           </div>
         </Container>
       </DashboardLayout>
@@ -221,27 +256,73 @@ export default function PatientBookAppointmentPage() {
             {/* Step 1: Select Service */}
             {step === 1 && (
               <div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">
                   Select a Service
                 </h3>
+                <p className="text-sm text-gray-600 mb-6">
+                  Choose the healthcare service you need. Each service is managed by specialized administrators.
+                </p>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {services.map((service) => (
-                    <button
-                      key={service.id}
-                      onClick={() => handleServiceSelect(service.id)}
-                      className="text-left p-4 border border-gray-300 rounded-lg hover:border-primary-teal hover:bg-primary-teal/5 transition-colors"
-                    >
-                      <h4 className="font-semibold text-gray-900 mb-1">
-                        {service.name}
-                      </h4>
-                      <p className="text-sm text-gray-600 mb-2">
-                        {service.description}
+                  {services.map((service) => {
+                    const categoryColors = getCategoryColors(service.category);
+                    const isConfidential = isConfidentialCategory(service.category);
+                    const isFree = isFreeService(service.name);
+
+                    return (
+                      <button
+                        key={service.id}
+                        onClick={() => handleServiceSelect(service.id)}
+                        className="text-left p-5 border-2 border-gray-300 rounded-lg hover:border-primary-teal hover:bg-primary-teal/5 transition-all hover:shadow-md"
+                      >
+                        <div className="flex items-start justify-between mb-2">
+                          <h4 className="font-semibold text-gray-900 flex-1 pr-2">
+                            {service.name}
+                          </h4>
+                          {isFree && (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-green-100 text-green-800 flex-shrink-0">
+                              <Sparkles className="w-3 h-3 mr-1" />
+                              FREE
+                            </span>
+                          )}
+                        </div>
+
+                        <p className="text-sm text-gray-600 mb-3">
+                          {service.description}
+                        </p>
+
+                        {/* Admin Category Badge */}
+                        <div className="flex flex-wrap items-center gap-2 mb-2">
+                          <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium ${categoryColors.bgColor} ${categoryColors.textColor}`}>
+                            {getAdminRoleLabel(service.category)}
+                          </span>
+                          {isConfidential && (
+                            <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-purple-100 text-purple-800">
+                              <Lock className="w-3 h-3 mr-1" />
+                              Confidential
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="flex items-center justify-between text-xs text-gray-500 mt-3 pt-3 border-t border-gray-200">
+                          <span>Duration: {service.duration_minutes} min</span>
+                          <span className="text-gray-400">• Doctor assigned after booking</span>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Information Panel */}
+                <div className="mt-6 bg-gray-50 border border-gray-200 rounded-lg p-4">
+                  <div className="flex items-start">
+                    <Info className="w-5 h-5 text-gray-600 mr-3 mt-0.5 flex-shrink-0" />
+                    <div className="text-sm text-gray-700">
+                      <h5 className="font-semibold text-gray-900 mb-1">About Our Appointment System</h5>
+                      <p>
+                        Each service is managed by specialized administrators who will review your booking and assign the most appropriate doctor based on your needs and their availability.
                       </p>
-                      <p className="text-xs text-gray-500">
-                        Duration: {service.duration_minutes} minutes
-                      </p>
-                    </button>
-                  ))}
+                    </div>
+                  </div>
                 </div>
               </div>
             )}
@@ -334,17 +415,19 @@ export default function PatientBookAppointmentPage() {
             )}
 
             {/* Step 4: Confirm */}
-            {step === 4 && (
+            {step === 4 && selectedServiceDetails && (
               <form onSubmit={handleSubmit}>
                 <h3 className="text-lg font-semibold text-gray-900 mb-4">
                   Confirm Appointment
                 </h3>
+
+                {/* Appointment Summary */}
                 <div className="bg-gray-50 rounded-lg p-4 mb-6">
                   <dl className="space-y-2">
                     <div className="flex justify-between">
                       <dt className="text-sm font-medium text-gray-500">Service:</dt>
-                      <dd className="text-sm text-gray-900">
-                        {services.find((s) => s.id === selectedService)?.name}
+                      <dd className="text-sm text-gray-900 font-medium">
+                        {selectedServiceDetails.name}
                       </dd>
                     </div>
                     <div className="flex justify-between">
@@ -364,10 +447,40 @@ export default function PatientBookAppointmentPage() {
                   </dl>
                 </div>
 
+                {/* What Happens Next Section */}
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+                  <h4 className="font-semibold text-blue-900 mb-3 flex items-center">
+                    <Info className="w-5 h-5 mr-2" />
+                    What Happens Next
+                  </h4>
+                  <ol className="text-sm text-blue-800 space-y-2 ml-2">
+                    <li className="flex items-start">
+                      <span className="font-bold mr-2 flex-shrink-0">1.</span>
+                      <span>Your booking will be reviewed by our <strong>{getAdminRoleLabel(selectedServiceDetails.category)}</strong></span>
+                    </li>
+                    <li className="flex items-start">
+                      <span className="font-bold mr-2 flex-shrink-0">2.</span>
+                      <span>A qualified doctor will be assigned based on availability and your needs</span>
+                    </li>
+                    <li className="flex items-start">
+                      <span className="font-bold mr-2 flex-shrink-0">3.</span>
+                      <span>You'll receive a confirmation notification ({getExpectedProcessingTime(selectedServiceDetails.category).toLowerCase()})</span>
+                    </li>
+                    <li className="flex items-start">
+                      <span className="font-bold mr-2 flex-shrink-0">4.</span>
+                      <span>A reminder will be sent 3 days before your appointment</span>
+                    </li>
+                  </ol>
+                </div>
+
+                {/* Reason for Visit */}
                 <div className="mb-6">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
                     Reason for Visit (Optional)
                   </label>
+                  <p className="text-xs text-gray-600 mb-3">
+                    Providing a reason helps our {getAdminRoleLabel(selectedServiceDetails.category)} assign the most appropriate doctor for your needs.
+                  </p>
 
                   {/* Dropdown for template selection */}
                   <select
@@ -381,9 +494,7 @@ export default function PatientBookAppointmentPage() {
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-teal mb-3"
                   >
                     <option value="">Select a reason...</option>
-                    {getReasonTemplates(
-                      services.find((s) => s.id === selectedService)?.category
-                    ).map((template) => (
+                    {getReasonTemplates(selectedServiceDetails.category).map((template) => (
                       <option key={template.value} value={template.label}>
                         {template.label}
                       </option>
