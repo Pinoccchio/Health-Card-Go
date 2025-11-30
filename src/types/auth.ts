@@ -119,6 +119,11 @@ export interface RegisterData {
     email?: string;
   };
 
+  // Optional medical information
+  bloodType?: 'A+' | 'A-' | 'B+' | 'B-' | 'AB+' | 'AB-' | 'O+' | 'O-';
+  allergies?: string;
+  medicalConditions?: string;
+
   // Doctor specific
   specialization?: string;
   licenseNumber?: string; // Changed from license_number for consistency

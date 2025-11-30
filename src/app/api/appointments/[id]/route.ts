@@ -183,6 +183,23 @@ async function handleStatusReversion(
     }
   }
 
+  // Business rule: Cannot revert checked_in or in_progress if medical records exist
+  // Protects against orphaning partially-written medical records
+  if (currentAppointment.status === 'checked_in' || currentAppointment.status === 'in_progress') {
+    const { data: medicalRecord } = await supabase
+      .from('medical_records')
+      .select('id')
+      .eq('appointment_id', appointmentId)
+      .limit(1);
+
+    if (medicalRecord && medicalRecord.length > 0) {
+      return NextResponse.json(
+        { error: `Cannot revert ${currentAppointment.status} appointments that have medical records. The doctor has already started documenting this visit.` },
+        { status: 400 }
+      );
+    }
+  }
+
   // Business rule: Cannot revert cancelled appointments (terminal status)
   if (currentAppointment.status === 'cancelled') {
     return NextResponse.json(
@@ -354,6 +371,56 @@ export async function PATCH(
         if (!doctorExists) {
           return NextResponse.json(
             { error: 'Invalid doctor ID' },
+            { status: 400 }
+          );
+        }
+      }
+
+      // BUSINESS RULE: Block doctor reassignment during active appointments
+      // Get current appointment status to enforce reassignment restrictions
+      const { data: currentAppt } = await supabase
+        .from('appointments')
+        .select('status, checked_in_at')
+        .eq('id', id)
+        .single();
+
+      if (currentAppt) {
+        // Block reassignment if patient has checked in
+        if (currentAppt.status === 'checked_in') {
+          return NextResponse.json(
+            { error: 'Cannot reassign doctor while patient has checked in. Please wait until appointment is completed or revert status.' },
+            { status: 400 }
+          );
+        }
+
+        // Block reassignment during active treatment
+        if (currentAppt.status === 'in_progress') {
+          return NextResponse.json(
+            { error: 'Cannot reassign doctor while appointment is in progress. This ensures continuity of care and medical record integrity.' },
+            { status: 400 }
+          );
+        }
+
+        // Block reassignment on completed appointments (medical records are linked to original doctor)
+        if (currentAppt.status === 'completed') {
+          return NextResponse.json(
+            { error: 'Cannot reassign doctor on completed appointments. Medical records are already associated with the original doctor.' },
+            { status: 400 }
+          );
+        }
+
+        // Block reassignment on cancelled or no-show appointments
+        if (currentAppt.status === 'cancelled' || currentAppt.status === 'no_show') {
+          return NextResponse.json(
+            { error: `Cannot reassign doctor on ${currentAppt.status} appointments.` },
+            { status: 400 }
+          );
+        }
+
+        // Allow reassignment for 'scheduled' only if patient hasn't checked in yet
+        if (currentAppt.status === 'scheduled' && currentAppt.checked_in_at) {
+          return NextResponse.json(
+            { error: 'Cannot reassign doctor after patient has checked in. Please revert check-in status first if reassignment is necessary.' },
             { status: 400 }
           );
         }
@@ -680,6 +747,7 @@ export async function DELETE(
         status: 'cancelled',
         cancellation_reason,
         cancelled_at: new Date().toISOString(),
+        doctor_id: null, // Clear doctor assignment when cancelled
       })
       .eq('id', id)
       .select();

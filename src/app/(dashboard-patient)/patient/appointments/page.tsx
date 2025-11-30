@@ -278,7 +278,9 @@ export default function PatientAppointmentsPage() {
       sortable: false,
       render: (_: any, row: Appointment) => (
         <div className="text-sm">
-          {row.doctors ? (
+          {row.status === 'cancelled' || row.status === 'no_show' ? (
+            <span className="text-gray-400 italic text-xs">N/A</span>
+          ) : row.doctors ? (
             <div className="text-gray-900">
               <div className="font-medium">Dr. {row.doctors.profiles.first_name} {row.doctors.profiles.last_name}</div>
               {row.doctors.profiles.specialization && (
@@ -548,9 +550,15 @@ export default function PatientAppointmentsPage() {
                 <div>
                   <h4 className="text-sm font-medium text-gray-700 mb-2 flex items-center">
                     <User className="w-4 h-4 mr-2" />
-                    {selectedAppointment.doctors ? 'Assigned Doctor' : 'Doctor Assignment'}
+                    {selectedAppointment.status === 'cancelled' || selectedAppointment.status === 'no_show'
+                      ? 'Doctor'
+                      : selectedAppointment.doctors ? 'Assigned Doctor' : 'Doctor Assignment'}
                   </h4>
-                  {selectedAppointment.doctors ? (
+                  {selectedAppointment.status === 'cancelled' || selectedAppointment.status === 'no_show' ? (
+                    <div className="bg-gray-50 rounded-md p-3 text-sm">
+                      <p className="text-gray-400 italic">N/A</p>
+                    </div>
+                  ) : selectedAppointment.doctors ? (
                     <div className="bg-gray-50 rounded-md p-3 space-y-1 text-sm">
                       <p className="font-medium text-gray-900">
                         Dr. {selectedAppointment.doctors.profiles.first_name} {selectedAppointment.doctors.profiles.last_name}

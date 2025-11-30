@@ -300,6 +300,7 @@ export async function GET(request: NextRequest) {
             date_of_birth,
             gender,
             barangay_id,
+            emergency_contact,
             barangays(name)
           )
         ),

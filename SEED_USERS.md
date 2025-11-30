@@ -65,7 +65,7 @@ For non-patient users (Super Admin, Healthcare Admins, Doctors), you can create 
 
 ---
 
-### 2. HEALTHCARE ADMINS (5 Users)
+### 2. HEALTHCARE ADMINS (6 Users)
 
 #### a. Healthcard Admin
 
@@ -143,6 +143,29 @@ For non-patient users (Super Admin, Healthcare Admins, Doctors), you can create 
 ```
 
 **Post-Registration Action**: All Healthcare Admins are auto-approved (status: 'active')
+
+#### f. Immunization Admin
+
+```javascript
+{
+  firstName: "Immunization",
+  lastName: "Administrator",
+  email: "immunization.admin@gmail.com",
+  password: "Immunization@2025!",
+  confirmPassword: "Immunization@2025!",
+  role: "healthcare_admin",
+  adminCategory: "immunization",
+  acceptTerms: true
+}
+```
+
+**Post-Registration Action**: All Healthcare Admins are auto-approved (status: 'active')
+
+**Services Managed:**
+- Child Immunization (Free) - Service ID: 5
+- Adult Vaccination - Service ID: 6
+
+**Note:** This account manages immunization records and vaccination schedules. The database schema, RLS policies, and API filtering are already configured for this category.
 
 ---
 

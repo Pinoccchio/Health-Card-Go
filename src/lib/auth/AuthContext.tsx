@@ -375,6 +375,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
             .insert({
               user_id: authData.user.id,
               patient_number: patientNumber,
+              allergies: data.allergies ? [data.allergies] : null,
+              current_medications: null,
+              medical_history: {
+                blood_type: data.bloodType || null,
+                conditions: data.medicalConditions || null,
+                registration_date: new Date().toISOString(),
+              },
             });
 
           if (patientError) {

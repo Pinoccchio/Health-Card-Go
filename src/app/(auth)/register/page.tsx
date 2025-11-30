@@ -104,6 +104,21 @@ export default function RegisterPage() {
       if (!formData.contactNumber) {
         newErrors.contactNumber = 'Contact number is required';
       }
+
+      // Emergency contact validation
+      if (!formData.emergencyContact?.name?.trim()) {
+        newErrors.emergencyContactName = 'Emergency contact name is required';
+      }
+      if (!formData.emergencyContact?.phone?.trim()) {
+        newErrors.emergencyContactPhone = 'Emergency contact phone is required';
+      }
+      // Email is optional, but validate format if provided
+      if (formData.emergencyContact?.email && formData.emergencyContact.email.trim()) {
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(formData.emergencyContact.email)) {
+          newErrors.emergencyContactEmail = 'Please enter a valid email address';
+        }
+      }
     }
 
     if (formData.role === 'doctor') {
@@ -419,6 +434,138 @@ export default function RegisterPage() {
                 required
                 disabled={loading}
               />
+
+              {/* Emergency Contact Section */}
+              <div className="space-y-4 pt-4 border-t border-gray-200">
+                <h3 className="text-sm font-semibold text-gray-700">
+                  Emergency Contact <span className="text-danger">*</span>
+                </h3>
+
+                <FormField
+                  id="emergencyContactName"
+                  label="Contact Name"
+                  type="text"
+                  placeholder="e.g., Maria Dela Cruz"
+                  value={formData.emergencyContact?.name || ''}
+                  onChange={(e) =>
+                    handleChange('emergencyContact', {
+                      ...formData.emergencyContact,
+                      name: e.target.value,
+                    })
+                  }
+                  error={errors.emergencyContactName}
+                  icon={User}
+                  required
+                  disabled={loading}
+                />
+
+                <div className="grid grid-cols-2 gap-6">
+                  <FormField
+                    id="emergencyContactPhone"
+                    label="Contact Phone"
+                    type="tel"
+                    placeholder="+63 912 999 9999"
+                    value={formData.emergencyContact?.phone || ''}
+                    onChange={(e) =>
+                      handleChange('emergencyContact', {
+                        ...formData.emergencyContact,
+                        phone: e.target.value,
+                      })
+                    }
+                    error={errors.emergencyContactPhone}
+                    icon={Phone}
+                    required
+                    disabled={loading}
+                  />
+
+                  <FormField
+                    id="emergencyContactEmail"
+                    label="Contact Email (Optional)"
+                    type="email"
+                    placeholder="contact@example.com"
+                    value={formData.emergencyContact?.email || ''}
+                    onChange={(e) =>
+                      handleChange('emergencyContact', {
+                        ...formData.emergencyContact,
+                        email: e.target.value,
+                      })
+                    }
+                    error={errors.emergencyContactEmail}
+                    icon={Mail}
+                    disabled={loading}
+                  />
+                </div>
+              </div>
+
+              {/* Optional Medical Information Section */}
+              <div className="space-y-4 pt-4 border-t border-gray-200">
+                <h3 className="text-sm font-semibold text-gray-700">
+                  Medical Information (Optional)
+                </h3>
+
+                <div className="grid grid-cols-2 gap-6">
+                  <div>
+                    <label
+                      htmlFor="bloodType"
+                      className="block text-sm font-medium text-gray-700 mb-1.5"
+                    >
+                      Blood Type
+                    </label>
+                    <Select
+                      id="bloodType"
+                      options={[
+                        { value: 'A+', label: 'A+' },
+                        { value: 'A-', label: 'A-' },
+                        { value: 'B+', label: 'B+' },
+                        { value: 'B-', label: 'B-' },
+                        { value: 'AB+', label: 'AB+' },
+                        { value: 'AB-', label: 'AB-' },
+                        { value: 'O+', label: 'O+' },
+                        { value: 'O-', label: 'O-' },
+                      ]}
+                      placeholder="Select blood type"
+                      value={formData.bloodType || ''}
+                      onChange={(e) => handleChange('bloodType', e.target.value)}
+                      error={errors.bloodType}
+                      disabled={loading}
+                    />
+                  </div>
+
+                  <FormField
+                    id="allergies"
+                    label="Allergies"
+                    type="text"
+                    placeholder="e.g., Penicillin, Peanuts"
+                    value={formData.allergies || ''}
+                    onChange={(e) => handleChange('allergies', e.target.value)}
+                    error={errors.allergies}
+                    disabled={loading}
+                  />
+                </div>
+
+                <div>
+                  <label
+                    htmlFor="medicalConditions"
+                    className="block text-sm font-medium text-gray-700 mb-1.5"
+                  >
+                    Existing Medical Conditions
+                  </label>
+                  <textarea
+                    id="medicalConditions"
+                    rows={3}
+                    placeholder="e.g., Diabetes, Hypertension"
+                    value={formData.medicalConditions || ''}
+                    onChange={(e) => handleChange('medicalConditions', e.target.value)}
+                    disabled={loading}
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-teal focus:border-transparent transition-all disabled:bg-gray-50 disabled:cursor-not-allowed"
+                  />
+                  {errors.medicalConditions && (
+                    <p className="mt-1.5 text-sm text-danger">
+                      {errors.medicalConditions}
+                    </p>
+                  )}
+                </div>
+              </div>
             </>
           )}
 

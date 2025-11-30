@@ -92,7 +92,7 @@ function VerifyEmailContent() {
             <Alert
               variant="info"
               title="Account Pending Approval"
-              message="Thank you for registering! Your account is currently pending approval from our healthcare administrators. You will receive an email notification once your account has been approved."
+              message="Thank you for registering! Your account is currently pending approval from our healthcare administrators. Please try logging in periodically - once approved, you'll be able to access your dashboard."
             />
 
             <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
@@ -103,8 +103,8 @@ function VerifyEmailContent() {
                   <ul className="space-y-1 text-gray-600">
                     <li>• Our team will review your registration</li>
                     <li>• Approval typically takes 1-2 business days</li>
-                    <li>• You'll receive an email once approved</li>
-                    <li>• You can then log in and book appointments</li>
+                    <li>• Try logging in again after approval to access your account</li>
+                    <li>• You can then book appointments and use all features</li>
                   </ul>
                 </div>
               </div>

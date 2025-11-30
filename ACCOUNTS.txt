@@ -3,8 +3,8 @@ HEALTHCARD SYSTEM - TEST ACCOUNTS
 Next.js + Supabase Implementation
 ========================================
 
-Last Updated: November 29, 2025
-Total Accounts: 13
+Last Updated: November 30, 2025
+Total Accounts: 18 (6 Healthcare Admins + 6 Doctors + 4 Patients + 1 Super Admin + 1 Extra Patient)
 
 NOTE: All passwords follow the pattern [Role]@2025!
       Use these accounts for development and testing only.
@@ -19,8 +19,13 @@ HIV ADMIN:          hiv.admin@gmail.com / HIV@2025!
 PREGNANCY ADMIN:    pregnancy.admin@gmail.com / Pregnancy@2025!
 GENERAL ADMIN:      general.admin@gmail.com / General@2025!
 LAB ADMIN:          lab.admin@gmail.com / Laboratory@2025!
+IMMUNIZATION ADMIN: immunization.admin@gmail.com / Immunization@2025!
 DOCTOR 1:           dr.santos@gmail.com / Doctor@2025!
 DOCTOR 2:           dr.reyes@gmail.com / Doctor@2025!
+DOCTOR 3:           dr.mendoza@gmail.com / Doctor@2025!
+DOCTOR 4:           dr.cruz@gmail.com / Doctor@2025!
+DOCTOR 5:           dr.bautista@gmail.com / Doctor@2025!
+DOCTOR 6:           janmikoarnado@gmail.com / [User's Password] (EXTRA - User's Account)
 PATIENT 1:          juan.delacruz@gmail.com / Patient@2025!
 PATIENT 2:          maria.santos@gmail.com / Patient@2025! (pending)
 PATIENT 3:          pedro.gonzales@gmail.com / Patient@2025!
@@ -107,6 +112,16 @@ First Name: Laboratory
 Last Name: Administrator
 Access: Laboratory patient records only
 
+--- IMMUNIZATION ADMIN ---
+Email: immunization.admin@gmail.com
+Password: Immunization@2025!
+Role: healthcare_admin
+Category: immunization
+First Name: Immunization
+Last Name: Administrator
+Access: Immunization patient records only
+Services: Child Immunization (Free), Adult Vaccination
+
 -------------------------------------------
 3. DOCTORS
 -------------------------------------------
@@ -135,6 +150,43 @@ First Name: Maria
 Last Name: Reyes
 Specialization: Pediatrician
 License Number: PRC-987654321
+
+--- CARDIOLOGIST ---
+Email: dr.mendoza@gmail.com
+Password: Doctor@2025!
+Role: doctor
+First Name: Carlos
+Last Name: Mendoza
+Specialization: Cardiologist
+License Number: PRC-DOC-003
+
+--- OBSTETRICIAN-GYNECOLOGIST ---
+Email: dr.cruz@gmail.com
+Password: Doctor@2025!
+Role: doctor
+First Name: Ana
+Last Name: Cruz
+Specialization: Obstetrician-Gynecologist
+License Number: PRC-DOC-004
+
+--- INTERNAL MEDICINE ---
+Email: dr.bautista@gmail.com
+Password: Doctor@2025!
+Role: doctor
+First Name: Ramon
+Last Name: Bautista
+Specialization: Internal Medicine
+License Number: PRC-DOC-005
+
+--- GENERAL PRACTITIONER (Extra - User Account) ---
+Email: janmikoarnado@gmail.com
+Password: [User's Password]
+Role: doctor
+First Name: Lucifer
+Last Name: Morningstar
+Specialization: General Practitioner
+License Number: PRC-123456787
+Note: This appears to be a user's personal test account
 
 -------------------------------------------
 4. PATIENTS
@@ -277,6 +329,17 @@ REGISTRATION EXAMPLES
   acceptTerms: true
 }
 
+--- IMMUNIZATION ADMIN REGISTRATION ---
+{
+  firstName: "Immunization",
+  lastName: "Administrator",
+  email: "immunization.admin@gmail.com",
+  password: "Immunization@2025!",
+  role: "healthcare_admin",
+  adminCategory: "immunization",
+  acceptTerms: true
+}
+
 --- DOCTOR 1 REGISTRATION (General Practitioner) ---
 {
   firstName: "Juan",
@@ -298,6 +361,42 @@ REGISTRATION EXAMPLES
   role: "doctor",
   specialization: "Pediatrician",
   licenseNumber: "PRC-987654321",
+  acceptTerms: true
+}
+
+--- DOCTOR 3 REGISTRATION (Cardiologist) ---
+{
+  firstName: "Carlos",
+  lastName: "Mendoza",
+  email: "dr.mendoza@gmail.com",
+  password: "Doctor@2025!",
+  role: "doctor",
+  specialization: "Cardiologist",
+  licenseNumber: "PRC-DOC-003",
+  acceptTerms: true
+}
+
+--- DOCTOR 4 REGISTRATION (OB-GYN) ---
+{
+  firstName: "Ana",
+  lastName: "Cruz",
+  email: "dr.cruz@gmail.com",
+  password: "Doctor@2025!",
+  role: "doctor",
+  specialization: "Obstetrician-Gynecologist",
+  licenseNumber: "PRC-DOC-004",
+  acceptTerms: true
+}
+
+--- DOCTOR 5 REGISTRATION (Internal Medicine) ---
+{
+  firstName: "Ramon",
+  lastName: "Bautista",
+  email: "dr.bautista@gmail.com",
+  password: "Doctor@2025!",
+  role: "doctor",
+  specialization: "Internal Medicine",
+  licenseNumber: "PRC-DOC-005",
   acceptTerms: true
 }
 
@@ -503,14 +602,15 @@ All passwords must contain:
 Test Password Pattern: [Role]@2025!
 
 Examples:
-- Admin@2025!       (Super Admin)
-- HealthCard@2025!  (Healthcard Admin)
-- HIV@2025!         (HIV Admin)
-- Pregnancy@2025!   (Pregnancy Admin)
-- General@2025!     (General Admin)
-- Laboratory@2025!  (Laboratory Admin)
-- Doctor@2025!      (Doctors)
-- Patient@2025!     (Patients)
+- Admin@2025!        (Super Admin)
+- HealthCard@2025!   (Healthcard Admin)
+- HIV@2025!          (HIV Admin)
+- Pregnancy@2025!    (Pregnancy Admin)
+- General@2025!      (General Admin)
+- Laboratory@2025!   (Laboratory Admin)
+- Immunization@2025! (Immunization Admin)
+- Doctor@2025!       (Doctors)
+- Patient@2025!      (Patients)
 
 ========================================
 IMPORTANT NOTES
@@ -538,6 +638,7 @@ ADMIN CATEGORIES (for healthcare_admin only):
 - pregnancy
 - general_admin
 - laboratory
+- immunization
 
 GENDER OPTIONS:
 - male
@@ -572,12 +673,28 @@ LABORATORY ADMIN:
 Email: lab.admin@gmail.com
 Password: Laboratory@2025!
 
+IMMUNIZATION ADMIN:
+Email: immunization.admin@gmail.com
+Password: Immunization@2025!
+
 DOCTOR 1 (GP):
 Email: dr.santos@gmail.com
 Password: Doctor@2025!
 
 DOCTOR 2 (Pediatrician):
 Email: dr.reyes@gmail.com
+Password: Doctor@2025!
+
+DOCTOR 3 (Cardiologist):
+Email: dr.mendoza@gmail.com
+Password: Doctor@2025!
+
+DOCTOR 4 (OB-GYN):
+Email: dr.cruz@gmail.com
+Password: Doctor@2025!
+
+DOCTOR 5 (Internal Medicine):
+Email: dr.bautista@gmail.com
 Password: Doctor@2025!
 
 PATIENT 1 (Active):

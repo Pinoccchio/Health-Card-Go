@@ -73,6 +73,45 @@ export const APPOINTMENT_STATUS_CONFIG: Record<AppointmentStatus, StatusColorCon
 };
 
 // ============================================================================
+// PATIENT STATUS COLORS
+// ============================================================================
+
+export type PatientStatus = 'pending' | 'active' | 'inactive' | 'rejected' | 'suspended';
+
+export const PATIENT_STATUS_CONFIG: Record<PatientStatus, StatusColorConfig> = {
+  pending: {
+    label: 'Pending',
+    color: 'bg-orange-100 text-orange-800',
+    timeline: 'bg-orange-500',
+    icon: Clock,
+  },
+  active: {
+    label: 'Active',
+    color: 'bg-green-100 text-green-800',
+    timeline: 'bg-green-500',
+    icon: CheckCircle,
+  },
+  inactive: {
+    label: 'Inactive',
+    color: 'bg-gray-100 text-gray-800',
+    timeline: 'bg-gray-500',
+    icon: XCircle,
+  },
+  rejected: {
+    label: 'Rejected',
+    color: 'bg-red-100 text-red-800',
+    timeline: 'bg-red-500',
+    icon: XCircle,
+  },
+  suspended: {
+    label: 'Suspended',
+    color: 'bg-yellow-100 text-yellow-800',
+    timeline: 'bg-yellow-500',
+    icon: AlertCircle,
+  },
+};
+
+// ============================================================================
 // USER ROLE COLORS
 // ============================================================================
 
@@ -125,4 +164,22 @@ export function getStatusBadgeColor(status: AppointmentStatus): string {
 export function getRoleBadgeColor(role: string): string {
   const normalizedRole = role as UserRole;
   return USER_ROLE_COLORS[normalizedRole] || 'bg-gray-100 text-gray-800';
+}
+
+/**
+ * Get the badge color for a patient status
+ * @param status - The patient status
+ * @returns Tailwind CSS class for status badge
+ */
+export function getPatientStatusBadgeColor(status: PatientStatus): string {
+  return PATIENT_STATUS_CONFIG[status]?.color || 'bg-gray-100 text-gray-800';
+}
+
+/**
+ * Get the patient status icon
+ * @param status - The patient status
+ * @returns Lucide icon component
+ */
+export function getPatientStatusIcon(status: PatientStatus) {
+  return PATIENT_STATUS_CONFIG[status]?.icon || AlertCircle;
 }

@@ -25,6 +25,11 @@ import {
   Activity,
   UserCheck,
   Eye,
+  Phone,
+  Mail,
+  MapPin,
+  Heart,
+  Droplet,
 } from 'lucide-react';
 import { getPhilippineTime } from '@/lib/utils/timezone';
 import { APPOINTMENT_STATUS_CONFIG } from '@/lib/constants/colors';
@@ -53,6 +58,13 @@ interface AdminAppointment {
       last_name: string;
       email: string;
       contact_number?: string;
+      date_of_birth?: string;
+      gender?: 'male' | 'female' | 'other';
+      emergency_contact?: {
+        name: string;
+        phone: string;
+        email?: string;
+      };
       barangays?: {
         name: string;
       };
@@ -110,6 +122,7 @@ export default function HealthcareAdminAppointmentsPage() {
     historyId: string;
     targetStatus: string;
     appointmentId: string;
+    currentStatus?: string;
   } | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
   const [lastHistoryEntries, setLastHistoryEntries] = useState<Record<string, {
@@ -350,10 +363,14 @@ export default function HealthcareAdminAppointmentsPage() {
     const lastEntry = lastHistoryEntries[appointmentId];
     if (!lastEntry) return;
 
+    // Get current appointment to determine current status
+    const currentAppointment = appointments.find(apt => apt.id === appointmentId);
+
     setPendingRevert({
       historyId: lastEntry.id,
       targetStatus: lastEntry.from_status || '',
       appointmentId,
+      currentStatus: currentAppointment?.status,
     });
     setShowRevertDialog(true);
   };
@@ -771,19 +788,171 @@ export default function HealthcareAdminAppointmentsPage() {
                     <User className="w-4 h-4 mr-2" />
                     Patient Information
                   </h4>
-                  <div className="bg-gray-50 rounded-md p-3 space-y-1 text-sm">
-                    <p className="font-medium text-gray-900">
-                      {selectedAppointment.patients.profiles.first_name} {selectedAppointment.patients.profiles.last_name}
-                    </p>
-                    <p className="text-gray-600">Patient #: {selectedAppointment.patients.patient_number}</p>
-                    {selectedAppointment.patients.profiles.email && (
-                      <p className="text-gray-600">{selectedAppointment.patients.profiles.email}</p>
-                    )}
-                    {selectedAppointment.patients.profiles.contact_number && (
-                      <p className="text-gray-600">{selectedAppointment.patients.profiles.contact_number}</p>
-                    )}
+                  <div className="bg-gray-50 rounded-md p-3 space-y-3">
+                    <div className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
+                      <div>
+                        <p className="text-xs text-gray-500">Name</p>
+                        <p className="font-medium text-gray-900 mt-1">
+                          {selectedAppointment.patients.profiles.first_name} {selectedAppointment.patients.profiles.last_name}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500">Patient #</p>
+                        <p className="font-medium text-gray-900 mt-1">{selectedAppointment.patients.patient_number}</p>
+                      </div>
+                      {selectedAppointment.patients.profiles.email && (
+                        <div>
+                          <p className="text-xs text-gray-500 flex items-center">
+                            <Mail className="w-3 h-3 mr-1" />
+                            Email
+                          </p>
+                          <p className="text-gray-900 mt-1">{selectedAppointment.patients.profiles.email}</p>
+                        </div>
+                      )}
+                      {selectedAppointment.patients.profiles.contact_number && (
+                        <div>
+                          <p className="text-xs text-gray-500 flex items-center">
+                            <Phone className="w-3 h-3 mr-1" />
+                            Contact
+                          </p>
+                          <p className="text-gray-900 mt-1">{selectedAppointment.patients.profiles.contact_number}</p>
+                        </div>
+                      )}
+                      {selectedAppointment.patients.profiles.date_of_birth && (
+                        <div>
+                          <p className="text-xs text-gray-500">Date of Birth</p>
+                          <p className="text-gray-900 mt-1">
+                            {new Date(selectedAppointment.patients.profiles.date_of_birth).toLocaleDateString('en-US', {
+                              month: 'short',
+                              day: 'numeric',
+                              year: 'numeric',
+                            })}
+                          </p>
+                        </div>
+                      )}
+                      {selectedAppointment.patients.profiles.gender && (
+                        <div>
+                          <p className="text-xs text-gray-500">Gender</p>
+                          <p className="text-gray-900 mt-1 capitalize">{selectedAppointment.patients.profiles.gender}</p>
+                        </div>
+                      )}
+                      {selectedAppointment.patients.profiles.barangays && (
+                        <div className="col-span-2">
+                          <p className="text-xs text-gray-500 flex items-center">
+                            <MapPin className="w-3 h-3 mr-1" />
+                            Barangay
+                          </p>
+                          <p className="text-gray-900 mt-1">{selectedAppointment.patients.profiles.barangays.name}</p>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
+
+                {/* Emergency Contact */}
+                {selectedAppointment.patients.profiles.emergency_contact && (
+                  <div>
+                    <h4 className="text-sm font-medium text-gray-700 mb-2 flex items-center">
+                      <AlertCircle className="w-4 h-4 mr-2" />
+                      Emergency Contact
+                    </h4>
+                    <div className="bg-gray-50 rounded-md p-3">
+                      <div className="space-y-2">
+                        <div>
+                          <p className="text-xs text-gray-500">Name</p>
+                          <p className="text-sm font-medium text-gray-900 mt-1">
+                            {selectedAppointment.patients.profiles.emergency_contact.name}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-gray-500 flex items-center">
+                            <Phone className="w-3 h-3 mr-1" />
+                            Phone
+                          </p>
+                          <p className="text-sm font-medium text-gray-900 mt-1">
+                            {selectedAppointment.patients.profiles.emergency_contact.phone}
+                          </p>
+                        </div>
+                        {selectedAppointment.patients.profiles.emergency_contact.email && (
+                          <div>
+                            <p className="text-xs text-gray-500 flex items-center">
+                              <Mail className="w-3 h-3 mr-1" />
+                              Email
+                            </p>
+                            <p className="text-sm font-medium text-gray-900 mt-1">
+                              {selectedAppointment.patients.profiles.emergency_contact.email}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Medical Information */}
+                {(() => {
+                  const hasMedicalData = selectedAppointment.patients && (
+                    selectedAppointment.patients.medical_history?.blood_type ||
+                    (selectedAppointment.patients.allergies && selectedAppointment.patients.allergies.length > 0) ||
+                    selectedAppointment.patients.medical_history?.conditions ||
+                    (selectedAppointment.patients.current_medications && selectedAppointment.patients.current_medications.length > 0)
+                  );
+
+                  return hasMedicalData ? (
+                    <div>
+                      <h4 className="text-sm font-medium text-gray-700 mb-2 flex items-center">
+                        <Heart className="w-4 h-4 mr-2" />
+                        Medical Information
+                      </h4>
+                      <div className="bg-gray-50 rounded-md p-3 space-y-3">
+                        {selectedAppointment.patients.medical_history?.blood_type && (
+                          <div>
+                            <p className="text-xs text-gray-500 flex items-center">
+                              <Droplet className="w-3 h-3 mr-1" />
+                              Blood Type
+                            </p>
+                            <p className="text-sm font-medium text-gray-900 mt-1">
+                              {selectedAppointment.patients.medical_history.blood_type}
+                            </p>
+                          </div>
+                        )}
+                        {selectedAppointment.patients.allergies && selectedAppointment.patients.allergies.length > 0 && (
+                          <div>
+                            <p className="text-xs text-gray-500 flex items-center">
+                              <AlertCircle className="w-3 h-3 mr-1" />
+                              Allergies
+                            </p>
+                            <p className="text-sm font-medium text-gray-900 mt-1">
+                              {selectedAppointment.patients.allergies.join(', ')}
+                            </p>
+                          </div>
+                        )}
+                        {selectedAppointment.patients.medical_history?.conditions && (
+                          <div>
+                            <p className="text-xs text-gray-500 flex items-center">
+                              <Heart className="w-3 h-3 mr-1" />
+                              Medical Conditions
+                            </p>
+                            <p className="text-sm font-medium text-gray-900 mt-1">
+                              {selectedAppointment.patients.medical_history.conditions}
+                            </p>
+                          </div>
+                        )}
+                        {selectedAppointment.patients.current_medications && selectedAppointment.patients.current_medications.length > 0 && (
+                          <div>
+                            <p className="text-xs text-gray-500 flex items-center">
+                              <FileText className="w-3 h-3 mr-1" />
+                              Current Medications
+                            </p>
+                            <p className="text-sm font-medium text-gray-900 mt-1">
+                              {selectedAppointment.patients.current_medications.join(', ')}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ) : null;
+                })()}
 
                 {/* Doctor Assignment Section */}
                 <div>
@@ -805,8 +974,10 @@ export default function HealthcareAdminAppointmentsPage() {
                       <p className="text-sm text-gray-400 italic">No doctor assigned yet</p>
                     )}
 
-                    {/* Doctor Assignment Dropdown - CRITICAL FIX: Show for both pending and scheduled */}
-                    {(selectedAppointment.status === 'pending' || selectedAppointment.status === 'scheduled') && doctors.length > 0 && (
+                    {/* Doctor Assignment Dropdown - Show only for pending or scheduled (if not checked in) */}
+                    {(selectedAppointment.status === 'pending' ||
+                      (selectedAppointment.status === 'scheduled' && !selectedAppointment.checked_in_at)) &&
+                     doctors.length > 0 && (
                       <div className="mt-3">
                         <select
                           value={selectedAppointment.doctor_id || ''}
@@ -900,7 +1071,8 @@ export default function HealthcareAdminAppointmentsPage() {
                 {/* Undo Button */}
                 {lastHistoryEntries[selectedAppointment.id] &&
                  lastHistoryEntries[selectedAppointment.id].from_status &&
-                 selectedAppointment.status !== lastHistoryEntries[selectedAppointment.id].from_status && (
+                 selectedAppointment.status !== lastHistoryEntries[selectedAppointment.id].from_status &&
+                 selectedAppointment.status !== 'cancelled' && (
                   selectedAppointment.status === 'completed' ? (
                     hasMedicalRecords[selectedAppointment.id] === false ? (
                       <button
@@ -958,13 +1130,21 @@ export default function HealthcareAdminAppointmentsPage() {
           onClose={() => setShowRevertDialog(false)}
           onConfirm={handleConfirmRevert}
           title="Revert Appointment Status"
-          message={`Are you sure you want to revert this appointment to "${pendingRevert?.targetStatus?.replace('_', ' ')}"? This action will be logged in the status history.`}
+          message={
+            pendingRevert?.currentStatus === 'checked_in' || pendingRevert?.currentStatus === 'in_progress'
+              ? `Are you sure you want to revert this appointment to "${pendingRevert?.targetStatus?.replace('_', ' ')}"?\n\n⚠️ Important: This will erase the ${pendingRevert.currentStatus === 'checked_in' ? 'check-in' : 'start'} timestamp from records, which affects wait time statistics. Only proceed if this was an error or the patient needs to be rescheduled.\n\nThis action will be logged in the status history with your reason.`
+              : `Are you sure you want to revert this appointment to "${pendingRevert?.targetStatus?.replace('_', ' ')}"? This action will be logged in the status history.`
+          }
           confirmText="Revert Status"
           cancelText="Cancel"
           variant="warning"
           showReasonInput={true}
           reasonLabel="Reason for reversion (required)"
-          reasonPlaceholder="E.g., Accidentally changed status, need to correct error"
+          reasonPlaceholder={
+            pendingRevert?.currentStatus === 'checked_in' || pendingRevert?.currentStatus === 'in_progress'
+              ? "E.g., Patient left before being seen, Wrong patient checked in, Technical error"
+              : "E.g., Accidentally changed status, need to correct error"
+          }
           isLoading={actionLoading}
         />
       </Container>

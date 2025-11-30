@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server';
 import { NextResponse } from 'next/server';
+import { createRejectionNotification } from '@/lib/notifications/createNotification';
 
 /**
  * POST /api/admin/patients/[id]/reject
@@ -97,7 +98,7 @@ export async function POST(
       })
       .eq('id', patientId)
       .select()
-      .single();
+      .maybeSingle();
 
     if (updateError) {
       console.error('Error rejecting patient:', updateError);
@@ -107,8 +108,17 @@ export async function POST(
       );
     }
 
-    // TODO: Send rejection notification/email to patient with reason
-    // This will be implemented when notification system is built
+    if (!updatedPatient) {
+      console.error('Patient update returned no rows - possible RLS policy issue');
+      return NextResponse.json(
+        { error: 'Failed to update patient status. Please check permissions.' },
+        { status: 500 }
+      );
+    }
+
+    // Send rejection notification to patient
+    const patientName = `${patient.first_name} ${patient.last_name}`;
+    await createRejectionNotification(patientId, patientName, reason.trim());
 
     console.log(`❌ Patient rejected: ${patient.email} by ${adminProfile.first_name} ${adminProfile.last_name}`);
     console.log(`   Reason: ${reason.trim()}`);

@@ -21,6 +21,9 @@ import {
   User,
   MapPin,
   Phone,
+  Mail,
+  Heart,
+  Droplet,
   History,
   RotateCcw,
   Eye,
@@ -54,7 +57,14 @@ interface DetailedAppointment {
       last_name: string;
       email: string;
       contact_number?: string;
+      date_of_birth?: string;
+      gender?: 'male' | 'female' | 'other';
       barangay_id: number;
+      emergency_contact?: {
+        name: string;
+        phone: string;
+        email?: string;
+      };
       barangays?: {
         name: string;
       };
@@ -721,35 +731,197 @@ export default function DoctorAppointmentsPage() {
                         <User className="w-4 h-4 mr-2" />
                         Patient Information
                       </h4>
-                      <div className="bg-gray-50 rounded-md p-3 space-y-1 text-sm">
-                        <p className="font-medium text-gray-900">
-                          {selectedAppointment.patients?.profiles?.first_name || 'Unknown'}{' '}
-                          {selectedAppointment.patients?.profiles?.last_name || 'Patient'}
-                        </p>
-                        <p className="text-gray-600">Patient #{selectedAppointment.patients?.patient_number || 'N/A'}</p>
-                        {selectedAppointment.patients?.profiles?.contact_number && (
-                          <p className="text-gray-600 flex items-center">
-                            <Phone className="w-3 h-3 mr-1" />
-                            {selectedAppointment.patients.profiles.contact_number}
-                          </p>
-                        )}
-                        {selectedAppointment.patients?.profiles?.barangays && (
-                          <p className="text-gray-600 flex items-center">
-                            <MapPin className="w-3 h-3 mr-1" />
-                            {selectedAppointment.patients.profiles.barangays.name}
-                          </p>
-                        )}
+                      <div className="bg-gray-50 rounded-md p-3">
+                        <div className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
+                          <div>
+                            <p className="text-xs text-gray-500">Name</p>
+                            <p className="font-medium text-gray-900 mt-1">
+                              {selectedAppointment.patients?.profiles?.first_name || 'Unknown'}{' '}
+                              {selectedAppointment.patients?.profiles?.last_name || 'Patient'}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-gray-500">Patient #</p>
+                            <p className="font-medium text-gray-900 mt-1">
+                              {selectedAppointment.patients?.patient_number || 'N/A'}
+                            </p>
+                          </div>
+                          {selectedAppointment.patients?.profiles?.email && (
+                            <div>
+                              <p className="text-xs text-gray-500 flex items-center">
+                                <Mail className="w-3 h-3 mr-1" />
+                                Email
+                              </p>
+                              <p className="text-gray-900 mt-1">
+                                {selectedAppointment.patients.profiles.email}
+                              </p>
+                            </div>
+                          )}
+                          {selectedAppointment.patients?.profiles?.contact_number && (
+                            <div>
+                              <p className="text-xs text-gray-500 flex items-center">
+                                <Phone className="w-3 h-3 mr-1" />
+                                Contact
+                              </p>
+                              <p className="text-gray-900 mt-1">
+                                {selectedAppointment.patients.profiles.contact_number}
+                              </p>
+                            </div>
+                          )}
+                          {selectedAppointment.patients?.profiles?.date_of_birth && (
+                            <div>
+                              <p className="text-xs text-gray-500">Date of Birth</p>
+                              <p className="text-gray-900 mt-1">
+                                {new Date(selectedAppointment.patients.profiles.date_of_birth).toLocaleDateString('en-US', {
+                                  year: 'numeric',
+                                  month: 'long',
+                                  day: 'numeric'
+                                })}
+                              </p>
+                            </div>
+                          )}
+                          {selectedAppointment.patients?.profiles?.gender && (
+                            <div>
+                              <p className="text-xs text-gray-500">Gender</p>
+                              <p className="text-gray-900 mt-1 capitalize">
+                                {selectedAppointment.patients.profiles.gender}
+                              </p>
+                            </div>
+                          )}
+                          {selectedAppointment.patients?.profiles?.barangays && (
+                            <div className="col-span-2">
+                              <p className="text-xs text-gray-500 flex items-center">
+                                <MapPin className="w-3 h-3 mr-1" />
+                                Barangay
+                              </p>
+                              <p className="text-gray-900 mt-1">
+                                {selectedAppointment.patients.profiles.barangays.name}
+                              </p>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
 
-                    {/* Medical Context Panel */}
-                    <MedicalContextPanel
-                      medical_history={selectedAppointment.patients?.medical_history}
-                      allergies={selectedAppointment.patients?.allergies}
-                      current_medications={selectedAppointment.patients?.current_medications}
-                      accessibility_requirements={selectedAppointment.patients?.accessibility_requirements}
-                      patientId={selectedAppointment.patients?.id || ''}
-                    />
+                    {/* Emergency Contact */}
+                    {selectedAppointment.patients?.profiles?.emergency_contact && (
+                      <div>
+                        <h4 className="text-sm font-medium text-gray-700 mb-2 flex items-center">
+                          <AlertCircle className="w-4 h-4 mr-2" />
+                          Emergency Contact
+                        </h4>
+                        <div className="bg-gray-50 rounded-md p-3">
+                          <div className="space-y-2 text-sm">
+                            <div>
+                              <p className="text-xs text-gray-500">Name</p>
+                              <p className="text-gray-900 mt-1 font-medium">
+                                {selectedAppointment.patients.profiles.emergency_contact.name}
+                              </p>
+                            </div>
+                            <div>
+                              <p className="text-xs text-gray-500 flex items-center">
+                                <Phone className="w-3 h-3 mr-1" />
+                                Phone
+                              </p>
+                              <p className="text-gray-900 mt-1">
+                                {selectedAppointment.patients.profiles.emergency_contact.phone}
+                              </p>
+                            </div>
+                            {selectedAppointment.patients.profiles.emergency_contact.email && (
+                              <div>
+                                <p className="text-xs text-gray-500 flex items-center">
+                                  <Mail className="w-3 h-3 mr-1" />
+                                  Email
+                                </p>
+                                <p className="text-gray-900 mt-1">
+                                  {selectedAppointment.patients.profiles.emergency_contact.email}
+                                </p>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Medical Information */}
+                    {(() => {
+                      const hasMedicalData = selectedAppointment.patients && (
+                        selectedAppointment.patients.medical_history?.blood_type ||
+                        (selectedAppointment.patients.allergies && selectedAppointment.patients.allergies.length > 0) ||
+                        (selectedAppointment.patients.medical_history?.conditions && selectedAppointment.patients.medical_history.conditions.length > 0) ||
+                        (selectedAppointment.patients.current_medications && selectedAppointment.patients.current_medications.length > 0) ||
+                        selectedAppointment.patients.accessibility_requirements
+                      );
+
+                      return hasMedicalData ? (
+                        <div>
+                          <h4 className="text-sm font-medium text-gray-700 mb-2 flex items-center">
+                            <Heart className="w-4 h-4 mr-2" />
+                            Medical Information
+                          </h4>
+                          <div className="bg-gray-50 rounded-md p-3 space-y-3 text-sm">
+                            {selectedAppointment.patients.medical_history?.blood_type && (
+                              <div>
+                                <p className="text-xs text-gray-500 flex items-center">
+                                  <Droplet className="w-3 h-3 mr-1" />
+                                  Blood Type
+                                </p>
+                                <p className="text-gray-900 font-medium mt-1">
+                                  {selectedAppointment.patients.medical_history.blood_type}
+                                </p>
+                              </div>
+                            )}
+
+                            {selectedAppointment.patients.allergies && selectedAppointment.patients.allergies.length > 0 && (
+                              <div>
+                                <p className="text-xs text-gray-500 mb-1.5">Allergies</p>
+                                <div className="bg-red-50 border border-red-200 rounded-md p-2">
+                                  <div className="flex items-start">
+                                    <AlertCircle className="w-4 h-4 text-red-600 mt-0.5 flex-shrink-0" />
+                                    <div className="ml-2 flex-1">
+                                      <div className="flex flex-wrap gap-1">
+                                        {selectedAppointment.patients.allergies.map((allergy: string, index: number) => (
+                                          <span key={index} className="inline-block px-2 py-0.5 bg-red-100 text-red-800 text-xs rounded">
+                                            {allergy}
+                                          </span>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+
+                            {selectedAppointment.patients.medical_history?.conditions && selectedAppointment.patients.medical_history.conditions.length > 0 && (
+                              <div>
+                                <p className="text-xs text-gray-500 mb-1.5">Medical Conditions</p>
+                                <p className="text-gray-900">{selectedAppointment.patients.medical_history.conditions}</p>
+                              </div>
+                            )}
+
+                            {selectedAppointment.patients.current_medications && selectedAppointment.patients.current_medications.length > 0 && (
+                              <div>
+                                <p className="text-xs text-gray-500 mb-1.5">Current Medications</p>
+                                <div className="flex flex-wrap gap-1">
+                                  {selectedAppointment.patients.current_medications.map((medication: string, index: number) => (
+                                    <span key={index} className="inline-block px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded">
+                                      {medication}
+                                    </span>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+
+                            {selectedAppointment.patients.accessibility_requirements && (
+                              <div>
+                                <p className="text-xs text-gray-500 mb-1.5">Accessibility Requirements</p>
+                                <p className="text-gray-900">{selectedAppointment.patients.accessibility_requirements}</p>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      ) : null;
+                    })()}
 
                     {/* Medical Record Status - Only show for completed appointments */}
                     {selectedAppointment.status === 'completed' && (
@@ -838,6 +1010,97 @@ export default function DoctorAppointmentsPage() {
                         </div>
                       </div>
                     )}
+
+                    {/* Appointment Timeline */}
+                    <div>
+                      <h4 className="text-sm font-medium text-gray-700 mb-2 flex items-center">
+                        <Clock className="w-4 h-4 mr-2" />
+                        Timeline
+                      </h4>
+                      <div className="bg-gray-50 rounded-md p-3">
+                        <div className="space-y-2">
+                          {/* Created */}
+                          <div className="flex items-start text-xs">
+                            <div className="w-20 text-gray-500 flex-shrink-0">Created</div>
+                            <div className="flex-1">
+                              <div className="flex items-center">
+                                <div className="w-2 h-2 rounded-full bg-blue-500 mr-2"></div>
+                                <span className="text-gray-900">
+                                  {formatPhilippineDateLong(selectedAppointment.appointment_date)} at{' '}
+                                  {selectedAppointment.appointment_time}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Checked In */}
+                          {selectedAppointment.checked_in_at && (
+                            <div className="flex items-start text-xs">
+                              <div className="w-20 text-gray-500 flex-shrink-0">Checked In</div>
+                              <div className="flex-1">
+                                <div className="flex items-center">
+                                  <div className="w-2 h-2 rounded-full bg-green-500 mr-2"></div>
+                                  <span className="text-gray-900">
+                                    {new Date(selectedAppointment.checked_in_at).toLocaleString('en-US', {
+                                      month: 'short',
+                                      day: 'numeric',
+                                      year: 'numeric',
+                                      hour: 'numeric',
+                                      minute: '2-digit',
+                                      hour12: true
+                                    })}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Started */}
+                          {selectedAppointment.started_at && (
+                            <div className="flex items-start text-xs">
+                              <div className="w-20 text-gray-500 flex-shrink-0">Started</div>
+                              <div className="flex-1">
+                                <div className="flex items-center">
+                                  <div className="w-2 h-2 rounded-full bg-primary-teal mr-2"></div>
+                                  <span className="text-gray-900">
+                                    {new Date(selectedAppointment.started_at).toLocaleString('en-US', {
+                                      month: 'short',
+                                      day: 'numeric',
+                                      year: 'numeric',
+                                      hour: 'numeric',
+                                      minute: '2-digit',
+                                      hour12: true
+                                    })}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Completed */}
+                          {selectedAppointment.completed_at && (
+                            <div className="flex items-start text-xs">
+                              <div className="w-20 text-gray-500 flex-shrink-0">Completed</div>
+                              <div className="flex-1">
+                                <div className="flex items-center">
+                                  <div className="w-2 h-2 rounded-full bg-purple-500 mr-2"></div>
+                                  <span className="text-gray-900">
+                                    {new Date(selectedAppointment.completed_at).toLocaleString('en-US', {
+                                      month: 'short',
+                                      day: 'numeric',
+                                      year: 'numeric',
+                                      hour: 'numeric',
+                                      minute: '2-digit',
+                                      hour12: true
+                                    })}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
 
                     <div className="border-t pt-4 space-y-2">
                       <button

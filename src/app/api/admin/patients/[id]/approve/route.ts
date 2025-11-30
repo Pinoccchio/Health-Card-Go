@@ -1,5 +1,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { NextResponse } from 'next/server';
+import { createApprovalNotification } from '@/lib/notifications/createNotification';
+import { generateHealthCard } from '@/lib/health-cards/generateHealthCard';
 
 /**
  * POST /api/admin/patients/[id]/approve
@@ -47,10 +49,19 @@ export async function POST(
       );
     }
 
-    // Verify patient exists and is pending
+    // Verify patient exists and is pending (join with patients table for patient_number)
     const { data: patient, error: patientCheckError } = await supabase
       .from('profiles')
-      .select('id, email, first_name, last_name, status, role')
+      .select(`
+        id,
+        email,
+        first_name,
+        last_name,
+        status,
+        role,
+        barangay_id,
+        emergency_contact
+      `)
       .eq('id', patientId)
       .single();
 
@@ -87,7 +98,7 @@ export async function POST(
       })
       .eq('id', patientId)
       .select()
-      .single();
+      .maybeSingle();
 
     if (updateError) {
       console.error('Error approving patient:', updateError);
@@ -97,10 +108,53 @@ export async function POST(
       );
     }
 
-    // TODO: Send approval notification/email to patient
-    // This will be implemented when notification system is built
+    if (!updatedPatient) {
+      console.error('Patient update returned no rows - possible RLS policy issue');
+      return NextResponse.json(
+        { error: 'Failed to update patient status. Please check permissions.' },
+        { status: 500 }
+      );
+    }
 
-    console.log(`✅ Patient approved: ${patient.email} by ${adminProfile.first_name} ${adminProfile.last_name}`);
+    // Get patient record to retrieve patient_number
+    const { data: patientRecord, error: patientRecordError } = await supabase
+      .from('patients')
+      .select('patient_number')
+      .eq('user_id', patientId)
+      .single();
+
+    if (patientRecordError || !patientRecord) {
+      console.error('Error fetching patient record:', patientRecordError);
+      // Continue with approval even if we can't get patient record
+    }
+
+    // Generate health card for the approved patient
+    if (patientRecord?.patient_number) {
+      const emergencyPhone = patient.emergency_contact?.phone;
+      const healthCardResult = await generateHealthCard({
+        patientId,
+        patientNumber: patientRecord.patient_number,
+        firstName: patient.first_name,
+        lastName: patient.last_name,
+        barangayId: patient.barangay_id,
+        emergencyContactPhone: emergencyPhone,
+      });
+
+      if (!healthCardResult.success) {
+        console.error('Failed to generate health card:', healthCardResult.error);
+        // Don't fail the approval if health card generation fails
+      } else {
+        console.log(`✅ Health card generated: ${healthCardResult.cardNumber}`);
+      }
+    }
+
+    // Send approval notification to patient
+    const approverName = `${adminProfile.first_name} ${adminProfile.last_name}`;
+    const patientName = `${patient.first_name} ${patient.last_name}`;
+
+    await createApprovalNotification(patientId, patientName, approverName);
+
+    console.log(`✅ Patient approved: ${patient.email} by ${approverName}`);
 
     return NextResponse.json({
       success: true,
