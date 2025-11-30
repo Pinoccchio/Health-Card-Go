@@ -16,3 +16,5 @@ export type { LogoProps } from './Logo';
 
 export { ConfirmDialog } from './ConfirmDialog';
 export type { ConfirmDialogProps } from './ConfirmDialog';
+
+export { Drawer } from './Drawer';
