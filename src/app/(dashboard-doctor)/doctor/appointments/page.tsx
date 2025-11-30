@@ -1,8 +1,11 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { DashboardLayout } from '@/components/dashboard';
 import { Container, ConfirmDialog } from '@/components/ui';
+import { ProfessionalCard } from '@/components/ui/ProfessionalCard';
+import { EnhancedTable } from '@/components/ui/EnhancedTable';
+import { Drawer } from '@/components/ui/Drawer';
 import { StatusHistoryModal } from '@/components/appointments/StatusHistoryModal';
 import { TimeElapsedBadge } from '@/components/appointments/TimeElapsedBadge';
 import { MedicalContextPanel } from '@/components/appointments/MedicalContextPanel';
@@ -19,6 +22,10 @@ import {
   Phone,
   History,
   RotateCcw,
+  Eye,
+  UserCheck,
+  Activity,
+  ListChecks,
 } from 'lucide-react';
 import { formatPhilippineDateLong, getPhilippineTime } from '@/lib/utils/timezone';
 import { APPOINTMENT_STATUS_CONFIG } from '@/lib/constants/colors';
@@ -28,7 +35,7 @@ interface DetailedAppointment {
   appointment_number: number;
   appointment_date: string;
   appointment_time: string;
-  status: 'scheduled' | 'checked_in' | 'in_progress' | 'completed' | 'no_show';
+  status: 'pending' | 'scheduled' | 'checked_in' | 'in_progress' | 'completed' | 'no_show';
   reason?: string;
   checked_in_at?: string;
   started_at?: string;
@@ -62,7 +69,8 @@ export default function DoctorAppointmentsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
-  const [filter, setFilter] = useState<'all' | 'scheduled' | 'checked_in' | 'in_progress' | 'completed'>('all');
+  const [filter, setFilter] = useState<'all' | 'pending' | 'scheduled' | 'checked_in' | 'in_progress' | 'completed'>('all');
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
   // Confirmation dialog states
   const [showNoShowDialog, setShowNoShowDialog] = useState(false);
@@ -77,6 +85,9 @@ export default function DoctorAppointmentsPage() {
 
   // Medical records check for undo validation
   const [hasMedicalRecords, setHasMedicalRecords] = useState<boolean | null>(null);
+
+  // Medical records check for completion warning
+  const [completionHasMedicalRecord, setCompletionHasMedicalRecord] = useState<boolean>(true);
 
   // Status history and reversion states
   const [showHistoryModal, setShowHistoryModal] = useState(false);
@@ -138,9 +149,14 @@ export default function DoctorAppointmentsPage() {
       const data = await response.json();
 
       if (data.success && data.data.length > 0) {
-        // Get the most recent status change entry
+        // Get the most recent ORIGINAL status change entry that led TO the current status
+        // API returns history in descending order (newest first), so .find() gets the most recent entry
+        const currentStatus = selectedAppointment?.status;
         const lastEntry = data.data.find((entry: any) =>
-          entry.change_type === 'status_change' && entry.from_status !== null
+          entry.change_type === 'status_change' &&
+          entry.from_status !== null &&
+          entry.is_reversion !== true &&  // Skip reversion entries - we want the ORIGINAL status change
+          entry.to_status === currentStatus  // Find the entry that changed TO the current status
         );
         if (lastEntry) {
           setLastHistoryEntry({
@@ -200,6 +216,42 @@ export default function DoctorAppointmentsPage() {
       setError('An unexpected error occurred');
     } finally {
       setActionLoading(false);
+    }
+  };
+
+  // Handler to check for medical records before completion
+  const handleCheckAndComplete = async (appointmentId: string, patientName: string) => {
+    try {
+      // Check if medical record exists for this appointment
+      const response = await fetch(`/api/medical-records?appointment_id=${appointmentId}`);
+      const data = await response.json();
+
+      setPendingAction({
+        appointmentId: appointmentId,
+        status: 'completed',
+        patientName: patientName,
+      });
+
+      // Store whether medical record exists for dialog variant selection
+      if (data.success && data.has_records) {
+        // Medical record exists - show normal completion dialog
+        setCompletionHasMedicalRecord(true);
+        setShowCompleteDialog(true);
+      } else {
+        // No medical record - show warning variant completion dialog
+        setCompletionHasMedicalRecord(false);
+        setShowCompleteDialog(true);
+      }
+    } catch (err) {
+      console.error('Failed to check medical records:', err);
+      // On error, assume no medical record and show warning
+      setPendingAction({
+        appointmentId: appointmentId,
+        status: 'completed',
+        patientName: patientName,
+      });
+      setCompletionHasMedicalRecord(false);
+      setShowCompleteDialog(true);
     }
   };
 
@@ -302,11 +354,37 @@ export default function DoctorAppointmentsPage() {
     });
   };
 
-  const filteredAppointments = appointments.filter((apt) =>
-    filter === 'all' ? true : apt.status === filter
-  );
+  // Calculate statistics
+  const statistics = useMemo(() => {
+    return {
+      total: appointments.length,
+      pending: appointments.filter(a => a.status === 'pending').length,
+      scheduled: appointments.filter(a => a.status === 'scheduled').length,
+      checked_in: appointments.filter(a => a.status === 'checked_in').length,
+      in_progress: appointments.filter(a => a.status === 'in_progress').length,
+      completed: appointments.filter(a => a.status === 'completed').length,
+      no_show: appointments.filter(a => a.status === 'no_show').length,
+    };
+  }, [appointments]);
 
-  const StatusBadge = ({ status }: { status: DetailedAppointment['status'] }) => {
+  // Handler for opening appointment details drawer
+  const handleViewDetails = (appointment: DetailedAppointment) => {
+    setSelectedAppointment(appointment);
+    setIsDrawerOpen(true);
+  };
+
+  const handleCloseDrawer = () => {
+    setIsDrawerOpen(false);
+    // Keep selectedAppointment for a moment to allow smooth close animation
+    setTimeout(() => {
+      if (!isDrawerOpen) {
+        setSelectedAppointment(null);
+      }
+    }, 300);
+  };
+
+  // Get status badge component
+  const getStatusBadge = (status: DetailedAppointment['status']) => {
     const config = statusConfig[status];
     const Icon = config.icon;
 
@@ -317,6 +395,86 @@ export default function DoctorAppointmentsPage() {
       </span>
     );
   };
+
+  // Table columns definition
+  const tableColumns = [
+    {
+      header: 'Queue #',
+      accessor: 'appointment_number',
+      sortable: true,
+      render: (value: number) => (
+        <div className="flex items-center gap-2">
+          <div className="w-8 h-8 bg-[#20C997]/10 rounded-full flex items-center justify-center">
+            <span className="font-bold text-[#20C997] text-sm">#{value}</span>
+          </div>
+        </div>
+      ),
+    },
+    {
+      header: 'Patient',
+      accessor: 'patients',
+      sortable: true,
+      render: (_: any, row: DetailedAppointment) => (
+        <div className="flex items-center gap-2">
+          <User className="w-4 h-4 text-gray-400" />
+          <div>
+            <div className="font-medium text-gray-900">
+              {row.patients?.profiles?.first_name || 'Unknown'} {row.patients?.profiles?.last_name || 'Patient'}
+            </div>
+            <div className="text-xs text-gray-500">Patient #{row.patients?.patient_number || 'N/A'}</div>
+          </div>
+        </div>
+      ),
+    },
+    {
+      header: 'Date & Time',
+      accessor: 'appointment_date',
+      sortable: true,
+      render: (_: any, row: DetailedAppointment) => (
+        <div className="flex items-center gap-2">
+          <Calendar className="w-4 h-4 text-gray-400" />
+          <div>
+            <div className="font-medium text-gray-900">{formatDate(row.appointment_date)}</div>
+            <div className="text-xs text-gray-500">{formatTime(row.appointment_time)}</div>
+          </div>
+        </div>
+      ),
+    },
+    {
+      header: 'Barangay',
+      accessor: 'barangay',
+      sortable: true,
+      render: (_: any, row: DetailedAppointment) => (
+        <div className="flex items-center gap-1 text-sm text-gray-700">
+          <MapPin className="w-3 h-3 text-gray-400" />
+          {row.patients?.profiles?.barangays?.name || 'N/A'}
+        </div>
+      ),
+    },
+    {
+      header: 'Status',
+      accessor: 'status',
+      sortable: true,
+      render: (value: DetailedAppointment['status']) => getStatusBadge(value),
+    },
+    {
+      header: 'Actions',
+      accessor: 'actions',
+      render: (_: any, row: DetailedAppointment) => (
+        <button
+          onClick={() => handleViewDetails(row)}
+          className="inline-flex items-center px-3 py-1.5 bg-[#20C997] text-white text-xs font-medium rounded-md hover:bg-[#1AA179] transition-colors"
+        >
+          <Eye className="w-3 h-3 mr-1.5" />
+          View Details
+        </button>
+      ),
+    },
+  ];
+
+  const filteredAppointments = appointments.filter((apt) =>
+    filter === 'all' ? true : apt.status === filter
+  );
 
   return (
     <DashboardLayout
@@ -332,124 +490,197 @@ export default function DoctorAppointmentsPage() {
           </div>
         )}
 
-        <div className="mb-6 flex items-center justify-between">
-          <div>
-            <h2 className="text-xl font-bold text-gray-900">
-              {formatDate(new Date().toISOString().split('T')[0])}
-            </h2>
-            <p className="text-sm text-gray-600">{appointments.length} total appointments</p>
-          </div>
-
-          <div className="flex items-center gap-2">
-            {['all', 'scheduled', 'checked_in', 'in_progress', 'completed'].map((status) => (
-              <button
-                key={status}
-                onClick={() => setFilter(status as any)}
-                className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
-                  filter === status
-                    ? 'bg-primary-teal text-white'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
-              >
-                {status.replace('_', ' ').charAt(0).toUpperCase() + status.slice(1).replace('_', ' ')}
-              </button>
-            ))}
-          </div>
-        </div>
-
         {loading ? (
           <div className="text-center py-12">
             <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary-teal"></div>
             <p className="mt-2 text-sm text-gray-500">Loading appointments...</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Appointments List */}
-            <div className="lg:col-span-2">
-              {filteredAppointments.length > 0 ? (
-                <div className="space-y-3">
-                  {filteredAppointments.map((appointment) => (
-                    <div
-                      key={appointment.id}
-                      onClick={() => setSelectedAppointment(appointment)}
-                      className={`bg-white border rounded-lg p-4 cursor-pointer transition-all hover:shadow-md ${
-                        selectedAppointment?.id === appointment.id
-                          ? 'border-primary-teal shadow-md'
-                          : 'border-gray-200'
-                      }`}
-                    >
-                      <div className="flex items-start justify-between mb-2">
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 bg-primary-teal/10 rounded-full flex items-center justify-center">
-                            <span className="font-bold text-primary-teal">#{appointment.appointment_number}</span>
-                          </div>
-                          <div>
-                            <h4 className="font-semibold text-gray-900">
-                              {appointment.patients?.profiles?.first_name || 'Unknown'} {appointment.patients?.profiles?.last_name || 'Patient'}
-                            </h4>
-                            <p className="text-xs text-gray-500">Patient #{appointment.patients?.patient_number || 'N/A'}</p>
-                          </div>
-                        </div>
-                        <StatusBadge status={appointment.status} />
-                      </div>
+          <>
+            {/* Statistics Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-7 gap-4 mb-6">
+              <ProfessionalCard variant="flat" className="bg-gradient-to-br from-teal-50 to-teal-100 border-l-4 border-teal-500">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-gray-600 mb-1">Total</p>
+                    <p className="text-3xl font-bold text-gray-900">{statistics.total}</p>
+                  </div>
+                  <div className="w-12 h-12 bg-teal-500 rounded-xl flex items-center justify-center shadow-lg">
+                    <ListChecks className="w-6 h-6 text-white" />
+                  </div>
+                </div>
+              </ProfessionalCard>
 
-                      <div className="flex items-center gap-4 text-xs text-gray-600">
-                        <div className="flex items-center">
-                          <Clock className="w-3 h-3 mr-1" />
-                          {formatTime(appointment.appointment_time)}
-                        </div>
-                        {appointment.patients?.profiles?.barangays && (
-                          <div className="flex items-center">
-                            <MapPin className="w-3 h-3 mr-1" />
-                            {appointment.patients.profiles.barangays.name}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  ))}
+              <ProfessionalCard variant="flat" className="bg-gradient-to-br from-orange-50 to-orange-100 border-l-4 border-orange-500">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-gray-600 mb-1">Pending</p>
+                    <p className="text-3xl font-bold text-gray-900">{statistics.pending}</p>
+                  </div>
+                  <div className="w-12 h-12 bg-orange-500 rounded-xl flex items-center justify-center shadow-lg">
+                    <Clock className="w-6 h-6 text-white" />
+                  </div>
                 </div>
-              ) : (
-                <div className="bg-white rounded-lg shadow p-12 text-center">
-                  <Users className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">No appointments</h3>
-                  <p className="text-gray-600">No appointments match the selected filter.</p>
+              </ProfessionalCard>
+
+              <ProfessionalCard variant="flat" className="bg-gradient-to-br from-blue-50 to-blue-100 border-l-4 border-blue-500">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-gray-600 mb-1">Scheduled</p>
+                    <p className="text-3xl font-bold text-gray-900">{statistics.scheduled}</p>
+                  </div>
+                  <div className="w-12 h-12 bg-blue-500 rounded-xl flex items-center justify-center shadow-lg">
+                    <Calendar className="w-6 h-6 text-white" />
+                  </div>
                 </div>
-              )}
+              </ProfessionalCard>
+
+              <ProfessionalCard variant="flat" className="bg-gradient-to-br from-purple-50 to-purple-100 border-l-4 border-purple-500">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-gray-600 mb-1">Checked In</p>
+                    <p className="text-3xl font-bold text-gray-900">{statistics.checked_in}</p>
+                  </div>
+                  <div className="w-12 h-12 bg-purple-500 rounded-xl flex items-center justify-center shadow-lg">
+                    <UserCheck className="w-6 h-6 text-white" />
+                  </div>
+                </div>
+              </ProfessionalCard>
+
+              <ProfessionalCard variant="flat" className="bg-gradient-to-br from-amber-50 to-amber-100 border-l-4 border-amber-500">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-gray-600 mb-1">In Progress</p>
+                    <p className="text-3xl font-bold text-gray-900">{statistics.in_progress}</p>
+                  </div>
+                  <div className="w-12 h-12 bg-amber-500 rounded-xl flex items-center justify-center shadow-lg">
+                    <Activity className="w-6 h-6 text-white" />
+                  </div>
+                </div>
+              </ProfessionalCard>
+
+              <ProfessionalCard variant="flat" className="bg-gradient-to-br from-green-50 to-green-100 border-l-4 border-green-500">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-gray-600 mb-1">Completed</p>
+                    <p className="text-3xl font-bold text-gray-900">{statistics.completed}</p>
+                  </div>
+                  <div className="w-12 h-12 bg-green-500 rounded-xl flex items-center justify-center shadow-lg">
+                    <CheckCircle className="w-6 h-6 text-white" />
+                  </div>
+                </div>
+              </ProfessionalCard>
+
+              <ProfessionalCard variant="flat" className="bg-gradient-to-br from-red-50 to-red-100 border-l-4 border-red-500">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-gray-600 mb-1">No Show</p>
+                    <p className="text-3xl font-bold text-gray-900">{statistics.no_show}</p>
+                  </div>
+                  <div className="w-12 h-12 bg-red-500 rounded-xl flex items-center justify-center shadow-lg">
+                    <XCircle className="w-6 h-6 text-white" />
+                  </div>
+                </div>
+              </ProfessionalCard>
             </div>
 
-            {/* Appointment Details */}
-            <div className="lg:col-span-1">
-              {selectedAppointment ? (
-                <div className="bg-white border border-gray-200 rounded-lg p-6 sticky top-6">
-                  <div className="mb-4">
-                    <div className="flex items-center justify-between mb-2">
-                      <h3 className="text-lg font-semibold text-gray-900">Appointment Details</h3>
-                      <div className="flex items-center gap-2">
-                        <StatusBadge status={selectedAppointment.status} />
-                      </div>
-                    </div>
-                    <p className="text-sm text-gray-600 mb-2">Queue #{selectedAppointment.appointment_number}</p>
+            {/* Quick Status Filters */}
+            <div className="flex flex-wrap gap-2 mb-6">
+              {[
+                { id: 'all', label: 'All Appointments', count: statistics.total, color: 'gray', icon: ListChecks },
+                { id: 'pending', label: 'Pending', count: statistics.pending, color: 'orange', icon: Clock },
+                { id: 'scheduled', label: 'Scheduled', count: statistics.scheduled, color: 'blue', icon: Calendar },
+                { id: 'checked_in', label: 'Checked In', count: statistics.checked_in, color: 'purple', icon: UserCheck },
+                { id: 'in_progress', label: 'In Progress', count: statistics.in_progress, color: 'amber', icon: Activity },
+                { id: 'completed', label: 'Completed', count: statistics.completed, color: 'green', icon: CheckCircle },
+              ].map((statusFilter) => {
+                const Icon = statusFilter.icon;
+                const isActive = filter === statusFilter.id;
+                const colorClasses = {
+                  gray: { bg: 'bg-gray-100 hover:bg-gray-200', text: 'text-gray-700', ring: 'ring-gray-400', activeBg: 'bg-gray-200' },
+                  orange: { bg: 'bg-orange-100 hover:bg-orange-200', text: 'text-orange-700', ring: 'ring-orange-500', activeBg: 'bg-orange-200' },
+                  blue: { bg: 'bg-blue-100 hover:bg-blue-200', text: 'text-blue-700', ring: 'ring-blue-500', activeBg: 'bg-blue-200' },
+                  purple: { bg: 'bg-purple-100 hover:bg-purple-200', text: 'text-purple-700', ring: 'ring-purple-500', activeBg: 'bg-purple-200' },
+                  amber: { bg: 'bg-amber-100 hover:bg-amber-200', text: 'text-amber-700', ring: 'ring-amber-500', activeBg: 'bg-amber-200' },
+                  green: { bg: 'bg-green-100 hover:bg-green-200', text: 'text-green-700', ring: 'ring-green-500', activeBg: 'bg-green-200' },
+                };
+                const colors = colorClasses[statusFilter.color as keyof typeof colorClasses];
 
-                    {/* Time Tracking Badges */}
-                    <div className="flex flex-wrap gap-2">
-                      {selectedAppointment.checked_in_at && selectedAppointment.status === 'checked_in' && (
-                        <TimeElapsedBadge
-                          timestamp={selectedAppointment.checked_in_at}
-                          label="Waiting"
-                          type="waiting"
-                        />
-                      )}
-                      {selectedAppointment.started_at && selectedAppointment.status === 'in_progress' && (
-                        <TimeElapsedBadge
-                          timestamp={selectedAppointment.started_at}
-                          label="Consulting"
-                          type="consulting"
-                        />
-                      )}
-                    </div>
-                  </div>
+                return (
+                  <button
+                    key={statusFilter.id}
+                    onClick={() => setFilter(statusFilter.id as typeof filter)}
+                    className={`
+                      flex items-center gap-2 px-4 py-2 rounded-full font-medium text-sm transition-all
+                      ${isActive ? `${colors.activeBg} ${colors.text} ring-2 ${colors.ring} shadow-md` : `${colors.bg} ${colors.text}`}
+                    `}
+                  >
+                    <Icon className="w-4 h-4" />
+                    <span>{statusFilter.label}</span>
+                    <span className={`
+                      ml-1 px-2 py-0.5 rounded-full text-xs font-bold
+                      ${isActive ? 'bg-white/80' : 'bg-white/60'}
+                    `}>
+                      {statusFilter.count}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
 
-                  <div className="space-y-4">
+            {/* Enhanced Table */}
+            <div className="mt-6">
+              <EnhancedTable
+                columns={tableColumns}
+                data={filteredAppointments}
+                searchable
+                searchPlaceholder="Search by patient name, queue number, or barangay..."
+                paginated
+                pageSize={15}
+              />
+            </div>
+          </>
+        )}
+
+        {/* Drawer for Appointment Details */}
+        {selectedAppointment && (
+          <Drawer
+            isOpen={isDrawerOpen}
+            onClose={handleCloseDrawer}
+            size="xl"
+            title={`Appointment #${selectedAppointment.appointment_number}`}
+            subtitle={`${selectedAppointment.patients?.profiles?.first_name || 'Unknown'} ${selectedAppointment.patients?.profiles?.last_name || 'Patient'}`}
+            metadata={{
+              createdOn: `${formatDate(selectedAppointment.appointment_date)} at ${formatTime(selectedAppointment.appointment_time)}`,
+              doctor: `Patient #${selectedAppointment.patients?.patient_number || 'N/A'}`,
+            }}
+          >
+            <div className="p-6">
+              <div className="mb-4">
+                <div className="flex items-center gap-2 mb-2">
+                  {getStatusBadge(selectedAppointment.status)}
+                </div>
+
+                {/* Time Tracking Badges */}
+                <div className="flex flex-wrap gap-2">
+                  {selectedAppointment.checked_in_at && selectedAppointment.status === 'checked_in' && (
+                    <TimeElapsedBadge
+                      timestamp={selectedAppointment.checked_in_at}
+                      label="Waiting"
+                      type="waiting"
+                    />
+                  )}
+                  {selectedAppointment.started_at && selectedAppointment.status === 'in_progress' && (
+                    <TimeElapsedBadge
+                      timestamp={selectedAppointment.started_at}
+                      label="Consulting"
+                      type="consulting"
+                    />
+                  )}
+                </div>
+              </div>
+
+              <div className="space-y-4">
                     <div>
                       <h4 className="text-sm font-medium text-gray-700 mb-2 flex items-center">
                         <User className="w-4 h-4 mr-2" />
@@ -484,6 +715,69 @@ export default function DoctorAppointmentsPage() {
                       accessibility_requirements={selectedAppointment.patients?.accessibility_requirements}
                       patientId={selectedAppointment.patients?.id || ''}
                     />
+
+                    {/* Medical Record Status - Only show for completed appointments */}
+                    {selectedAppointment.status === 'completed' && (
+                      <div>
+                        {hasMedicalRecords === null ? (
+                          // Loading state
+                          <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                            <div className="flex items-center">
+                              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-primary-teal mr-3"></div>
+                              <p className="text-sm text-gray-600">Checking for medical records...</p>
+                            </div>
+                          </div>
+                        ) : hasMedicalRecords === true ? (
+                          // Success state - Medical record exists
+                          <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                            <div className="flex items-start">
+                              <CheckCircle className="w-5 h-5 text-green-600 mt-0.5 flex-shrink-0" />
+                              <div className="ml-3 flex-1">
+                                <h4 className="text-sm font-semibold text-green-900 mb-1">
+                                  Medical Record Created
+                                </h4>
+                                <p className="text-xs text-green-700 mb-3">
+                                  Consultation notes and diagnosis have been recorded for this appointment.
+                                </p>
+                                <button
+                                  onClick={() => {
+                                    window.location.href = `/doctor/medical-records?appointment_id=${selectedAppointment.id}`;
+                                  }}
+                                  className="inline-flex items-center px-3 py-1.5 bg-green-600 text-white text-xs font-medium rounded-md hover:bg-green-700 transition-colors"
+                                >
+                                  <FileText className="w-3 h-3 mr-1.5" />
+                                  View Full Medical Record
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        ) : (
+                          // Warning state - No medical record
+                          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                            <div className="flex items-start">
+                              <AlertCircle className="w-5 h-5 text-yellow-600 mt-0.5 flex-shrink-0" />
+                              <div className="ml-3 flex-1">
+                                <h4 className="text-sm font-semibold text-yellow-900 mb-1">
+                                  No Medical Record
+                                </h4>
+                                <p className="text-xs text-yellow-700 mb-3">
+                                  This appointment was completed without creating a medical record.
+                                </p>
+                                <button
+                                  onClick={() => {
+                                    window.location.href = `/doctor/medical-records/create?appointment_id=${selectedAppointment.id}`;
+                                  }}
+                                  className="inline-flex items-center px-3 py-1.5 bg-yellow-600 text-white text-xs font-medium rounded-md hover:bg-yellow-700 transition-colors"
+                                >
+                                  <FileText className="w-3 h-3 mr-1.5" />
+                                  Create Medical Record Now
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
 
                     <div>
                       <h4 className="text-sm font-medium text-gray-700 mb-2 flex items-center">
@@ -522,6 +816,7 @@ export default function DoctorAppointmentsPage() {
                       {/* Visible Undo Button with Medical Records Validation */}
                       {lastHistoryEntry &&
                        lastHistoryEntry.from_status &&
+                       lastHistoryEntry.from_status !== 'pending' &&
                        selectedAppointment.status !== lastHistoryEntry.from_status && (
                         selectedAppointment.status === 'completed' ? (
                           // Special handling for completed appointments
@@ -604,12 +899,21 @@ export default function DoctorAppointmentsPage() {
                         <>
                           <button
                             onClick={() => {
-                              setPendingAction({
-                                appointmentId: selectedAppointment.id,
-                                status: 'completed',
-                                patientName: `${selectedAppointment.patients.profiles.first_name} ${selectedAppointment.patients.profiles.last_name}`
-                              });
-                              setShowCompleteDialog(true);
+                              window.location.href = `/doctor/medical-records/create?appointment_id=${selectedAppointment.id}`;
+                            }}
+                            className="w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 font-medium flex items-center justify-center gap-2"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            </svg>
+                            Create Medical Record
+                          </button>
+                          <button
+                            onClick={() => {
+                              handleCheckAndComplete(
+                                selectedAppointment.id,
+                                `${selectedAppointment.patients.profiles.first_name} ${selectedAppointment.patients.profiles.last_name}`
+                              );
                             }}
                             disabled={actionLoading}
                             className="w-full px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 font-medium disabled:opacity-50"
@@ -617,7 +921,7 @@ export default function DoctorAppointmentsPage() {
                             {actionLoading ? 'Processing...' : 'Mark as Completed'}
                           </button>
                           <p className="text-xs text-gray-500 text-center">
-                            Complete after creating medical record
+                            Create medical record first, then mark as completed
                           </p>
                         </>
                       )}
@@ -660,19 +964,9 @@ export default function DoctorAppointmentsPage() {
                         );
                       })()}
                     </div>
-                  </div>
-                </div>
-              ) : (
-                <div className="bg-white border border-gray-200 rounded-lg p-12 text-center">
-                  <FileText className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">No Selection</h3>
-                  <p className="text-sm text-gray-600">
-                    Select an appointment to view details and manage status
-                  </p>
-                </div>
-              )}
+              </div>
             </div>
-          </div>
+          </Drawer>
         )}
 
         {/* Confirmation Dialogs */}
@@ -710,15 +1004,20 @@ export default function DoctorAppointmentsPage() {
           isOpen={showCompleteDialog}
           onClose={handleCancelAction}
           onConfirm={handleConfirmAction}
-          title="Mark as Completed"
-          message={`Are you sure you want to mark ${pendingAction?.patientName}'s appointment as completed? Make sure you have created the medical record before completing.`}
-          confirmText="Mark as Completed"
+          title={completionHasMedicalRecord ? "Mark as Completed" : "⚠️ Complete Without Medical Record?"}
+          message={
+            completionHasMedicalRecord
+              ? `Are you sure you want to mark ${pendingAction?.patientName}'s appointment as completed?`
+              : `⚠️ WARNING: No medical record has been created for ${pendingAction?.patientName}'s appointment.\n\nCompleting without proper documentation may:\n• Violate healthcare standards and regulations\n• Create gaps in patient care continuity\n• Affect audit compliance and quality metrics\n• Limit future medical reference\n\nIt is strongly recommended to create the medical record BEFORE marking as completed.\n\nAre you sure you want to proceed without documentation?`
+          }
+          confirmText={completionHasMedicalRecord ? "Mark as Completed" : "Complete Without Record"}
           cancelText="Cancel"
-          variant="info"
+          variant={completionHasMedicalRecord ? "info" : "warning"}
           isLoading={actionLoading}
           showReasonInput={true}
-          reasonLabel="Reason (optional)"
-          reasonPlaceholder="Enter reason for completion..."
+          reasonLabel={completionHasMedicalRecord ? "Reason (optional)" : "Reason for completing without record"}
+          reasonPlaceholder={completionHasMedicalRecord ? "Enter reason for completion..." : "Explain why completing without medical record..."}
+          isReasonRequired={!completionHasMedicalRecord}
         />
 
         <ConfirmDialog

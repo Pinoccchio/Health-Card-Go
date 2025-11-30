@@ -159,17 +159,21 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Create appointment
-    const { data: appointment, error: insertError } = await supabase
+    // Use admin client to bypass RLS for nested joins on insert
+    // Security: User is authenticated patient, creating their own appointment
+    const adminClient = createAdminClient();
+
+    // Create appointment with 'pending' status (awaiting doctor assignment)
+    const { data: appointment, error: insertError } = await adminClient
       .from('appointments')
       .insert({
         patient_id: patient.id,
         service_id: service_id, // Links to service for category-based routing
-        doctor_id: null, // Will be assigned later
+        doctor_id: null, // Will be assigned later by admin
         appointment_date,
         appointment_time,
         appointment_number: nextQueueNumber,
-        status: 'scheduled',
+        status: 'pending', // Start as pending until doctor is assigned
         reason,
       })
       .select(`
@@ -192,6 +196,23 @@ export async function POST(request: NextRequest) {
         { error: 'Failed to create appointment' },
         { status: 500 }
       );
+    }
+
+    // Create initial status history entry
+    const { error: historyError } = await adminClient
+      .from('appointment_status_history')
+      .insert({
+        appointment_id: appointment.id,
+        change_type: 'status_change',
+        from_status: null,
+        to_status: 'pending',
+        changed_by: user.id,
+        reason: 'Patient booked appointment',
+      });
+
+    if (historyError) {
+      console.error('Error creating appointment history:', historyError);
+      // Don't fail the request if history creation fails
     }
 
     // Create notification for patient
@@ -276,6 +297,8 @@ export async function GET(request: NextRequest) {
             last_name,
             email,
             contact_number,
+            date_of_birth,
+            gender,
             barangay_id,
             barangays(name)
           )

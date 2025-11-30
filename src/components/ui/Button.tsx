@@ -10,10 +10,13 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        primary: 'bg-[#20C997] hover:bg-[#1AA179] text-white shadow-sm hover:shadow-md active:scale-95',
-        secondary: 'bg-[#FF8542] hover:bg-[#E6742B] text-white shadow-sm hover:shadow-md active:scale-95',
-        outline: 'border-2 border-[#20C997] text-[#20C997] hover:bg-[#20C997] hover:text-white active:scale-95',
-        ghost: 'hover:bg-gray-100 text-gray-700 active:scale-95',
+        primary: 'bg-[#20C997] hover:bg-[#1AA179] text-white shadow-sm hover:shadow-md active:scale-95 focus-visible:ring-[#20C997]',
+        secondary: 'bg-[#FF8542] hover:bg-[#E6742B] text-white shadow-sm hover:shadow-md active:scale-95 focus-visible:ring-[#FF8542]',
+        success: 'bg-[#22A555] hover:bg-[#1A7F3E] text-white shadow-sm hover:shadow-md active:scale-95 focus-visible:ring-[#22A555]',
+        warning: 'bg-[#FDB912] hover:bg-[#E5A810] text-white shadow-sm hover:shadow-md active:scale-95 focus-visible:ring-[#FDB912]',
+        danger: 'bg-[#DC3545] hover:bg-[#C82333] text-white shadow-sm hover:shadow-md active:scale-95 focus-visible:ring-[#DC3545]',
+        outline: 'border-2 border-[#20C997] text-[#20C997] hover:bg-[#20C997] hover:text-white active:scale-95 focus-visible:ring-[#20C997]',
+        ghost: 'hover:bg-gray-100 text-gray-700 active:scale-95 focus-visible:ring-gray-300',
         link: 'text-[#20C997] hover:text-[#1AA179] hover:underline underline-offset-4',
       },
       size: {

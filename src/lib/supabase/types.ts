@@ -649,6 +649,7 @@ export type Database = {
         | "general_admin"
         | "laboratory"
       appointment_status:
+        | "pending"
         | "scheduled"
         | "checked_in"
         | "in_progress"
@@ -815,6 +816,7 @@ export const Constants = {
         "laboratory",
       ],
       appointment_status: [
+        "pending",
         "scheduled",
         "checked_in",
         "in_progress",

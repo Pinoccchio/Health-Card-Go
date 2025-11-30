@@ -1,24 +1,18 @@
-import { createClient } from '@/lib/supabase/server';
+import { createClient, createAdminClient } from '@/lib/supabase/server';
 import { NextRequest, NextResponse } from 'next/server';
+import { requiresEncryption, getTemplate } from '@/lib/config/medicalRecordTemplates';
+import { CreateMedicalRecordData } from '@/types/medical-records';
+import { encryptMedicalRecordData, decryptMedicalRecordData } from '@/lib/utils/encryption';
 
 /**
  * GET /api/medical-records
- * Check if medical records exist for an appointment
- * Used to determine if completed appointments can be reverted
+ * List medical records with filtering
+ * Accessible by: Doctor (all), Patient (own records), Healthcare Admin (category-based)
  */
 export async function GET(request: NextRequest) {
   try {
     const supabase = await createClient();
-    const searchParams = request.nextUrl.searchParams;
-    const appointmentId = searchParams.get('appointment_id');
-
-    // Validate appointment_id parameter
-    if (!appointmentId) {
-      return NextResponse.json(
-        { error: 'appointment_id query parameter is required' },
-        { status: 400 }
-      );
-    }
+    const { searchParams } = new URL(request.url);
 
     // Check authentication
     const { data: { user }, error: authError } = await supabase.auth.getUser();
@@ -26,30 +20,407 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Query medical records for the appointment
-    const { data, error } = await supabase
-      .from('medical_records')
-      .select('id')
-      .eq('appointment_id', appointmentId)
-      .limit(1);
+    // Get user profile
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('id, role, admin_category')
+      .eq('id', user.id)
+      .single();
 
-    if (error) {
-      console.error('Medical records query error:', error);
+    if (!profile) {
+      return NextResponse.json({ error: 'Profile not found' }, { status: 404 });
+    }
+
+    // Parse filters
+    const patient_id = searchParams.get('patient_id');
+    const appointment_id = searchParams.get('appointment_id');
+    const category = searchParams.get('category');
+    const template_type = searchParams.get('template_type');
+    const start_date = searchParams.get('start_date');
+    const end_date = searchParams.get('end_date');
+
+    // Use admin client to bypass RLS for nested joins
+    // Security: Authentication verified above, role-based filtering applied below
+    const adminClient = createAdminClient();
+
+    // Build query
+    let query = adminClient
+      .from('medical_records')
+      .select(`
+        *,
+        patients!inner(
+          id,
+          patient_number,
+          user_id,
+          profiles!inner(
+            first_name,
+            last_name,
+            date_of_birth,
+            gender,
+            barangay_id,
+            barangays(name)
+          )
+        ),
+        doctors(
+          id,
+          user_id,
+          profiles(
+            first_name,
+            last_name,
+            specialization
+          )
+        ),
+        appointments(
+          id,
+          appointment_date,
+          appointment_time,
+          status
+        )
+      `)
+      .order('created_at', { ascending: false});
+
+    // Role-based filtering
+    if (profile.role === 'patient') {
+      // Patients can only see their own records
+      const { data: patientRecord } = await supabase
+        .from('patients')
+        .select('id')
+        .eq('user_id', user.id)
+        .single();
+
+      if (!patientRecord) {
+        return NextResponse.json({ error: 'Patient record not found' }, { status: 404 });
+      }
+
+      query = query.eq('patient_id', patientRecord.id);
+
+    } else if (profile.role === 'healthcare_admin') {
+      // Healthcare admins see records based on their category
+      if (profile.admin_category === 'healthcard') {
+        query = query.eq('category', 'healthcard');
+      } else if (profile.admin_category === 'hiv') {
+        query = query.eq('category', 'hiv');
+      } else if (profile.admin_category === 'pregnancy') {
+        query = query.eq('category', 'pregnancy');
+      } else if (profile.admin_category === 'laboratory') {
+        query = query.eq('template_type', 'laboratory');
+      } else if (profile.admin_category === 'general_admin') {
+        // General admin sees all general category records
+        query = query.eq('category', 'general');
+      }
+    }
+    // Doctors and super admins can see all records (no filter)
+
+    // Apply additional filters
+    if (patient_id) {
+      query = query.eq('patient_id', patient_id);
+    }
+    if (appointment_id) {
+      query = query.eq('appointment_id', appointment_id);
+    }
+    if (category) {
+      query = query.eq('category', category);
+    }
+    if (template_type) {
+      query = query.eq('template_type', template_type);
+    }
+    if (start_date) {
+      query = query.gte('created_at', start_date);
+    }
+    if (end_date) {
+      query = query.lte('created_at', end_date);
+    }
+
+    const { data: records, error: fetchError } = await query;
+
+    if (fetchError) {
+      console.error('Error fetching medical records:', fetchError);
       return NextResponse.json(
-        { error: 'Failed to check medical records' },
+        { error: 'Failed to fetch medical records' },
         { status: 500 }
       );
     }
 
+    // Decrypt encrypted records before returning
+    const decryptedRecords = await Promise.all(
+      (records || []).map(async (record) => {
+        if (record.is_encrypted && typeof record.record_data === 'string') {
+          try {
+            const decryptedData = await decryptMedicalRecordData(record.record_data);
+            return { ...record, record_data: decryptedData };
+          } catch (error) {
+            console.error('Failed to decrypt record:', record.id, error);
+            // Return record with encrypted data flag for UI to handle
+            return { ...record, decryption_failed: true };
+          }
+        }
+        return record;
+      })
+    );
+
     return NextResponse.json({
       success: true,
-      data: data || [],
-      count: data?.length || 0,
-      has_records: (data?.length || 0) > 0,
+      data: decryptedRecords,
+      count: decryptedRecords.length,
+      has_records: decryptedRecords.length > 0, // For backward compatibility
     });
 
   } catch (error) {
-    console.error('Medical records check error:', error);
+    console.error('Medical records fetch error:', error);
+    return NextResponse.json(
+      { error: 'An unexpected error occurred' },
+      { status: 500 }
+    );
+  }
+}
+
+/**
+ * POST /api/medical-records
+ * Create a new medical record
+ * Only doctors can create medical records
+ */
+export async function POST(request: NextRequest) {
+  try {
+    const supabase = await createClient();
+
+    // Check authentication
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    // Get user profile
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('id, role')
+      .eq('id', user.id)
+      .single();
+
+    if (!profile) {
+      return NextResponse.json({ error: 'Profile not found' }, { status: 404 });
+    }
+
+    // Only doctors can create medical records
+    if (profile.role !== 'doctor') {
+      return NextResponse.json(
+        { error: 'Only doctors can create medical records' },
+        { status: 403 }
+      );
+    }
+
+    // Get doctor record
+    const { data: doctorRecord } = await supabase
+      .from('doctors')
+      .select('id')
+      .eq('user_id', user.id)
+      .single();
+
+    if (!doctorRecord) {
+      return NextResponse.json({ error: 'Doctor record not found' }, { status: 404 });
+    }
+
+    // Parse request body
+    const body: CreateMedicalRecordData = await request.json();
+    const { patient_id, appointment_id, template_type, category, record_data } = body;
+
+    // Validate required fields
+    if (!patient_id || !template_type || !category || !record_data) {
+      return NextResponse.json(
+        { error: 'Missing required fields: patient_id, template_type, category, record_data' },
+        { status: 400 }
+      );
+    }
+
+    // Verify patient exists - use admin client to bypass RLS
+    const adminClient = createAdminClient();
+
+    const { data: patient, error: patientError } = await adminClient
+      .from('patients')
+      .select('id, user_id')
+      .eq('id', patient_id)
+      .single();
+
+    if (patientError || !patient) {
+      console.error('Patient lookup error:', patientError);
+      return NextResponse.json({
+        error: 'Patient not found',
+        details: patientError?.message
+      }, { status: 404 });
+    }
+
+    // Get patient profile separately
+    const { data: patientProfile, error: profileError } = await adminClient
+      .from('profiles')
+      .select('first_name, last_name, barangay_id')
+      .eq('id', patient.user_id)
+      .single();
+
+    if (profileError || !patientProfile) {
+      console.error('Profile lookup error:', profileError);
+      return NextResponse.json({
+        error: 'Patient profile not found',
+        details: profileError?.message
+      }, { status: 404 });
+    }
+
+    // Verify appointment exists (if provided)
+    if (appointment_id) {
+      const { data: appointment } = await supabase
+        .from('appointments')
+        .select('id, patient_id, status')
+        .eq('id', appointment_id)
+        .single();
+
+      if (!appointment) {
+        return NextResponse.json({ error: 'Appointment not found' }, { status: 404 });
+      }
+
+      if (appointment.patient_id !== patient_id) {
+        return NextResponse.json(
+          { error: 'Appointment does not belong to this patient' },
+          { status: 400 }
+        );
+      }
+    }
+
+    // Get template to check encryption requirement
+    const template = getTemplate(template_type);
+    const shouldEncrypt = template.requiresEncryption;
+
+    // Encrypt sensitive data (HIV and Pregnancy records)
+    let dataToStore: any = record_data;
+    if (shouldEncrypt) {
+      try {
+        // Encrypt the entire record_data object
+        dataToStore = await encryptMedicalRecordData(record_data);
+      } catch (error) {
+        console.error('Encryption error:', error);
+        return NextResponse.json(
+          { error: 'Failed to encrypt sensitive data' },
+          { status: 500 }
+        );
+      }
+    }
+
+    // Create medical record (adminClient already defined above)
+    const { data: medicalRecord, error: createError } = await adminClient
+      .from('medical_records')
+      .insert({
+        patient_id,
+        appointment_id: appointment_id || null,
+        doctor_id: doctorRecord.id,
+        category,
+        template_type,
+        record_data: dataToStore, // Store encrypted or plain data
+        is_encrypted: shouldEncrypt,
+      })
+      .select(`
+        *,
+        patients!inner(
+          id,
+          patient_number,
+          user_id,
+          profiles!inner(
+            first_name,
+            last_name,
+            date_of_birth,
+            gender,
+            barangay_id,
+            barangays(name)
+          )
+        ),
+        doctors(
+          id,
+          user_id,
+          profiles(
+            first_name,
+            last_name,
+            specialization
+          )
+        )
+      `)
+      .single();
+
+    if (createError) {
+      console.error('Error creating medical record:', createError);
+      return NextResponse.json(
+        { error: 'Failed to create medical record' },
+        { status: 500 }
+      );
+    }
+
+    // Disease surveillance integration
+    // If template has diseaseTypes and diagnosis is recorded, create disease case
+    if (template.diseaseTypes && record_data.diagnosis) {
+      const diagnosis = record_data.diagnosis.toLowerCase();
+      const diseaseType = template.diseaseTypes.find(dt =>
+        diagnosis.includes(dt.toLowerCase().replace('_', ' '))
+      );
+
+      if (diseaseType && patientProfile) {
+        // Create disease case for surveillance
+        await adminClient.from('diseases').insert({
+          patient_id,
+          medical_record_id: medicalRecord.id,
+          barangay_id: patientProfile.barangay_id,
+          disease_type: diseaseType,
+          diagnosis_date: new Date().toISOString().split('T')[0],
+          severity: record_data.severity || 'moderate',
+          status: 'active',
+        });
+      }
+    }
+
+    // If appointment provided, mark it as completed
+    if (appointment_id) {
+      // Get current appointment status for history logging
+      const { data: currentAppointment } = await adminClient
+        .from('appointments')
+        .select('status')
+        .eq('id', appointment_id)
+        .single();
+
+      const oldStatus = currentAppointment?.status;
+
+      // Update appointment status to completed
+      await adminClient
+        .from('appointments')
+        .update({
+          status: 'completed',
+          completed_at: new Date().toISOString(),
+        })
+        .eq('id', appointment_id);
+
+      // Log status change to appointment_status_history
+      if (oldStatus && oldStatus !== 'completed') {
+        await adminClient.from('appointment_status_history').insert({
+          appointment_id: appointment_id,
+          change_type: 'status_change',
+          from_status: oldStatus,
+          to_status: 'completed',
+          changed_by: user.id,
+          reason: 'Auto-completed after creating medical record',
+        });
+      }
+
+      // Send notification to patient
+      await adminClient.from('notifications').insert({
+        user_id: patient.user_id,
+        type: 'general',
+        title: 'Appointment Completed',
+        message: 'Your appointment has been completed. You can now submit feedback.',
+        link: '/patient/feedback',
+      });
+    }
+
+    return NextResponse.json({
+      success: true,
+      data: medicalRecord,
+      message: 'Medical record created successfully',
+    });
+
+  } catch (error) {
+    console.error('Medical record creation error:', error);
     return NextResponse.json(
       { error: 'An unexpected error occurred' },
       { status: 500 }

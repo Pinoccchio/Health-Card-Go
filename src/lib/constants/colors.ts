@@ -12,6 +12,7 @@ import { CheckCircle, XCircle, Clock, AlertCircle, Calendar, Users } from 'lucid
 // ============================================================================
 
 export type AppointmentStatus =
+  | 'pending'
   | 'scheduled'
   | 'checked_in'
   | 'in_progress'
@@ -27,6 +28,12 @@ export interface StatusColorConfig {
 }
 
 export const APPOINTMENT_STATUS_CONFIG: Record<AppointmentStatus, StatusColorConfig> = {
+  pending: {
+    label: 'Pending',
+    color: 'bg-orange-100 text-orange-800',
+    timeline: 'bg-orange-500',
+    icon: Clock,
+  },
   scheduled: {
     label: 'Scheduled',
     color: 'bg-blue-100 text-blue-800',

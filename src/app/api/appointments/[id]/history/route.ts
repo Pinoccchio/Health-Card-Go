@@ -85,7 +85,7 @@ export async function GET(
         )
       `)
       .eq('appointment_id', id)
-      .order('changed_at', { ascending: true });
+      .order('changed_at', { ascending: false }); // Return newest first for correct "last entry" retrieval
 
     if (historyError) {
       console.error('Error fetching history:', historyError);

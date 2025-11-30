@@ -1,12 +1,14 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '@/lib/auth';
 import { DashboardLayout } from '@/components/dashboard';
 import { Container, ConfirmDialog } from '@/components/ui';
+import { ProfessionalCard } from '@/components/ui/ProfessionalCard';
+import { EnhancedTable } from '@/components/ui/EnhancedTable';
+import { Drawer } from '@/components/ui/Drawer';
 import { StatusHistoryModal } from '@/components/appointments/StatusHistoryModal';
 import { TimeElapsedBadge } from '@/components/appointments/TimeElapsedBadge';
-import { MedicalContextPanel } from '@/components/appointments/MedicalContextPanel';
 import {
   Calendar,
   Clock,
@@ -15,14 +17,14 @@ import {
   CheckCircle,
   XCircle,
   AlertCircle,
-  Filter,
   Download,
-  Search,
   History,
   RotateCcw,
   User,
-  MapPin,
-  Phone,
+  ListChecks,
+  Activity,
+  UserCheck,
+  Eye,
 } from 'lucide-react';
 import { getPhilippineTime } from '@/lib/utils/timezone';
 import { APPOINTMENT_STATUS_CONFIG } from '@/lib/constants/colors';
@@ -32,7 +34,7 @@ interface AdminAppointment {
   appointment_number: number;
   appointment_date: string;
   appointment_time: string;
-  status: 'scheduled' | 'checked_in' | 'in_progress' | 'completed' | 'cancelled' | 'no_show';
+  status: 'pending' | 'scheduled' | 'checked_in' | 'in_progress' | 'completed' | 'cancelled' | 'no_show'; // Added 'pending'
   reason?: string;
   doctor_id?: string;
   service_id: number;
@@ -75,29 +77,23 @@ interface Doctor {
   };
 }
 
-interface Stats {
-  total: number;
-  scheduled: number;
-  completed: number;
-  cancelled: number;
-  noShow: number;
-}
-
 // Use centralized status config for consistent colors
 const statusConfig = APPOINTMENT_STATUS_CONFIG;
 
 export default function HealthcareAdminAppointmentsPage() {
   const { user } = useAuth();
   const [appointments, setAppointments] = useState<AdminAppointment[]>([]);
+  const [selectedAppointment, setSelectedAppointment] = useState<AdminAppointment | null>(null);
   const [doctors, setDoctors] = useState<Doctor[]>([]);
-  const [stats, setStats] = useState<Stats>({ total: 0, scheduled: 0, completed: 0, cancelled: 0, noShow: 0 });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [filter, setFilter] = useState<'all' | 'pending' | 'scheduled' | 'checked_in' | 'in_progress' | 'completed' | 'cancelled'>('all');
   const [dateFilter, setDateFilter] = useState<string>('all');
-  const [searchQuery, setSearchQuery] = useState('');
   const [assigningDoctor, setAssigningDoctor] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState('');
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+
+  // Doctor assignment state
   const [showAssignDialog, setShowAssignDialog] = useState(false);
   const [pendingAssignment, setPendingAssignment] = useState<{
     appointmentId: string;
@@ -200,21 +196,15 @@ export default function HealthcareAdminAppointmentsPage() {
 
   const fetchDoctors = async () => {
     try {
-      console.log('🔍 [FETCH DOCTORS] Fetching doctors list...');
       const response = await fetch('/api/doctors');
       const data = await response.json();
 
-      console.log('🔍 [FETCH DOCTORS] Response:', data);
-
       if (data.success) {
-        console.log('✅ [FETCH DOCTORS] Successfully loaded', data.data?.length || 0, 'doctors');
         setDoctors(data.data || []);
       } else {
-        console.error('❌ [FETCH DOCTORS] Failed:', data.error);
         setError('Failed to load doctors list');
       }
     } catch (err) {
-      console.error('❌ [FETCH DOCTORS] Error:', err);
       setError('Error loading doctors list');
     }
   };
@@ -225,7 +215,6 @@ export default function HealthcareAdminAppointmentsPage() {
       let url = '/api/appointments';
 
       if (dateFilter === 'today') {
-        // Get today's date in Philippine timezone
         const nowPHT = getPhilippineTime();
         const year = nowPHT.getFullYear();
         const month = String(nowPHT.getMonth() + 1).padStart(2, '0');
@@ -233,7 +222,6 @@ export default function HealthcareAdminAppointmentsPage() {
         const today = `${year}-${month}-${day}`;
         url += `?date=${today}`;
       } else if (dateFilter === 'week') {
-        // Fetch this week's appointments (implement date range in API if needed)
         const nowPHT = getPhilippineTime();
         const year = nowPHT.getFullYear();
         const month = String(nowPHT.getMonth() + 1).padStart(2, '0');
@@ -246,18 +234,7 @@ export default function HealthcareAdminAppointmentsPage() {
       const data = await response.json();
 
       if (data.success) {
-        const allAppointments = data.data || [];
-        setAppointments(allAppointments);
-
-        // Calculate stats
-        const newStats = {
-          total: allAppointments.length,
-          scheduled: allAppointments.filter((a: AdminAppointment) => a.status === 'scheduled').length,
-          completed: allAppointments.filter((a: AdminAppointment) => a.status === 'completed').length,
-          cancelled: allAppointments.filter((a: AdminAppointment) => a.status === 'cancelled').length,
-          noShow: allAppointments.filter((a: AdminAppointment) => a.status === 'no_show').length,
-        };
-        setStats(newStats);
+        setAppointments(data.data || []);
       } else {
         setError(data.error || 'Failed to load appointments');
       }
@@ -267,6 +244,20 @@ export default function HealthcareAdminAppointmentsPage() {
       setLoading(false);
     }
   };
+
+  // Calculate statistics
+  const statistics = useMemo(() => {
+    const total = appointments.length;
+    const pending = appointments.filter(a => a.status === 'pending').length;
+    const scheduled = appointments.filter(a => a.status === 'scheduled').length;
+    const checked_in = appointments.filter(a => a.status === 'checked_in').length;
+    const in_progress = appointments.filter(a => a.status === 'in_progress').length;
+    const completed = appointments.filter(a => a.status === 'completed').length;
+    const cancelled = appointments.filter(a => a.status === 'cancelled').length;
+    const no_show = appointments.filter(a => a.status === 'no_show').length;
+
+    return { total, pending, scheduled, checked_in, in_progress, completed, cancelled, no_show };
+  }, [appointments]);
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {
@@ -284,21 +275,13 @@ export default function HealthcareAdminAppointmentsPage() {
     });
   };
 
-  const filteredAppointments = appointments.filter((apt) => {
-    const matchesStatus = statusFilter === 'all' || apt.status === statusFilter;
-    const matchesSearch = searchQuery === '' ||
-      apt.patients.profiles.first_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      apt.patients.profiles.last_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      apt.patients.patient_number.includes(searchQuery) ||
-      apt.appointment_number.toString().includes(searchQuery);
-
-    return matchesStatus && matchesSearch;
-  });
-
-  const StatusBadge = ({ status }: { status: AdminAppointment['status'] }) => {
+  const getStatusBadge = (status: AdminAppointment['status']) => {
     const config = statusConfig[status];
+    const Icon = config.icon;
+
     return (
-      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${config.color}`}>
+      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${config.color}`}>
+        <Icon className="w-3 h-3 mr-1" />
         {config.label}
       </span>
     );
@@ -319,11 +302,8 @@ export default function HealthcareAdminAppointmentsPage() {
       const data = await response.json();
 
       if (data.success) {
-        // Show success message
         setSuccessMessage(doctorId ? 'Doctor assigned successfully' : 'Doctor unassigned successfully');
-        // Refresh appointments list to show updated data
         await fetchAppointments();
-        // Clear success message after 3 seconds
         setTimeout(() => setSuccessMessage(''), 3000);
       } else {
         setError(data.error || 'Failed to update doctor assignment');
@@ -348,26 +328,21 @@ export default function HealthcareAdminAppointmentsPage() {
     setPendingAssignment(null);
   };
 
-  // Handler for viewing status history
   const handleViewHistory = (appointmentId: string) => {
     setSelectedHistoryAppointmentId(appointmentId);
     setShowHistoryModal(true);
   };
 
-  // Handler for initiating reversion from history modal
-  const handleInitiateRevert = (historyId: string, targetStatus: string) => {
-    if (!selectedHistoryAppointmentId) return;
-
-    setPendingRevert({
-      historyId,
-      targetStatus,
-      appointmentId: selectedHistoryAppointmentId,
-    });
-    setShowHistoryModal(false);
-    setShowRevertDialog(true);
+  const handleViewDetails = (appointment: AdminAppointment) => {
+    setSelectedAppointment(appointment);
+    setIsDrawerOpen(true);
   };
 
-  // Handler for quick undo (no modal)
+  const handleCloseDrawer = () => {
+    setIsDrawerOpen(false);
+    setSelectedAppointment(null);
+  };
+
   const handleQuickUndo = (appointmentId: string) => {
     const lastEntry = lastHistoryEntries[appointmentId];
     if (!lastEntry) return;
@@ -380,7 +355,6 @@ export default function HealthcareAdminAppointmentsPage() {
     setShowRevertDialog(true);
   };
 
-  // Handler for confirming reversion
   const handleConfirmRevert = async (reason?: string) => {
     if (!pendingRevert) return;
 
@@ -414,8 +388,9 @@ export default function HealthcareAdminAppointmentsPage() {
   };
 
   const exportToCSV = () => {
+    const filteredData = filteredAppointments;
     const headers = ['Queue #', 'Patient Name', 'Patient #', 'Date', 'Time', 'Status', 'Doctor', 'Reason'];
-    const rows = filteredAppointments.map(apt => [
+    const rows = filteredData.map(apt => [
       apt.appointment_number,
       `${apt.patients.profiles.first_name} ${apt.patients.profiles.last_name}`,
       apt.patients.patient_number,
@@ -439,6 +414,125 @@ export default function HealthcareAdminAppointmentsPage() {
     a.click();
   };
 
+  // Define table columns
+  const tableColumns = [
+    {
+      header: 'Queue #',
+      accessor: 'appointment_number',
+      sortable: true,
+      render: (value: number) => (
+        <span className="font-mono font-semibold text-primary-teal">#{value}</span>
+      ),
+    },
+    {
+      header: 'Patient',
+      accessor: 'patient',
+      sortable: false,
+      render: (_: any, row: AdminAppointment) => (
+        <div>
+          <p className="text-sm font-medium text-gray-900">
+            {row.patients.profiles.first_name} {row.patients.profiles.last_name}
+          </p>
+          <p className="text-xs text-gray-500">{row.patients.patient_number}</p>
+        </div>
+      ),
+    },
+    {
+      header: 'Date',
+      accessor: 'appointment_date',
+      sortable: true,
+      render: (value: string) => (
+        <div className="flex items-center gap-1 text-sm text-gray-700">
+          <Calendar className="w-3 h-3 text-gray-400" />
+          {formatDate(value)}
+        </div>
+      ),
+    },
+    {
+      header: 'Time',
+      accessor: 'appointment_time',
+      sortable: true,
+      render: (value: string) => (
+        <div className="flex items-center gap-1 text-sm text-gray-700">
+          <Clock className="w-3 h-3 text-gray-400" />
+          {formatTime(value)}
+        </div>
+      ),
+    },
+    {
+      header: 'Status',
+      accessor: 'status',
+      sortable: true,
+      render: (value: AdminAppointment['status'], row: AdminAppointment) => (
+        <div className="flex flex-col gap-1">
+          {getStatusBadge(value)}
+          {row.checked_in_at && row.status === 'checked_in' && (
+            <TimeElapsedBadge
+              timestamp={row.checked_in_at}
+              label="Waiting"
+              type="waiting"
+            />
+          )}
+          {row.started_at && row.status === 'in_progress' && (
+            <TimeElapsedBadge
+              timestamp={row.started_at}
+              label="Consulting"
+              type="consulting"
+            />
+          )}
+        </div>
+      ),
+    },
+    {
+      header: 'Doctor',
+      accessor: 'doctor',
+      sortable: false,
+      render: (_: any, row: AdminAppointment) => (
+        <div className="text-sm text-gray-700">
+          {row.doctors ? (
+            <>
+              Dr. {row.doctors.profiles.first_name} {row.doctors.profiles.last_name}
+              {row.doctors.profiles.specialization && (
+                <div className="text-xs text-gray-500">{row.doctors.profiles.specialization}</div>
+              )}
+            </>
+          ) : (
+            <span className="text-gray-400 italic">Unassigned</span>
+          )}
+        </div>
+      ),
+    },
+    {
+      header: 'Reason',
+      accessor: 'reason',
+      sortable: false,
+      render: (value: string) => (
+        <span className="text-sm text-gray-700 line-clamp-2">
+          {value || '-'}
+        </span>
+      ),
+    },
+    {
+      header: 'Actions',
+      accessor: 'actions',
+      render: (_: any, row: AdminAppointment) => (
+        <button
+          onClick={() => handleViewDetails(row)}
+          className="inline-flex items-center px-3 py-1.5 bg-[#20C997] text-white text-xs font-medium rounded-md hover:bg-[#1AA179] transition-colors"
+        >
+          <Eye className="w-3 h-3 mr-1.5" />
+          View Details
+        </button>
+      ),
+    },
+  ];
+
+  const filteredAppointments = appointments.filter((apt) => {
+    if (filter === 'all') return true;
+    if (filter === 'cancelled') return apt.status === 'cancelled' || apt.status === 'no_show';
+    return apt.status === filter;
+  });
+
   return (
     <DashboardLayout
       roleId={2}
@@ -460,304 +554,376 @@ export default function HealthcareAdminAppointmentsPage() {
           </div>
         )}
 
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
-          <div className="bg-white rounded-lg shadow p-4">
-            <div className="flex items-center justify-between mb-1">
-              <p className="text-xs font-medium text-gray-600">Total</p>
-              <Calendar className="w-6 h-6 text-primary-teal" />
-            </div>
-            <p className="text-2xl font-bold text-gray-900">{stats.total}</p>
+        {loading ? (
+          <div className="text-center py-12">
+            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary-teal"></div>
+            <p className="mt-2 text-sm text-gray-500">Loading appointments...</p>
           </div>
-
-          <div className="bg-white rounded-lg shadow p-4">
-            <div className="flex items-center justify-between mb-1">
-              <p className="text-xs font-medium text-gray-600">Scheduled</p>
-              <Clock className="w-6 h-6 text-blue-600" />
-            </div>
-            <p className="text-2xl font-bold text-gray-900">{stats.scheduled}</p>
-          </div>
-
-          <div className="bg-white rounded-lg shadow p-4">
-            <div className="flex items-center justify-between mb-1">
-              <p className="text-xs font-medium text-gray-600">Completed</p>
-              <CheckCircle className="w-6 h-6 text-green-600" />
-            </div>
-            <p className="text-2xl font-bold text-gray-900">{stats.completed}</p>
-          </div>
-
-          <div className="bg-white rounded-lg shadow p-4">
-            <div className="flex items-center justify-between mb-1">
-              <p className="text-xs font-medium text-gray-600">Cancelled</p>
-              <XCircle className="w-6 h-6 text-gray-600" />
-            </div>
-            <p className="text-2xl font-bold text-gray-900">{stats.cancelled}</p>
-          </div>
-
-          <div className="bg-white rounded-lg shadow p-4">
-            <div className="flex items-center justify-between mb-1">
-              <p className="text-xs font-medium text-gray-600">No Show</p>
-              <AlertCircle className="w-6 h-6 text-red-600" />
-            </div>
-            <p className="text-2xl font-bold text-gray-900">{stats.noShow}</p>
-          </div>
-        </div>
-
-        {/* Filters and Search */}
-        <div className="bg-white rounded-lg shadow mb-6">
-          <div className="p-4 border-b border-gray-200">
-            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-              <div className="flex items-center gap-3">
-                <Filter className="w-5 h-5 text-gray-400" />
-                <div className="flex items-center gap-2">
-                  <label className="text-sm font-medium text-gray-700">Period:</label>
-                  <select
-                    value={dateFilter}
-                    onChange={(e) => setDateFilter(e.target.value)}
-                    className="px-3 py-1.5 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary-teal"
-                  >
-                    <option value="all">All Time</option>
-                    <option value="today">Today</option>
-                    <option value="week">This Week</option>
-                  </select>
+        ) : (
+          <>
+            {/* Statistics Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 gap-4 mb-6">
+              <ProfessionalCard variant="flat" className="bg-gradient-to-br from-teal-50 to-teal-100 border-l-4 border-teal-500">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-gray-600 mb-1">Total</p>
+                    <p className="text-3xl font-bold text-gray-900">{statistics.total}</p>
+                  </div>
+                  <div className="w-12 h-12 bg-teal-500 rounded-xl flex items-center justify-center shadow-lg">
+                    <ListChecks className="w-6 h-6 text-white" />
+                  </div>
                 </div>
+              </ProfessionalCard>
 
-                <div className="flex items-center gap-2">
-                  <label className="text-sm font-medium text-gray-700">Status:</label>
-                  <select
-                    value={statusFilter}
-                    onChange={(e) => setStatusFilter(e.target.value)}
-                    className="px-3 py-1.5 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary-teal"
+              <ProfessionalCard variant="flat" className="bg-gradient-to-br from-orange-50 to-orange-100 border-l-4 border-orange-500">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-gray-600 mb-1">Pending</p>
+                    <p className="text-3xl font-bold text-gray-900">{statistics.pending}</p>
+                  </div>
+                  <div className="w-12 h-12 bg-orange-500 rounded-xl flex items-center justify-center shadow-lg">
+                    <Clock className="w-6 h-6 text-white" />
+                  </div>
+                </div>
+              </ProfessionalCard>
+
+              <ProfessionalCard variant="flat" className="bg-gradient-to-br from-blue-50 to-blue-100 border-l-4 border-blue-500">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-gray-600 mb-1">Scheduled</p>
+                    <p className="text-3xl font-bold text-gray-900">{statistics.scheduled}</p>
+                  </div>
+                  <div className="w-12 h-12 bg-blue-500 rounded-xl flex items-center justify-center shadow-lg">
+                    <Calendar className="w-6 h-6 text-white" />
+                  </div>
+                </div>
+              </ProfessionalCard>
+
+              <ProfessionalCard variant="flat" className="bg-gradient-to-br from-purple-50 to-purple-100 border-l-4 border-purple-500">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-gray-600 mb-1">Checked In</p>
+                    <p className="text-3xl font-bold text-gray-900">{statistics.checked_in}</p>
+                  </div>
+                  <div className="w-12 h-12 bg-purple-500 rounded-xl flex items-center justify-center shadow-lg">
+                    <UserCheck className="w-6 h-6 text-white" />
+                  </div>
+                </div>
+              </ProfessionalCard>
+
+              <ProfessionalCard variant="flat" className="bg-gradient-to-br from-amber-50 to-amber-100 border-l-4 border-amber-500">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-gray-600 mb-1">In Progress</p>
+                    <p className="text-3xl font-bold text-gray-900">{statistics.in_progress}</p>
+                  </div>
+                  <div className="w-12 h-12 bg-amber-500 rounded-xl flex items-center justify-center shadow-lg">
+                    <Activity className="w-6 h-6 text-white" />
+                  </div>
+                </div>
+              </ProfessionalCard>
+
+              <ProfessionalCard variant="flat" className="bg-gradient-to-br from-green-50 to-green-100 border-l-4 border-green-500">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-gray-600 mb-1">Completed</p>
+                    <p className="text-3xl font-bold text-gray-900">{statistics.completed}</p>
+                  </div>
+                  <div className="w-12 h-12 bg-green-500 rounded-xl flex items-center justify-center shadow-lg">
+                    <CheckCircle className="w-6 h-6 text-white" />
+                  </div>
+                </div>
+              </ProfessionalCard>
+
+              <ProfessionalCard variant="flat" className="bg-gradient-to-br from-gray-50 to-gray-100 border-l-4 border-gray-500">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-gray-600 mb-1">Cancelled</p>
+                    <p className="text-3xl font-bold text-gray-900">{statistics.cancelled + statistics.no_show}</p>
+                  </div>
+                  <div className="w-12 h-12 bg-gray-500 rounded-xl flex items-center justify-center shadow-lg">
+                    <XCircle className="w-6 h-6 text-white" />
+                  </div>
+                </div>
+              </ProfessionalCard>
+            </div>
+
+            {/* Quick Status Filters */}
+            <div className="flex flex-wrap gap-2 mb-6">
+              {[
+                { id: 'all', label: 'All Appointments', count: statistics.total, color: 'gray', icon: ListChecks },
+                { id: 'pending', label: 'Pending', count: statistics.pending, color: 'orange', icon: Clock },
+                { id: 'scheduled', label: 'Scheduled', count: statistics.scheduled, color: 'blue', icon: Calendar },
+                { id: 'checked_in', label: 'Checked In', count: statistics.checked_in, color: 'purple', icon: UserCheck },
+                { id: 'in_progress', label: 'In Progress', count: statistics.in_progress, color: 'amber', icon: Activity },
+                { id: 'completed', label: 'Completed', count: statistics.completed, color: 'green', icon: CheckCircle },
+                { id: 'cancelled', label: 'Cancelled', count: statistics.cancelled + statistics.no_show, color: 'gray', icon: XCircle },
+              ].map((statusFilter) => {
+                const Icon = statusFilter.icon;
+                const isActive = filter === statusFilter.id;
+                const colorClasses = {
+                  gray: { bg: 'bg-gray-100 hover:bg-gray-200', text: 'text-gray-700', ring: 'ring-gray-400', activeBg: 'bg-gray-200' },
+                  orange: { bg: 'bg-orange-100 hover:bg-orange-200', text: 'text-orange-700', ring: 'ring-orange-500', activeBg: 'bg-orange-200' },
+                  blue: { bg: 'bg-blue-100 hover:bg-blue-200', text: 'text-blue-700', ring: 'ring-blue-500', activeBg: 'bg-blue-200' },
+                  purple: { bg: 'bg-purple-100 hover:bg-purple-200', text: 'text-purple-700', ring: 'ring-purple-500', activeBg: 'bg-purple-200' },
+                  amber: { bg: 'bg-amber-100 hover:bg-amber-200', text: 'text-amber-700', ring: 'ring-amber-500', activeBg: 'bg-amber-200' },
+                  green: { bg: 'bg-green-100 hover:bg-green-200', text: 'text-green-700', ring: 'ring-green-500', activeBg: 'bg-green-200' },
+                };
+                const colors = colorClasses[statusFilter.color as keyof typeof colorClasses];
+
+                return (
+                  <button
+                    key={statusFilter.id}
+                    onClick={() => setFilter(statusFilter.id as typeof filter)}
+                    className={`
+                      flex items-center gap-2 px-4 py-2 rounded-full font-medium text-sm transition-all
+                      ${isActive ? `${colors.activeBg} ${colors.text} ring-2 ${colors.ring} shadow-md` : `${colors.bg} ${colors.text}`}
+                    `}
                   >
-                    <option value="all">All</option>
-                    <option value="scheduled">Scheduled</option>
-                    <option value="checked_in">Checked In</option>
-                    <option value="in_progress">In Progress</option>
-                    <option value="completed">Completed</option>
-                    <option value="cancelled">Cancelled</option>
-                    <option value="no_show">No Show</option>
-                  </select>
+                    <Icon className="w-4 h-4" />
+                    <span>{statusFilter.label}</span>
+                    <span className={`
+                      ml-1 px-2 py-0.5 rounded-full text-xs font-bold
+                      ${isActive ? 'bg-white/80' : 'bg-white/60'}
+                    `}>
+                      {statusFilter.count}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex justify-end mb-4">
+              <button
+                onClick={exportToCSV}
+                disabled={filteredAppointments.length === 0}
+                className="flex items-center gap-2 px-4 py-2 bg-primary-teal text-white rounded-md hover:bg-primary-teal/90 text-sm font-medium disabled:opacity-50"
+              >
+                <Download className="w-4 h-4" />
+                Export to CSV
+              </button>
+            </div>
+
+            {/* Enhanced Table */}
+            <div className="mt-6">
+              <EnhancedTable
+                columns={tableColumns}
+                data={filteredAppointments}
+                searchable
+                searchPlaceholder="Search by patient name, queue number..."
+                paginated
+                pageSize={15}
+              />
+            </div>
+          </>
+        )}
+
+        {/* Drawer for Appointment Details */}
+        {selectedAppointment && (
+          <Drawer
+            isOpen={isDrawerOpen}
+            onClose={handleCloseDrawer}
+            size="xl"
+            title={`Appointment #${selectedAppointment.appointment_number}`}
+            subtitle={`${selectedAppointment.patients.profiles.first_name} ${selectedAppointment.patients.profiles.last_name}`}
+            metadata={{
+              createdOn: `${formatDate(selectedAppointment.appointment_date)} at ${formatTime(selectedAppointment.appointment_time)}`,
+              status: selectedAppointment.status,
+            }}
+          >
+            <div className="p-6">
+              <div className="mb-6">
+                <div className="flex items-center gap-2 mb-2">
+                  {getStatusBadge(selectedAppointment.status)}
                 </div>
               </div>
 
-              <div className="flex items-center gap-2">
-                <div className="relative flex-1 md:w-64">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-                  <input
-                    type="text"
-                    placeholder="Search patients or queue #..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full pl-10 pr-3 py-1.5 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary-teal"
-                  />
+              <div className="space-y-4">
+                {/* Appointment Information */}
+                <div>
+                  <h4 className="text-sm font-medium text-gray-700 mb-2 flex items-center">
+                    <Calendar className="w-4 h-4 mr-2" />
+                    Appointment Details
+                  </h4>
+                  <div className="bg-gray-50 rounded-md p-3 space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Queue Number:</span>
+                      <span className="font-mono font-semibold text-gray-900">#{selectedAppointment.appointment_number}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Date:</span>
+                      <span className="font-medium text-gray-900">{formatDate(selectedAppointment.appointment_date)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Time:</span>
+                      <span className="font-medium text-gray-900">{formatTime(selectedAppointment.appointment_time)}</span>
+                    </div>
+                  </div>
                 </div>
-                <button
-                  onClick={exportToCSV}
-                  disabled={filteredAppointments.length === 0}
-                  className="flex items-center gap-2 px-3 py-1.5 bg-primary-teal text-white rounded-md hover:bg-primary-teal/90 text-sm font-medium disabled:opacity-50"
-                >
-                  <Download className="w-4 h-4" />
-                  Export
-                </button>
-              </div>
-            </div>
-          </div>
 
-          {loading ? (
-            <div className="text-center py-12">
-              <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary-teal"></div>
-              <p className="mt-2 text-sm text-gray-500">Loading appointments...</p>
-            </div>
-          ) : filteredAppointments.length > 0 ? (
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-50 border-b border-gray-200">
-                  <tr>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Queue #</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Patient</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Date</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Time</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Status</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Doctor</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Reason</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200">
-                  {filteredAppointments.map((appointment) => (
-                    <tr key={appointment.id} className="hover:bg-gray-50">
-                      <td className="px-4 py-3 whitespace-nowrap">
-                        <span className="text-sm font-semibold text-primary-teal">
-                          #{appointment.appointment_number}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3">
-                        <div>
-                          <p className="text-sm font-medium text-gray-900">
-                            {appointment.patients.profiles.first_name} {appointment.patients.profiles.last_name}
-                          </p>
-                          <p className="text-xs text-gray-500">{appointment.patients.patient_number}</p>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap">
-                        <span className="text-sm text-gray-700">{formatDate(appointment.appointment_date)}</span>
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap">
-                        <span className="text-sm text-gray-700">{formatTime(appointment.appointment_time)}</span>
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex flex-col gap-1">
-                          <StatusBadge status={appointment.status} />
-                          {/* Time Tracking Badges - Status-Aware */}
-                          {appointment.checked_in_at && appointment.status === 'checked_in' && (
-                            <TimeElapsedBadge
-                              timestamp={appointment.checked_in_at}
-                              label="Waiting"
-                              type="waiting"
-                            />
-                          )}
-                          {appointment.started_at && appointment.status === 'in_progress' && (
-                            <TimeElapsedBadge
-                              timestamp={appointment.started_at}
-                              label="Consulting"
-                              type="consulting"
-                            />
-                          )}
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap">
-                        {appointment.doctors ? (
-                          <span className="text-sm text-gray-700">
-                            Dr. {appointment.doctors.profiles.first_name} {appointment.doctors.profiles.last_name}
-                          </span>
-                        ) : (
-                          <span className="text-sm text-gray-400">Unassigned</span>
+                {/* Patient Information */}
+                <div>
+                  <h4 className="text-sm font-medium text-gray-700 mb-2 flex items-center">
+                    <User className="w-4 h-4 mr-2" />
+                    Patient Information
+                  </h4>
+                  <div className="bg-gray-50 rounded-md p-3 space-y-1 text-sm">
+                    <p className="font-medium text-gray-900">
+                      {selectedAppointment.patients.profiles.first_name} {selectedAppointment.patients.profiles.last_name}
+                    </p>
+                    <p className="text-gray-600">Patient #: {selectedAppointment.patients.patient_number}</p>
+                    {selectedAppointment.patients.profiles.email && (
+                      <p className="text-gray-600">{selectedAppointment.patients.profiles.email}</p>
+                    )}
+                    {selectedAppointment.patients.profiles.contact_number && (
+                      <p className="text-gray-600">{selectedAppointment.patients.profiles.contact_number}</p>
+                    )}
+                  </div>
+                </div>
+
+                {/* Doctor Assignment Section */}
+                <div>
+                  <h4 className="text-sm font-medium text-gray-700 mb-2 flex items-center">
+                    <User className="w-4 h-4 mr-2" />
+                    Assigned Doctor
+                  </h4>
+                  <div className="bg-gray-50 rounded-md p-3">
+                    {selectedAppointment.doctors ? (
+                      <div className="space-y-1 text-sm">
+                        <p className="font-medium text-gray-900">
+                          Dr. {selectedAppointment.doctors.profiles.first_name} {selectedAppointment.doctors.profiles.last_name}
+                        </p>
+                        {selectedAppointment.doctors.profiles.specialization && (
+                          <p className="text-gray-600">{selectedAppointment.doctors.profiles.specialization}</p>
                         )}
-                      </td>
-                      <td className="px-4 py-3">
-                        <span className="text-sm text-gray-700 line-clamp-2">
-                          {appointment.reason || '-'}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap">
-                        <div className="flex flex-col items-start gap-2">
-                          {/* Doctor Assignment Dropdown - Always show for scheduled */}
-                          {appointment.status === 'scheduled' && (
-                            <div className="w-full">
-                              {doctors.length > 0 ? (
-                                <select
-                                  value={appointment.doctor_id || ''}
-                                  onChange={(e) => {
-                                    const value = e.target.value;
-                                    const selectedDoctor = doctors.find(d => d.id === value);
+                      </div>
+                    ) : (
+                      <p className="text-sm text-gray-400 italic">No doctor assigned yet</p>
+                    )}
 
-                                    // Set pending assignment and show confirmation dialog
-                                    setPendingAssignment({
-                                      appointmentId: appointment.id,
-                                      doctorId: value || null,
-                                      doctorName: selectedDoctor
-                                        ? `Dr. ${selectedDoctor.profiles.first_name} ${selectedDoctor.profiles.last_name}`
-                                        : null,
-                                      patientName: `${appointment.patients.profiles.first_name} ${appointment.patients.profiles.last_name}`
-                                    });
-                                    setShowAssignDialog(true);
-                                  }}
-                                  disabled={assigningDoctor === appointment.id}
-                                  className="w-full px-2 py-1.5 text-xs border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-teal disabled:opacity-50 disabled:cursor-wait"
-                                >
-                                  <option value="">
-                                    {assigningDoctor === appointment.id ? 'Updating...' : '-- Unassign Doctor --'}
-                                  </option>
-                                  {doctors.map((doctor) => (
-                                    <option key={doctor.id} value={doctor.id}>
-                                      Dr. {doctor.profiles.first_name} {doctor.profiles.last_name}
-                                      {doctor.profiles.specialization && ` - ${doctor.profiles.specialization}`}
-                                    </option>
-                                  ))}
-                                </select>
-                              ) : (
-                                <span className="text-xs text-red-600">⚠ No doctors available</span>
-                              )}
-                            </div>
-                          )}
+                    {/* Doctor Assignment Dropdown - CRITICAL FIX: Show for both pending and scheduled */}
+                    {(selectedAppointment.status === 'pending' || selectedAppointment.status === 'scheduled') && doctors.length > 0 && (
+                      <div className="mt-3">
+                        <select
+                          value={selectedAppointment.doctor_id || ''}
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            const selectedDoctor = doctors.find(d => d.id === value);
 
-                          {/* Info message when doctor is assigned */}
-                          {appointment.status === 'scheduled' && appointment.doctor_id && (
-                            <div className="w-full px-3 py-1.5 text-xs bg-blue-50 text-blue-700 rounded-md border border-blue-200">
-                              ✓ Ready for check-in by doctor
-                            </div>
-                          )}
+                            setPendingAssignment({
+                              appointmentId: selectedAppointment.id,
+                              doctorId: value || null,
+                              doctorName: selectedDoctor
+                                ? `Dr. ${selectedDoctor.profiles.first_name} ${selectedDoctor.profiles.last_name}`
+                                : null,
+                              patientName: `${selectedAppointment.patients.profiles.first_name} ${selectedAppointment.patients.profiles.last_name}`
+                            });
+                            setShowAssignDialog(true);
+                          }}
+                          disabled={assigningDoctor === selectedAppointment.id}
+                          className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-teal disabled:opacity-50"
+                        >
+                          <option value="">
+                            {assigningDoctor === selectedAppointment.id ? 'Updating...' : selectedAppointment.doctor_id ? '-- Change Doctor --' : '-- Assign Doctor --'}
+                          </option>
+                          {doctors.map((doctor) => (
+                            <option key={doctor.id} value={doctor.id}>
+                              Dr. {doctor.profiles.first_name} {doctor.profiles.last_name}
+                              {doctor.profiles.specialization && ` - ${doctor.profiles.specialization}`}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
+                  </div>
+                </div>
 
-                          {/* Undo Last Action button with Medical Records Validation */}
-                          {lastHistoryEntries[appointment.id] &&
-                           lastHistoryEntries[appointment.id].from_status &&
-                           appointment.status !== lastHistoryEntries[appointment.id].from_status && (
-                            appointment.status === 'completed' ? (
-                              // Special handling for completed appointments
-                              hasMedicalRecords[appointment.id] === false ? (
-                                <button
-                                  onClick={() => handleQuickUndo(appointment.id)}
-                                  disabled={actionLoading}
-                                  className="w-full px-3 py-1.5 text-xs bg-yellow-100 text-yellow-800 rounded-md hover:bg-yellow-200 font-medium flex items-center justify-center gap-1 border border-yellow-300 disabled:opacity-50 transition-colors"
-                                >
-                                  <RotateCcw className="w-3 h-3" />
-                                  Undo
-                                </button>
-                              ) : hasMedicalRecords[appointment.id] === true ? (
-                                <button
-                                  disabled
-                                  className="w-full px-3 py-1.5 text-xs bg-gray-100 text-gray-500 rounded-md font-medium flex items-center justify-center gap-1 border border-gray-300 cursor-not-allowed"
-                                  title="Cannot undo - medical record has been created"
-                                >
-                                  <RotateCcw className="w-3 h-3" />
-                                  Undo Blocked
-                                </button>
-                              ) : (
-                                // Loading state while checking medical records
-                                <button
-                                  disabled
-                                  className="w-full px-3 py-1.5 text-xs bg-gray-100 text-gray-500 rounded-md font-medium flex items-center justify-center gap-1 border border-gray-200"
-                                >
-                                  <RotateCcw className="w-3 h-3 animate-spin" />
-                                  Checking...
-                                </button>
-                              )
-                            ) : (
-                              // Normal undo button for non-completed statuses
-                              <button
-                                onClick={() => handleQuickUndo(appointment.id)}
-                                disabled={actionLoading}
-                                className="w-full px-3 py-1.5 text-xs bg-yellow-100 text-yellow-800 rounded-md hover:bg-yellow-200 font-medium flex items-center justify-center gap-1 border border-yellow-300 disabled:opacity-50 transition-colors"
-                              >
-                                <RotateCcw className="w-3 h-3" />
-                                Undo
-                              </button>
-                            )
-                          )}
+                {/* Reason for Visit */}
+                {selectedAppointment.reason && (
+                  <div>
+                    <h4 className="text-sm font-medium text-gray-700 mb-2 flex items-center">
+                      <FileText className="w-4 h-4 mr-2" />
+                      Reason for Visit
+                    </h4>
+                    <div className="bg-gray-50 rounded-md p-3 text-sm text-gray-700">
+                      {selectedAppointment.reason}
+                    </div>
+                  </div>
+                )}
 
-                          {/* View Status History button */}
-                          <button
-                            onClick={() => handleViewHistory(appointment.id)}
-                            className="w-full px-3 py-1.5 text-xs text-primary-teal hover:text-primary-teal/80 font-medium flex items-center justify-center gap-1 border border-primary-teal/20 rounded-md hover:bg-primary-teal/5 transition-colors"
-                          >
-                            <History className="w-3 h-3" />
-                            View History
-                          </button>
+                {/* Timestamps */}
+                {(selectedAppointment.checked_in_at || selectedAppointment.started_at || selectedAppointment.completed_at) && (
+                  <div>
+                    <h4 className="text-sm font-medium text-gray-700 mb-2 flex items-center">
+                      <Clock className="w-4 h-4 mr-2" />
+                      Timeline
+                    </h4>
+                    <div className="bg-gray-50 rounded-md p-3 space-y-1 text-sm">
+                      {selectedAppointment.checked_in_at && (
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Checked In:</span>
+                          <span className="text-gray-900">{new Date(selectedAppointment.checked_in_at).toLocaleString()}</span>
                         </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                      )}
+                      {selectedAppointment.started_at && (
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Started:</span>
+                          <span className="text-gray-900">{new Date(selectedAppointment.started_at).toLocaleString()}</span>
+                        </div>
+                      )}
+                      {selectedAppointment.completed_at && (
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Completed:</span>
+                          <span className="text-gray-900">{new Date(selectedAppointment.completed_at).toLocaleString()}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Action Buttons */}
+              <div className="mt-6 pt-6 border-t border-gray-200 space-y-3">
+                {/* View Status History */}
+                <button
+                  onClick={() => handleViewHistory(selectedAppointment.id)}
+                  className="w-full flex items-center justify-center gap-2 px-4 py-2 text-sm text-primary-teal hover:text-primary-teal/80 font-medium border border-primary-teal/20 rounded-md hover:bg-primary-teal/5 transition-colors"
+                >
+                  <History className="w-4 h-4" />
+                  View Status History
+                </button>
+
+                {/* Undo Button */}
+                {lastHistoryEntries[selectedAppointment.id] &&
+                 lastHistoryEntries[selectedAppointment.id].from_status &&
+                 selectedAppointment.status !== lastHistoryEntries[selectedAppointment.id].from_status && (
+                  selectedAppointment.status === 'completed' ? (
+                    hasMedicalRecords[selectedAppointment.id] === false ? (
+                      <button
+                        onClick={() => handleQuickUndo(selectedAppointment.id)}
+                        disabled={actionLoading}
+                        className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-yellow-100 text-yellow-800 rounded-md hover:bg-yellow-200 font-medium text-sm border border-yellow-300 disabled:opacity-50"
+                      >
+                        <RotateCcw className="w-4 h-4" />
+                        Undo Last Action
+                      </button>
+                    ) : null
+                  ) : (
+                    <button
+                      onClick={() => handleQuickUndo(selectedAppointment.id)}
+                      disabled={actionLoading}
+                      className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-yellow-100 text-yellow-800 rounded-md hover:bg-yellow-200 font-medium text-sm border border-yellow-300 disabled:opacity-50"
+                    >
+                      <RotateCcw className="w-4 h-4" />
+                      Undo Last Action
+                    </button>
+                  )
+                )}
+              </div>
             </div>
-          ) : (
-            <div className="text-center py-12">
-              <Users className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">No appointments found</h3>
-              <p className="text-gray-600">No appointments match your current filters.</p>
-            </div>
-          )}
-        </div>
+          </Drawer>
+        )}
 
         {/* Doctor Assignment Confirmation Dialog */}
         <ConfirmDialog

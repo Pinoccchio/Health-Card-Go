@@ -43,7 +43,10 @@ export function MedicalContextPanel({
   if (!hasAnyData) {
     return (
       <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-        <p className="text-sm text-gray-500 text-center">No medical history available</p>
+        <p className="text-sm text-gray-500 text-center">No pre-existing conditions reported</p>
+        <p className="text-xs text-gray-400 text-center mt-1">
+          This shows the patient's self-reported medical background.
+        </p>
       </div>
     );
   }
@@ -53,8 +56,9 @@ export function MedicalContextPanel({
       <div className="px-4 py-3 border-b border-gray-200 bg-gray-50">
         <h3 className="text-sm font-semibold text-gray-900 flex items-center">
           <FileText className="w-4 h-4 mr-2" />
-          Medical Context
+          Patient Medical Background
         </h3>
+        <p className="text-xs text-gray-500 mt-0.5">Pre-existing conditions and ongoing treatments</p>
       </div>
 
       <div className="p-4 space-y-4">

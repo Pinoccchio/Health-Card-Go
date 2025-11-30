@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth';
 import { getDashboardPath } from '@/lib/utils/roleHelpers';
+import { ToastProvider } from '@/lib/contexts/ToastContext';
 
 /**
  * Layout for Doctor dashboard routes
@@ -63,5 +64,5 @@ export default function DoctorDashboardLayout({
     );
   }
 
-  return <>{children}</>;
+  return <ToastProvider>{children}</ToastProvider>;
 }

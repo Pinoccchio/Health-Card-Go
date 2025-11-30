@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { X, AlertTriangle } from 'lucide-react';
 
 export interface ConfirmDialogProps {
@@ -16,6 +16,7 @@ export interface ConfirmDialogProps {
   reasonLabel?: string;
   reasonPlaceholder?: string;
   isLoading?: boolean;
+  isReasonRequired?: boolean;
 }
 
 export function ConfirmDialog({
@@ -31,8 +32,10 @@ export function ConfirmDialog({
   reasonLabel = 'Reason (optional)',
   reasonPlaceholder = 'Please provide a reason...',
   isLoading = false,
+  isReasonRequired = false,
 }: ConfirmDialogProps) {
   const reasonRef = useRef<HTMLTextAreaElement>(null);
+  const [validationError, setValidationError] = useState<string>('');
 
   // Handle ESC key
   useEffect(() => {
@@ -60,10 +63,27 @@ export function ConfirmDialog({
     }
   }, [isOpen, showReasonInput]);
 
+  // Clear validation error when dialog closes
+  useEffect(() => {
+    if (!isOpen) {
+      setValidationError('');
+    }
+  }, [isOpen]);
+
   if (!isOpen) return null;
 
   const handleConfirm = () => {
-    const reason = reasonRef.current?.value || undefined;
+    const reason = reasonRef.current?.value?.trim() || undefined;
+
+    // Validate required reason
+    if (isReasonRequired && showReasonInput && !reason) {
+      setValidationError('Please provide a reason before confirming.');
+      reasonRef.current?.focus();
+      return;
+    }
+
+    // Clear any validation errors
+    setValidationError('');
     onConfirm(reason);
   };
 
@@ -134,19 +154,33 @@ export function ConfirmDialog({
             <div className="mb-6">
               <label
                 htmlFor="reason-input"
-                className="block text-sm font-medium text-gray-700 mb-2"
+                className={`block text-sm font-medium mb-2 ${
+                  isReasonRequired ? 'text-red-700' : 'text-gray-700'
+                }`}
               >
                 {reasonLabel}
+                {isReasonRequired && <span className="text-red-500 ml-1">*</span>}
               </label>
               <textarea
                 ref={reasonRef}
                 id="reason-input"
                 rows={3}
                 maxLength={500}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-teal focus:border-transparent resize-none"
+                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:border-transparent resize-none ${
+                  validationError
+                    ? 'border-red-300 focus:ring-red-500'
+                    : 'border-gray-300 focus:ring-primary-teal'
+                }`}
                 placeholder={reasonPlaceholder}
                 disabled={isLoading}
+                onChange={() => setValidationError('')}
               />
+              {validationError && (
+                <p className="mt-1 text-xs text-red-600 flex items-center">
+                  <AlertTriangle className="w-3 h-3 mr-1" />
+                  {validationError}
+                </p>
+              )}
             </div>
           )}
 
