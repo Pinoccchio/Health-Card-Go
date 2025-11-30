@@ -7,7 +7,11 @@ import { encryptMedicalRecordData, decryptMedicalRecordData } from '@/lib/utils/
 /**
  * GET /api/medical-records
  * List medical records with filtering
- * Accessible by: Doctor (all), Patient (own records), Healthcare Admin (category-based)
+ * Accessible by:
+ * - Doctor (only records for patients they have appointments with)
+ * - Patient (own records only)
+ * - Healthcare Admin (category-based filtering)
+ * - Super Admin (all records)
  */
 export async function GET(request: NextRequest) {
   try {
@@ -114,8 +118,42 @@ export async function GET(request: NextRequest) {
         // General admin sees all general category records
         query = query.eq('category', 'general');
       }
+    } else if (profile.role === 'doctor') {
+      // Doctors can only see records for patients they have appointments with
+      // Get doctor record
+      const { data: doctorRecord } = await supabase
+        .from('doctors')
+        .select('id')
+        .eq('user_id', user.id)
+        .single();
+
+      if (!doctorRecord) {
+        return NextResponse.json({ error: 'Doctor record not found' }, { status: 404 });
+      }
+
+      // Get all patient IDs from doctor's appointments
+      const { data: doctorAppointments } = await adminClient
+        .from('appointments')
+        .select('patient_id')
+        .eq('doctor_id', doctorRecord.id);
+
+      if (!doctorAppointments || doctorAppointments.length === 0) {
+        // Doctor has no appointments yet, return empty result
+        return NextResponse.json({
+          success: true,
+          data: [],
+          count: 0,
+          has_records: false,
+        });
+      }
+
+      // Get unique patient IDs
+      const patientIds = [...new Set(doctorAppointments.map(a => a.patient_id))];
+
+      // Filter records to only patients the doctor has seen
+      query = query.in('patient_id', patientIds);
     }
-    // Doctors and super admins can see all records (no filter)
+    // Super admins can see all records (no filter)
 
     // Apply additional filters
     if (patient_id) {

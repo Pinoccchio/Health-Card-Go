@@ -1,0 +1,156 @@
+{
+  "common": {
+    "loading": "Naglo-load...",
+    "error": "May Mali",
+    "success": "Matagumpay",
+    "save": "I-save",
+    "cancel": "Kanselahin",
+    "delete": "Tanggalin",
+    "edit": "I-edit",
+    "view": "Tingnan",
+    "close": "Isara",
+    "search": "Maghanap",
+    "filter": "I-filter",
+    "all": "Lahat",
+    "actions": "Mga Aksyon"
+  },
+  "navigation": {
+    "dashboard": "Dashboard",
+    "appointments": "Mga Appointment",
+    "patients": "Mga Pasyente",
+    "doctors": "Mga Doktor",
+    "notifications": "Mga Abiso",
+    "profile": "Profile",
+    "settings": "Mga Setting",
+    "logout": "Mag-logout",
+    "medical_records": "Mga Medikal na Rekord",
+    "health_card": "Health Card",
+    "feedback": "Feedback",
+    "book_appointment": "Mag-book ng Appointment",
+    "disease_surveillance": "Pagsubaybay sa Sakit"
+  },
+  "notifications": {
+    "title": "Mga Abiso",
+    "description": "Manatiling updated sa iyong mga appointment sa kalusugan",
+    "mark_all_read": "Markahan lahat bilang nabasa",
+    "view_details": "Tingnan ang Detalye",
+    "no_notifications": "Walang abiso pa",
+    "no_notifications_description": "Makakatanggap ka ng mga abiso para sa mga appointment, update sa account, at iba pang mahalagang impormasyon.",
+    "statistics": {
+      "total": "Kabuuan",
+      "unread": "Hindi Nabasa",
+      "approvals": "Mga Apruba",
+      "reminders": "Mga Paalala",
+      "cancellations": "Mga Kanselasyon",
+      "feedback": "Feedback"
+    },
+    "filters": {
+      "all": "Lahat",
+      "unread": "Hindi Nabasa",
+      "approval": "Mga Apruba",
+      "appointment_reminder": "Mga Paalala",
+      "cancellation": "Mga Kanselasyon",
+      "feedback_request": "Feedback",
+      "general": "Pangkalahatan"
+    },
+    "types": {
+      "approval": "Apruba",
+      "cancellation": "Kanselasyon",
+      "appointment_reminder": "Paalala ng Appointment",
+      "feedback_request": "Kahilingan ng Feedback",
+      "general": "Pangkalahatan"
+    }
+  },
+  "feedback": {
+    "title": "Feedback",
+    "description": "Ibahagi ang iyong karanasan at tingnan ang iyong feedback history",
+    "submit": "Magsumite ng Feedback",
+    "submitted": "Naisumite",
+    "pending": "Naghihintay",
+    "avg_rating": "Average na Rating",
+    "recommended": "Inirerekomenda",
+    "with_response": "May Tugon",
+    "awaiting": "Naghihintay",
+    "eligible_appointments": "Mga Kwalipikadong Appointment",
+    "eligible_description": "Maaari kang magsumite ng feedback sa loob ng 7 araw pagkatapos makumpleto ang appointment.",
+    "no_eligible": "Walang Kwalipikadong Appointment",
+    "no_eligible_description": "Wala kang nakumpletong appointment na kwalipikado para sa feedback sa ngayon.",
+    "feedback_history": "Ang Iyong Feedback History",
+    "history_description": "Tingnan ang lahat ng iyong naisumiteng feedback at mga tugon ng admin.",
+    "no_feedback": "Walang Feedback Pa",
+    "no_feedback_description": "Hindi ka pa nakapagsumite ng feedback.",
+    "view_eligible": "Tingnan ang Mga Kwalipikadong Appointment",
+    "days_remaining": "araw na natitira upang magsumite ng feedback",
+    "deadline_expired": "Nag-expire na ang deadline ng feedback",
+    "filters": {
+      "all": "Lahat",
+      "pending_feedback": "Naghihintay ng Feedback",
+      "submitted": "Naisumite",
+      "recommended": "Inirerekomenda",
+      "with_response": "May Tugon",
+      "awaiting_response": "Naghihintay ng Tugon"
+    }
+  },
+  "appointments": {
+    "title": "Aking Mga Appointment",
+    "description": "Tingnan at pamahalaan ang iyong mga appointment",
+    "book_new": "Mag-book ng Bagong Appointment",
+    "statistics": {
+      "total": "Kabuuan",
+      "pending": "Naghihintay",
+      "upcoming": "Paparating",
+      "completed": "Nakumpleto",
+      "cancelled": "Nakansela",
+      "no_show": "Hindi Dumating"
+    },
+    "filters": {
+      "all_appointments": "Lahat ng Appointment",
+      "pending": "Naghihintay",
+      "upcoming": "Paparating",
+      "completed": "Nakumpleto",
+      "cancelled": "Nakansela"
+    },
+    "details": {
+      "queue_number": "Numero sa Pila",
+      "service": "Serbisyo",
+      "date": "Petsa",
+      "time": "Oras",
+      "doctor": "Doktor",
+      "reason": "Dahilan ng Pagbisita",
+      "status": "Katayuan",
+      "timeline": "Timeline",
+      "checked_in": "Nag-check In",
+      "started": "Nagsimula",
+      "completed": "Nakumpleto"
+    },
+    "status": {
+      "pending": "Naghihintay",
+      "scheduled": "Naka-iskedyul",
+      "checked_in": "Nag-check In",
+      "in_progress": "Isinasagawa",
+      "completed": "Nakumpleto",
+      "cancelled": "Nakansela",
+      "no_show": "Hindi Dumating"
+    }
+  },
+  "disease_surveillance": {
+    "title": "Pagsubaybay sa Sakit",
+    "description": "Subaybayan ang mga outbreak at trend ng sakit sa Lungsod ng Panabo",
+    "heatmap": "Mapa ng Sakit",
+    "statistics": "Estadistika ng Sakit",
+    "predictions": "Mga Hula ng SARIMA",
+    "alerts": "Mga Alerto sa Outbreak",
+    "by_barangay": "Mga Kaso ayon sa Barangay",
+    "trend_analysis": "Pagsusuri ng Trend",
+    "forecast": "30-Araw na Hula"
+  },
+  "health_updates": {
+    "title": "Mga Update sa Kalusugan",
+    "new_update": "Bagong Health Update",
+    "broadcast": "I-broadcast sa mga Pasyente",
+    "target_barangay": "Target na Barangay",
+    "all_barangays": "Lahat ng Barangay",
+    "message": "Mensahe",
+    "send": "Ipadala ang Update"
+  }
+}

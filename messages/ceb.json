@@ -1,0 +1,156 @@
+{
+  "common": {
+    "loading": "Nag-load...",
+    "error": "May Sayop",
+    "success": "Malampuson",
+    "save": "I-save",
+    "cancel": "Kanselaon",
+    "delete": "Tangtangon",
+    "edit": "I-edit",
+    "view": "Tan-awon",
+    "close": "Sirad-i",
+    "search": "Pangitaa",
+    "filter": "I-filter",
+    "all": "Tanan",
+    "actions": "Mga Aksyon"
+  },
+  "navigation": {
+    "dashboard": "Dashboard",
+    "appointments": "Mga Appointment",
+    "patients": "Mga Pasyente",
+    "doctors": "Mga Doktor",
+    "notifications": "Mga Pahibalo",
+    "profile": "Profile",
+    "settings": "Mga Setting",
+    "logout": "Logout",
+    "medical_records": "Mga Medikal nga Rekord",
+    "health_card": "Health Card",
+    "feedback": "Feedback",
+    "book_appointment": "Mag-book ug Appointment",
+    "disease_surveillance": "Pagsubay sa Sakit"
+  },
+  "notifications": {
+    "title": "Mga Pahibalo",
+    "description": "Magpabiling updated sa imong mga appointment sa panglawas",
+    "mark_all_read": "Markahi ang tanan nga nabasa",
+    "view_details": "Tan-awon ang Detalye",
+    "no_notifications": "Wala pa'y pahibalo",
+    "no_notifications_description": "Makadawat ka ug mga pahibalo para sa mga appointment, update sa account, ug uban pang importante nga impormasyon.",
+    "statistics": {
+      "total": "Kinatibuk-an",
+      "unread": "Wala pa Mabasa",
+      "approvals": "Mga Approval",
+      "reminders": "Mga Pahinumdom",
+      "cancellations": "Mga Kanselasyon",
+      "feedback": "Feedback"
+    },
+    "filters": {
+      "all": "Tanan",
+      "unread": "Wala pa Mabasa",
+      "approval": "Mga Approval",
+      "appointment_reminder": "Mga Pahinumdom",
+      "cancellation": "Mga Kanselasyon",
+      "feedback_request": "Feedback",
+      "general": "Kinatibuk-an"
+    },
+    "types": {
+      "approval": "Approval",
+      "cancellation": "Kanselasyon",
+      "appointment_reminder": "Pahinumdom sa Appointment",
+      "feedback_request": "Hangyo sa Feedback",
+      "general": "Kinatibuk-an"
+    }
+  },
+  "feedback": {
+    "title": "Feedback",
+    "description": "Ipaambit ang imong kasinatian ug tan-awon ang imong feedback history",
+    "submit": "Ipadala ang Feedback",
+    "submitted": "Napadala",
+    "pending": "Naghulat",
+    "avg_rating": "Average nga Rating",
+    "recommended": "Girekomendar",
+    "with_response": "Adunay Tubag",
+    "awaiting": "Naghulat",
+    "eligible_appointments": "Mga Kwalipikadong Appointment",
+    "eligible_description": "Makapadala ka ug feedback sulod sa 7 ka adlaw human makompleto ang appointment.",
+    "no_eligible": "Walay Kwalipikadong Appointment",
+    "no_eligible_description": "Wala kay nakompletong appointment nga kwalipikado para sa feedback karon.",
+    "feedback_history": "Imong Feedback History",
+    "history_description": "Tan-awon ang tanan nimong gipadala nga feedback ug mga tubag sa admin.",
+    "no_feedback": "Walay Feedback Pa",
+    "no_feedback_description": "Wala ka pa makapadala ug feedback.",
+    "view_eligible": "Tan-awon ang Mga Kwalipikadong Appointment",
+    "days_remaining": "ka adlaw ang nahabilin para mupadala ug feedback",
+    "deadline_expired": "Nag-expire na ang deadline sa feedback",
+    "filters": {
+      "all": "Tanan",
+      "pending_feedback": "Naghulat ug Feedback",
+      "submitted": "Napadala",
+      "recommended": "Girekomendar",
+      "with_response": "Adunay Tubag",
+      "awaiting_response": "Naghulat ug Tubag"
+    }
+  },
+  "appointments": {
+    "title": "Akong Mga Appointment",
+    "description": "Tan-awon ug dumalaon ang imong mga appointment",
+    "book_new": "Mag-book ug Bag-ong Appointment",
+    "statistics": {
+      "total": "Kinatibuk-an",
+      "pending": "Naghulat",
+      "upcoming": "Umaabot",
+      "completed": "Nahuman",
+      "cancelled": "Nakansela",
+      "no_show": "Wala Miabot"
+    },
+    "filters": {
+      "all_appointments": "Tanang Appointment",
+      "pending": "Naghulat",
+      "upcoming": "Umaabot",
+      "completed": "Nahuman",
+      "cancelled": "Nakansela"
+    },
+    "details": {
+      "queue_number": "Numero sa Linya",
+      "service": "Serbisyo",
+      "date": "Petsa",
+      "time": "Oras",
+      "doctor": "Doktor",
+      "reason": "Hinungdan sa Pagbisita",
+      "status": "Kahimtang",
+      "timeline": "Timeline",
+      "checked_in": "Nag-check In",
+      "started": "Nagsugod",
+      "completed": "Nahuman"
+    },
+    "status": {
+      "pending": "Naghulat",
+      "scheduled": "Naka-iskedyul",
+      "checked_in": "Nag-check In",
+      "in_progress": "Ginahimo",
+      "completed": "Nahuman",
+      "cancelled": "Nakansela",
+      "no_show": "Wala Miabot"
+    }
+  },
+  "disease_surveillance": {
+    "title": "Pagsubay sa Sakit",
+    "description": "Subaysubaya ang mga outbreak ug trend sa sakit sa Dakbayan sa Panabo",
+    "heatmap": "Mapa sa Sakit",
+    "statistics": "Estadistika sa Sakit",
+    "predictions": "Mga Panagna sa SARIMA",
+    "alerts": "Mga Alerto sa Outbreak",
+    "by_barangay": "Mga Kaso sumala sa Barangay",
+    "trend_analysis": "Pagsusi sa Trend",
+    "forecast": "30-Adlaw nga Panagna"
+  },
+  "health_updates": {
+    "title": "Mga Update sa Panglawas",
+    "new_update": "Bag-ong Health Update",
+    "broadcast": "I-broadcast sa mga Pasyente",
+    "target_barangay": "Target nga Barangay",
+    "all_barangays": "Tanang Barangay",
+    "message": "Mensahe",
+    "send": "Ipadala ang Update"
+  }
+}

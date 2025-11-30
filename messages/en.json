@@ -1,0 +1,156 @@
+{
+  "common": {
+    "loading": "Loading...",
+    "error": "Error",
+    "success": "Success",
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "view": "View",
+    "close": "Close",
+    "search": "Search",
+    "filter": "Filter",
+    "all": "All",
+    "actions": "Actions"
+  },
+  "navigation": {
+    "dashboard": "Dashboard",
+    "appointments": "Appointments",
+    "patients": "Patients",
+    "doctors": "Doctors",
+    "notifications": "Notifications",
+    "profile": "Profile",
+    "settings": "Settings",
+    "logout": "Logout",
+    "medical_records": "Medical Records",
+    "health_card": "Health Card",
+    "feedback": "Feedback",
+    "book_appointment": "Book Appointment",
+    "disease_surveillance": "Disease Surveillance"
+  },
+  "notifications": {
+    "title": "Notifications",
+    "description": "Stay updated with your health appointments",
+    "mark_all_read": "Mark all as read",
+    "view_details": "View Details",
+    "no_notifications": "No notifications yet",
+    "no_notifications_description": "You'll receive notifications for appointments, account updates, and other important information.",
+    "statistics": {
+      "total": "Total",
+      "unread": "Unread",
+      "approvals": "Approvals",
+      "reminders": "Reminders",
+      "cancellations": "Cancellations",
+      "feedback": "Feedback"
+    },
+    "filters": {
+      "all": "All",
+      "unread": "Unread",
+      "approval": "Approvals",
+      "appointment_reminder": "Reminders",
+      "cancellation": "Cancellations",
+      "feedback_request": "Feedback",
+      "general": "General"
+    },
+    "types": {
+      "approval": "Approval",
+      "cancellation": "Cancellation",
+      "appointment_reminder": "Appointment Reminder",
+      "feedback_request": "Feedback Request",
+      "general": "General"
+    }
+  },
+  "feedback": {
+    "title": "Feedback",
+    "description": "Share your experience and view your feedback history",
+    "submit": "Submit Feedback",
+    "submitted": "Submitted",
+    "pending": "Pending",
+    "avg_rating": "Avg Rating",
+    "recommended": "Recommended",
+    "with_response": "With Response",
+    "awaiting": "Awaiting",
+    "eligible_appointments": "Eligible Appointments",
+    "eligible_description": "You can submit feedback within 7 days of appointment completion.",
+    "no_eligible": "No Eligible Appointments",
+    "no_eligible_description": "You don't have any completed appointments eligible for feedback at this time.",
+    "feedback_history": "Your Feedback History",
+    "history_description": "View all your submitted feedback and admin responses.",
+    "no_feedback": "No Feedback Yet",
+    "no_feedback_description": "You haven't submitted any feedback yet.",
+    "view_eligible": "View Eligible Appointments",
+    "days_remaining": "day(s) remaining to submit feedback",
+    "deadline_expired": "Feedback deadline expired",
+    "filters": {
+      "all": "All",
+      "pending_feedback": "Pending Feedback",
+      "submitted": "Submitted",
+      "recommended": "Recommended",
+      "with_response": "With Response",
+      "awaiting_response": "Awaiting Response"
+    }
+  },
+  "appointments": {
+    "title": "My Appointments",
+    "description": "View and manage your appointments",
+    "book_new": "Book New Appointment",
+    "statistics": {
+      "total": "Total",
+      "pending": "Pending",
+      "upcoming": "Upcoming",
+      "completed": "Completed",
+      "cancelled": "Cancelled",
+      "no_show": "No Show"
+    },
+    "filters": {
+      "all_appointments": "All Appointments",
+      "pending": "Pending",
+      "upcoming": "Upcoming",
+      "completed": "Completed",
+      "cancelled": "Cancelled"
+    },
+    "details": {
+      "queue_number": "Queue Number",
+      "service": "Service",
+      "date": "Date",
+      "time": "Time",
+      "doctor": "Doctor",
+      "reason": "Reason for Visit",
+      "status": "Status",
+      "timeline": "Timeline",
+      "checked_in": "Checked In",
+      "started": "Started",
+      "completed": "Completed"
+    },
+    "status": {
+      "pending": "Pending",
+      "scheduled": "Scheduled",
+      "checked_in": "Checked In",
+      "in_progress": "In Progress",
+      "completed": "Completed",
+      "cancelled": "Cancelled",
+      "no_show": "No Show"
+    }
+  },
+  "disease_surveillance": {
+    "title": "Disease Surveillance",
+    "description": "Track disease outbreaks and trends in Panabo City",
+    "heatmap": "Disease Heatmap",
+    "statistics": "Disease Statistics",
+    "predictions": "SARIMA Predictions",
+    "alerts": "Outbreak Alerts",
+    "by_barangay": "Cases by Barangay",
+    "trend_analysis": "Trend Analysis",
+    "forecast": "30-Day Forecast"
+  },
+  "health_updates": {
+    "title": "Health Updates",
+    "new_update": "New Health Update",
+    "broadcast": "Broadcast to Patients",
+    "target_barangay": "Target Barangay",
+    "all_barangays": "All Barangays",
+    "message": "Message",
+    "send": "Send Update"
+  }
+}
