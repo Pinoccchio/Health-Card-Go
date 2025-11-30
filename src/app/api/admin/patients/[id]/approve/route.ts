@@ -119,17 +119,26 @@ export async function POST(
     // Get patient record to retrieve patient_number
     const { data: patientRecord, error: patientRecordError } = await supabase
       .from('patients')
-      .select('patient_number')
+      .select('id, patient_number')
       .eq('user_id', patientId)
       .single();
 
-    if (patientRecordError || !patientRecord) {
-      console.error('Error fetching patient record:', patientRecordError);
-      // Continue with approval even if we can't get patient record
-    }
+    console.log('[APPROVAL] Patient record fetch:', {
+      patientRecord,
+      patientRecordError,
+      hasPatientNumber: !!patientRecord?.patient_number
+    });
 
-    // Generate health card for the approved patient
-    if (patientRecord?.patient_number) {
+    if (patientRecordError || !patientRecord) {
+      console.error('⚠️ [APPROVAL] Error fetching patient record:', patientRecordError);
+      console.warn('⚠️ [APPROVAL] Health card will be created by database trigger');
+      // Continue with approval - database trigger will create health card
+    } else if (!patientRecord.patient_number) {
+      console.error('⚠️ [APPROVAL] Patient record exists but has no patient_number!');
+      console.warn('⚠️ [APPROVAL] Health card creation may fail - check patient record:', patientRecord.id);
+    } else {
+      // Generate health card via application code (primary method)
+      console.log('[APPROVAL] Attempting health card generation via application...');
       const emergencyPhone = patient.emergency_contact?.phone;
       const healthCardResult = await generateHealthCard({
         patientId,
@@ -141,11 +150,29 @@ export async function POST(
       });
 
       if (!healthCardResult.success) {
-        console.error('Failed to generate health card:', healthCardResult.error);
-        // Don't fail the approval if health card generation fails
+        console.error('❌ [APPROVAL] Application-level health card generation failed:', healthCardResult.error);
+        console.warn('⚠️ [APPROVAL] Database trigger will attempt to create health card as fallback');
       } else {
-        console.log(`✅ Health card generated: ${healthCardResult.cardNumber}`);
+        console.log(`✅ [APPROVAL] Health card generated successfully: ${healthCardResult.cardNumber}`);
       }
+    }
+
+    // Verify health card was created (either by app or trigger)
+    // Wait a moment for trigger to complete if app generation failed
+    await new Promise(resolve => setTimeout(resolve, 500));
+
+    const { data: healthCardCheck } = await supabase
+      .from('health_cards')
+      .select('id, card_number')
+      .eq('patient_id', patientRecord?.id)
+      .maybeSingle();
+
+    if (healthCardCheck) {
+      console.log(`✅ [APPROVAL] Health card verified: ${healthCardCheck.card_number}`);
+    } else {
+      console.error('❌ [APPROVAL] WARNING: No health card found after approval!');
+      console.error('❌ [APPROVAL] Patient:', patientId, 'Email:', patient.email);
+      console.error('❌ [APPROVAL] This requires manual investigation!');
     }
 
     // Send approval notification to patient

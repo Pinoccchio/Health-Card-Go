@@ -75,7 +75,7 @@ export function Toast({ id, message, variant, duration = 5000, onClose }: ToastP
 
 export function ToastContainer({ children }: { children: React.ReactNode }) {
   return (
-    <div className="fixed top-4 right-4 z-50 flex flex-col gap-2">
+    <div className="fixed top-4 right-4 z-[9999] flex flex-col gap-2">
       {children}
     </div>
   );

@@ -52,8 +52,7 @@ export async function GET(
             contact_number,
             date_of_birth,
             gender,
-            barangay_id,
-            barangays(name)
+            barangay_id
           )
         ),
         doctors(

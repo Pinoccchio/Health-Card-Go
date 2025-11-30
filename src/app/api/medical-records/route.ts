@@ -58,8 +58,7 @@ export async function GET(request: NextRequest) {
             last_name,
             date_of_birth,
             gender,
-            barangay_id,
-            barangays(name)
+            barangay_id
           )
         ),
         doctors(
@@ -410,8 +409,7 @@ export async function POST(request: NextRequest) {
             last_name,
             date_of_birth,
             gender,
-            barangay_id,
-            barangays(name)
+            barangay_id
           )
         ),
         doctors(
