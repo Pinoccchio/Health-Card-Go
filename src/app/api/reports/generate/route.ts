@@ -564,10 +564,20 @@ async function generateFeedbackSatisfactionReport(
   const doctorProfilesMap: Record<string, string> = {};
 
   if (doctorIds.length > 0) {
-    const { data: doctors } = await supabase
+    // Query doctors table with proper foreign key join to profiles
+    // doctors.user_id → profiles.id (foreign key relationship)
+    const { data: doctors, error: doctorsError } = await supabase
       .from('doctors')
-      .select('id, user_id, profiles(first_name, last_name)')
+      .select(`
+        id,
+        user_id,
+        profiles!doctors_user_id_fkey(first_name, last_name)
+      `)
       .in('id', doctorIds);
+
+    if (doctorsError) {
+      console.error('Error fetching doctor profiles:', doctorsError);
+    }
 
     doctors?.forEach((doc: any) => {
       if (doc.profiles) {

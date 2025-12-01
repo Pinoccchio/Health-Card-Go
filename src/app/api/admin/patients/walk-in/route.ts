@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
-import { createClient } from '@supabase/supabase-js';
-import { cookies } from 'next/headers';
+import { createClient } from '@/lib/supabase/server';
+import { createClient as createSupabaseClient } from '@supabase/supabase-js';
 
 /**
  * POST /api/admin/patients/walk-in
@@ -17,7 +16,7 @@ import { cookies } from 'next/headers';
  */
 export async function POST(request: NextRequest) {
   try {
-    const supabase = createRouteHandlerClient({ cookies });
+    const supabase = await createClient();
 
     // 1. Verify authentication
     const {
@@ -91,7 +90,7 @@ export async function POST(request: NextRequest) {
         // Create a Supabase Admin client using service role key
         const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
         const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-        const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
+        const supabaseAdmin = createSupabaseClient(supabaseUrl, supabaseServiceKey, {
           auth: {
             autoRefreshToken: false,
             persistSession: false
@@ -225,6 +224,7 @@ export async function POST(request: NextRequest) {
       .select('id', { count: 'exact', head: true });
 
     const appointmentCount = (appointmentCountData as any)?.count || 0;
+    const year = new Date().getFullYear();
     const appointment_number_formatted = `A${year}${String(appointmentCount + 1).padStart(6, '0')}`;
 
     // Get a general service (or first service available)
