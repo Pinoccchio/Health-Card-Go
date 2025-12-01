@@ -18,3 +18,6 @@ export { ConfirmDialog } from './ConfirmDialog';
 export type { ConfirmDialogProps } from './ConfirmDialog';
 
 export { Drawer } from './Drawer';
+
+export { ProfessionalCard } from './ProfessionalCard';
+export type { ProfessionalCardProps } from './ProfessionalCard';

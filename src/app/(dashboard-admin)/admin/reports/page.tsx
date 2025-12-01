@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { format, subDays } from 'date-fns';
 import {
   FileText,
@@ -12,17 +12,46 @@ import {
   Activity,
   MessageSquare,
   BarChart3,
+  X,
+  Filter,
 } from 'lucide-react';
 import { DashboardLayout } from '@/components/dashboard';
-import { Container } from '@/components/ui';
+import { Container, ProfessionalCard } from '@/components/ui';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/Tabs';
 import { useToast } from '@/lib/contexts/ToastContext';
 import type { ReportType } from '@/types/reports';
+import { ReportSummaryCards } from '@/components/reports/ReportSummaryCards';
+import {
+  AppointmentTrendChart,
+  AppointmentStatusChart,
+  AppointmentByServiceChart,
+} from '@/components/reports/charts/AppointmentCharts';
+import {
+  DiseaseDistributionChart,
+  DiseaseTrendChart,
+  DiseaseByBarangayChart,
+  DiseaseSeverityChart,
+} from '@/components/reports/charts/DiseaseCharts';
+import {
+  PatientRegistrationTrendChart,
+  PatientStatusChart,
+  PatientByBarangayChart,
+  PatientAgeDistributionChart,
+} from '@/components/reports/charts/PatientCharts';
+import {
+  FeedbackRatingDistributionChart,
+  FeedbackByServiceChart,
+  FeedbackRecommendationChart,
+  FeedbackTrendChart,
+  FeedbackByDoctorChart,
+} from '@/components/reports/charts/FeedbackCharts';
+import { exportToCSV, exportToPDF, prepareSummaryForPDF, getChartCanvases } from '@/lib/utils/reportExport';
 
 export default function SuperAdminReportsPage() {
   const toast = useToast();
+  const chartsContainerRef = useRef<HTMLDivElement>(null);
   const [activeTab, setActiveTab] = useState<ReportType>('appointments');
   const [loading, setLoading] = useState(false);
   const [reportData, setReportData] = useState<any>(null);
@@ -41,7 +70,7 @@ export default function SuperAdminReportsPage() {
   const [doctorId, setDoctorId] = useState<string>('');
   const [status, setStatus] = useState<string>('');
 
-  // Options for filters (to be fetched)
+  // Options for filters
   const [barangays, setBarangays] = useState<any[]>([]);
   const [services, setServices] = useState<any[]>([]);
   const [doctors, setDoctors] = useState<any[]>([]);
@@ -67,8 +96,27 @@ export default function SuperAdminReportsPage() {
         setBarangays(data.barangays || []);
       }
 
-      // Note: Services and doctors APIs may need to be created
-      // For now, we'll leave these empty
+      // Fetch services
+      try {
+        const servicesRes = await fetch('/api/admin/services');
+        if (servicesRes.ok) {
+          const data = await servicesRes.json();
+          setServices(data.services || []);
+        }
+      } catch (error) {
+        console.log('Services API not available');
+      }
+
+      // Fetch doctors
+      try {
+        const doctorsRes = await fetch('/api/doctors');
+        if (doctorsRes.ok) {
+          const data = await doctorsRes.json();
+          setDoctors(data.doctors || []);
+        }
+      } catch (error) {
+        console.log('Doctors API not available');
+      }
     } catch (error) {
       console.error('Error fetching filter options:', error);
     }
@@ -104,22 +152,105 @@ export default function SuperAdminReportsPage() {
     } catch (error) {
       console.error('Error generating report:', error);
       toast.error('Failed to generate report');
+      setReportData(null);
     } finally {
       setLoading(false);
     }
   };
 
-  const exportToPDF = () => {
-    toast.info('PDF export functionality coming soon');
+  const handleExportToPDF = () => {
+    try {
+      if (!reportData) {
+        toast.error('No report data to export');
+        return;
+      }
+
+      const reportTitles: Record<ReportType, string> = {
+        appointments: 'Appointments Report',
+        disease_surveillance: 'Disease Surveillance Report',
+        patients: 'Patient Registration Report',
+        feedback: 'Feedback & Satisfaction Report',
+        system_overview: 'Health Office Overview Report',
+      };
+
+      // Get chart canvases
+      const charts: Array<{ title: string; canvas: HTMLCanvasElement }> = [];
+      if (chartsContainerRef.current) {
+        const canvases = chartsContainerRef.current.querySelectorAll('canvas');
+        canvases.forEach((canvas, index) => {
+          charts.push({
+            title: `Chart ${index + 1}`,
+            canvas: canvas as HTMLCanvasElement,
+          });
+        });
+      }
+
+      // Prepare summary data
+      const summary = prepareSummaryForPDF(reportData.summary || {});
+
+      // Export to PDF
+      exportToPDF({
+        title: reportTitles[activeTab],
+        dateRange: { start: startDate, end: endDate },
+        summary,
+        charts,
+        tables: [], // Add tables if needed
+      });
+
+      toast.success('Report exported to PDF successfully');
+    } catch (error) {
+      console.error('Error exporting PDF:', error);
+      toast.error('Failed to export PDF');
+    }
   };
 
-  const exportToCSV = () => {
-    toast.info('CSV export functionality coming soon');
+  const handleExportToCSV = () => {
+    try {
+      if (!reportData) {
+        toast.error('No report data to export');
+        return;
+      }
+
+      const reportTitles: Record<ReportType, string> = {
+        appointments: 'Appointments_Report',
+        disease_surveillance: 'Disease_Surveillance_Report',
+        patients: 'Patient_Registration_Report',
+        feedback: 'Feedback_Report',
+        system_overview: 'System_Overview_Report',
+      };
+
+      // Prepare data for CSV
+      let csvData: any[] = [];
+      if (reportData.summary) {
+        csvData = Object.entries(reportData.summary).map(([key, value]) => ({
+          Metric: key.replace(/_/g, ' ').toUpperCase(),
+          Value: value,
+        }));
+      }
+
+      exportToCSV(csvData, reportTitles[activeTab]);
+      toast.success('Report exported to CSV successfully');
+    } catch (error) {
+      console.error('Error exporting CSV:', error);
+      toast.error('Failed to export CSV');
+    }
   };
 
   const handlePrint = () => {
     window.print();
   };
+
+  const clearFilters = () => {
+    setBarangayId('');
+    setServiceId('');
+    setDoctorId('');
+    setStatus('');
+    toast.info('Filters cleared');
+  };
+
+  const activeFiltersCount = [barangayId, serviceId, doctorId, status].filter(
+    (f) => f !== ''
+  ).length;
 
   return (
     <DashboardLayout
@@ -132,17 +263,19 @@ export default function SuperAdminReportsPage() {
           {/* Header Actions */}
           <div className="flex justify-end gap-2 print:hidden">
             <Button
-              onClick={exportToPDF}
+              onClick={handleExportToPDF}
               variant="outline"
               className="flex items-center gap-2"
+              disabled={!reportData}
             >
               <Download className="h-4 w-4" />
               PDF
             </Button>
             <Button
-              onClick={exportToCSV}
+              onClick={handleExportToCSV}
               variant="outline"
               className="flex items-center gap-2"
+              disabled={!reportData}
             >
               <Download className="h-4 w-4" />
               CSV
@@ -159,81 +292,184 @@ export default function SuperAdminReportsPage() {
 
           {/* Filters */}
           <Card className="p-6 print:hidden">
-            <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-              <Calendar className="h-5 w-5 text-blue-600" />
-              Report Filters
-            </h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold flex items-center gap-2">
+                <Calendar className="h-5 w-5 text-primary-teal" />
+                Report Filters
+              </h3>
+              {activeFiltersCount > 0 && (
+                <Button
+                  onClick={clearFilters}
+                  variant="outline"
+                  size="sm"
+                  className="text-xs"
+                >
+                  Clear Filters ({activeFiltersCount})
+                </Button>
+              )}
+            </div>
+
+            <div className="space-y-4">
               {/* Date Range */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Start Date
-                </label>
-                <input
-                  type="date"
-                  value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  End Date
-                </label>
-                <input
-                  type="date"
-                  value={endDate}
-                  onChange={(e) => setEndDate(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-
-              {/* Conditional filters based on active tab */}
-              {(activeTab === 'appointments' || activeTab === 'disease_surveillance' || activeTab === 'patient_registration') && barangays.length > 0 && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Barangay
+                    Start Date
                   </label>
-                  <select
-                    value={barangayId}
-                    onChange={(e) => setBarangayId(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="">All Barangays</option>
-                    {barangays.map((b) => (
-                      <option key={b.id} value={b.id}>
-                        {b.name}
-                      </option>
-                    ))}
-                  </select>
+                  <input
+                    type="date"
+                    value={startDate}
+                    onChange={(e) => setStartDate(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-teal"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    End Date
+                  </label>
+                  <input
+                    type="date"
+                    value={endDate}
+                    onChange={(e) => setEndDate(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-teal"
+                  />
+                </div>
+              </div>
+
+              {/* Active Filter Badges */}
+              {activeFiltersCount > 0 && (
+                <div className="flex flex-wrap gap-2 p-3 bg-blue-50 rounded-md">
+                  <div className="flex items-center gap-1 text-xs text-blue-700">
+                    <Filter className="h-3 w-3" />
+                    Active Filters:
+                  </div>
+                  {barangayId && (
+                    <span className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-700 rounded-md text-xs">
+                      Barangay: {barangays.find((b) => b.id === parseInt(barangayId))?.name}
+                      <button onClick={() => setBarangayId('')} className="hover:text-blue-900">
+                        <X className="h-3 w-3" />
+                      </button>
+                    </span>
+                  )}
+                  {serviceId && (
+                    <span className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-700 rounded-md text-xs">
+                      Service: {services.find((s) => s.id === parseInt(serviceId))?.name}
+                      <button onClick={() => setServiceId('')} className="hover:text-blue-900">
+                        <X className="h-3 w-3" />
+                      </button>
+                    </span>
+                  )}
+                  {doctorId && (
+                    <span className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-700 rounded-md text-xs">
+                      Doctor
+                      <button onClick={() => setDoctorId('')} className="hover:text-blue-900">
+                        <X className="h-3 w-3" />
+                      </button>
+                    </span>
+                  )}
+                  {status && (
+                    <span className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-700 rounded-md text-xs">
+                      Status: {status}
+                      <button onClick={() => setStatus('')} className="hover:text-blue-900">
+                        <X className="h-3 w-3" />
+                      </button>
+                    </span>
+                  )}
                 </div>
               )}
 
-              {activeTab === 'appointments' && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Status
-                  </label>
-                  <select
-                    value={status}
-                    onChange={(e) => setStatus(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="">All Statuses</option>
-                    <option value="scheduled">Scheduled</option>
-                    <option value="completed">Completed</option>
-                    <option value="cancelled">Cancelled</option>
-                    <option value="no_show">No Show</option>
-                  </select>
-                </div>
-              )}
+              {/* Conditional Filters */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                {/* Barangay Filter */}
+                {barangays.length > 0 && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Barangay
+                    </label>
+                    <select
+                      value={barangayId}
+                      onChange={(e) => setBarangayId(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-teal"
+                    >
+                      <option value="">All Barangays</option>
+                      {barangays.map((b) => (
+                        <option key={b.id} value={b.id}>
+                          {b.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                {/* Service Category Filter */}
+                {services.length > 0 && activeTab === 'appointments' && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Service Category
+                    </label>
+                    <select
+                      value={serviceId}
+                      onChange={(e) => setServiceId(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-teal"
+                    >
+                      <option value="">All Services</option>
+                      {services.map((s) => (
+                        <option key={s.id} value={s.id}>
+                          {s.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                {/* Doctor Filter */}
+                {doctors.length > 0 && (activeTab === 'appointments' || activeTab === 'feedback') && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Doctor
+                    </label>
+                    <select
+                      value={doctorId}
+                      onChange={(e) => setDoctorId(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-teal"
+                    >
+                      <option value="">All Doctors</option>
+                      {doctors.map((d) => (
+                        <option key={d.id} value={d.id}>
+                          Dr. {d.first_name} {d.last_name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                {/* Status Filter */}
+                {activeTab === 'appointments' && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Status
+                    </label>
+                    <select
+                      value={status}
+                      onChange={(e) => setStatus(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-teal"
+                    >
+                      <option value="">All Statuses</option>
+                      <option value="scheduled">Scheduled</option>
+                      <option value="completed">Completed</option>
+                      <option value="cancelled">Cancelled</option>
+                      <option value="no_show">No Show</option>
+                    </select>
+                  </div>
+                )}
+              </div>
             </div>
 
             <div className="mt-4 flex justify-end">
               <Button
                 onClick={generateReport}
                 disabled={loading}
-                className="flex items-center gap-2"
+                className="flex items-center gap-2 bg-primary-teal hover:bg-primary-teal-dark text-white"
               >
                 {loading ? (
                   <>
@@ -275,44 +511,36 @@ export default function SuperAdminReportsPage() {
               </TabsTrigger>
             </TabsList>
 
-            {/* Tab Content */}
+            {/* Appointments Report */}
             <TabsContent value="appointments">
               <Card className="p-6">
-                <h2 className="text-2xl font-bold mb-4">Appointments Report</h2>
+                <h2 className="text-2xl font-bold mb-6 flex items-center gap-2">
+                  <Calendar className="h-6 w-6 text-primary-teal" />
+                  Appointments Report
+                </h2>
                 {loading ? (
                   <div className="flex items-center justify-center py-12">
-                    <div className="h-8 w-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
+                    <div className="h-8 w-8 border-4 border-primary-teal border-t-transparent rounded-full animate-spin" />
                   </div>
                 ) : reportData ? (
-                  <div className="space-y-6">
+                  <div className="space-y-6" ref={chartsContainerRef}>
                     {/* Summary Cards */}
-                    {reportData.summary && (
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                        <Card className="p-4 bg-blue-50">
-                          <p className="text-sm text-gray-600">Total Appointments</p>
-                          <p className="text-3xl font-bold text-blue-600">
-                            {reportData.summary.total_appointments}
-                          </p>
-                        </Card>
-                        <Card className="p-4 bg-green-50">
-                          <p className="text-sm text-gray-600">Completed</p>
-                          <p className="text-3xl font-bold text-green-600">
-                            {reportData.summary.completed}
-                          </p>
-                        </Card>
-                        <Card className="p-4 bg-red-50">
-                          <p className="text-sm text-gray-600">Cancelled</p>
-                          <p className="text-3xl font-bold text-red-600">
-                            {reportData.summary.cancelled}
-                          </p>
-                        </Card>
-                        <Card className="p-4 bg-amber-50">
-                          <p className="text-sm text-gray-600">No Show</p>
-                          <p className="text-3xl font-bold text-amber-600">
-                            {reportData.summary.no_show}
-                          </p>
-                        </Card>
-                      </div>
+                    <ReportSummaryCards reportType="appointments" data={reportData} />
+
+                    {/* Charts */}
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+                      <Card className="p-4">
+                        <AppointmentTrendChart data={reportData} />
+                      </Card>
+                      <Card className="p-4">
+                        <AppointmentStatusChart data={reportData} />
+                      </Card>
+                    </div>
+
+                    {reportData.by_service && (
+                      <Card className="p-4 mt-6">
+                        <AppointmentByServiceChart data={reportData} />
+                      </Card>
                     )}
 
                     {/* Raw Data (for debugging) */}
@@ -326,48 +554,48 @@ export default function SuperAdminReportsPage() {
                     </details>
                   </div>
                 ) : (
-                  <p className="text-gray-500">Click "Generate Report" to view data</p>
+                  <div className="text-center py-12">
+                    <FileText className="h-16 w-16 text-gray-300 mx-auto mb-4" />
+                    <p className="text-gray-500">Click "Generate Report" to view data</p>
+                  </div>
                 )}
               </Card>
             </TabsContent>
 
+            {/* Disease Surveillance Report */}
             <TabsContent value="disease_surveillance">
               <Card className="p-6">
-                <h2 className="text-2xl font-bold mb-4">Disease Surveillance Report</h2>
+                <h2 className="text-2xl font-bold mb-6 flex items-center gap-2">
+                  <Activity className="h-6 w-6 text-primary-teal" />
+                  Disease Surveillance Report
+                </h2>
                 {loading ? (
                   <div className="flex items-center justify-center py-12">
-                    <div className="h-8 w-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
+                    <div className="h-8 w-8 border-4 border-primary-teal border-t-transparent rounded-full animate-spin" />
                   </div>
                 ) : reportData ? (
-                  <div className="space-y-6">
+                  <div className="space-y-6" ref={chartsContainerRef}>
                     {/* Summary Cards */}
-                    {reportData.summary && (
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                        <Card className="p-4 bg-blue-50">
-                          <p className="text-sm text-gray-600">Total Cases</p>
-                          <p className="text-3xl font-bold text-blue-600">
-                            {reportData.summary.total_cases}
-                          </p>
-                        </Card>
-                        <Card className="p-4 bg-green-50">
-                          <p className="text-sm text-gray-600">Active Cases</p>
-                          <p className="text-3xl font-bold text-green-600">
-                            {reportData.summary.active_cases}
-                          </p>
-                        </Card>
-                        <Card className="p-4 bg-purple-50">
-                          <p className="text-sm text-gray-600">Recovered</p>
-                          <p className="text-3xl font-bold text-purple-600">
-                            {reportData.summary.recovered_cases}
-                          </p>
-                        </Card>
-                        <Card className="p-4 bg-red-50">
-                          <p className="text-sm text-gray-600">Critical</p>
-                          <p className="text-3xl font-bold text-red-600">
-                            {reportData.summary.critical_cases}
-                          </p>
-                        </Card>
-                      </div>
+                    <ReportSummaryCards reportType="disease_surveillance" data={reportData} />
+
+                    {/* Charts */}
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+                      <Card className="p-4">
+                        <DiseaseDistributionChart data={reportData} />
+                      </Card>
+                      <Card className="p-4">
+                        <DiseaseSeverityChart data={reportData} />
+                      </Card>
+                    </div>
+
+                    <Card className="p-4 mt-6">
+                      <DiseaseTrendChart data={reportData} />
+                    </Card>
+
+                    {reportData.by_barangay && (
+                      <Card className="p-4 mt-6">
+                        <DiseaseByBarangayChart data={reportData} />
+                      </Card>
                     )}
 
                     {/* Raw Data */}
@@ -381,48 +609,50 @@ export default function SuperAdminReportsPage() {
                     </details>
                   </div>
                 ) : (
-                  <p className="text-gray-500">Click "Generate Report" to view data</p>
+                  <div className="text-center py-12">
+                    <FileText className="h-16 w-16 text-gray-300 mx-auto mb-4" />
+                    <p className="text-gray-500">Click "Generate Report" to view data</p>
+                  </div>
                 )}
               </Card>
             </TabsContent>
 
+            {/* Patients Report */}
             <TabsContent value="patients">
               <Card className="p-6">
-                <h2 className="text-2xl font-bold mb-4">Patient Registration Report</h2>
+                <h2 className="text-2xl font-bold mb-6 flex items-center gap-2">
+                  <Users className="h-6 w-6 text-primary-teal" />
+                  Patient Registration Report
+                </h2>
                 {loading ? (
                   <div className="flex items-center justify-center py-12">
-                    <div className="h-8 w-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
+                    <div className="h-8 w-8 border-4 border-primary-teal border-t-transparent rounded-full animate-spin" />
                   </div>
                 ) : reportData ? (
-                  <div className="space-y-6">
+                  <div className="space-y-6" ref={chartsContainerRef}>
                     {/* Summary Cards */}
-                    {reportData.summary && (
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                        <Card className="p-4 bg-blue-50">
-                          <p className="text-sm text-gray-600">Total Patients</p>
-                          <p className="text-3xl font-bold text-blue-600">
-                            {reportData.summary.total_patients}
-                          </p>
-                        </Card>
-                        <Card className="p-4 bg-green-50">
-                          <p className="text-sm text-gray-600">Active</p>
-                          <p className="text-3xl font-bold text-green-600">
-                            {reportData.summary.active}
-                          </p>
-                        </Card>
-                        <Card className="p-4 bg-amber-50">
-                          <p className="text-sm text-gray-600">Pending</p>
-                          <p className="text-3xl font-bold text-amber-600">
-                            {reportData.summary.pending}
-                          </p>
-                        </Card>
-                        <Card className="p-4 bg-red-50">
-                          <p className="text-sm text-gray-600">Rejected</p>
-                          <p className="text-3xl font-bold text-red-600">
-                            {reportData.summary.rejected}
-                          </p>
-                        </Card>
-                      </div>
+                    <ReportSummaryCards reportType="patients" data={reportData} />
+
+                    {/* Charts */}
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+                      <Card className="p-4">
+                        <PatientRegistrationTrendChart data={reportData} />
+                      </Card>
+                      <Card className="p-4">
+                        <PatientStatusChart data={reportData} />
+                      </Card>
+                    </div>
+
+                    {reportData.by_barangay && (
+                      <Card className="p-4 mt-6">
+                        <PatientByBarangayChart data={reportData} />
+                      </Card>
+                    )}
+
+                    {reportData.by_age_group && (
+                      <Card className="p-4 mt-6">
+                        <PatientAgeDistributionChart data={reportData} />
+                      </Card>
                     )}
 
                     {/* Raw Data */}
@@ -436,48 +666,56 @@ export default function SuperAdminReportsPage() {
                     </details>
                   </div>
                 ) : (
-                  <p className="text-gray-500">Click "Generate Report" to view data</p>
+                  <div className="text-center py-12">
+                    <FileText className="h-16 w-16 text-gray-300 mx-auto mb-4" />
+                    <p className="text-gray-500">Click "Generate Report" to view data</p>
+                  </div>
                 )}
               </Card>
             </TabsContent>
 
+            {/* Feedback Report */}
             <TabsContent value="feedback">
               <Card className="p-6">
-                <h2 className="text-2xl font-bold mb-4">Feedback & Satisfaction Report</h2>
+                <h2 className="text-2xl font-bold mb-6 flex items-center gap-2">
+                  <MessageSquare className="h-6 w-6 text-primary-teal" />
+                  Feedback & Satisfaction Report
+                </h2>
                 {loading ? (
                   <div className="flex items-center justify-center py-12">
-                    <div className="h-8 w-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
+                    <div className="h-8 w-8 border-4 border-primary-teal border-t-transparent rounded-full animate-spin" />
                   </div>
                 ) : reportData ? (
-                  <div className="space-y-6">
+                  <div className="space-y-6" ref={chartsContainerRef}>
                     {/* Summary Cards */}
-                    {reportData.summary && (
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                        <Card className="p-4 bg-blue-50">
-                          <p className="text-sm text-gray-600">Total Feedback</p>
-                          <p className="text-3xl font-bold text-blue-600">
-                            {reportData.summary.total_feedback}
-                          </p>
-                        </Card>
-                        <Card className="p-4 bg-green-50">
-                          <p className="text-sm text-gray-600">Avg Rating</p>
-                          <p className="text-3xl font-bold text-green-600">
-                            {reportData.summary.avg_overall_rating}
-                          </p>
-                        </Card>
-                        <Card className="p-4 bg-purple-50">
-                          <p className="text-sm text-gray-600">Would Recommend</p>
-                          <p className="text-3xl font-bold text-purple-600">
-                            {reportData.summary.would_recommend_percentage}%
-                          </p>
-                        </Card>
-                        <Card className="p-4 bg-amber-50">
-                          <p className="text-sm text-gray-600">Response Rate</p>
-                          <p className="text-3xl font-bold text-amber-600">
-                            {reportData.summary.response_rate}%
-                          </p>
-                        </Card>
-                      </div>
+                    <ReportSummaryCards reportType="feedback" data={reportData} />
+
+                    {/* Charts */}
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+                      <Card className="p-4">
+                        <FeedbackRatingDistributionChart data={reportData} />
+                      </Card>
+                      <Card className="p-4">
+                        <FeedbackRecommendationChart data={reportData} />
+                      </Card>
+                    </div>
+
+                    {reportData.trend_data && (
+                      <Card className="p-4 mt-6">
+                        <FeedbackTrendChart data={reportData} />
+                      </Card>
+                    )}
+
+                    {reportData.by_service && (
+                      <Card className="p-4 mt-6">
+                        <FeedbackByServiceChart data={reportData} />
+                      </Card>
+                    )}
+
+                    {reportData.by_doctor && (
+                      <Card className="p-4 mt-6">
+                        <FeedbackByDoctorChart data={reportData} />
+                      </Card>
                     )}
 
                     {/* Raw Data */}
@@ -491,49 +729,46 @@ export default function SuperAdminReportsPage() {
                     </details>
                   </div>
                 ) : (
-                  <p className="text-gray-500">Click "Generate Report" to view data</p>
+                  <div className="text-center py-12">
+                    <FileText className="h-16 w-16 text-gray-300 mx-auto mb-4" />
+                    <p className="text-gray-500">Click "Generate Report" to view data</p>
+                  </div>
                 )}
               </Card>
             </TabsContent>
 
+            {/* System Overview Report */}
             <TabsContent value="system_overview">
               <Card className="p-6">
-                <h2 className="text-2xl font-bold mb-4">Health Office Overview</h2>
+                <h2 className="text-2xl font-bold mb-6 flex items-center gap-2">
+                  <TrendingUp className="h-6 w-6 text-primary-teal" />
+                  Health Office Overview Report
+                </h2>
                 {loading ? (
                   <div className="flex items-center justify-center py-12">
-                    <div className="h-8 w-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
+                    <div className="h-8 w-8 border-4 border-primary-teal border-t-transparent rounded-full animate-spin" />
                   </div>
                 ) : reportData ? (
-                  <div className="space-y-6">
+                  <div className="space-y-6" ref={chartsContainerRef}>
                     {/* Summary Cards */}
-                    {reportData.summary && (
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                        <Card className="p-4 bg-blue-50">
-                          <p className="text-sm text-gray-600">Total Appointments</p>
-                          <p className="text-3xl font-bold text-blue-600">
-                            {reportData.summary.total_appointments}
-                          </p>
-                        </Card>
-                        <Card className="p-4 bg-green-50">
-                          <p className="text-sm text-gray-600">Disease Cases</p>
-                          <p className="text-3xl font-bold text-green-600">
-                            {reportData.summary.total_disease_cases}
-                          </p>
-                        </Card>
-                        <Card className="p-4 bg-purple-50">
-                          <p className="text-sm text-gray-600">New Patients</p>
-                          <p className="text-3xl font-bold text-purple-600">
-                            {reportData.summary.new_patients}
-                          </p>
-                        </Card>
-                        <Card className="p-4 bg-amber-50">
-                          <p className="text-sm text-gray-600">Avg Satisfaction</p>
-                          <p className="text-3xl font-bold text-amber-600">
-                            {reportData.summary.avg_feedback_rating}
-                          </p>
-                        </Card>
+                    <ReportSummaryCards reportType="system_overview" data={reportData} />
+
+                    {/* Additional overview content can be added here */}
+                    <div className="mt-6">
+                      <h3 className="text-lg font-semibold mb-4">System Performance Metrics</h3>
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {reportData.summary && Object.entries(reportData.summary).map(([key, value]) => (
+                          <Card key={key} className="p-4">
+                            <p className="text-sm text-gray-600 mb-1">
+                              {key.replace(/_/g, ' ').toUpperCase()}
+                            </p>
+                            <p className="text-2xl font-bold text-gray-900">
+                              {typeof value === 'number' ? value.toLocaleString() : value}
+                            </p>
+                          </Card>
+                        ))}
                       </div>
-                    )}
+                    </div>
 
                     {/* Raw Data */}
                     <details className="mt-4">
@@ -546,26 +781,51 @@ export default function SuperAdminReportsPage() {
                     </details>
                   </div>
                 ) : (
-                  <p className="text-gray-500">Click "Generate Report" to view data</p>
+                  <div className="text-center py-12">
+                    <FileText className="h-16 w-16 text-gray-300 mx-auto mb-4" />
+                    <p className="text-gray-500">Click "Generate Report" to view data</p>
+                  </div>
                 )}
               </Card>
             </TabsContent>
           </Tabs>
         </div>
-
-        {/* Print-only styles */}
-        <style jsx global>{`
-          @media print {
-            nav, aside, header, .print\\:hidden {
-              display: none !important;
-            }
-            body {
-              print-color-adjust: exact;
-              -webkit-print-color-adjust: exact;
-            }
-          }
-        `}</style>
       </Container>
+
+      {/* Print Styles */}
+      <style jsx global>{`
+        @media print {
+          body {
+            print-color-adjust: exact;
+            -webkit-print-color-adjust: exact;
+          }
+
+          @page {
+            margin: 1cm;
+            size: A4;
+          }
+
+          .print\\:hidden {
+            display: none !important;
+          }
+
+          header,
+          nav,
+          aside,
+          footer {
+            display: none !important;
+          }
+
+          .no-print {
+            display: none !important;
+          }
+
+          canvas {
+            max-width: 100%;
+            height: auto !important;
+          }
+        }
+      `}</style>
     </DashboardLayout>
   );
 }

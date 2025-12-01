@@ -1,22 +1,30 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { Megaphone, ChevronRight, Clock } from 'lucide-react';
 import { Announcement } from '@/types';
 
 interface AnnouncementsWidgetProps {
   limit?: number;
   showViewAll?: boolean;
+  targetAudience?: 'patients' | 'healthcare_admin' | 'doctor' | 'all';
+  viewAllLink?: string;
 }
 
-export function AnnouncementsWidget({ limit = 5, showViewAll = false }: AnnouncementsWidgetProps) {
+export function AnnouncementsWidget({
+  limit = 5,
+  showViewAll = false,
+  targetAudience = 'patients',
+  viewAllLink
+}: AnnouncementsWidgetProps) {
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     fetchAnnouncements();
-  }, [limit]);
+  }, [limit, targetAudience]);
 
   const fetchAnnouncements = async () => {
     try {
@@ -25,7 +33,7 @@ export function AnnouncementsWidget({ limit = 5, showViewAll = false }: Announce
 
       const params = new URLSearchParams({
         limit: limit.toString(),
-        target_audience: 'patients', // Patients should see 'all' or 'patients' announcements
+        target_audience: targetAudience,
       });
 
       const response = await fetch(`/api/announcements?${params.toString()}`);
@@ -63,20 +71,20 @@ export function AnnouncementsWidget({ limit = 5, showViewAll = false }: Announce
 
   if (loading) {
     return (
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
+      <div className="bg-white rounded-lg shadow p-6">
         <div className="flex items-center gap-3 mb-4">
-          <div className="p-2 bg-blue-100 dark:bg-blue-900 rounded-lg">
-            <Megaphone className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+          <div className="p-2 bg-primary-teal/10 rounded-lg">
+            <Megaphone className="w-5 h-5 text-primary-teal" />
           </div>
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+          <h2 className="text-lg font-semibold text-gray-900">
             Announcements
           </h2>
         </div>
         <div className="space-y-3">
           {[1, 2, 3].map((i) => (
             <div key={i} className="animate-pulse">
-              <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4 mb-2"></div>
-              <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-full"></div>
+              <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
+              <div className="h-3 bg-gray-200 rounded w-full"></div>
             </div>
           ))}
         </div>
@@ -86,32 +94,32 @@ export function AnnouncementsWidget({ limit = 5, showViewAll = false }: Announce
 
   if (error) {
     return (
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
+      <div className="bg-white rounded-lg shadow p-6">
         <div className="flex items-center gap-3 mb-4">
-          <div className="p-2 bg-blue-100 dark:bg-blue-900 rounded-lg">
-            <Megaphone className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+          <div className="p-2 bg-primary-teal/10 rounded-lg">
+            <Megaphone className="w-5 h-5 text-primary-teal" />
           </div>
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+          <h2 className="text-lg font-semibold text-gray-900">
             Announcements
           </h2>
         </div>
-        <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
+        <p className="text-sm text-red-600">{error}</p>
       </div>
     );
   }
 
   if (announcements.length === 0) {
     return (
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
+      <div className="bg-white rounded-lg shadow p-6">
         <div className="flex items-center gap-3 mb-4">
-          <div className="p-2 bg-blue-100 dark:bg-blue-900 rounded-lg">
-            <Megaphone className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+          <div className="p-2 bg-primary-teal/10 rounded-lg">
+            <Megaphone className="w-5 h-5 text-primary-teal" />
           </div>
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+          <h2 className="text-lg font-semibold text-gray-900">
             Announcements
           </h2>
         </div>
-        <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-4">
+        <p className="text-sm text-gray-500 text-center py-4">
           No announcements at this time
         </p>
       </div>
@@ -119,51 +127,54 @@ export function AnnouncementsWidget({ limit = 5, showViewAll = false }: Announce
   }
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
+    <div className="bg-white rounded-lg shadow p-6">
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-3">
-          <div className="p-2 bg-blue-100 dark:bg-blue-900 rounded-lg">
-            <Megaphone className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+          <div className="p-2 bg-primary-teal/10 rounded-lg">
+            <Megaphone className="w-5 h-5 text-primary-teal" />
           </div>
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+          <h2 className="text-lg font-semibold text-gray-900">
             Announcements
           </h2>
         </div>
-        {showViewAll && announcements.length > 0 && (
-          <button className="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 flex items-center gap-1">
+        {showViewAll && announcements.length > 0 && viewAllLink && (
+          <Link
+            href={viewAllLink}
+            className="text-sm text-primary-teal hover:underline flex items-center gap-1"
+          >
             View All
             <ChevronRight className="w-4 h-4" />
-          </button>
+          </Link>
         )}
       </div>
 
-      {/* Announcements List */}
-      <div className="space-y-4">
+      {/* Announcements List with Scroll */}
+      <div className="space-y-3 max-h-96 overflow-y-auto">
         {announcements.map((announcement) => (
           <div
             key={announcement.id}
-            className="border-l-4 border-blue-500 bg-blue-50 dark:bg-blue-900/20 p-4 rounded-r-lg hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors"
+            className="border border-gray-200 bg-gray-50 p-4 rounded-lg hover:bg-gray-100 transition-colors"
           >
             {/* Title and Date */}
             <div className="flex items-start justify-between gap-2 mb-2">
-              <h3 className="font-semibold text-gray-900 dark:text-gray-100 text-sm">
+              <h3 className="font-medium text-gray-900 text-sm">
                 {announcement.title}
               </h3>
-              <div className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400 flex-shrink-0">
+              <div className="flex items-center gap-1 text-xs text-gray-500 flex-shrink-0">
                 <Clock className="w-3 h-3" />
                 <span>{formatDate(announcement.created_at)}</span>
               </div>
             </div>
 
             {/* Content */}
-            <p className="text-sm text-gray-700 dark:text-gray-300 line-clamp-3">
+            <p className="text-sm text-gray-600 line-clamp-2">
               {announcement.content}
             </p>
 
             {/* Author (if available) */}
             {announcement.profiles && (
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+              <p className="text-xs text-gray-500 mt-2">
                 — {announcement.profiles.first_name} {announcement.profiles.last_name}
               </p>
             )}
