@@ -3,10 +3,12 @@
 import React from 'react';
 import Image from 'next/image';
 import { motion } from 'framer-motion';
+import { useTranslations } from 'next-intl';
 import { Container } from '@/components/ui';
-import { ABOUT_CONTENT } from '@/lib/config/landingConfig';
 
 export function AboutSection() {
+  const t = useTranslations('landing.about');
+
   return (
     <section id="about" className="py-20 bg-white">
       <Container>
@@ -19,14 +21,18 @@ export function AboutSection() {
             viewport={{ once: true }}
           >
             <h2 className="text-3xl md:text-4xl font-bold text-gray-800 mb-6">
-              {ABOUT_CONTENT.title}
+              {t('title')}
             </h2>
             <div className="space-y-4">
-              {ABOUT_CONTENT.paragraphs.map((paragraph, index) => (
-                <p key={index} className="text-gray-600 leading-relaxed">
-                  {paragraph}
-                </p>
-              ))}
+              <p className="text-gray-600 leading-relaxed">
+                {t('paragraph1')}
+              </p>
+              <p className="text-gray-600 leading-relaxed">
+                {t('paragraph2')}
+              </p>
+              <p className="text-gray-600 leading-relaxed">
+                {t('paragraph3')}
+              </p>
             </div>
           </motion.div>
 

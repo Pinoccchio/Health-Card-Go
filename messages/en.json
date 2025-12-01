@@ -12,7 +12,13 @@
     "search": "Search",
     "filter": "Filter",
     "all": "All",
-    "actions": "Actions"
+    "actions": "Actions",
+    "language": "Language"
+  },
+  "languages": {
+    "en": "English",
+    "fil": "Tagalog",
+    "ceb": "Bisaya"
   },
   "navigation": {
     "dashboard": "Dashboard",
@@ -27,7 +33,14 @@
     "health_card": "Health Card",
     "feedback": "Feedback",
     "book_appointment": "Book Appointment",
-    "disease_surveillance": "Disease Surveillance"
+    "disease_surveillance": "Disease Surveillance",
+    "login": "Login",
+    "home": "Home",
+    "about": "About Us",
+    "services": "Services",
+    "heatmap": "Heat Map",
+    "blog": "Blog",
+    "announcements": "Announcements"
   },
   "notifications": {
     "title": "Notifications",
@@ -59,7 +72,34 @@
       "appointment_reminder": "Appointment Reminder",
       "feedback_request": "Feedback Request",
       "general": "General"
-    }
+    },
+    "approval": {
+      "title": "Account Approved",
+      "message": "Congratulations! Your account has been approved. You can now book appointments and access all features."
+    },
+    "rejection": {
+      "title": "Account Application Review",
+      "message": "Your account application has been reviewed. Please contact the health office for more information."
+    },
+    "appointment_reminder": {
+      "title": "Upcoming Appointment Reminder",
+      "message": "You have an appointment on {date} at {time}. Please arrive 15 minutes early."
+    },
+    "cancellation": {
+      "title": "Appointment Cancelled",
+      "message": "Your appointment scheduled for {date} at {time} has been cancelled. {reason}"
+    },
+    "feedback_request": {
+      "title": "Share Your Feedback",
+      "message": "How was your recent appointment? We'd love to hear your feedback to improve our services."
+    },
+    "general": {
+      "title": "Notification",
+      "message": "You have a new notification from Panabo City Health Office."
+    },
+    "unread_badge": "Unread",
+    "go_to_page": "Go to Related Page",
+    "notification_details": "Notification Details"
   },
   "feedback": {
     "title": "Feedback",
@@ -167,6 +207,10 @@
       "subtitle": "Welcome, where exceptional patient experiences are our priority. With compassionate care, state-of-the-art facilities, and a patient-centered approach, we're dedicated to your well-being. Trust us with your health and experience the difference.",
       "cta": "Book an Appointment"
     },
+    "services_section": {
+      "title": "Our Special Service",
+      "description": "Beyond simply providing medical care and treatments, our commitment lies in delivering unparalleled service tailored to your unique needs."
+    },
     "services": {
       "title": "Our Services",
       "healthcard": {
@@ -207,6 +251,13 @@
     "heatmap": {
       "title": "Heat Map",
       "description": "We take pride in our exceptional team of doctors, each a specialist in their respective fields."
+    },
+    "heatmap_section": {
+      "risk_level_title": "Disease Risk Level",
+      "risk_low": "Low (≤ 25 cases)",
+      "risk_medium": "Medium (26-50 cases)",
+      "risk_high": "High (51-75 cases)",
+      "risk_very_high": "Very High (> 75 cases)"
     },
     "footer": {
       "description": "We are honored to be a part of your healthcare journey and committed to delivering compassionate, personalized, and top-notch care every step of the way.",

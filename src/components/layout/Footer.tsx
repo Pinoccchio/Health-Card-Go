@@ -1,10 +1,13 @@
 'use client';
 
 import React from 'react';
+import { useTranslations } from 'next-intl';
 import { Instagram, Facebook, Twitter, Linkedin, Mail, MapPin } from 'lucide-react';
-import { FOOTER_COLUMNS, CONTACT_INFO } from '@/lib/config/landingConfig';
+import { CONTACT_INFO } from '@/lib/config/landingConfig';
 
 export function Footer() {
+  const t = useTranslations('landing.footer');
+
   return (
     <footer className="bg-white border-t border-gray-200">
       {/* Main Footer Content */}
@@ -17,52 +20,80 @@ export function Footer() {
               <span className="text-xl font-bold text-[#FF8542]">Go</span>
             </div>
             <p className="text-gray-600 text-sm leading-relaxed mb-6">
-              We are honored to be a part of your healthcare journey and committed to delivering
-              compassionate, personalized, and top-notch care every step of the way.
+              {t('description')}
             </p>
             <p className="text-gray-600 text-sm leading-relaxed">
-              Trust us with your health, and let us work together to achieve the best possible
-              outcomes for you and your loved ones.
+              {t('trust')}
             </p>
           </div>
 
           {/* About Us Column */}
           <div>
-            <h3 className="text-[#20C997] font-bold text-lg mb-4">{FOOTER_COLUMNS[0].title}</h3>
+            <h3 className="text-[#20C997] font-bold text-lg mb-4">{t('aboutus')}</h3>
             <ul className="space-y-3">
-              {FOOTER_COLUMNS[0].links.map((link) => (
-                <li key={link.label}>
-                  <a
-                    href={link.href}
-                    className="text-gray-600 hover:text-[#20C997] transition-colors duration-200 text-sm"
-                  >
-                    {link.label}
-                  </a>
-                </li>
-              ))}
+              <li>
+                <a href="/" className="text-gray-600 hover:text-[#20C997] transition-colors duration-200 text-sm">
+                  {t('home')}
+                </a>
+              </li>
+              <li>
+                <a href="#about" className="text-gray-600 hover:text-[#20C997] transition-colors duration-200 text-sm">
+                  {t('aboutus')}
+                </a>
+              </li>
+              <li>
+                <a href="#work" className="text-gray-600 hover:text-[#20C997] transition-colors duration-200 text-sm">
+                  {t('workwithus')}
+                </a>
+              </li>
+              <li>
+                <a href="#blog" className="text-gray-600 hover:text-[#20C997] transition-colors duration-200 text-sm">
+                  {t('ourblog')}
+                </a>
+              </li>
+              <li>
+                <a href="#announcements" className="text-gray-600 hover:text-[#20C997] transition-colors duration-200 text-sm">
+                  Announcements
+                </a>
+              </li>
             </ul>
           </div>
 
           {/* Services Column */}
           <div>
-            <h3 className="text-[#20C997] font-bold text-lg mb-4">{FOOTER_COLUMNS[1].title}</h3>
+            <h3 className="text-[#20C997] font-bold text-lg mb-4">{t('services')}</h3>
             <ul className="space-y-3">
-              {FOOTER_COLUMNS[1].links.map((link) => (
-                <li key={link.label}>
-                  <a
-                    href={link.href}
-                    className="text-gray-600 hover:text-[#20C997] transition-colors duration-200 text-sm"
-                  >
-                    {link.label}
-                  </a>
-                </li>
-              ))}
+              <li>
+                <a href="#services" className="text-gray-600 hover:text-[#20C997] transition-colors duration-200 text-sm">
+                  Services
+                </a>
+              </li>
+              <li>
+                <a href="#services" className="text-gray-600 hover:text-[#20C997] transition-colors duration-200 text-sm">
+                  {t('pregnancycheckup')}
+                </a>
+              </li>
+              <li>
+                <a href="#services" className="text-gray-600 hover:text-[#20C997] transition-colors duration-200 text-sm">
+                  HIV
+                </a>
+              </li>
+              <li>
+                <a href="#privacy" className="text-gray-600 hover:text-[#20C997] transition-colors duration-200 text-sm">
+                  {t('privacypolicy')}
+                </a>
+              </li>
+              <li>
+                <a href="#stores" className="text-gray-600 hover:text-[#20C997] transition-colors duration-200 text-sm">
+                  {t('ourstores')}
+                </a>
+              </li>
             </ul>
           </div>
 
           {/* Contact Us Column */}
           <div>
-            <h3 className="text-[#20C997] font-bold text-lg mb-4">Contact Us</h3>
+            <h3 className="text-[#20C997] font-bold text-lg mb-4">{t('contact')}</h3>
             <div className="space-y-4">
               <div className="flex items-start space-x-3">
                 <MapPin className="h-5 w-5 text-[#20C997] flex-shrink-0 mt-1" />
@@ -92,7 +123,7 @@ export function Footer() {
           <div className="flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0">
             {/* Copyright */}
             <p className="text-white text-sm">
-              Contactus. Copyright © 2025
+              {t('copyright')}
             </p>
 
             {/* Social Links */}

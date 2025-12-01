@@ -8,6 +8,7 @@ import { NAV_ITEMS } from '@/lib/config/landingConfig';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/lib/auth';
 import { ROLE_NAMES } from '@/types/auth';
+import { useTranslations } from 'next-intl';
 
 const LANGUAGES = [
   { code: 'en', name: 'English' },
@@ -17,6 +18,7 @@ const LANGUAGES = [
 
 export function Header() {
   const { user, isAuthenticated, logout } = useAuth();
+  const t = useTranslations();
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
@@ -139,7 +141,7 @@ export function Header() {
                 }}
                 className="text-sm font-medium text-white transition-colors duration-200 hover:text-cta-orange"
               >
-                {item.label}
+                {t(`navigation.${item.id}`)}
               </a>
             ))}
           </nav>
@@ -153,7 +155,7 @@ export function Header() {
                 className="flex items-center space-x-2 px-3 py-2 rounded-lg text-sm font-medium text-white hover:bg-white/10 transition-all"
               >
                 <Globe className="h-4 w-4" />
-                <span>{selectedLanguage.name}</span>
+                <span>{t(`languages.${selectedLanguage.code}`)}</span>
                 <ChevronDown className="h-4 w-4" />
               </button>
 
@@ -172,7 +174,7 @@ export function Header() {
                       )}
                     >
                       <Globe className="h-4 w-4" />
-                      {language.name}
+                      {t(`languages.${language.code}`)}
                     </button>
                   ))}
                 </div>
@@ -229,7 +231,7 @@ export function Header() {
                         onClick={() => setIsUserMenuOpen(false)}
                       >
                         <User className="w-4 h-4" />
-                        Dashboard
+                        {t('navigation.dashboard')}
                       </Link>
 
                       <button
@@ -237,7 +239,7 @@ export function Header() {
                         className="w-full flex items-center gap-3 px-4 py-2 text-sm text-danger hover:bg-red-50 transition-colors"
                       >
                         <LogOut className="w-4 h-4" />
-                        Logout
+                        {t('navigation.logout')}
                       </button>
                     </div>
                   </div>
@@ -247,7 +249,7 @@ export function Header() {
               /* Login Button */
               <Link href="/login">
                 <Button variant="secondary" size="sm">
-                  Login
+                  {t('navigation.login', { defaultValue: 'Login' })}
                 </Button>
               </Link>
             )}
@@ -281,13 +283,13 @@ export function Header() {
                   }}
                   className="text-white hover:text-cta-orange transition-colors py-2"
                 >
-                  {item.label}
+                  {t(`navigation.${item.id}`)}
                 </a>
               ))}
 
               {/* Mobile Language Switcher */}
               <div className="pt-4 border-t border-white/20">
-                <p className="text-xs text-white/70 mb-2 px-2">Language</p>
+                <p className="text-xs text-white/70 mb-2 px-2">{t('common.language', { defaultValue: 'Language' })}</p>
                 <div className="space-y-2">
                   {LANGUAGES.map((language) => (
                     <button
@@ -301,7 +303,7 @@ export function Header() {
                       )}
                     >
                       <Globe className="h-5 w-5" />
-                      {language.name}
+                      {t(`languages.${language.code}`)}
                     </button>
                   ))}
                 </div>
@@ -336,7 +338,7 @@ export function Header() {
                       onClick={() => setIsMobileMenuOpen(false)}
                     >
                       <Button variant="secondary" size="md" className="w-full">
-                        Dashboard
+                        {t('navigation.dashboard')}
                       </Button>
                     </Link>
                     <Button
@@ -346,13 +348,13 @@ export function Header() {
                       onClick={handleLogout}
                       iconLeft={LogOut}
                     >
-                      Logout
+                      {t('navigation.logout')}
                     </Button>
                   </div>
                 ) : (
                   <Link href="/login">
                     <Button variant="secondary" size="md" className="w-full">
-                      Login
+                      {t('navigation.login', { defaultValue: 'Login' })}
                     </Button>
                   </Link>
                 )}

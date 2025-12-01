@@ -3,8 +3,8 @@
 import React from 'react';
 import dynamic from 'next/dynamic';
 import { motion } from 'framer-motion';
+import { useTranslations } from 'next-intl';
 import { Container } from '@/components/ui';
-import { HEAT_MAP_CONTENT } from '@/lib/config/landingConfig';
 
 // Dynamic import of PanaboMap to avoid SSR issues with Leaflet
 const PanaboMap = dynamic(
@@ -37,6 +37,9 @@ const PanaboMap = dynamic(
 );
 
 export function HeatMapSection() {
+  const tHeatmap = useTranslations('landing.heatmap');
+  const tHeatmapSection = useTranslations('landing.heatmap_section');
+
   return (
     <section id="heatmap" className="py-20 bg-white">
       <Container>
@@ -48,10 +51,10 @@ export function HeatMapSection() {
           className="mb-12"
         >
           <h2 className="text-3xl md:text-4xl font-bold text-gray-800 mb-4">
-            {HEAT_MAP_CONTENT.title}
+            {tHeatmap('title')}
           </h2>
           <p className="text-gray-600 leading-relaxed">
-            {HEAT_MAP_CONTENT.description}
+            {tHeatmap('description')}
           </p>
         </motion.div>
 
@@ -65,23 +68,23 @@ export function HeatMapSection() {
         >
           {/* Map Legend */}
           <div className="absolute top-4 right-4 z-[1000] bg-white p-4 rounded-lg shadow-md">
-            <h4 className="text-sm font-bold text-gray-800 mb-3">Disease Risk Level</h4>
+            <h4 className="text-sm font-bold text-gray-800 mb-3">{tHeatmapSection('risk_level_title')}</h4>
             <div className="space-y-2">
               <div className="flex items-center space-x-2">
                 <div className="w-4 h-4 bg-green-500 rounded" />
-                <span className="text-xs text-gray-600">Low (≤ 25 cases)</span>
+                <span className="text-xs text-gray-600">{tHeatmapSection('risk_low')}</span>
               </div>
               <div className="flex items-center space-x-2">
                 <div className="w-4 h-4 bg-yellow-500 rounded" />
-                <span className="text-xs text-gray-600">Medium (26-50 cases)</span>
+                <span className="text-xs text-gray-600">{tHeatmapSection('risk_medium')}</span>
               </div>
               <div className="flex items-center space-x-2">
                 <div className="w-4 h-4 bg-orange-500 rounded" />
-                <span className="text-xs text-gray-600">High (51-75 cases)</span>
+                <span className="text-xs text-gray-600">{tHeatmapSection('risk_high')}</span>
               </div>
               <div className="flex items-center space-x-2">
                 <div className="w-4 h-4 bg-red-500 rounded" />
-                <span className="text-xs text-gray-600">Very High (&gt; 75 cases)</span>
+                <span className="text-xs text-gray-600">{tHeatmapSection('risk_very_high')}</span>
               </div>
             </div>
           </div>

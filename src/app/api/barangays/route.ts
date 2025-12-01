@@ -32,7 +32,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      barangays: barangays || [],
+      data: barangays || [],
     });
 
   } catch (error) {

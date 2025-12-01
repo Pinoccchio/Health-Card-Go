@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { motion } from 'framer-motion';
+import { useTranslations } from 'next-intl';
 import { Container, Card } from '@/components/ui';
 import { SERVICES } from '@/lib/config/landingConfig';
 
@@ -24,6 +25,8 @@ const itemVariants = {
 };
 
 export function ServicesSection() {
+  const t = useTranslations('landing');
+
   return (
     <section id="services" className="py-20 bg-gray-50">
       <Container>
@@ -36,11 +39,10 @@ export function ServicesSection() {
           className="text-center mb-16"
         >
           <h2 className="text-3xl md:text-4xl font-bold text-gray-800 mb-4">
-            Our Special Service
+            {t('services_section.title')}
           </h2>
           <p className="text-gray-600 max-w-2xl mx-auto leading-relaxed">
-            Beyond simply providing medical care, our commitment lies in delivering
-            unparalleled service tailored to your unique needs.
+            {t('services_section.description')}
           </p>
         </motion.div>
 
@@ -55,8 +57,8 @@ export function ServicesSection() {
           {SERVICES.map((service) => (
             <motion.div key={service.id} variants={itemVariants}>
               <Card
-                title={service.title}
-                description={service.description}
+                title={t(`services.${service.id}.title`)}
+                description={t(`services.${service.id}.description`)}
                 icon={service.icon}
                 iconColor={service.iconColor}
                 href={service.href}

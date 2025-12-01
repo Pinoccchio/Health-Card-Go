@@ -12,7 +12,13 @@
     "search": "Maghanap",
     "filter": "I-filter",
     "all": "Lahat",
-    "actions": "Mga Aksyon"
+    "actions": "Mga Aksyon",
+    "language": "Wika"
+  },
+  "languages": {
+    "en": "English",
+    "fil": "Tagalog",
+    "ceb": "Bisaya"
   },
   "navigation": {
     "dashboard": "Dashboard",
@@ -27,7 +33,14 @@
     "health_card": "Health Card",
     "feedback": "Feedback",
     "book_appointment": "Mag-book ng Appointment",
-    "disease_surveillance": "Pagsubaybay sa Sakit"
+    "disease_surveillance": "Pagsubaybay sa Sakit",
+    "login": "Mag-login",
+    "home": "Home",
+    "about": "Tungkol sa Amin",
+    "services": "Mga Serbisyo",
+    "heatmap": "Mapa ng Sakit",
+    "blog": "Blog",
+    "announcements": "Mga Pabatid"
   },
   "notifications": {
     "title": "Mga Abiso",
@@ -59,7 +72,34 @@
       "appointment_reminder": "Paalala ng Appointment",
       "feedback_request": "Kahilingan ng Feedback",
       "general": "Pangkalahatan"
-    }
+    },
+    "approval": {
+      "title": "Naaprubahan ang Account",
+      "message": "Binabati kita! Naaprubahan na ang iyong account. Maaari ka nang mag-book ng mga appointment at mag-access ng lahat ng features."
+    },
+    "rejection": {
+      "title": "Pagsusuri ng Account Application",
+      "message": "Nasuri na ang iyong application sa account. Mangyaring makipag-ugnayan sa health office para sa karagdagang impormasyon."
+    },
+    "appointment_reminder": {
+      "title": "Paalala sa Paparating na Appointment",
+      "message": "Mayroon kang appointment sa {date} ng {time}. Mangyaring dumating ng 15 minuto bago ang oras."
+    },
+    "cancellation": {
+      "title": "Nakansela ang Appointment",
+      "message": "Ang iyong appointment na naka-iskedyul sa {date} ng {time} ay nakansela na. {reason}"
+    },
+    "feedback_request": {
+      "title": "Ibahagi ang Iyong Feedback",
+      "message": "Kumusta ang iyong kamakailang appointment? Gusto naming malaman ang iyong feedback upang mapabuti ang aming serbisyo."
+    },
+    "general": {
+      "title": "Abiso",
+      "message": "Mayroon kang bagong abiso mula sa Panabo City Health Office."
+    },
+    "unread_badge": "Hindi Nabasa",
+    "go_to_page": "Pumunta sa Kaugnay na Pahina",
+    "notification_details": "Detalye ng Abiso"
   },
   "feedback": {
     "title": "Feedback",
@@ -167,6 +207,10 @@
       "subtitle": "Maligayang pagdating, kung saan ang pambihirang karanasan ng pasyente ay aming priyoridad. Sa mahabagin na pag-aalaga, modernong mga pasilidad, at pasyente-sentrik na diskarte, nakatuon kami sa inyong kabutihan. Magtiwala sa amin sa inyong kalusugan at maranasan ang pagkakaiba.",
       "cta": "Mag-book ng Appointment"
     },
+    "services_section": {
+      "title": "Aming Espesyal na Serbisyo",
+      "description": "Higit pa sa simpleng pagbibigay ng medikal na pag-aalaga at paggamot, ang aming pangako ay nakatuon sa paghahatid ng walang kapantay na serbisyo na iniayon sa inyong natatanging pangangailangan."
+    },
     "services": {
       "title": "Aming Mga Serbisyo",
       "healthcard": {
@@ -207,6 +251,13 @@
     "heatmap": {
       "title": "Heat Map",
       "description": "Ipinagmamalaki namin ang aming pambihirang koponan ng mga doktor, bawat isa ay espesyalista sa kanilang mga larangan."
+    },
+    "heatmap_section": {
+      "risk_level_title": "Antas ng Panganib ng Sakit",
+      "risk_low": "Mababa (≤ 25 kaso)",
+      "risk_medium": "Katamtaman (26-50 kaso)",
+      "risk_high": "Mataas (51-75 kaso)",
+      "risk_very_high": "Napakataas (> 75 kaso)"
     },
     "footer": {
       "description": "Kami ay narangalang maging bahagi ng inyong healthcare journey at nakatuon sa paghahatid ng mahabagin, personalized, at pinakamahusay na pag-aalaga sa bawat hakbang ng paraan.",

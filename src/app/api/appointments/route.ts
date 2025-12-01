@@ -137,19 +137,21 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Get next queue number for this date and service
+    // Get next queue number atomically using database function (prevents race conditions)
     // Each service has its own independent queue (1-100)
-    const { data: maxQueueData } = await supabase
-      .from('appointments')
-      .select('appointment_number')
-      .eq('appointment_date', appointment_date)
-      .eq('service_id', service_id)
-      .order('appointment_number', { ascending: false })
-      .limit(1);
+    const { data: nextQueueNumber, error: queueError } = await supabase
+      .rpc('get_next_queue_number', {
+        p_appointment_date: appointment_date,
+        p_service_id: service_id
+      });
 
-    const nextQueueNumber = maxQueueData && maxQueueData.length > 0
-      ? maxQueueData[0].appointment_number + 1
-      : 1;
+    if (queueError || nextQueueNumber === null) {
+      console.error('Error getting next queue number:', queueError);
+      return NextResponse.json(
+        { error: 'Failed to assign queue number' },
+        { status: 500 }
+      );
+    }
 
     // Check if we've reached capacity (100 per day per service)
     if (nextQueueNumber > 100) {

@@ -3,8 +3,9 @@
 import React from 'react';
 import Image from 'next/image';
 import { motion } from 'framer-motion';
+import { useTranslations } from 'next-intl';
 import { Container, FeatureItem } from '@/components/ui';
-import { WHY_CHOOSE_CONTENT, FEATURES } from '@/lib/config/landingConfig';
+import { FEATURES } from '@/lib/config/landingConfig';
 
 const itemVariants = {
   hidden: { opacity: 0, x: 30 },
@@ -20,6 +21,8 @@ const itemVariants = {
 };
 
 export function WhyChooseUsSection() {
+  const t = useTranslations('landing.whychoose');
+
   return (
     <section id="why-choose-us" className="py-20 bg-gray-50">
       <Container>
@@ -53,10 +56,10 @@ export function WhyChooseUsSection() {
               className="mb-8"
             >
               <h2 className="text-3xl md:text-4xl font-bold text-gray-800 mb-4">
-                {WHY_CHOOSE_CONTENT.title}
+                {t('title')}
               </h2>
               <p className="text-gray-600 leading-relaxed">
-                {WHY_CHOOSE_CONTENT.subtitle}
+                {t('subtitle')}
               </p>
             </motion.div>
 
@@ -71,8 +74,8 @@ export function WhyChooseUsSection() {
                   viewport={{ once: true }}
                 >
                   <FeatureItem
-                    title={feature.title}
-                    description={feature.description}
+                    title={t(`${feature.id}.title`)}
+                    description={t(`${feature.id}.description`)}
                     icon={feature.icon}
                   />
                 </motion.div>

@@ -3,22 +3,25 @@
 import BaseBarChart from './BaseBarChart';
 import BaseDoughnutChart from './BaseDoughnutChart';
 import BaseLineChart from './BaseLineChart';
+import { ensureArray, safeNumber } from '@/lib/utils/reportHelpers';
 
 interface FeedbackChartsProps {
   data: any;
 }
 
 export function FeedbackRatingDistributionChart({ data }: FeedbackChartsProps) {
-  if (!data?.rating_distribution || data.rating_distribution.length === 0) {
+  const ratingDistribution = ensureArray(data?.rating_distribution);
+
+  if (ratingDistribution.length === 0) {
     return <div className="text-center text-gray-500 py-12">No rating data available</div>;
   }
 
   const chartData = {
-    labels: data.rating_distribution.map((d: any) => `${d.rating} Star${d.rating > 1 ? 's' : ''}`),
+    labels: ratingDistribution.map((d: any) => `${safeNumber(d.rating, 0)} Star${safeNumber(d.rating, 0) > 1 ? 's' : ''}`),
     datasets: [
       {
         label: 'Count',
-        data: data.rating_distribution.map((d: any) => d.count || 0),
+        data: ratingDistribution.map((d: any) => safeNumber(d.count, 0)),
         backgroundColor: ['#ef4444', '#f59e0b', '#fbbf24', '#10b981', '#059669'],
       },
     ],
@@ -33,16 +36,18 @@ export function FeedbackRatingDistributionChart({ data }: FeedbackChartsProps) {
 }
 
 export function FeedbackByServiceChart({ data }: FeedbackChartsProps) {
-  if (!data?.by_service || data.by_service.length === 0) {
+  const byService = ensureArray(data?.by_service);
+
+  if (byService.length === 0) {
     return <div className="text-center text-gray-500 py-12">No service data available</div>;
   }
 
   const chartData = {
-    labels: data.by_service.map((d: any) => d.service_name || 'Unknown'),
+    labels: byService.map((d: any) => d.service_name || 'Unknown'),
     datasets: [
       {
         label: 'Average Rating',
-        data: data.by_service.map((d: any) => d.average_rating || 0),
+        data: byService.map((d: any) => safeNumber(d.average_rating, 0)),
         backgroundColor: '#3b82f6',
       },
     ],
@@ -61,8 +66,9 @@ export function FeedbackRecommendationChart({ data }: FeedbackChartsProps) {
     return <div className="text-center text-gray-500 py-12">No summary data available</div>;
   }
 
-  const wouldRecommend = data.summary.would_recommend_count || 0;
-  const wouldNotRecommend = (data.summary.total_feedback || 0) - wouldRecommend;
+  const wouldRecommend = safeNumber(data.summary.would_recommend_count, 0);
+  const totalFeedback = safeNumber(data.summary.total_feedback, 0);
+  const wouldNotRecommend = totalFeedback - wouldRecommend;
 
   const chartData = {
     labels: ['Would Recommend', 'Would Not Recommend'],
@@ -76,7 +82,7 @@ export function FeedbackRecommendationChart({ data }: FeedbackChartsProps) {
     ],
   };
 
-  const percentage = data.summary.recommendation_percentage || 0;
+  const percentage = safeNumber(data.summary.recommendation_percentage, 0);
 
   return (
     <div>
@@ -91,16 +97,33 @@ export function FeedbackRecommendationChart({ data }: FeedbackChartsProps) {
 }
 
 export function FeedbackTrendChart({ data }: FeedbackChartsProps) {
-  if (!data?.trend_data || data.trend_data.length === 0) {
+  const trendData = ensureArray(data?.trend_data);
+
+  // ✅ FIX: Check for insufficient data points
+  if (trendData.length === 0) {
     return <div className="text-center text-gray-500 py-12">No trend data available</div>;
   }
 
+  if (trendData.length < 2) {
+    return (
+      <div className="text-center text-gray-500 py-12">
+        <p className="font-medium">Insufficient data for trend analysis</p>
+        <p className="text-sm mt-2">
+          {trendData.length} data point(s) available. Minimum 2 data points across different dates are required to display trends.
+        </p>
+        <p className="text-xs mt-2 text-gray-400">
+          Date: {trendData[0]?.date} - Avg Rating: {safeNumber(trendData[0]?.average_rating, 0).toFixed(1)}
+        </p>
+      </div>
+    );
+  }
+
   const chartData = {
-    labels: data.trend_data.map((d: any) => d.date),
+    labels: trendData.map((d: any) => d.date || ''),
     datasets: [
       {
         label: 'Average Overall Rating',
-        data: data.trend_data.map((d: any) => d.average_rating || 0),
+        data: trendData.map((d: any) => safeNumber(d.average_rating, 0)),
         borderColor: '#3b82f6',
         backgroundColor: 'rgba(59, 130, 246, 0.1)',
         fill: true,
@@ -108,7 +131,7 @@ export function FeedbackTrendChart({ data }: FeedbackChartsProps) {
       },
       {
         label: 'Average Doctor Rating',
-        data: data.trend_data.map((d: any) => d.average_doctor_rating || 0),
+        data: trendData.map((d: any) => safeNumber(d.average_doctor_rating, 0)),
         borderColor: '#8b5cf6',
         backgroundColor: 'rgba(139, 92, 246, 0.1)',
         fill: true,
@@ -116,7 +139,7 @@ export function FeedbackTrendChart({ data }: FeedbackChartsProps) {
       },
       {
         label: 'Average Facility Rating',
-        data: data.trend_data.map((d: any) => d.average_facility_rating || 0),
+        data: trendData.map((d: any) => safeNumber(d.average_facility_rating, 0)),
         borderColor: '#10b981',
         backgroundColor: 'rgba(16, 185, 129, 0.1)',
         fill: true,
@@ -134,13 +157,15 @@ export function FeedbackTrendChart({ data }: FeedbackChartsProps) {
 }
 
 export function FeedbackByDoctorChart({ data }: FeedbackChartsProps) {
-  if (!data?.by_doctor || data.by_doctor.length === 0) {
+  const byDoctor = ensureArray(data?.by_doctor);
+
+  if (byDoctor.length === 0) {
     return <div className="text-center text-gray-500 py-12">No doctor data available</div>;
   }
 
   // Sort by rating and take top 10
-  const topDoctors = [...data.by_doctor]
-    .sort((a, b) => (b.average_rating || 0) - (a.average_rating || 0))
+  const topDoctors = [...byDoctor]
+    .sort((a, b) => safeNumber(b.average_rating, 0) - safeNumber(a.average_rating, 0))
     .slice(0, 10);
 
   const chartData = {
@@ -148,7 +173,7 @@ export function FeedbackByDoctorChart({ data }: FeedbackChartsProps) {
     datasets: [
       {
         label: 'Average Rating',
-        data: topDoctors.map((d: any) => d.average_rating || 0),
+        data: topDoctors.map((d: any) => safeNumber(d.average_rating, 0)),
         backgroundColor: '#8b5cf6',
       },
     ],

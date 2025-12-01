@@ -209,12 +209,9 @@ export default function RegisterPage() {
     }
   };
 
-  // Prepare select options
+  // Prepare select options - Only patients can self-register (business rule)
   const roleOptions = [
     { value: 'patient', label: ROLE_NAMES[4] },
-    { value: 'doctor', label: ROLE_NAMES[3] },
-    { value: 'healthcare_admin', label: ROLE_NAMES[2] },
-    { value: 'super_admin', label: ROLE_NAMES[1] },
   ];
 
   const adminCategoryOptions = [
@@ -254,16 +251,8 @@ export default function RegisterPage() {
             <Alert variant="success" message={successMessage} />
           )}
 
-          {/* Role Selection */}
-          <Select
-            id="role"
-            options={roleOptions}
-            placeholder="Select your role"
-            value={formData.role || ''}
-            onChange={(e) => handleChange('role', e.target.value)}
-            error={errors.role}
-            disabled={loading}
-          />
+          {/* Role is fixed to patient - no dropdown needed (security: prevent unauthorized role creation) */}
+          <input type="hidden" name="role" value="patient" />
 
           {/* Common Fields */}
           <div className="grid grid-cols-2 gap-6">

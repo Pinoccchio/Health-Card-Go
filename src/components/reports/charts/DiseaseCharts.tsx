@@ -3,13 +3,16 @@
 import BaseLineChart from './BaseLineChart';
 import BasePieChart from './BasePieChart';
 import BaseBarChart from './BaseBarChart';
+import { ensureArray, safeNumber } from '@/lib/utils/reportHelpers';
 
 interface DiseaseChartsProps {
   data: any;
 }
 
 export function DiseaseDistributionChart({ data }: DiseaseChartsProps) {
-  if (!data?.by_disease_type || data.by_disease_type.length === 0) {
+  const byDiseaseType = ensureArray(data?.by_disease_type);
+
+  if (byDiseaseType.length === 0) {
     return <div className="text-center text-gray-500 py-12">No disease data available</div>;
   }
 
@@ -23,16 +26,16 @@ export function DiseaseDistributionChart({ data }: DiseaseChartsProps) {
   };
 
   const chartData = {
-    labels: data.by_disease_type.map((d: any) =>
+    labels: byDiseaseType.map((d: any) =>
       (d.disease_type || 'Unknown').replace(/_/g, ' ').toUpperCase()
     ),
     datasets: [
       {
-        data: data.by_disease_type.map((d: any) => d.count || 0),
-        backgroundColor: data.by_disease_type.map(
+        data: byDiseaseType.map((d: any) => safeNumber(d.count, 0)),
+        backgroundColor: byDiseaseType.map(
           (d: any) => diseaseColors[d.disease_type] || '#6b7280'
         ),
-        borderColor: data.by_disease_type.map((d: any) => {
+        borderColor: byDiseaseType.map((d: any) => {
           const color = diseaseColors[d.disease_type] || '#6b7280';
           return color.replace('0.8', '1');
         }),
@@ -50,16 +53,30 @@ export function DiseaseDistributionChart({ data }: DiseaseChartsProps) {
 }
 
 export function DiseaseTrendChart({ data }: DiseaseChartsProps) {
-  if (!data?.trend_data || data.trend_data.length === 0) {
+  const trendData = ensureArray(data?.trend_data);
+
+  if (trendData.length === 0) {
     return <div className="text-center text-gray-500 py-12">No trend data available</div>;
   }
 
+  // ✅ FIX: Check for insufficient data points
+  if (trendData.length < 2) {
+    return (
+      <div className="text-center text-gray-500 py-12">
+        <p className="font-medium">Insufficient data for trend analysis</p>
+        <p className="text-sm mt-2">
+          {trendData.length} data point(s) available. Minimum 2 data points across different dates are required to display trends.
+        </p>
+      </div>
+    );
+  }
+
   const chartData = {
-    labels: data.trend_data.map((d: any) => d.date),
+    labels: trendData.map((d: any) => d.date || ''),
     datasets: [
       {
         label: 'New Cases',
-        data: data.trend_data.map((d: any) => d.new_cases || 0),
+        data: trendData.map((d: any) => safeNumber(d.new_cases, 0)),
         borderColor: '#ef4444',
         backgroundColor: 'rgba(239, 68, 68, 0.1)',
         fill: true,
@@ -67,7 +84,7 @@ export function DiseaseTrendChart({ data }: DiseaseChartsProps) {
       },
       {
         label: 'Active Cases',
-        data: data.trend_data.map((d: any) => d.active_cases || 0),
+        data: trendData.map((d: any) => safeNumber(d.active_cases, 0)),
         borderColor: '#f59e0b',
         backgroundColor: 'rgba(245, 158, 11, 0.1)',
         fill: true,
@@ -75,7 +92,7 @@ export function DiseaseTrendChart({ data }: DiseaseChartsProps) {
       },
       {
         label: 'Recovered',
-        data: data.trend_data.map((d: any) => d.recovered || 0),
+        data: trendData.map((d: any) => safeNumber(d.recovered, 0)),
         borderColor: '#10b981',
         backgroundColor: 'rgba(16, 185, 129, 0.1)',
         fill: true,
@@ -93,13 +110,15 @@ export function DiseaseTrendChart({ data }: DiseaseChartsProps) {
 }
 
 export function DiseaseByBarangayChart({ data }: DiseaseChartsProps) {
-  if (!data?.by_barangay || data.by_barangay.length === 0) {
+  const byBarangay = ensureArray(data?.by_barangay);
+
+  if (byBarangay.length === 0) {
     return <div className="text-center text-gray-500 py-12">No barangay data available</div>;
   }
 
   // Sort by count and take top 10
-  const topBarangays = [...data.by_barangay]
-    .sort((a, b) => (b.count || 0) - (a.count || 0))
+  const topBarangays = [...byBarangay]
+    .sort((a, b) => safeNumber(b.count, 0) - safeNumber(a.count, 0))
     .slice(0, 10);
 
   const chartData = {
@@ -107,7 +126,7 @@ export function DiseaseByBarangayChart({ data }: DiseaseChartsProps) {
     datasets: [
       {
         label: 'Cases',
-        data: topBarangays.map((d: any) => d.count || 0),
+        data: topBarangays.map((d: any) => safeNumber(d.count, 0)),
         backgroundColor: '#3b82f6',
       },
     ],
@@ -122,7 +141,9 @@ export function DiseaseByBarangayChart({ data }: DiseaseChartsProps) {
 }
 
 export function DiseaseSeverityChart({ data }: DiseaseChartsProps) {
-  if (!data?.by_severity || data.by_severity.length === 0) {
+  const bySeverity = ensureArray(data?.by_severity);
+
+  if (bySeverity.length === 0) {
     return <div className="text-center text-gray-500 py-12">No severity data available</div>;
   }
 
@@ -133,13 +154,13 @@ export function DiseaseSeverityChart({ data }: DiseaseChartsProps) {
   };
 
   const chartData = {
-    labels: data.by_severity.map((d: any) =>
+    labels: bySeverity.map((d: any) =>
       (d.severity || 'Unknown').toUpperCase()
     ),
     datasets: [
       {
-        data: data.by_severity.map((d: any) => d.count || 0),
-        backgroundColor: data.by_severity.map(
+        data: bySeverity.map((d: any) => safeNumber(d.count, 0)),
+        backgroundColor: bySeverity.map(
           (d: any) => severityColors[d.severity] || '#6b7280'
         ),
         borderColor: ['#059669', '#d97706', '#dc2626'],

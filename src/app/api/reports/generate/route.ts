@@ -152,6 +152,13 @@ async function generateDiseaseSurveillanceReport(
     if (d.severity === 'severe') byDiseaseType[d.disease_type].severe++;
   });
 
+  // ✅ FIX: Convert object to array with 'count' field
+  const byDiseaseTypeArray = Object.entries(byDiseaseType).map(([disease_type, stats]: [string, any]) => ({
+    disease_type,
+    count: stats.total, // ✅ ADD: charts expect 'count' field
+    ...stats,
+  }));
+
   // Group by barangay
   const byBarangay: Record<string, any> = {};
   diseases?.forEach(d => {
@@ -168,25 +175,57 @@ async function generateDiseaseSurveillanceReport(
     if (d.severity === 'critical') byBarangay[barangayName].critical++;
   });
 
-  // Top affected barangays
-  const topBarangays = Object.entries(byBarangay)
-    .map(([name, stats]: [string, any]) => ({ barangay: name, ...stats }))
-    .sort((a, b) => b.total - a.total)
+  // ✅ FIX: Convert to array with 'count' field
+  const byBarangayArray = Object.entries(byBarangay)
+    .map(([barangay_name, stats]: [string, any]) => ({
+      barangay_name,
+      count: stats.total, // ✅ ADD: charts expect 'count' field
+      ...stats
+    }))
+    .sort((a, b) => b.count - a.count)
     .slice(0, 10);
+
+  // ✅ NEW: Generate trend_data - group by date
+  const trendByDate: Record<string, any> = {};
+  diseases?.forEach(d => {
+    const date = d.diagnosis_date;
+    if (!trendByDate[date]) {
+      trendByDate[date] = {
+        date,
+        new_cases: 0,
+        active_cases: 0,
+        recovered: 0,
+      };
+    }
+    trendByDate[date].new_cases++;
+    if (d.status === 'active') trendByDate[date].active_cases++;
+    if (d.status === 'recovered') trendByDate[date].recovered++;
+  });
+
+  const trend_data = Object.values(trendByDate).sort((a: any, b: any) =>
+    a.date.localeCompare(b.date)
+  );
 
   return {
     summary: {
       total_cases: totalCases,
-      active_cases: activeCases,
-      recovered_cases: recoveredCases,
-      deceased_cases: deceasedCases,
-      critical_cases: criticalCases,
-      severe_cases: severeCases,
-      recovery_rate: totalCases > 0 ? ((recoveredCases / totalCases) * 100).toFixed(2) : 0,
-      mortality_rate: totalCases > 0 ? ((deceasedCases / totalCases) * 100).toFixed(2) : 0,
+      active: activeCases,
+      recovered: recoveredCases,
+      deceased: deceasedCases,
+      critical: criticalCases,
+      severe: severeCases,
+      // ✅ FIX: Return raw numbers, not strings
+      recovery_rate: totalCases > 0 ? (recoveredCases / totalCases) * 100 : 0,
+      mortality_rate: totalCases > 0 ? (deceasedCases / totalCases) * 100 : 0,
     },
-    by_disease_type: byDiseaseType,
-    top_affected_barangays: topBarangays,
+    by_disease_type: byDiseaseTypeArray, // ✅ FIX: Now an array with 'count'
+    by_barangay: byBarangayArray, // ✅ FIX: Now an array with 'count'
+    by_severity: [
+      { severity: 'mild', count: totalCases - severeCases - criticalCases },
+      { severity: 'moderate', count: severeCases },
+      { severity: 'severe', count: criticalCases },
+    ],
+    trend_data, // ✅ NEW: Add trend data
     filters: filters,
   };
 }
@@ -247,6 +286,13 @@ async function generateAppointmentSummaryReport(
     if (a.status === 'no_show') byService[serviceName].no_show++;
   });
 
+  // ✅ FIX: Convert object to array
+  const byServiceArray = Object.entries(byService).map(([service_name, stats]: [string, any]) => ({
+    service_name,
+    count: stats.total,
+    ...stats,
+  }));
+
   // Calculate average wait time
   const completedApts = appointments?.filter(a =>
     a.status === 'completed' && a.checked_in_at && a.completed_at
@@ -262,6 +308,29 @@ async function generateAppointmentSummaryReport(
     avgWaitTimeMinutes = Math.round(totalWaitTime / completedApts.length / 1000 / 60);
   }
 
+  // ✅ NEW: Generate trend_data - group by date
+  const trendByDate: Record<string, any> = {};
+  appointments?.forEach(a => {
+    const date = a.appointment_date;
+    if (!trendByDate[date]) {
+      trendByDate[date] = {
+        date,
+        scheduled: 0,
+        completed: 0,
+        cancelled: 0,
+        no_show: 0,
+      };
+    }
+    if (a.status === 'scheduled') trendByDate[date].scheduled++;
+    if (a.status === 'completed') trendByDate[date].completed++;
+    if (a.status === 'cancelled') trendByDate[date].cancelled++;
+    if (a.status === 'no_show') trendByDate[date].no_show++;
+  });
+
+  const trend_data = Object.values(trendByDate).sort((a: any, b: any) =>
+    a.date.localeCompare(b.date)
+  );
+
   return {
     summary: {
       total_appointments: total,
@@ -269,12 +338,14 @@ async function generateAppointmentSummaryReport(
       cancelled,
       no_show: noShow,
       scheduled,
-      completion_rate: total > 0 ? ((completed / total) * 100).toFixed(2) : 0,
-      no_show_rate: total > 0 ? ((noShow / total) * 100).toFixed(2) : 0,
-      cancellation_rate: total > 0 ? ((cancelled / total) * 100).toFixed(2) : 0,
+      // ✅ FIX: Return raw numbers, not strings
+      completion_rate: total > 0 ? (completed / total) * 100 : 0,
+      no_show_rate: total > 0 ? (noShow / total) * 100 : 0,
+      cancellation_rate: total > 0 ? (cancelled / total) * 100 : 0,
       avg_wait_time_minutes: avgWaitTimeMinutes,
     },
-    by_service: byService,
+    by_service: byServiceArray, // ✅ FIX: Now an array
+    trend_data, // ✅ NEW: Add trend data
     filters: filters,
   };
 }
@@ -318,11 +389,13 @@ async function generatePatientRegistrationReport(
 
   // Calculate approval metrics
   const approved = patients?.filter(p => p.approved_at).length || 0;
+
+  // ✅ FIX: Return raw numbers, not strings
   const approvalRate = (pending + active + rejected + suspended) > 0
-    ? ((approved / (pending + active + rejected + suspended)) * 100).toFixed(2)
+    ? (approved / (pending + active + rejected + suspended)) * 100
     : 0;
   const rejectionRate = (pending + active + rejected + suspended) > 0
-    ? ((rejected / (pending + active + rejected + suspended)) * 100).toFixed(2)
+    ? (rejected / (pending + active + rejected + suspended)) * 100
     : 0;
 
   // Calculate average approval time
@@ -355,9 +428,74 @@ async function generatePatientRegistrationReport(
 
   const byBarangayArray = Object.entries(byBarangay).map(([name, stats]: [string, any]) => ({
     barangay_name: name,
+    count: stats.total,
     ...stats,
-    percentage: total > 0 ? ((stats.total / total) * 100).toFixed(2) : 0,
+    // ✅ FIX: Return raw number
+    percentage: total > 0 ? (stats.total / total) * 100 : 0,
   }));
+
+  // ✅ NEW: Generate by_age_group
+  const calculateAge = (dateOfBirth: string) => {
+    if (!dateOfBirth) return null;
+    const today = new Date();
+    const birthDate = new Date(dateOfBirth);
+    let age = today.getFullYear() - birthDate.getFullYear();
+    const monthDiff = today.getMonth() - birthDate.getMonth();
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+      age--;
+    }
+    return age;
+  };
+
+  const ageGroups: Record<string, number> = {
+    '0-17': 0,
+    '18-30': 0,
+    '31-45': 0,
+    '46-60': 0,
+    '61+': 0,
+    'Unknown': 0,
+  };
+
+  patients?.forEach(p => {
+    const age = calculateAge(p.date_of_birth);
+    if (age === null) {
+      ageGroups['Unknown']++;
+    } else if (age <= 17) {
+      ageGroups['0-17']++;
+    } else if (age <= 30) {
+      ageGroups['18-30']++;
+    } else if (age <= 45) {
+      ageGroups['31-45']++;
+    } else if (age <= 60) {
+      ageGroups['46-60']++;
+    } else {
+      ageGroups['61+']++;
+    }
+  });
+
+  const by_age_group = Object.entries(ageGroups).map(([age_group, count]) => ({
+    age_group,
+    count,
+  }));
+
+  // ✅ NEW: Generate trend_data - group by date
+  const trendByDate: Record<string, any> = {};
+  patients?.forEach(p => {
+    const date = p.created_at.split('T')[0]; // Get date part only
+    if (!trendByDate[date]) {
+      trendByDate[date] = {
+        date,
+        registrations: 0,
+        approved: 0,
+      };
+    }
+    trendByDate[date].registrations++;
+    if (p.approved_at) trendByDate[date].approved++;
+  });
+
+  const trend_data = Object.values(trendByDate).sort((a: any, b: any) =>
+    a.date.localeCompare(b.date)
+  );
 
   return {
     summary: {
@@ -366,10 +504,11 @@ async function generatePatientRegistrationReport(
       active,
       rejected,
       suspended,
+      inactive: 0, // Placeholder
       walk_in_patients: walkIn,
       registered_patients: registered,
-      approval_rate: approvalRate,
-      rejection_rate: rejectionRate,
+      approval_rate: approvalRate, // ✅ FIX: Now a number
+      rejection_rate: rejectionRate, // ✅ FIX: Now a number
     },
     approval_metrics: {
       avg_approval_time_hours: avgApprovalTimeHours,
@@ -378,6 +517,8 @@ async function generatePatientRegistrationReport(
       pending_approvals: pending,
     },
     by_barangay: byBarangayArray,
+    by_age_group, // ✅ NEW: Add age group distribution
+    trend_data, // ✅ NEW: Add trend data
     filters: filters,
   };
 }
@@ -389,14 +530,16 @@ async function generateFeedbackSatisfactionReport(
   filters: any
 ) {
   // Fetch feedback within date range
+  // ✅ FIX: Proper Supabase join syntax for nested relations
   let query = supabase
     .from('feedback')
     .select(`
       *,
       patients(patient_number, profiles(first_name, last_name)),
-      appointments(
+      appointments!inner(
         appointment_date,
-        doctors(profiles(first_name, last_name)),
+        doctor_id,
+        service_id,
         services(name, category)
       )
     `)
@@ -415,24 +558,43 @@ async function generateFeedbackSatisfactionReport(
   if (error) throw error;
 
   const total = feedback?.length || 0;
+
+  // ✅ FIX: Fetch doctor profiles separately for proper name mapping
+  const doctorIds = [...new Set(feedback?.map(f => f.appointments?.doctor_id).filter(Boolean))] as string[];
+  const doctorProfilesMap: Record<string, string> = {};
+
+  if (doctorIds.length > 0) {
+    const { data: doctors } = await supabase
+      .from('doctors')
+      .select('id, user_id, profiles(first_name, last_name)')
+      .in('id', doctorIds);
+
+    doctors?.forEach((doc: any) => {
+      if (doc.profiles) {
+        doctorProfilesMap[doc.id] = `${doc.profiles.first_name} ${doc.profiles.last_name}`;
+      }
+    });
+  }
+
+  // ✅ FIX: Return raw numbers, not strings
   const avgOverallRating = total > 0
-    ? (feedback.reduce((sum, f) => sum + f.rating, 0) / total).toFixed(2)
+    ? feedback.reduce((sum, f) => sum + f.rating, 0) / total
     : 0;
   const avgDoctorRating = total > 0
-    ? (feedback.reduce((sum, f) => sum + (f.doctor_rating || 0), 0) / total).toFixed(2)
+    ? feedback.reduce((sum, f) => sum + (f.doctor_rating || 0), 0) / total
     : 0;
   const avgFacilityRating = total > 0
-    ? (feedback.reduce((sum, f) => sum + (f.facility_rating || 0), 0) / total).toFixed(2)
+    ? feedback.reduce((sum, f) => sum + (f.facility_rating || 0), 0) / total
     : 0;
   const avgWaitTimeRating = total > 0
-    ? (feedback.reduce((sum, f) => sum + (f.wait_time_rating || 0), 0) / total).toFixed(2)
+    ? feedback.reduce((sum, f) => sum + (f.wait_time_rating || 0), 0) / total
     : 0;
   const wouldRecommendCount = feedback?.filter(f => f.would_recommend).length || 0;
-  const wouldRecommendPercentage = total > 0 ? ((wouldRecommendCount / total) * 100).toFixed(2) : 0;
+  const wouldRecommendPercentage = total > 0 ? (wouldRecommendCount / total) * 100 : 0;
 
   // Response rate (feedback with admin response)
   const withResponse = feedback?.filter(f => f.admin_response).length || 0;
-  const responseRate = total > 0 ? ((withResponse / total) * 100).toFixed(2) : 0;
+  const responseRate = total > 0 ? (withResponse / total) * 100 : 0;
 
   // Rating distribution
   const ratingDistribution: Record<number, number> = {};
@@ -443,15 +605,19 @@ async function generateFeedbackSatisfactionReport(
   const ratingDistributionArray = Object.entries(ratingDistribution).map(([rating, count]) => ({
     rating: Number(rating),
     count,
-    percentage: total > 0 ? ((count / total) * 100).toFixed(2) : 0,
+    // ✅ FIX: Return raw number
+    percentage: total > 0 ? (count / total) * 100 : 0,
   }));
 
   // Group by doctor
   const byDoctor: Record<string, any> = {};
   feedback?.forEach(f => {
-    const doctorName = f.appointments?.doctors?.profiles
-      ? `${f.appointments.doctors.profiles.first_name} ${f.appointments.doctors.profiles.last_name}`
+    // ✅ FIX: Use doctorProfilesMap for proper name lookup
+    const doctorId = f.appointments?.doctor_id;
+    const doctorName = doctorId && doctorProfilesMap[doctorId]
+      ? doctorProfilesMap[doctorId]
       : 'Unknown';
+
     if (!byDoctor[doctorName]) {
       byDoctor[doctorName] = {
         total_feedback: 0,
@@ -467,8 +633,9 @@ async function generateFeedbackSatisfactionReport(
   const byDoctorArray = Object.entries(byDoctor).map(([name, stats]: [string, any]) => ({
     doctor_name: name,
     total_feedback: stats.total_feedback,
-    avg_rating: (stats.total_rating / stats.total_feedback).toFixed(2),
-    would_recommend_percentage: ((stats.would_recommend / stats.total_feedback) * 100).toFixed(2),
+    // ✅ FIX: Return raw number
+    average_rating: stats.total_rating / stats.total_feedback,
+    would_recommend_percentage: (stats.would_recommend / stats.total_feedback) * 100,
   }));
 
   // Group by service
@@ -488,22 +655,52 @@ async function generateFeedbackSatisfactionReport(
   const byServiceArray = Object.entries(byService).map(([name, stats]: [string, any]) => ({
     service_name: name,
     total_feedback: stats.total_feedback,
-    avg_rating: (stats.total_rating / stats.total_feedback).toFixed(2),
+    // ✅ FIX: Return raw number
+    average_rating: stats.total_rating / stats.total_feedback,
   }));
+
+  // ✅ NEW: Generate trend_data - group by date
+  const trendByDate: Record<string, any> = {};
+  feedback?.forEach(f => {
+    const date = f.created_at.split('T')[0]; // Get date part only
+    if (!trendByDate[date]) {
+      trendByDate[date] = {
+        date,
+        count: 0,
+        total_rating: 0,
+        total_doctor_rating: 0,
+        total_facility_rating: 0,
+      };
+    }
+    trendByDate[date].count++;
+    trendByDate[date].total_rating += f.rating || 0;
+    trendByDate[date].total_doctor_rating += f.doctor_rating || 0;
+    trendByDate[date].total_facility_rating += f.facility_rating || 0;
+  });
+
+  const trend_data = Object.values(trendByDate).map((day: any) => ({
+    date: day.date,
+    average_rating: day.count > 0 ? day.total_rating / day.count : 0,
+    average_doctor_rating: day.count > 0 ? day.total_doctor_rating / day.count : 0,
+    average_facility_rating: day.count > 0 ? day.total_facility_rating / day.count : 0,
+  })).sort((a: any, b: any) => a.date.localeCompare(b.date));
 
   return {
     summary: {
       total_feedback: total,
-      avg_overall_rating: avgOverallRating,
-      avg_doctor_rating: avgDoctorRating,
-      avg_facility_rating: avgFacilityRating,
-      avg_wait_time_rating: avgWaitTimeRating,
-      would_recommend_percentage: wouldRecommendPercentage,
+      would_recommend_count: wouldRecommendCount,
+      // ✅ FIX: Match component field names
+      average_overall_rating: avgOverallRating,
+      average_doctor_rating: avgDoctorRating,
+      average_facility_rating: avgFacilityRating,
+      average_wait_time_rating: avgWaitTimeRating,
+      recommendation_percentage: wouldRecommendPercentage, // ✅ FIX: Field name match
       response_rate: responseRate,
     },
     rating_distribution: ratingDistributionArray,
     by_doctor: byDoctorArray,
     by_service: byServiceArray,
+    trend_data, // ✅ NEW: Add trend data
     filters: filters,
   };
 }
@@ -538,15 +735,18 @@ async function generateHealthOfficeOverviewReport(
 
   // Feedback statistics
   const totalFeedback = feedback?.length || 0;
+
+  // ✅ FIX: Return raw numbers, not strings
   const avgRating = totalFeedback > 0
-    ? (feedback.reduce((sum, f) => sum + f.rating, 0) / totalFeedback).toFixed(2)
+    ? feedback.reduce((sum, f) => sum + f.rating, 0) / totalFeedback
     : 0;
   const recommendationRate = totalFeedback > 0
-    ? ((feedback.filter(f => f.would_recommend).length / totalFeedback) * 100).toFixed(2)
+    ? (feedback.filter(f => f.would_recommend).length / totalFeedback) * 100
     : 0;
 
   return {
     summary: {
+      total_patients: newPatients,
       total_appointments: totalAppointments,
       completed_appointments: completedAppointments,
       total_disease_cases: totalDiseases,
@@ -554,15 +754,16 @@ async function generateHealthOfficeOverviewReport(
       new_patients: newPatients,
       total_doctors: totalDoctors,
       total_feedback: totalFeedback,
-      avg_feedback_rating: avgRating,
-      recommendation_rate: recommendationRate,
+      // ✅ FIX: Match component field names
+      average_rating: avgRating,
+      completion_rate: totalAppointments > 0 ? (completedAppointments / totalAppointments) * 100 : 0,
     },
     performance_indicators: {
       appointment_completion_rate: totalAppointments > 0
-        ? ((completedAppointments / totalAppointments) * 100).toFixed(2)
+        ? (completedAppointments / totalAppointments) * 100
         : 0,
       disease_active_rate: totalDiseases > 0
-        ? ((activeDiseases / totalDiseases) * 100).toFixed(2)
+        ? (activeDiseases / totalDiseases) * 100
         : 0,
       patient_satisfaction: avgRating,
       recommendation_rate: recommendationRate,

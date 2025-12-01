@@ -365,21 +365,16 @@ export function AuthProvider({ children, initialUser }: AuthProviderProps) {
         if (role === 'patient') {
           console.log('🔐 [AUTH CONTEXT] Creating patient record...');
 
-          // Get the next patient number
-          const { data: lastPatient } = await supabase
-            .from('patients')
-            .select('patient_number')
-            .order('created_at', { ascending: false })
-            .limit(1)
-            .single();
+          // Generate patient number using database function (atomic, thread-safe)
+          const { data: patientNumberData, error: patientNumberError } = await supabase
+            .rpc('generate_patient_number');
 
-          let nextNumber = 1;
-          if (lastPatient?.patient_number) {
-            const currentNumber = parseInt(lastPatient.patient_number.replace('P', ''));
-            nextNumber = currentNumber + 1;
+          if (patientNumberError || !patientNumberData) {
+            console.error('❌ [AUTH CONTEXT] Failed to generate patient number:', patientNumberError);
+            throw new Error('Failed to generate patient number');
           }
 
-          const patientNumber = 'P' + String(nextNumber).padStart(6, '0');
+          const patientNumber = patientNumberData;
           console.log('🔐 [AUTH CONTEXT] Generated patient number:', patientNumber);
 
           const { error: patientError } = await supabase

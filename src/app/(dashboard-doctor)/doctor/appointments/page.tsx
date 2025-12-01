@@ -211,8 +211,8 @@ export default function DoctorAppointmentsPage() {
 
   const fetchAppointments = async () => {
     try {
-      // Fetch all appointments (not just today)
-      const response = await fetch(`/api/appointments`);
+      // Fetch all appointments with a high limit to get everything (not paginated)
+      const response = await fetch(`/api/appointments?limit=1000`);
       const data = await response.json();
 
       if (data.success) {

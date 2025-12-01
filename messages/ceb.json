@@ -12,7 +12,13 @@
     "search": "Pangitaa",
     "filter": "I-filter",
     "all": "Tanan",
-    "actions": "Mga Aksyon"
+    "actions": "Mga Aksyon",
+    "language": "Pinulongan"
+  },
+  "languages": {
+    "en": "English",
+    "fil": "Tagalog",
+    "ceb": "Bisaya"
   },
   "navigation": {
     "dashboard": "Dashboard",
@@ -27,7 +33,14 @@
     "health_card": "Health Card",
     "feedback": "Feedback",
     "book_appointment": "Mag-book ug Appointment",
-    "disease_surveillance": "Pagsubay sa Sakit"
+    "disease_surveillance": "Pagsubay sa Sakit",
+    "login": "Login",
+    "home": "Home",
+    "about": "Mahitungod Kanamo",
+    "services": "Mga Serbisyo",
+    "heatmap": "Mapa sa Sakit",
+    "blog": "Blog",
+    "announcements": "Mga Pahibalo"
   },
   "notifications": {
     "title": "Mga Pahibalo",
@@ -59,7 +72,34 @@
       "appointment_reminder": "Pahinumdom sa Appointment",
       "feedback_request": "Hangyo sa Feedback",
       "general": "Kinatibuk-an"
-    }
+    },
+    "approval": {
+      "title": "Gi-approve na ang Account",
+      "message": "Congratulations! Gi-approve na ang imong account. Maka-book ka na ug mga appointment ug ma-access ang tanang features."
+    },
+    "rejection": {
+      "title": "Pagsusi sa Account Application",
+      "message": "Gisusi na ang imong application sa account. Palihug kontaka ang health office para sa dugang nga impormasyon."
+    },
+    "appointment_reminder": {
+      "title": "Pahinumdom sa Umaabot nga Appointment",
+      "message": "Naa kay appointment sa {date} sa {time}. Palihug moabot ug 15 minutos sa dili pa ang oras."
+    },
+    "cancellation": {
+      "title": "Gikansela ang Appointment",
+      "message": "Ang imong appointment nga naka-iskedyul sa {date} sa {time} gikansela na. {reason}"
+    },
+    "feedback_request": {
+      "title": "Ipaambit ang Imong Feedback",
+      "message": "Kumusta ang imong bag-o lang nga appointment? Gusto namong mahibal-an ang imong feedback aron mapaayo ang among serbisyo."
+    },
+    "general": {
+      "title": "Pahibalo",
+      "message": "Naa kay bag-ong pahibalo gikan sa Panabo City Health Office."
+    },
+    "unread_badge": "Wala pa Mabasa",
+    "go_to_page": "Adto sa Kalabot nga Pahina",
+    "notification_details": "Detalye sa Pahibalo"
   },
   "feedback": {
     "title": "Feedback",
@@ -167,6 +207,10 @@
       "subtitle": "Maayong pag-abot, diin ang talagsaong kasinatian sa pasyente mao ang among priyoridad. Uban sa maluluy-on nga pag-atiman, modernong mga pasilidad, ug pasyente-sentrik nga pamaagi, nakatuon kami sa inyong kaayohan. Salig kanamo sa inyong panglawas ug masinati ang kalainan.",
       "cta": "Mag-book ug Appointment"
     },
+    "services_section": {
+      "title": "Among Espesyal nga Serbisyo",
+      "description": "Labaw pa sa paghatag ug medikal nga pag-atiman ug pagtambal, ang among pasalig nakatuon sa paghatag ug dili hitupngan nga serbisyo nga gipahiangay sa inyong talagsaon nga mga panginahanglan."
+    },
     "services": {
       "title": "Among Mga Serbisyo",
       "healthcard": {
@@ -207,6 +251,13 @@
     "heatmap": {
       "title": "Heat Map",
       "description": "Gipasigarbo namo ang among talagsaong koponan sa mga doktor, matag usa espesyalista sa ilang mga natad."
+    },
+    "heatmap_section": {
+      "risk_level_title": "Ang-ang sa Peligro sa Sakit",
+      "risk_low": "Ubos (≤ 25 ka kaso)",
+      "risk_medium": "Kasarangan (26-50 ka kaso)",
+      "risk_high": "Taas (51-75 ka kaso)",
+      "risk_very_high": "Labi ka Taas (> 75 ka kaso)"
     },
     "footer": {
       "description": "Kami gipasidunggan nga mahimong bahin sa inyong healthcare journey ug nakatuon sa paghatag ug maluluy-on, personalized, ug pinakamayo nga pag-atiman sa matag lakang sa dalan.",

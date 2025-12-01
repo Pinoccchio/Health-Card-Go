@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
+import { createClient } from '@/lib/supabase/server';
 
 export async function POST(request: Request) {
   try {
@@ -21,6 +22,22 @@ export async function POST(request: Request) {
       path: '/',
       sameSite: 'lax',
     });
+
+    // Update user's locale in database if authenticated
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (user) {
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update({ locale })
+        .eq('id', user.id);
+
+      if (updateError) {
+        console.error('Error updating user locale in database:', updateError);
+        // Don't fail the request if database update fails - cookie is still set
+      }
+    }
 
     return NextResponse.json({
       success: true,

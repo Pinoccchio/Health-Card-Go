@@ -3,10 +3,11 @@
 import React from 'react';
 import Image from 'next/image';
 import { motion } from 'framer-motion';
+import { useTranslations } from 'next-intl';
 import { Button, Container } from '@/components/ui';
-import { HERO_CONTENT } from '@/lib/config/landingConfig';
 
 export function HeroSection() {
+  const t = useTranslations('landing.hero');
   return (
     <section id="home" className="relative min-h-screen flex items-center pt-16 md:pt-20">
       {/* Background Image with Overlay */}
@@ -32,7 +33,7 @@ export function HeroSection() {
             transition={{ duration: 0.8, ease: 'easeOut' }}
             className="text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-6 leading-tight"
           >
-            {HERO_CONTENT.title}
+            {t('title')}
           </motion.h1>
 
           <motion.p
@@ -41,7 +42,7 @@ export function HeroSection() {
             transition={{ duration: 0.8, delay: 0.2, ease: 'easeOut' }}
             className="text-lg md:text-xl text-white/95 mb-8 leading-relaxed"
           >
-            {HERO_CONTENT.subtitle}
+            {t('subtitle')}
           </motion.p>
 
           <motion.div
@@ -53,14 +54,14 @@ export function HeroSection() {
               variant="secondary"
               size="lg"
               onClick={() => {
-                const element = document.querySelector(HERO_CONTENT.ctaHref);
+                const element = document.querySelector('#book');
                 if (element) {
                   element.scrollIntoView({ behavior: 'smooth' });
                 }
               }}
               className="shadow-lg hover:shadow-xl"
             >
-              {HERO_CONTENT.ctaText}
+              {t('cta')}
             </Button>
           </motion.div>
         </div>

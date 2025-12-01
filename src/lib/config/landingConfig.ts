@@ -2,18 +2,19 @@ import { type LucideIcon, Heart, Lightbulb, Building2, Stethoscope, Ambulance } 
 
 // Navigation Menu Items
 export interface NavItem {
-  label: string;
+  id: string; // Translation key identifier
+  label: string; // Fallback English label
   href: string;
   external?: boolean;
 }
 
 export const NAV_ITEMS: NavItem[] = [
-  { label: 'Home', href: '#home' },
-  { label: 'About Us', href: '#about' },
-  { label: 'Services', href: '#services' },
-  { label: 'Heat Map', href: '#heatmap' },
-  { label: 'Blog', href: '#blog' },
-  { label: 'Announcements', href: '#announcements' },
+  { id: 'home', label: 'Home', href: '#home' },
+  { id: 'about', label: 'About Us', href: '#about' },
+  { id: 'services', label: 'Services', href: '#services' },
+  { id: 'heatmap', label: 'Heat Map', href: '#heatmap' },
+  { id: 'blog', label: 'Blog', href: '#blog' },
+  { id: 'announcements', label: 'Announcements', href: '#announcements' },
 ];
 
 // Service Cards
@@ -63,19 +64,19 @@ export interface Feature {
 
 export const FEATURES: Feature[] = [
   {
-    id: 'intensive-care',
+    id: 'intensivecare',
     title: 'Intensive Care',
     description: 'Our Intensive Care Unit is equipped with advanced technology and staffed by team of professionals',
     icon: Stethoscope,
   },
   {
-    id: 'free-ambulance',
+    id: 'ambulance',
     title: 'Free Ambulance Car',
     description: 'A compassionate initiative to prioritize your health and well-being without any financial burden.',
     icon: Ambulance,
   },
   {
-    id: 'medical-surgical',
+    id: 'medicalsurgical',
     title: 'Medical and Surgical',
     description: 'Our Medical and Surgical services offer advanced healthcare solutions to address medical needs.',
     icon: Building2,

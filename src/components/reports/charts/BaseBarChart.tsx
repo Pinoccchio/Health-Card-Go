@@ -105,11 +105,25 @@ export default function BaseBarChart({
         },
         ticks: {
           font: {
-            size: 11,
+            size: horizontal ? 10 : 11, // ✅ FIX: Smaller font for horizontal labels
           },
-          callback: function(value) {
-            return horizontal ? value : value.toLocaleString();
+          // ✅ FIX: Truncate long labels in horizontal mode
+          callback: function(value, index, ticks) {
+            if (horizontal) {
+              // In horizontal mode, y-axis shows category labels (strings)
+              const label = this.getLabelForValue(value as number);
+              if (typeof label === 'string' && label.length > 25) {
+                return label.substring(0, 25) + '...';
+              }
+              return label;
+            } else {
+              // In vertical mode, y-axis shows numeric values
+              return (value as number).toLocaleString();
+            }
           },
+          autoSkip: false, // ✅ FIX: Show all labels, don't skip
+          maxRotation: 0, // ✅ FIX: Keep labels horizontal
+          minRotation: 0,
         },
       },
     },
