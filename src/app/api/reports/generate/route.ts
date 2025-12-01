@@ -3,8 +3,8 @@ import { createClient } from '@/lib/supabase/server';
 
 /**
  * POST /api/reports/generate
- * Generate comprehensive reports for disease surveillance, appointments, and health office statistics
- * Report types: disease_surveillance, appointment_summary, health_office_overview, custom
+ * Generate comprehensive reports for disease surveillance, appointments, patients, feedback, and health office statistics
+ * Report types: disease_surveillance, appointment_summary, patient_registration, feedback_satisfaction, health_office_overview
  */
 export async function POST(request: NextRequest) {
   const supabase = await createClient();
@@ -50,11 +50,19 @@ export async function POST(request: NextRequest) {
         reportData = await generateDiseaseSurveillanceReport(supabase, finalStartDate, finalEndDate, filters);
         break;
 
-      case 'appointment_summary':
+      case 'appointments':
         reportData = await generateAppointmentSummaryReport(supabase, finalStartDate, finalEndDate, filters);
         break;
 
-      case 'health_office_overview':
+      case 'patients':
+        reportData = await generatePatientRegistrationReport(supabase, finalStartDate, finalEndDate, filters);
+        break;
+
+      case 'feedback':
+        reportData = await generateFeedbackSatisfactionReport(supabase, finalStartDate, finalEndDate, filters);
+        break;
+
+      case 'system_overview':
         reportData = await generateHealthOfficeOverviewReport(supabase, finalStartDate, finalEndDate);
         break;
 
@@ -267,6 +275,235 @@ async function generateAppointmentSummaryReport(
       avg_wait_time_minutes: avgWaitTimeMinutes,
     },
     by_service: byService,
+    filters: filters,
+  };
+}
+
+async function generatePatientRegistrationReport(
+  supabase: any,
+  startDate: string,
+  endDate: string,
+  filters: any
+) {
+  // Fetch profiles (patients) within date range
+  let query = supabase
+    .from('profiles')
+    .select(`
+      *,
+      barangays(name),
+      patients(patient_number, user_id)
+    `)
+    .eq('role', 'patient')
+    .gte('created_at', startDate)
+    .lte('created_at', endDate);
+
+  if (filters.barangay_id) {
+    query = query.eq('barangay_id', filters.barangay_id);
+  }
+  if (filters.status) {
+    query = query.eq('status', filters.status);
+  }
+
+  const { data: patients, error } = await query;
+
+  if (error) throw error;
+
+  const total = patients?.length || 0;
+  const pending = patients?.filter(p => p.status === 'pending').length || 0;
+  const active = patients?.filter(p => p.status === 'active').length || 0;
+  const rejected = patients?.filter(p => p.status === 'rejected').length || 0;
+  const suspended = patients?.filter(p => p.status === 'suspended').length || 0;
+  const walkIn = patients?.filter(p => p.patients && p.patients.user_id === null).length || 0;
+  const registered = total - walkIn;
+
+  // Calculate approval metrics
+  const approved = patients?.filter(p => p.approved_at).length || 0;
+  const approvalRate = (pending + active + rejected + suspended) > 0
+    ? ((approved / (pending + active + rejected + suspended)) * 100).toFixed(2)
+    : 0;
+  const rejectionRate = (pending + active + rejected + suspended) > 0
+    ? ((rejected / (pending + active + rejected + suspended)) * 100).toFixed(2)
+    : 0;
+
+  // Calculate average approval time
+  const approvedPatients = patients?.filter(p => p.approved_at && p.created_at) || [];
+  let avgApprovalTimeHours = 0;
+  if (approvedPatients.length > 0) {
+    const totalTime = approvedPatients.reduce((sum, p) => {
+      const created = new Date(p.created_at).getTime();
+      const approved = new Date(p.approved_at).getTime();
+      return sum + (approved - created);
+    }, 0);
+    avgApprovalTimeHours = Math.round(totalTime / approvedPatients.length / 1000 / 60 / 60);
+  }
+
+  // Group by barangay
+  const byBarangay: Record<string, any> = {};
+  patients?.forEach(p => {
+    const barangayName = p.barangays?.name || 'Unknown';
+    if (!byBarangay[barangayName]) {
+      byBarangay[barangayName] = {
+        total: 0,
+        active: 0,
+        pending: 0,
+      };
+    }
+    byBarangay[barangayName].total++;
+    if (p.status === 'active') byBarangay[barangayName].active++;
+    if (p.status === 'pending') byBarangay[barangayName].pending++;
+  });
+
+  const byBarangayArray = Object.entries(byBarangay).map(([name, stats]: [string, any]) => ({
+    barangay_name: name,
+    ...stats,
+    percentage: total > 0 ? ((stats.total / total) * 100).toFixed(2) : 0,
+  }));
+
+  return {
+    summary: {
+      total_patients: total,
+      pending,
+      active,
+      rejected,
+      suspended,
+      walk_in_patients: walkIn,
+      registered_patients: registered,
+      approval_rate: approvalRate,
+      rejection_rate: rejectionRate,
+    },
+    approval_metrics: {
+      avg_approval_time_hours: avgApprovalTimeHours,
+      total_approved: approved,
+      total_rejected: rejected,
+      pending_approvals: pending,
+    },
+    by_barangay: byBarangayArray,
+    filters: filters,
+  };
+}
+
+async function generateFeedbackSatisfactionReport(
+  supabase: any,
+  startDate: string,
+  endDate: string,
+  filters: any
+) {
+  // Fetch feedback within date range
+  let query = supabase
+    .from('feedback')
+    .select(`
+      *,
+      patients(patient_number, profiles(first_name, last_name)),
+      appointments(
+        appointment_date,
+        doctors(profiles(first_name, last_name)),
+        services(name, category)
+      )
+    `)
+    .gte('created_at', startDate)
+    .lte('created_at', endDate);
+
+  if (filters.doctor_id) {
+    query = query.eq('appointments.doctor_id', filters.doctor_id);
+  }
+  if (filters.service_id) {
+    query = query.eq('appointments.service_id', filters.service_id);
+  }
+
+  const { data: feedback, error } = await query;
+
+  if (error) throw error;
+
+  const total = feedback?.length || 0;
+  const avgOverallRating = total > 0
+    ? (feedback.reduce((sum, f) => sum + f.rating, 0) / total).toFixed(2)
+    : 0;
+  const avgDoctorRating = total > 0
+    ? (feedback.reduce((sum, f) => sum + (f.doctor_rating || 0), 0) / total).toFixed(2)
+    : 0;
+  const avgFacilityRating = total > 0
+    ? (feedback.reduce((sum, f) => sum + (f.facility_rating || 0), 0) / total).toFixed(2)
+    : 0;
+  const avgWaitTimeRating = total > 0
+    ? (feedback.reduce((sum, f) => sum + (f.wait_time_rating || 0), 0) / total).toFixed(2)
+    : 0;
+  const wouldRecommendCount = feedback?.filter(f => f.would_recommend).length || 0;
+  const wouldRecommendPercentage = total > 0 ? ((wouldRecommendCount / total) * 100).toFixed(2) : 0;
+
+  // Response rate (feedback with admin response)
+  const withResponse = feedback?.filter(f => f.admin_response).length || 0;
+  const responseRate = total > 0 ? ((withResponse / total) * 100).toFixed(2) : 0;
+
+  // Rating distribution
+  const ratingDistribution: Record<number, number> = {};
+  [1, 2, 3, 4, 5].forEach(rating => {
+    ratingDistribution[rating] = feedback?.filter(f => f.rating === rating).length || 0;
+  });
+
+  const ratingDistributionArray = Object.entries(ratingDistribution).map(([rating, count]) => ({
+    rating: Number(rating),
+    count,
+    percentage: total > 0 ? ((count / total) * 100).toFixed(2) : 0,
+  }));
+
+  // Group by doctor
+  const byDoctor: Record<string, any> = {};
+  feedback?.forEach(f => {
+    const doctorName = f.appointments?.doctors?.profiles
+      ? `${f.appointments.doctors.profiles.first_name} ${f.appointments.doctors.profiles.last_name}`
+      : 'Unknown';
+    if (!byDoctor[doctorName]) {
+      byDoctor[doctorName] = {
+        total_feedback: 0,
+        total_rating: 0,
+        would_recommend: 0,
+      };
+    }
+    byDoctor[doctorName].total_feedback++;
+    byDoctor[doctorName].total_rating += f.doctor_rating || f.rating;
+    if (f.would_recommend) byDoctor[doctorName].would_recommend++;
+  });
+
+  const byDoctorArray = Object.entries(byDoctor).map(([name, stats]: [string, any]) => ({
+    doctor_name: name,
+    total_feedback: stats.total_feedback,
+    avg_rating: (stats.total_rating / stats.total_feedback).toFixed(2),
+    would_recommend_percentage: ((stats.would_recommend / stats.total_feedback) * 100).toFixed(2),
+  }));
+
+  // Group by service
+  const byService: Record<string, any> = {};
+  feedback?.forEach(f => {
+    const serviceName = f.appointments?.services?.name || 'Unknown';
+    if (!byService[serviceName]) {
+      byService[serviceName] = {
+        total_feedback: 0,
+        total_rating: 0,
+      };
+    }
+    byService[serviceName].total_feedback++;
+    byService[serviceName].total_rating += f.rating;
+  });
+
+  const byServiceArray = Object.entries(byService).map(([name, stats]: [string, any]) => ({
+    service_name: name,
+    total_feedback: stats.total_feedback,
+    avg_rating: (stats.total_rating / stats.total_feedback).toFixed(2),
+  }));
+
+  return {
+    summary: {
+      total_feedback: total,
+      avg_overall_rating: avgOverallRating,
+      avg_doctor_rating: avgDoctorRating,
+      avg_facility_rating: avgFacilityRating,
+      avg_wait_time_rating: avgWaitTimeRating,
+      would_recommend_percentage: wouldRecommendPercentage,
+      response_rate: responseRate,
+    },
+    rating_distribution: ratingDistributionArray,
+    by_doctor: byDoctorArray,
+    by_service: byServiceArray,
     filters: filters,
   };
 }

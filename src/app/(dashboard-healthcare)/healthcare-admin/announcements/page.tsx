@@ -42,6 +42,10 @@ export default function HealthcareAdminAnnouncementsPage() {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<Announcement | null>(null);
 
+  // Toggle/Deactivate confirmation state
+  const [showToggleDialog, setShowToggleDialog] = useState(false);
+  const [pendingToggle, setPendingToggle] = useState<Announcement | null>(null);
+
   // Form state
   const [formData, setFormData] = useState<AnnouncementFormData>({
     title: '',
@@ -275,15 +279,23 @@ export default function HealthcareAdminAnnouncementsPage() {
     }
   };
 
-  // Handle toggle active status
-  const handleToggleActive = async (announcement: Announcement) => {
+  // Handle toggle click - show confirmation dialog
+  const handleToggleClick = (announcement: Announcement) => {
+    setPendingToggle(announcement);
+    setShowToggleDialog(true);
+  };
+
+  // Handle confirmed toggle active status
+  const handleConfirmToggle = async () => {
+    if (!pendingToggle) return;
+
     try {
       setActionLoading(true);
 
-      const response = await fetch(`/api/announcements/${announcement.id}`, {
+      const response = await fetch(`/api/announcements/${pendingToggle.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ is_active: !announcement.is_active }),
+        body: JSON.stringify({ is_active: !pendingToggle.is_active }),
       });
 
       const result = await response.json();
@@ -293,9 +305,11 @@ export default function HealthcareAdminAnnouncementsPage() {
       }
 
       setSuccessMessage(
-        `Announcement ${announcement.is_active ? 'deactivated' : 'activated'} successfully`
+        `Announcement ${pendingToggle.is_active ? 'deactivated' : 'activated'} successfully`
       );
 
+      setShowToggleDialog(false);
+      setPendingToggle(null);
       fetchAnnouncements();
     } catch (err) {
       console.error('Error toggling announcement:', err);
@@ -308,30 +322,30 @@ export default function HealthcareAdminAnnouncementsPage() {
   // Table columns
   const columns = [
     {
-      key: 'title',
-      label: 'Announcement',
+      accessor: 'title',
+      header: 'Announcement',
       sortable: true,
-      render: (announcement: Announcement) => {
-        if (!announcement) return null;
+      render: (value: any, row: Announcement) => {
+        if (!row) return null;
         return (
           <div className="max-w-md">
-            <div className="font-medium text-gray-900 dark:text-gray-100">
-              {announcement.title}
+            <div className="font-medium text-gray-900">
+              {row.title}
             </div>
-            <div className="text-sm text-gray-500 dark:text-gray-400 truncate">
-              {announcement.content.substring(0, 80)}
-              {announcement.content.length > 80 && '...'}
+            <div className="text-sm text-gray-900 truncate">
+              {row.content.substring(0, 80)}
+              {row.content.length > 80 && '...'}
             </div>
           </div>
         );
       },
     },
     {
-      key: 'target_audience',
-      label: 'Target Audience',
+      accessor: 'target_audience',
+      header: 'Target Audience',
       sortable: true,
-      render: (announcement: Announcement) => {
-        if (!announcement) return null;
+      render: (value: any, row: Announcement) => {
+        if (!row) return null;
 
         const audienceConfig = {
           all: { label: 'All Users', color: 'purple', icon: Users },
@@ -340,7 +354,7 @@ export default function HealthcareAdminAnnouncementsPage() {
           doctor: { label: 'Doctors', color: 'orange', icon: Stethoscope },
         };
 
-        const config = audienceConfig[announcement.target_audience];
+        const config = audienceConfig[row.target_audience];
         const Icon = config.icon;
 
         const colorClasses = {
@@ -359,31 +373,31 @@ export default function HealthcareAdminAnnouncementsPage() {
       },
     },
     {
-      key: 'is_active',
-      label: 'Status',
+      accessor: 'is_active',
+      header: 'Status',
       sortable: true,
-      render: (announcement: Announcement) => {
-        if (!announcement) return null;
+      render: (value: any, row: Announcement) => {
+        if (!row) return null;
         return (
           <span className={`inline-flex items-center gap-1 px-2 py-1 text-xs font-semibold rounded-full ${
-            announcement.is_active
+            row.is_active
               ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
-              : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
+              : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-100'
           }`}>
-            {announcement.is_active ? <CheckCircle className="w-3 h-3" /> : <Clock className="w-3 h-3" />}
-            {announcement.is_active ? 'Active' : 'Inactive'}
+            {row.is_active ? <CheckCircle className="w-3 h-3" /> : <Clock className="w-3 h-3" />}
+            {row.is_active ? 'Active' : 'Inactive'}
           </span>
         );
       },
     },
     {
-      key: 'created_at',
-      label: 'Created',
+      accessor: 'created_at',
+      header: 'Created',
       sortable: true,
-      render: (announcement: Announcement) => {
-        if (!announcement) return null;
+      render: (value: any, row: Announcement) => {
+        if (!row) return null;
 
-        const date = new Date(announcement.created_at);
+        const date = new Date(row.created_at);
         const now = new Date();
         const diffInMs = now.getTime() - date.getTime();
         const diffInDays = Math.floor(diffInMs / (1000 * 60 * 60 * 24));
@@ -400,54 +414,60 @@ export default function HealthcareAdminAnnouncementsPage() {
         }
 
         return (
-          <div className="text-sm text-gray-600 dark:text-gray-400">
-            {timeAgo}
+          <div className="flex items-center gap-1 text-sm text-gray-900">
+            <Clock className="w-3 h-3 text-gray-900" />
+            <span className="font-medium text-gray-900">{timeAgo}</span>
           </div>
         );
       },
     },
     {
-      key: 'actions',
-      label: 'Actions',
-      render: (announcement: Announcement) => {
-        if (!announcement) return null;
+      accessor: 'actions',
+      header: 'Actions',
+      render: (value: any, row: Announcement) => {
+        if (!row) return null;
         return (
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-2">
             <button
-              onClick={() => handleView(announcement)}
-              className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"
-              title="View"
+              onClick={() => handleView(row)}
+              className="inline-flex items-center px-3 py-1.5 bg-[#20C997] text-white text-xs font-medium rounded-md hover:bg-[#1AA179] transition-colors"
             >
-              <Eye className="w-4 h-4 text-gray-600 dark:text-gray-400" />
+              <Eye className="w-3 h-3 mr-1.5" />
+              View
             </button>
             <button
-              onClick={() => handleEdit(announcement)}
-              className="p-1 hover:bg-blue-100 dark:hover:bg-blue-900 rounded transition-colors"
-              title="Edit"
+              onClick={() => handleEdit(row)}
+              className="inline-flex items-center px-3 py-1.5 bg-blue-600 text-white text-xs font-medium rounded-md hover:bg-blue-700 transition-colors"
             >
-              <Edit className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+              <Edit className="w-3 h-3 mr-1.5" />
+              Edit
             </button>
             <button
-              onClick={() => handleToggleActive(announcement)}
-              className={`p-1 rounded transition-colors ${
-                announcement.is_active
-                  ? 'hover:bg-gray-100 dark:hover:bg-gray-700'
-                  : 'hover:bg-green-100 dark:hover:bg-green-900'
+              onClick={() => handleToggleClick(row)}
+              className={`inline-flex items-center px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                row.is_active
+                  ? 'bg-gray-600 text-white hover:bg-gray-700'
+                  : 'bg-green-600 text-white hover:bg-green-700'
               }`}
-              title={announcement.is_active ? 'Deactivate' : 'Activate'}
             >
-              {announcement.is_active ? (
-                <ToggleRight className="w-4 h-4 text-green-600 dark:text-green-400" />
+              {row.is_active ? (
+                <>
+                  <ToggleRight className="w-3 h-3 mr-1.5" />
+                  Deactivate
+                </>
               ) : (
-                <ToggleLeft className="w-4 h-4 text-gray-400" />
+                <>
+                  <ToggleLeft className="w-3 h-3 mr-1.5" />
+                  Activate
+                </>
               )}
             </button>
             <button
-              onClick={() => handleDeleteClick(announcement)}
-              className="p-1 hover:bg-red-100 dark:hover:bg-red-900 rounded transition-colors"
-              title="Delete"
+              onClick={() => handleDeleteClick(row)}
+              className="inline-flex items-center px-3 py-1.5 bg-red-600 text-white text-xs font-medium rounded-md hover:bg-red-700 transition-colors"
             >
-              <Trash2 className="w-4 h-4 text-red-600 dark:text-red-400" />
+              <Trash2 className="w-3 h-3 mr-1.5" />
+              Delete
             </button>
           </div>
         );
@@ -852,6 +872,23 @@ export default function HealthcareAdminAnnouncementsPage() {
             </div>
           </div>
         </Drawer>
+
+        {/* Toggle Confirmation Dialog */}
+        <ConfirmDialog
+          isOpen={showToggleDialog}
+          onClose={() => {
+            setShowToggleDialog(false);
+            setPendingToggle(null);
+          }}
+          onConfirm={handleConfirmToggle}
+          title={pendingToggle?.is_active ? "Deactivate Announcement" : "Activate Announcement"}
+          message={pendingToggle?.is_active
+            ? `Are you sure you want to deactivate "${pendingToggle?.title}"? It will no longer be visible to users.`
+            : `Are you sure you want to activate "${pendingToggle?.title}"? It will become visible to the target audience.`}
+          confirmText={pendingToggle?.is_active ? "Deactivate" : "Activate"}
+          variant={pendingToggle?.is_active ? "warning" : "info"}
+          loading={actionLoading}
+        />
 
         {/* Delete Confirmation Dialog */}
         <ConfirmDialog
