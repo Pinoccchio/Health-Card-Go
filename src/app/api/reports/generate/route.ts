@@ -559,31 +559,64 @@ async function generateFeedbackSatisfactionReport(
 
   const total = feedback?.length || 0;
 
-  // ✅ FIX: Fetch doctor profiles separately for proper name mapping
+  // ✅ FIX: Fetch doctor profiles using two-query approach (reliable)
   const doctorIds = [...new Set(feedback?.map(f => f.appointments?.doctor_id).filter(Boolean))] as string[];
   const doctorProfilesMap: Record<string, string> = {};
 
   if (doctorIds.length > 0) {
-    // Query doctors table with proper foreign key join to profiles
-    // doctors.user_id → profiles.id (foreign key relationship)
+    console.log('🔍 [REPORTS DEBUG] Fetching profiles for doctor IDs:', doctorIds);
+
+    // STEP 1: Query doctors table to get doctor.id → user_id mapping
     const { data: doctors, error: doctorsError } = await supabase
       .from('doctors')
-      .select(`
-        id,
-        user_id,
-        profiles!doctors_user_id_fkey(first_name, last_name)
-      `)
+      .select('id, user_id')
       .in('id', doctorIds);
 
+    console.log('🔍 [REPORTS DEBUG] Doctors query error:', doctorsError);
+    console.log('🔍 [REPORTS DEBUG] Doctors query result:', JSON.stringify(doctors, null, 2));
+
     if (doctorsError) {
-      console.error('Error fetching doctor profiles:', doctorsError);
+      console.error('❌ [REPORTS DEBUG] Error fetching doctors:', doctorsError);
     }
 
-    doctors?.forEach((doc: any) => {
-      if (doc.profiles) {
-        doctorProfilesMap[doc.id] = `${doc.profiles.first_name} ${doc.profiles.last_name}`;
+    if (doctors && doctors.length > 0) {
+      // Extract user_ids from doctors
+      const userIds = doctors.map(d => d.user_id).filter(Boolean);
+      console.log('🔍 [REPORTS DEBUG] Extracted user IDs:', userIds);
+
+      // STEP 2: Query profiles table with user_ids
+      const { data: profiles, error: profilesError } = await supabase
+        .from('profiles')
+        .select('id, first_name, last_name')
+        .in('id', userIds);
+
+      console.log('🔍 [REPORTS DEBUG] Profiles query error:', profilesError);
+      console.log('🔍 [REPORTS DEBUG] Profiles query result:', JSON.stringify(profiles, null, 2));
+
+      if (profilesError) {
+        console.error('❌ [REPORTS DEBUG] Error fetching profiles:', profilesError);
       }
-    });
+
+      // STEP 3: Create mapping from user_id → full name
+      const userIdToNameMap: Record<string, string> = {};
+      profiles?.forEach(profile => {
+        userIdToNameMap[profile.id] = `${profile.first_name} ${profile.last_name}`;
+      });
+
+      console.log('🔍 [REPORTS DEBUG] userIdToNameMap:', userIdToNameMap);
+
+      // STEP 4: Map doctor.id → doctor name using the two mappings
+      doctors.forEach(doctor => {
+        if (doctor.user_id && userIdToNameMap[doctor.user_id]) {
+          doctorProfilesMap[doctor.id] = userIdToNameMap[doctor.user_id];
+          console.log('✅ [REPORTS DEBUG] Mapped doctor', doctor.id, 'to', doctorProfilesMap[doctor.id]);
+        } else {
+          console.log('❌ [REPORTS DEBUG] No profile found for doctor', doctor.id, 'with user_id', doctor.user_id);
+        }
+      });
+
+      console.log('🔍 [REPORTS DEBUG] Final doctorProfilesMap:', doctorProfilesMap);
+    }
   }
 
   // ✅ FIX: Return raw numbers, not strings
@@ -621,12 +654,20 @@ async function generateFeedbackSatisfactionReport(
 
   // Group by doctor
   const byDoctor: Record<string, any> = {};
-  feedback?.forEach(f => {
+  console.log('🔍 [REPORTS DEBUG] Building byDoctor map with', feedback?.length, 'feedback records');
+
+  feedback?.forEach((f, index) => {
     // ✅ FIX: Use doctorProfilesMap for proper name lookup
     const doctorId = f.appointments?.doctor_id;
     const doctorName = doctorId && doctorProfilesMap[doctorId]
       ? doctorProfilesMap[doctorId]
       : 'Unknown';
+
+    if (index === 0) {
+      console.log('🔍 [REPORTS DEBUG] First feedback - doctor_id:', doctorId);
+      console.log('🔍 [REPORTS DEBUG] Lookup in doctorProfilesMap[', doctorId, ']:', doctorProfilesMap[doctorId]);
+      console.log('🔍 [REPORTS DEBUG] Resolved doctor name:', doctorName);
+    }
 
     if (!byDoctor[doctorName]) {
       byDoctor[doctorName] = {
@@ -639,6 +680,8 @@ async function generateFeedbackSatisfactionReport(
     byDoctor[doctorName].total_rating += f.doctor_rating || f.rating;
     if (f.would_recommend) byDoctor[doctorName].would_recommend++;
   });
+
+  console.log('🔍 [REPORTS DEBUG] Final byDoctor:', JSON.stringify(byDoctor, null, 2));
 
   const byDoctorArray = Object.entries(byDoctor).map(([name, stats]: [string, any]) => ({
     doctor_name: name,
