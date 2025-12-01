@@ -82,6 +82,7 @@ export default function HealthcareAdminAnnouncementsPage() {
 
       const params = new URLSearchParams({
         limit: '1000', // Get all for client-side filtering
+        include_inactive: 'true', // Include inactive announcements for admin management
       });
 
       const response = await fetch(`/api/announcements?${params.toString()}`);

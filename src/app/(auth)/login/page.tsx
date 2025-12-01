@@ -70,10 +70,9 @@ export default function LoginPage() {
 
       setSuccessMessage('Login successful! Redirecting...');
 
-      // Small delay to let React state updates propagate (JobSync pattern)
-      await new Promise(resolve => setTimeout(resolve, 100));
-
-      // Redirect to role-specific dashboard
+      // JOBSYNC PATTERN: Use router.push() directly
+      // The middleware only refreshes session, it doesn't block routes
+      // Route protection happens in the dashboard layouts
       router.push(dashboardPath);
     } catch (error) {
       // Display error from login (includes status validation errors)

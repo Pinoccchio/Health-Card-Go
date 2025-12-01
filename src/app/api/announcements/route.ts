@@ -21,6 +21,7 @@ export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams;
     const targetAudience = searchParams.get('target_audience') || 'all';
     const limit = parseInt(searchParams.get('limit') || '10');
+    const includeInactive = searchParams.get('include_inactive') === 'true';
 
     // Fetch announcements
     let query = supabase
@@ -29,9 +30,14 @@ export async function GET(request: NextRequest) {
         *,
         profiles!announcements_created_by_fkey(first_name, last_name)
       `)
-      .eq('is_active', true)
       .order('created_at', { ascending: false })
       .limit(limit);
+
+    // Only filter by is_active when NOT including inactive announcements
+    // This allows admin pages to fetch all announcements for management
+    if (!includeInactive) {
+      query = query.eq('is_active', true);
+    }
 
     // Filter by target audience (all, patients, healthcare_admin, doctor)
     // Show announcements for 'all' OR the specific target audience
@@ -123,7 +129,7 @@ export async function POST(request: NextRequest) {
         content,
         target_audience,
         created_by: user.id,
-        is_active: true,
+        is_active: body.is_active ?? true,
       })
       .select()
       .single();

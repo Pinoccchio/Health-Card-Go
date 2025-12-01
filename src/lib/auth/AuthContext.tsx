@@ -30,6 +30,7 @@ export const AuthContext = createContext<AuthContextType | undefined>(
 // Provider props
 interface AuthProviderProps {
   children: ReactNode;
+  initialUser?: SupabaseUser | null; // Validated user from server-side getUser()
 }
 
 /**
@@ -37,8 +38,9 @@ interface AuthProviderProps {
  *
  * Provides authentication state and methods to all child components.
  * Uses Supabase Auth for authentication and profile management.
+ * Accepts initialUser from server-side to sync state immediately (validated via getUser()).
  */
-export function AuthProvider({ children }: AuthProviderProps) {
+export function AuthProvider({ children, initialUser }: AuthProviderProps) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -89,9 +91,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
       try {
         console.log(`🔍 [FETCH PROFILE] Attempt ${retryCount + 1}/${maxRetries + 1} - Fetching profile for user:`, authUser.id);
 
-        // Refresh session to ensure we have the latest auth context
-        const { data: { session } } = await supabase.auth.getSession();
-        console.log('🔍 [FETCH PROFILE] Current session:', session ? 'active' : 'none');
+        // SECURITY FIX: Removed getSession() call - we already have validated user from getUser()
+        // No need to re-check session here as authUser is already validated
 
         const { data: profile, error } = await supabase
           .from('profiles')
@@ -148,24 +149,35 @@ export function AuthProvider({ children }: AuthProviderProps) {
   /**
    * Check for existing session on mount (JobSync pattern)
    * No auth state listener - login/logout methods update context directly
+   * If initialUser is provided from server (validated via getUser()), use it immediately
    */
   useEffect(() => {
-    // One-time session check on mount
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user) {
-        fetchUserProfile(session.user).then((profile) => {
-          setUser(profile);
-          setLoading(false);
-        });
-      } else {
-        setUser(null);
+    // If we have initial user from server (already validated via getUser()), use it immediately
+    if (initialUser) {
+      console.log('🚀 [AUTH CONTEXT] Using initial user from server (validated)');
+      fetchUserProfile(initialUser).then((profile) => {
+        setUser(profile);
         setLoading(false);
-      }
-    });
+      });
+    } else {
+      // One-time user check on mount (client-only)
+      // SECURITY FIX: Use getUser() instead of getSession() for validation
+      supabase.auth.getUser().then(({ data: { user: authUser } }) => {
+        if (authUser) {
+          fetchUserProfile(authUser).then((profile) => {
+            setUser(profile);
+            setLoading(false);
+          });
+        } else {
+          setUser(null);
+          setLoading(false);
+        }
+      });
+    }
 
     // No onAuthStateChange listener!
     // Login/register/logout functions update state directly
-  }, []); // Empty deps - runs ONCE on mount only
+  }, [initialUser]); // Depend on initialUser to re-run if it changes
 
   /**
    * Login function

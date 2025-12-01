@@ -41,26 +41,33 @@ export default function PatientDashboardLayout({
     loadLocaleAndMessages();
   }, []);
 
-  // Redirect unauthorized users to login or their correct dashboard
+  // JOBSYNC PATTERN: Redirect unauthorized users to login or their correct dashboard
+  // Uses router.push() for soft navigation (no full page reload)
+  // Excludes router from dependencies to prevent instability
   useEffect(() => {
     if (!loading) {
+      // Not authenticated - redirect to login
       if (!isAuthenticated) {
         router.push('/login');
         return;
       }
+
+      // User loaded - check status and role
       if (user) {
-        // Check user status - only active users can access dashboard
+        // Inactive user - redirect to login
         if (user.status !== 'active') {
           router.push('/login');
           return;
         }
-        // Check role
+        // Wrong role - redirect to correct dashboard
         if (user.role_id !== 4) {
           router.push(getDashboardPath(user.role_id));
+          return;
         }
       }
     }
-  }, [isAuthenticated, loading, user, router]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, isAuthenticated, user]); // router excluded per JobSync pattern
 
   // Show loading spinner while checking auth or loading messages
   if (loading || !messages) {
@@ -74,16 +81,9 @@ export default function PatientDashboardLayout({
     );
   }
 
-  // Show redirecting spinner instead of blank screen
+  // JOBSYNC PATTERN: Return null for unauthorized users (no spinner loop)
   if (!isAuthenticated || !user || user.status !== 'active' || user.role_id !== 4) {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-50">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-teal mx-auto mb-4"></div>
-          <p className="text-gray-600">Redirecting...</p>
-        </div>
-      </div>
-    );
+    return null;
   }
 
   return (
