@@ -253,7 +253,8 @@ export default function DoctorPatientsPage() {
             >
               Active ({stats.activePatients})
             </button>
-            <button
+            {/* Pending filter removed - auto-approval means no pending patients (Task 1.2) */}
+            {/* <button
               onClick={() => setSelectedStatus('pending')}
               className={`px-4 py-2 rounded-lg font-medium text-sm transition-colors ${
                 selectedStatus === 'pending'
@@ -262,7 +263,7 @@ export default function DoctorPatientsPage() {
               }`}
             >
               Pending ({stats.pendingPatients})
-            </button>
+            </button> */}
             <button
               onClick={() => setSelectedStatus('inactive')}
               className={`px-4 py-2 rounded-lg font-medium text-sm transition-colors ${

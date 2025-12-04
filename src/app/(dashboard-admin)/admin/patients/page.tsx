@@ -9,6 +9,7 @@ import { Drawer } from '@/components/ui/Drawer';
 import { Toast, ToastContainer, ToastVariant } from '@/components/ui/Toast';
 import {
   Users,
+  UserPlus,
   Clock,
   CheckCircle,
   XCircle,
@@ -564,13 +565,14 @@ export default function SuperAdminPatientsPage() {
             </div>
           </ProfessionalCard>
 
-          <ProfessionalCard className="bg-gradient-to-br from-orange-50 to-orange-100 border-l-4 border-orange-500">
+          <ProfessionalCard className="bg-gradient-to-br from-blue-50 to-blue-100 border-l-4 border-blue-500">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-orange-600">Pending Approval</p>
-                <p className="text-3xl font-bold text-orange-900 mt-2">{stats.pending}</p>
+                <p className="text-sm font-medium text-blue-600">New Registrations</p>
+                <p className="text-3xl font-bold text-blue-900 mt-2">{stats.total}</p>
+                <p className="text-xs text-blue-600 mt-1">All Time</p>
               </div>
-              <Clock className="w-10 h-10 text-orange-500 opacity-80" />
+              <UserPlus className="w-10 h-10 text-blue-500 opacity-80" />
             </div>
           </ProfessionalCard>
 
@@ -650,7 +652,8 @@ export default function SuperAdminPatientsPage() {
             >
               All ({stats.total})
             </button>
-            <button
+            {/* Pending filter hidden - auto-approval means no pending patients (Task 1.2) */}
+            {/* <button
               onClick={() => setFilter('pending')}
               className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
                 filter === 'pending'
@@ -659,7 +662,7 @@ export default function SuperAdminPatientsPage() {
               }`}
             >
               Pending ({stats.pending})
-            </button>
+            </button> */}
             <button
               onClick={() => setFilter('active')}
               className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
@@ -793,20 +796,6 @@ export default function SuperAdminPatientsPage() {
           size="xl"
           title={selectedPatient ? `${selectedPatient.first_name} ${selectedPatient.last_name}` : 'Patient Details'}
           subtitle={selectedPatient ? `Patient #${selectedPatient.patients?.patient_number || 'N/A'}` : undefined}
-          metadata={
-            selectedPatient
-              ? {
-                  createdOn: new Date(selectedPatient.created_at).toLocaleDateString('en-US', {
-                    month: 'short',
-                    day: 'numeric',
-                    year: 'numeric',
-                  }),
-                  doctor: selectedPatient.approved_at
-                    ? `Approved ${new Date(selectedPatient.approved_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
-                    : 'Awaiting Approval',
-                }
-              : undefined
-          }
         >
           {selectedPatient && (
             <div className="p-6">
@@ -979,25 +968,19 @@ export default function SuperAdminPatientsPage() {
                           {selectedPatient.gender || 'N/A'}
                         </p>
                       </div>
+                      <div>
+                        <p className="text-xs text-gray-500">Registered On</p>
+                        <p className="text-sm font-medium text-gray-900 mt-1">
+                          {selectedPatient.created_at
+                            ? new Date(selectedPatient.created_at).toLocaleDateString()
+                            : 'N/A'}
+                        </p>
+                      </div>
                       <div className="col-span-2">
                         <p className="text-xs text-gray-500">Barangay</p>
                         <p className="text-sm font-medium text-gray-900 flex items-center mt-1">
                           <MapPin className="w-4 h-4 mr-1.5 text-gray-400" />
                           {selectedPatient.barangays?.name || 'N/A'}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-gray-500">Registered On</p>
-                        <p className="text-sm font-medium text-gray-900 mt-1">
-                          {new Date(selectedPatient.created_at).toLocaleDateString()}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-gray-500">Approved On</p>
-                        <p className="text-sm font-medium text-gray-900 mt-1">
-                          {selectedPatient.approved_at
-                            ? new Date(selectedPatient.approved_at).toLocaleDateString()
-                            : 'N/A'}
                         </p>
                       </div>
                     </div>
@@ -1102,15 +1085,18 @@ export default function SuperAdminPatientsPage() {
                 {/* Action Buttons */}
                 {!isEditMode && (
                   <div className="mt-6 pt-6 border-t border-gray-200 space-y-3">
-                    {selectedPatient.status === 'pending' && (
+                    {/* Approval buttons hidden for auto-approval (Task 1.2) */}
+                    {/* Note: With auto-approval, patients are never 'pending' */}
+                    {false && selectedPatient.status === 'pending' && (
                       <div className="flex gap-3">
-                        <button
+                        {/* Approve button hidden - auto-approval implemented */}
+                        {/* <button
                           onClick={() => handleApproveClick(selectedPatient)}
                           className="flex-1 inline-flex justify-center items-center px-4 py-2.5 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors"
                         >
                           <CheckCircle className="w-4 h-4 mr-2" />
                           Approve Patient
-                        </button>
+                        </button> */}
                         <button
                           onClick={() => handleRejectClick(selectedPatient)}
                           className="flex-1 inline-flex justify-center items-center px-4 py-2.5 border border-transparent text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors"

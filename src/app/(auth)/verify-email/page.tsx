@@ -78,48 +78,48 @@ function VerifyEmailContent() {
 
       {verificationStatus === 'pending' && (
         <AuthCard
-          title="Registration Pending"
-          subtitle="Your account is awaiting approval"
+          title="Registration Successful!"
+          subtitle="Your account has been activated"
           showLogo={false}
         >
           <div className="space-y-6">
             <div className="flex justify-center">
-              <div className="w-20 h-20 bg-warning/10 rounded-full flex items-center justify-center">
-                <Clock className="w-12 h-12 text-warning" />
+              <div className="w-20 h-20 bg-success/10 rounded-full flex items-center justify-center">
+                <CheckCircle className="w-12 h-12 text-success" />
               </div>
             </div>
 
             <Alert
-              variant="info"
-              title="Account Pending Approval"
-              message="Thank you for registering! Your account is currently pending approval from our healthcare administrators. Please try logging in periodically - once approved, you'll be able to access your dashboard."
+              variant="success"
+              title="Account Activated"
+              message="Thank you for registering! Your account has been automatically activated. You can now log in and start booking appointments."
             />
 
             <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
               <div className="flex items-start gap-3">
                 <Mail className="w-5 h-5 text-primary-teal mt-0.5 flex-shrink-0" />
                 <div className="text-sm text-gray-700">
-                  <p className="font-semibold mb-1">What happens next?</p>
+                  <p className="font-semibold mb-1">What can you do now?</p>
                   <ul className="space-y-1 text-gray-600">
-                    <li>• Our team will review your registration</li>
-                    <li>• Approval typically takes 1-2 business days</li>
-                    <li>• Try logging in again after approval to access your account</li>
-                    <li>• You can then book appointments and use all features</li>
+                    <li>• Log in to access your patient dashboard</li>
+                    <li>• Book appointments with healthcare providers</li>
+                    <li>• View your medical records and health card</li>
+                    <li>• Manage your profile and preferences</li>
                   </ul>
                 </div>
               </div>
             </div>
 
             <div className="space-y-3">
-              <Link href="/">
+              <Link href="/login">
                 <Button variant="primary" size="lg" className="w-full">
-                  Back to Home
+                  Go to Login
                 </Button>
               </Link>
 
-              <Link href="/login">
+              <Link href="/">
                 <Button variant="outline" size="lg" className="w-full">
-                  Try to Login
+                  Back to Home
                 </Button>
               </Link>
             </div>

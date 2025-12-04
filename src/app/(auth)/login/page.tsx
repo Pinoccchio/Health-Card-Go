@@ -201,27 +201,6 @@ export default function LoginPage() {
               Create an account
             </Button>
           </Link>
-
-          {/* Test Credentials Helper (for development) */}
-          <div className="mt-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
-            <p className="text-xs font-semibold text-gray-700 mb-2">
-              Test Credentials:
-            </p>
-            <div className="space-y-1 text-xs text-gray-600">
-              <p>
-                <strong>Patient:</strong> patient@healthcard.com / patient123
-              </p>
-              <p>
-                <strong>Doctor:</strong> doctor@healthcard.com / doctor123
-              </p>
-              <p>
-                <strong>Admin:</strong> healthcard.admin@healthcard.com / healthcard123
-              </p>
-              <p>
-                <strong>Super Admin:</strong> admin@healthcard.com / admin123
-              </p>
-            </div>
-          </div>
         </form>
       </AuthCard>
     </div>

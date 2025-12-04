@@ -322,7 +322,8 @@ export function AuthProvider({ children, initialUser }: AuthProviderProps) {
         const profileUpdateData = {
           role,
           admin_category: (data.adminCategory ?? null) as any,
-          status: role === 'patient' ? 'pending' : 'active',
+          status: 'active', // Auto-approve all users (patients get immediate access)
+          approved_at: new Date().toISOString(), // Set approval timestamp
           barangay_id: data.barangayId ?? null,
           contact_number: data.contactNumber ?? null,
           date_of_birth: data.dateOfBirth ?? null,
@@ -405,21 +406,14 @@ export function AuthProvider({ children, initialUser }: AuthProviderProps) {
         console.log('⏳ [AUTH CONTEXT] Waiting 1000ms for database commit...');
         await new Promise(resolve => setTimeout(resolve, 1000));
 
-        // For patients, they remain logged out until approved
-        if (role === 'patient') {
-          console.log('🔐 [AUTH CONTEXT] Patient registration - signing out');
-          await supabase.auth.signOut();
-          setUser(null);
+        // All users are auto-approved, fetch profile and keep them logged in
+        console.log('✅ [AUTH CONTEXT] Registration successful, fetching profile...');
+        const profile = await fetchUserProfile(authData.user);
+        if (profile) {
+          console.log('✅ [AUTH CONTEXT] Profile set successfully, user ready for redirect');
+          setUser(profile);
         } else {
-          // For other roles, fetch the profile
-          console.log('🔐 [AUTH CONTEXT] Non-patient registration - fetching profile');
-          const profile = await fetchUserProfile(authData.user);
-          if (profile) {
-            console.log('✅ [AUTH CONTEXT] Profile set successfully');
-            setUser(profile);
-          } else {
-            console.error('❌ [AUTH CONTEXT] Failed to set profile - fetchUserProfile returned null');
-          }
+          console.error('❌ [AUTH CONTEXT] Failed to set profile - fetchUserProfile returned null');
         }
       } catch (err) {
         const errorMessage =

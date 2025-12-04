@@ -12,7 +12,7 @@ interface DrawerProps {
   subtitle?: string;
   metadata?: {
     createdOn?: string;
-    doctor?: string;
+    registeredOn?: string;
   };
   size?: 'sm' | 'md' | 'lg' | 'xl';
   className?: string;
@@ -102,17 +102,17 @@ export const Drawer: React.FC<DrawerProps> = ({
                 </p>
               )}
 
-              {/* Metadata Row (Created on, Doctor info) */}
-              {metadata && (metadata.createdOn || metadata.doctor) && (
+              {/* Metadata Row (Created on, Registered On) */}
+              {metadata && (metadata.createdOn || metadata.registeredOn) && (
                 <div className="flex flex-wrap justify-between gap-4 mt-3 text-sm opacity-95">
                   {metadata.createdOn && (
                     <span>
                       <span className="font-medium">Created on:</span> {metadata.createdOn}
                     </span>
                   )}
-                  {metadata.doctor && (
+                  {metadata.registeredOn && (
                     <span>
-                      <span className="font-medium">Doctor:</span> {metadata.doctor}
+                      <span className="font-medium">Registered On:</span> {metadata.registeredOn}
                     </span>
                   )}
                 </div>

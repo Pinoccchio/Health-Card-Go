@@ -127,6 +127,12 @@ export default function PatientDetailDrawer({ patient, isOpen, onClose }: Patien
                   {profile?.status || 'N/A'}
                 </p>
               </div>
+              <div>
+                <p className="text-gray-600">Registered On</p>
+                <p className="font-medium text-gray-900">
+                  {profile?.created_at ? new Date(profile.created_at).toLocaleDateString() : 'N/A'}
+                </p>
+              </div>
             </div>
           </div>
 
