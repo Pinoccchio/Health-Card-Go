@@ -12,7 +12,6 @@ export const NAV_ITEMS: NavItem[] = [
   { id: 'home', label: 'Home', href: '#home' },
   { id: 'about', label: 'About Us', href: '#about' },
   { id: 'services', label: 'Services', href: '#services' },
-  { id: 'heatmap', label: 'Heat Map', href: '#heatmap' },
   { id: 'blog', label: 'Blog', href: '#blog' },
   { id: 'announcements', label: 'Announcements', href: '#announcements' },
 ];
@@ -173,10 +172,4 @@ export const ABOUT_CONTENT = {
 export const WHY_CHOOSE_CONTENT = {
   title: 'Why Choose Us',
   subtitle: 'With a steadfast commitment to your well-being, our team of highly trained healthcare professionals ensures that you receive nothing short of exceptional patient experiences.',
-};
-
-// Heat Map Section Content
-export const HEAT_MAP_CONTENT = {
-  title: 'Heat Map',
-  description: 'We take pride in our exceptional team of doctors, each a specialist in their respective fields.',
 };

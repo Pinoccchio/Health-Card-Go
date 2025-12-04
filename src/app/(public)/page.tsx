@@ -4,7 +4,6 @@ import {
   ServicesSection,
   AboutSection,
   WhyChooseUsSection,
-  HeatMapSection,
 } from '@/components/landing';
 
 export default function LandingPage() {
@@ -14,7 +13,6 @@ export default function LandingPage() {
       <ServicesSection />
       <AboutSection />
       <WhyChooseUsSection />
-      <HeatMapSection />
     </>
   );
 }

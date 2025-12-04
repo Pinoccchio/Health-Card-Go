@@ -38,7 +38,6 @@
     "home": "Home",
     "about": "Mahitungod Kanamo",
     "services": "Mga Serbisyo",
-    "heatmap": "Mapa sa Sakit",
     "blog": "Blog",
     "announcements": "Mga Pahibalo"
   },
@@ -198,7 +197,6 @@
       "home": "Home",
       "about": "Mahitungod Kanamo",
       "services": "Mga Serbisyo",
-      "heatmap": "Heat Map",
       "blog": "Blog",
       "announcements": "Mga Pahibalo"
     },
@@ -247,17 +245,6 @@
         "title": "Medical ug Surgical",
         "description": "Ang among Medical ug Surgical nga mga serbisyo nagtanyag ug advanced nga healthcare solutions aron matubag ang medikal nga mga panginahanglan."
       }
-    },
-    "heatmap": {
-      "title": "Heat Map",
-      "description": "Gipasigarbo namo ang among talagsaong koponan sa mga doktor, matag usa espesyalista sa ilang mga natad."
-    },
-    "heatmap_section": {
-      "risk_level_title": "Ang-ang sa Peligro sa Sakit",
-      "risk_low": "Ubos (≤ 25 ka kaso)",
-      "risk_medium": "Kasarangan (26-50 ka kaso)",
-      "risk_high": "Taas (51-75 ka kaso)",
-      "risk_very_high": "Labi ka Taas (> 75 ka kaso)"
     },
     "footer": {
       "description": "Kami gipasidunggan nga mahimong bahin sa inyong healthcare journey ug nakatuon sa paghatag ug maluluy-on, personalized, ug pinakamayo nga pag-atiman sa matag lakang sa dalan.",

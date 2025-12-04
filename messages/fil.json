@@ -38,7 +38,6 @@
     "home": "Home",
     "about": "Tungkol sa Amin",
     "services": "Mga Serbisyo",
-    "heatmap": "Mapa ng Sakit",
     "blog": "Blog",
     "announcements": "Mga Pabatid"
   },
@@ -198,7 +197,6 @@
       "home": "Home",
       "about": "Tungkol Sa Amin",
       "services": "Mga Serbisyo",
-      "heatmap": "Heat Map",
       "blog": "Blog",
       "announcements": "Mga Pabilis"
     },
@@ -247,17 +245,6 @@
         "title": "Medical at Surgical",
         "description": "Ang aming Medical at Surgical na serbisyo ay nag-aalok ng advanced na healthcare solutions upang matugunan ang mga medikal na pangangailangan."
       }
-    },
-    "heatmap": {
-      "title": "Heat Map",
-      "description": "Ipinagmamalaki namin ang aming pambihirang koponan ng mga doktor, bawat isa ay espesyalista sa kanilang mga larangan."
-    },
-    "heatmap_section": {
-      "risk_level_title": "Antas ng Panganib ng Sakit",
-      "risk_low": "Mababa (≤ 25 kaso)",
-      "risk_medium": "Katamtaman (26-50 kaso)",
-      "risk_high": "Mataas (51-75 kaso)",
-      "risk_very_high": "Napakataas (> 75 kaso)"
     },
     "footer": {
       "description": "Kami ay narangalang maging bahagi ng inyong healthcare journey at nakatuon sa paghahatid ng mahabagin, personalized, at pinakamahusay na pag-aalaga sa bawat hakbang ng paraan.",

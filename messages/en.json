@@ -38,7 +38,6 @@
     "home": "Home",
     "about": "About Us",
     "services": "Services",
-    "heatmap": "Heat Map",
     "blog": "Blog",
     "announcements": "Announcements"
   },
@@ -198,7 +197,6 @@
       "home": "Home",
       "about": "About Us",
       "services": "Services",
-      "heatmap": "Heat Map",
       "blog": "Blog",
       "announcements": "Announcements"
     },
@@ -247,17 +245,6 @@
         "title": "Medical and Surgical",
         "description": "Our Medical and Surgical services offer advanced healthcare solutions to address medical needs."
       }
-    },
-    "heatmap": {
-      "title": "Heat Map",
-      "description": "We take pride in our exceptional team of doctors, each a specialist in their respective fields."
-    },
-    "heatmap_section": {
-      "risk_level_title": "Disease Risk Level",
-      "risk_low": "Low (≤ 25 cases)",
-      "risk_medium": "Medium (26-50 cases)",
-      "risk_high": "High (51-75 cases)",
-      "risk_very_high": "Very High (> 75 cases)"
     },
     "footer": {
       "description": "We are honored to be a part of your healthcare journey and committed to delivering compassionate, personalized, and top-notch care every step of the way.",
