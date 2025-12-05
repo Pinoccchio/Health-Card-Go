@@ -1,11 +1,12 @@
 /**
  * Authentication Type Definitions
  *
- * Types for the HealthCard authentication system supporting 4 user roles:
- * - Super Admin (role_id: 1)
- * - Healthcare Admin (role_id: 2) with 5 categories
- * - Doctor (role_id: 3)
- * - Patient (role_id: 4)
+ * Types for the HealthCard authentication system supporting 5 user roles:
+ * - Super Admin (role_id: 1) - Full system access
+ * - Healthcare Admin (role_id: 2) - Service-specific admin with assigned_service_id
+ * - Doctor (role_id: 3) - DEPRECATED, kept for backward compatibility
+ * - Patient (role_id: 4) - Regular users
+ * - Staff (role_id: 5) - Disease surveillance staff (handles ALL diseases, no service assignment)
  */
 
 // ============================================================================
@@ -13,8 +14,8 @@
 // ============================================================================
 
 // Database uses string enums, but we keep numeric IDs for backward compatibility
-export type RoleId = 1 | 2 | 3 | 4;
-export type UserRole = 'super_admin' | 'healthcare_admin' | 'doctor' | 'patient';
+export type RoleId = 1 | 2 | 3 | 4 | 5;
+export type UserRole = 'super_admin' | 'healthcare_admin' | 'staff' | 'doctor' | 'patient';
 
 // Mapping between role_id and role enum
 export const ROLE_ID_TO_ENUM: Record<RoleId, UserRole> = {
@@ -22,6 +23,7 @@ export const ROLE_ID_TO_ENUM: Record<RoleId, UserRole> = {
   2: 'healthcare_admin',
   3: 'doctor',
   4: 'patient',
+  5: 'staff',
 } as const;
 
 export const ROLE_ENUM_TO_ID: Record<UserRole, RoleId> = {
@@ -29,6 +31,7 @@ export const ROLE_ENUM_TO_ID: Record<UserRole, RoleId> = {
   healthcare_admin: 2,
   doctor: 3,
   patient: 4,
+  staff: 5,
 } as const;
 
 export const ROLE_NAMES: Record<RoleId, string> = {
@@ -36,21 +39,33 @@ export const ROLE_NAMES: Record<RoleId, string> = {
   2: 'Healthcare Admin',
   3: 'Doctor',
   4: 'Patient',
+  5: 'Staff',
 } as const;
 
+/**
+ * DEPRECATED: AdminCategory is no longer used.
+ * Healthcare Admins are now assigned to specific services via assigned_service_id.
+ *
+ * Previous categories mapped to services:
+ * - healthcard → Health Card Service
+ * - hiv → HIV/AIDS Service
+ * - pregnancy → Pregnancy Service
+ * - laboratory → Laboratory Service
+ * - immunization → Immunization Service
+ */
 export type AdminCategory =
   | 'healthcard'
   | 'hiv'
   | 'pregnancy'
-  | 'general_admin'
-  | 'laboratory';
+  | 'laboratory'
+  | 'immunization';
 
 export const ADMIN_CATEGORY_NAMES = {
   healthcard: 'Healthcard Admin',
   hiv: 'HIV Admin',
   pregnancy: 'Pregnancy Admin',
-  general_admin: 'General Admin',
   laboratory: 'Laboratory Admin',
+  immunization: 'Immunization Admin',
 } as const;
 
 export type UserStatus = 'pending' | 'active' | 'inactive' | 'rejected' | 'suspended';
@@ -65,7 +80,8 @@ export interface User {
   first_name: string;
   last_name: string;
   role_id: RoleId;
-  admin_category?: AdminCategory;
+  admin_category?: AdminCategory; // DEPRECATED: Use assigned_service_id instead
+  assigned_service_id?: number; // For healthcare admins - references services.id
   status: UserStatus;
   barangay_id?: number;
   barangay_name?: string;

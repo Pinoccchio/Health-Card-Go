@@ -277,7 +277,7 @@ export async function GET(request: NextRequest) {
     // Get user profile
     const { data: profile } = await supabase
       .from('profiles')
-      .select('id, role, admin_category')
+      .select('id, role, assigned_service_id')
       .eq('id', user.id)
       .single();
 
@@ -380,54 +380,33 @@ export async function GET(request: NextRequest) {
       }
 
     } else if (profile.role === 'healthcare_admin') {
-      // Healthcare admins see appointments based on their admin_category
-      console.log('🔍 [HEALTHCARE ADMIN] Admin category:', profile.admin_category);
+      // Healthcare admins see appointments for their assigned service only
+      console.log('🔍 [HEALTHCARE ADMIN] Assigned service ID:', profile.assigned_service_id);
 
-      if (profile.admin_category === 'general_admin') {
-        // General admins can see ALL appointments
-        console.log('✅ [HEALTHCARE ADMIN] General admin - viewing all appointments');
+      if (!profile.assigned_service_id) {
+        console.warn('⚠️ [HEALTHCARE ADMIN] No service assigned to this admin');
+        // Return empty array if no service assigned
+        return NextResponse.json({
+          success: true,
+          data: [],
+          pagination: {
+            page,
+            limit,
+            total: 0,
+            totalPages: 0,
+            hasNextPage: false,
+            hasPreviousPage: false,
+          },
+          message: 'No service assigned to your account. Please contact an administrator.'
+        });
+      }
 
-        if (patientId) {
-          query = query.eq('patient_id', patientId);
-        }
-      } else {
-        // Category-specific admins see only their category's appointments
-        // Filter by service category matching admin category
-        console.log('🔍 [HEALTHCARE ADMIN] Filtering by category:', profile.admin_category);
+      // Filter by assigned service ID
+      console.log('✅ [HEALTHCARE ADMIN] Filtering by service_id:', profile.assigned_service_id);
+      query = query.eq('service_id', profile.assigned_service_id);
 
-        // Get service IDs that match admin category
-        const { data: categoryServices, error: servicesError } = await supabase
-          .from('services')
-          .select('id')
-          .eq('category', profile.admin_category);
-
-        if (servicesError) {
-          console.error('❌ [HEALTHCARE ADMIN] Error fetching category services:', servicesError);
-          return NextResponse.json(
-            { error: 'Failed to fetch services for your category' },
-            { status: 500 }
-          );
-        }
-
-        if (!categoryServices || categoryServices.length === 0) {
-          console.warn('⚠️ [HEALTHCARE ADMIN] No services found for category:', profile.admin_category);
-          // Return empty array if no services match their category
-          return NextResponse.json({
-            success: true,
-            data: [],
-            count: 0,
-            message: `No services configured for ${profile.admin_category} category`
-          });
-        }
-
-        const serviceIds = categoryServices.map(s => s.id);
-        console.log('✅ [HEALTHCARE ADMIN] Service IDs for category:', serviceIds);
-
-        query = query.in('service_id', serviceIds);
-
-        if (patientId) {
-          query = query.eq('patient_id', patientId);
-        }
+      if (patientId) {
+        query = query.eq('patient_id', patientId);
       }
 
     } else if (profile.role === 'super_admin') {
@@ -680,18 +659,12 @@ export async function GET(request: NextRequest) {
         countQuery = countQuery.eq('appointment_date', date);
       }
     } else if (profile.role === 'healthcare_admin') {
-      if (profile.admin_category !== 'general_admin') {
-        const { data: categoryServices } = await supabase
-          .from('services')
-          .select('id')
-          .eq('category', profile.admin_category);
-        if (categoryServices && categoryServices.length > 0) {
-          const serviceIds = categoryServices.map(s => s.id);
-          countQuery = countQuery.in('service_id', serviceIds);
-        } else {
-          // No services for this category, count will be 0
-          countQuery = countQuery.eq('id', '00000000-0000-0000-0000-000000000000'); // Force 0 results
-        }
+      // Healthcare admins see appointments for their assigned service only
+      if (profile.assigned_service_id) {
+        countQuery = countQuery.eq('service_id', profile.assigned_service_id);
+      } else {
+        // No service assigned, count will be 0
+        countQuery = countQuery.eq('id', '00000000-0000-0000-0000-000000000000'); // Force 0 results
       }
       if (patientId) {
         countQuery = countQuery.eq('patient_id', patientId);

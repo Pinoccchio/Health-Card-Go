@@ -9,6 +9,7 @@ import {
   HEALTHCARE_ADMIN_MENU_ITEMS,
   DOCTOR_MENU_ITEMS,
   PATIENT_MENU_ITEMS,
+  STAFF_MENU_ITEMS,
   getRoleName,
 } from '@/lib/config/menuItems';
 import { cn } from '@/lib/utils';
@@ -36,7 +37,9 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
         ? HEALTHCARE_ADMIN_MENU_ITEMS
         : roleId === 3
           ? DOCTOR_MENU_ITEMS
-          : PATIENT_MENU_ITEMS;
+          : roleId === 5
+            ? STAFF_MENU_ITEMS
+            : PATIENT_MENU_ITEMS;
 
   return (
     <div className="flex h-screen bg-gray-50">

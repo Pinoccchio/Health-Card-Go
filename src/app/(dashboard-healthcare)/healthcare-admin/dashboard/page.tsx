@@ -78,17 +78,7 @@ export default function HealthcareAdminDashboard() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
-
-  const getCategoryName = (category: string | undefined) => {
-    const names: Record<string, string> = {
-      healthcard: 'Health Card',
-      hiv: 'HIV',
-      pregnancy: 'Pregnancy',
-      general_admin: 'General Admin',
-      laboratory: 'Laboratory',
-    };
-    return category ? names[category] || category : 'Not specified';
-  };
+  const [serviceName, setServiceName] = useState<string>('Loading...');
 
   useEffect(() => {
     fetchDashboardData();
@@ -102,6 +92,24 @@ export default function HealthcareAdminDashboard() {
       if (isRefresh) setRefreshing(true);
       else setLoading(true);
       setError('');
+
+      // Fetch user's assigned service name if available
+      if (user?.assigned_service_id) {
+        try {
+          const serviceRes = await fetch(`/api/services/${user.assigned_service_id}`);
+          const serviceData = await serviceRes.json();
+          if (serviceData.success && serviceData.data) {
+            setServiceName(serviceData.data.name);
+          } else {
+            setServiceName('Service Not Found');
+          }
+        } catch (err) {
+          console.error('Error fetching service name:', err);
+          setServiceName('Unknown Service');
+        }
+      } else {
+        setServiceName('No Service Assigned');
+      }
 
       // Fetch patients statistics
       const patientsRes = await fetch('/api/admin/patients?limit=1000');
@@ -230,7 +238,7 @@ export default function HealthcareAdminDashboard() {
             </h2>
             <p className="text-gray-600 flex items-center gap-2">
               <Shield className="w-4 h-4 text-primary-teal" />
-              {getCategoryName(user?.admin_category)} Administrator
+              {serviceName} Administrator
             </p>
           </div>
           <button
@@ -333,26 +341,6 @@ export default function HealthcareAdminDashboard() {
                   </p>
                 </div>
               </div>
-
-              {/* Walk-in Capacity (General Admin only) */}
-              {user?.admin_category === 'general_admin' && (
-                <Link
-                  href="/healthcare-admin/patients/new"
-                  className="bg-primary-teal rounded-lg shadow p-6 hover:shadow-lg transition-shadow cursor-pointer group text-white"
-                >
-                  <div className="flex flex-col">
-                    <div className="flex items-center justify-between mb-2">
-                      <p className="text-sm font-medium">Add Walk-in Patient</p>
-                      <UserPlus className="w-8 h-8" />
-                    </div>
-                    <p className="text-xl font-bold">Quick Registration</p>
-                    <p className="text-xs mt-1 opacity-90 group-hover:underline flex items-center gap-1">
-                      Register new patient
-                      <ArrowRight className="w-3 h-3" />
-                    </p>
-                  </div>
-                </Link>
-              )}
             </div>
 
             {/* Quick Actions */}

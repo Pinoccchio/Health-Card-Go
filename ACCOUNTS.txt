@@ -3,182 +3,121 @@ HEALTHCARD SYSTEM - TEST ACCOUNTS
 Next.js + Supabase Implementation
 ========================================
 
-Last Updated: November 30, 2025
-Total Accounts: 18 (6 Healthcare Admins + 6 Doctors + 4 Patients + 1 Super Admin + 1 Extra Patient)
+Last Updated: December 5, 2025
+Total Accounts: 3 Active (1 Super Admin + 1 Doctor + 1 Patient)
 
-NOTE: All passwords follow the pattern [Role]@2025!
+NOTE: For easy testing, you can use email as password (e.g., email: test@test.com, password: test@test.com)
+      Or follow the pattern [Role]@2025! for standardized test passwords.
       Use these accounts for development and testing only.
 
-========================================
-QUICK REFERENCE
-========================================
-
-SUPER ADMIN:        admin@gmail.com / Admin@2025!
-HEALTHCARD ADMIN:   healthcard.admin@gmail.com / HealthCard@2025!
-HIV ADMIN:          hiv.admin@gmail.com / HIV@2025!
-PREGNANCY ADMIN:    pregnancy.admin@gmail.com / Pregnancy@2025!
-GENERAL ADMIN:      general.admin@gmail.com / General@2025!
-LAB ADMIN:          lab.admin@gmail.com / Laboratory@2025!
-IMMUNIZATION ADMIN: immunization.admin@gmail.com / Immunization@2025!
-DOCTOR 1:           dr.santos@gmail.com / Doctor@2025!
-DOCTOR 2:           dr.reyes@gmail.com / Doctor@2025!
-DOCTOR 3:           dr.mendoza@gmail.com / Doctor@2025!
-DOCTOR 4:           dr.cruz@gmail.com / Doctor@2025!
-DOCTOR 5:           dr.bautista@gmail.com / Doctor@2025!
-DOCTOR 6:           janmikoarnado@gmail.com / [User's Password] (EXTRA - User's Account)
-PATIENT 1:          juan.delacruz@gmail.com / Patient@2025!
-PATIENT 2:          maria.santos@gmail.com / Patient@2025! (pending)
-PATIENT 3:          pedro.gonzales@gmail.com / Patient@2025!
-PATIENT 4:          rosa.mendoza@gmail.com / Patient@2025!
-PATIENT 5:          jexxejs@gmail.com / [User's Password] (pending - REAL ACCOUNT)
+IMPORTANT: Most test accounts from seeding have been deleted.
+           The system has been restructured to use service-based assignments.
 
 ========================================
-DETAILED ACCOUNT INFORMATION
+📋 READY-TO-CREATE TEST ACCOUNTS
 ========================================
 
--------------------------------------------
-1. SUPER ADMIN
--------------------------------------------
-Email: admin@gmail.com
-Password: Admin@2025!
+⚡ COPY & PASTE THESE TO CREATE VIA SUPER ADMIN DASHBOARD ⚡
+
+--- HEALTHCARE ADMIN - HEALTH CARD PROCESSING (Service ID: 1) ---
+First Name: Maria
+Last Name: Santos
+Email: healthcard.admin@test.com
+Password: healthcard.admin@test.com
+Service ID: 1 (Health Card Processing - NEW health cards)
+Contact Number: +63 912 000 0001
+Note: Handles NEW health card applications for newly approved patients
+
+--- HEALTHCARE ADMIN - HEALTH CARD RENEWAL (Service ID: 2) ---
+First Name: Carmen
+Last Name: Bautista
+Email: healthcard.renewal@test.com
+Password: healthcard.renewal@test.com
+Service ID: 2 (Health Card Renewal - RENEWALS)
+Contact Number: +63 912 000 0002
+Note: Handles RENEWAL/REPLACEMENT of existing health cards
+
+--- HEALTHCARE ADMIN - HIV SERVICE (Service ID: 3) ---
+First Name: Juan
+Last Name: Reyes
+Email: hiv.admin@test.com
+Password: hiv.admin@test.com
+Service ID: 3 (HIV Testing & Counseling)
+Contact Number: +63 912 000 0003
+
+--- HEALTHCARE ADMIN - PREGNANCY SERVICE (Service ID: 4) ---
+First Name: Ana
+Last Name: Cruz
+Email: pregnancy.admin@test.com
+Password: pregnancy.admin@test.com
+Service ID: 4 (Prenatal Checkup)
+Contact Number: +63 912 000 0004
+
+--- HEALTHCARE ADMIN - LABORATORY SERVICE (Service ID: 7) ---
+First Name: Pedro
+Last Name: Garcia
+Email: lab.admin@test.com
+Password: lab.admin@test.com
+Service ID: 7 (Basic Laboratory Tests)
+Contact Number: +63 912 000 0005
+
+--- HEALTHCARE ADMIN - IMMUNIZATION SERVICE (Service ID: 5) ---
+First Name: Rosa
+Last Name: Mendoza
+Email: immunization.admin@test.com
+Password: immunization.admin@test.com
+Service ID: 5 (Child Immunization)
+Contact Number: +63 912 000 0006
+
+--- STAFF - DISEASE SURVEILLANCE #1 ---
+First Name: Carlos
+Last Name: Ramos
+Email: staff.diseases@test.com
+Password: staff.diseases@test.com
+Contact Number: +63 912 000 0010
+Note: No service assignment needed - handles ALL diseases
+
+--- STAFF - DISEASE SURVEILLANCE #2 ---
+First Name: Lisa
+Last Name: Torres
+Email: staff.surveillance@test.com
+Password: staff.surveillance@test.com
+Contact Number: +63 912 000 0011
+Note: No service assignment needed - handles ALL diseases
+
+========================================
+ACTIVE ACCOUNTS (Currently in Database)
+========================================
+
+SUPER ADMIN:       super.admin@gmail.com / super.admin@gmail.com
+DOCTOR (USER):     janmikoarnado@gmail.com / [User's Password]
+PATIENT (USER):    jexxejs@gmail.com / [User's Password]
+
+========================================
+QUICK REFERENCE - ACTIVE ACCOUNTS
+========================================
+
+--- SUPER ADMIN ---
+Email: super.admin@gmail.com
+Password: super.admin@gmail.com
 Role: super_admin
-First Name: Admin
-Last Name: System
+First Name: Super
+Last Name: Administrator
+Status: active
+Created: Dec 4, 2025
+Last Sign-in: Dec 4, 2025
 
 CAPABILITIES:
 ✓ Full system access
-✓ User management (create/edit Healthcare Admins & Doctors)
-✓ Patient approval/rejection
+✓ User management (create/edit all user types)
+✓ Activate/deactivate user accounts
 ✓ View ALL records (including encrypted HIV/Pregnancy)
 ✓ Feedback management (EXCLUSIVE)
 ✓ Disease surveillance dashboard
 ✓ Combined reports from all categories
 ✓ System configuration
 
--------------------------------------------
-2. HEALTHCARE ADMINS (5 Categories)
--------------------------------------------
-
-All Healthcare Admins can:
-✓ Approve patient registrations
-✓ Create/edit/delete announcements
-✓ Access category-specific records
-✓ Generate category reports
-
---- HEALTHCARD ADMIN ---
-Email: healthcard.admin@gmail.com
-Password: HealthCard@2025!
-Role: healthcare_admin
-Category: healthcard
-First Name: Healthcard
-Last Name: Administrator
-Access: Healthcard patient records only
-
---- HIV ADMIN ---
-Email: hiv.admin@gmail.com
-Password: HIV@2025!
-Role: healthcare_admin
-Category: hiv
-First Name: HIV
-Last Name: Administrator
-Access: HIV patient records only (encrypted)
-Special: RA 8504 compliance required
-
---- PREGNANCY ADMIN ---
-Email: pregnancy.admin@gmail.com
-Password: Pregnancy@2025!
-Role: healthcare_admin
-Category: pregnancy
-First Name: Pregnancy
-Last Name: Administrator
-Access: Pregnancy patient records only (encrypted)
-
---- GENERAL ADMIN ---
-Email: general.admin@gmail.com
-Password: General@2025!
-Role: healthcare_admin
-Category: general_admin
-First Name: General
-Last Name: Administrator
-Access: ALL patient records (except encrypted sensitive)
-Special: Can register walk-in patients, combined reports
-
---- LABORATORY ADMIN ---
-Email: lab.admin@gmail.com
-Password: Laboratory@2025!
-Role: healthcare_admin
-Category: laboratory
-First Name: Laboratory
-Last Name: Administrator
-Access: Laboratory patient records only
-
---- IMMUNIZATION ADMIN ---
-Email: immunization.admin@gmail.com
-Password: Immunization@2025!
-Role: healthcare_admin
-Category: immunization
-First Name: Immunization
-Last Name: Administrator
-Access: Immunization patient records only
-Services: Child Immunization (Free), Adult Vaccination
-
--------------------------------------------
-3. DOCTORS
--------------------------------------------
-
-All Doctors can:
-✓ View ALL records during active appointments
-✓ Create medical records (5 template types)
-✓ Enter diagnoses (auto-triggers disease surveillance)
-✓ Complete appointments
-✓ QR code scanning
-
---- GENERAL PRACTITIONER ---
-Email: dr.santos@gmail.com
-Password: Doctor@2025!
-Role: doctor
-First Name: Juan
-Last Name: Santos
-Specialization: General Practitioner
-License Number: PRC-123456789
-
---- PEDIATRICIAN ---
-Email: dr.reyes@gmail.com
-Password: Doctor@2025!
-Role: doctor
-First Name: Maria
-Last Name: Reyes
-Specialization: Pediatrician
-License Number: PRC-987654321
-
---- CARDIOLOGIST ---
-Email: dr.mendoza@gmail.com
-Password: Doctor@2025!
-Role: doctor
-First Name: Carlos
-Last Name: Mendoza
-Specialization: Cardiologist
-License Number: PRC-DOC-003
-
---- OBSTETRICIAN-GYNECOLOGIST ---
-Email: dr.cruz@gmail.com
-Password: Doctor@2025!
-Role: doctor
-First Name: Ana
-Last Name: Cruz
-Specialization: Obstetrician-Gynecologist
-License Number: PRC-DOC-004
-
---- INTERNAL MEDICINE ---
-Email: dr.bautista@gmail.com
-Password: Doctor@2025!
-Role: doctor
-First Name: Ramon
-Last Name: Bautista
-Specialization: Internal Medicine
-License Number: PRC-DOC-005
-
---- GENERAL PRACTITIONER (Extra - User Account) ---
+--- DOCTOR (User Account) ---
 Email: janmikoarnado@gmail.com
 Password: [User's Password]
 Role: doctor
@@ -186,228 +125,236 @@ First Name: Lucifer
 Last Name: Morningstar
 Specialization: General Practitioner
 License Number: PRC-123456787
-Note: This appears to be a user's personal test account
-
--------------------------------------------
-4. PATIENTS
--------------------------------------------
-
---- APPROVED PATIENT (Active) ---
-Email: juan.delacruz@gmail.com
-Password: Patient@2025!
-Role: patient
-Status: active (can book appointments)
-First Name: Juan
-Last Name: Dela Cruz
-Date of Birth: 1990-01-15 (January 15, 1990)
-Gender: male
-Barangay: San Nicolas (ID: 1)
-Contact Number: +63 912 345 6789
-Emergency Contact:
-  - Name: Maria Dela Cruz
-  - Phone: +63 912 999 9999
-  - Email: maria@email.com
-Use Case: Appointment booking, health card download, feedback
-
---- PENDING PATIENT (Needs Approval) ---
-Email: maria.santos@gmail.com
-Password: Patient@2025!
-Role: patient
-Status: pending (awaiting approval)
-First Name: Maria
-Last Name: Santos
-Date of Birth: 1995-03-20 (March 20, 1995)
-Gender: female
-Barangay: Gredu (ID: 2)
-Contact Number: +63 923 456 7890
-Emergency Contact:
-  - Name: Jose Santos
-  - Phone: +63 923 888 8888
-  - Email: jose@email.com
-Use Case: Test patient approval workflow
-
---- ACTIVE PATIENT (With History) ---
-Email: pedro.gonzales@gmail.com
-Password: Patient@2025!
-Role: patient
 Status: active
-First Name: Pedro
-Last Name: Gonzales
-Date of Birth: 1988-07-10 (July 10, 1988)
-Gender: male
+Note: This is a user's personal test account
+
+--- PATIENT (User Account) ---
+Email: jexxejs@gmail.com
+Password: [User's Password]
+Role: patient
+First Name: Jex
+Last Name: Xejs
+Status: active
 Barangay: Salvacion (ID: 3)
-Contact Number: +63 934 567 8901
-Emergency Contact:
-  - Name: Ana Gonzales
-  - Phone: +63 934 777 7777
-  - Email: ana@email.com
-Use Case: Appointment history, medical records
-
---- FEMALE PATIENT (Prenatal Services) ---
-Email: rosa.mendoza@gmail.com
-Password: Patient@2025!
-Role: patient
-Status: active
-First Name: Rosa
-Last Name: Mendoza
-Date of Birth: 1992-12-05 (December 5, 1992)
-Gender: female
-Barangay: Quezon (ID: 4)
-Contact Number: +63 945 678 9012
-Emergency Contact:
-  - Name: Carlos Mendoza
-  - Phone: +63 945 666 6666
-  - Email: carlos@email.com
-Use Case: Prenatal care, immunization
+Approved: Dec 4, 2025
+Note: This is a real user account
 
 ========================================
-REGISTRATION EXAMPLES
+ROLE STRUCTURE (Updated Dec 5, 2025)
 ========================================
 
---- SUPER ADMIN REGISTRATION ---
+The system now uses a service-based architecture for Healthcare Admins:
+
+1. SUPER ADMIN (role: super_admin)
+   - Full system access
+   - Create all user types
+   - Manage all services and records
+
+2. HEALTHCARE ADMIN (role: healthcare_admin)
+   - Service-specific access via assigned_service_id
+   - Manage appointments for assigned service only
+   - Create/edit/delete announcements
+   - Access service-specific records
+   - Generate service reports
+
+3. STAFF (role: staff) - NEW ROLE
+   - Disease surveillance for ALL diseases
+   - Enter disease data (Dengue, Measles, Rabies, Malaria, etc.)
+   - Generate disease reports
+   - View analytics and predictions
+   - NO appointment management access
+
+4. DOCTOR (role: doctor) - DEPRECATED
+   - Kept for backward compatibility
+   - View ALL records during active appointments
+   - Create medical records
+   - Enter diagnoses (triggers disease surveillance)
+   - Complete appointments
+
+5. PATIENT (role: patient)
+   - Book appointments (7-day lead time)
+   - View own records
+   - Download health card
+   - Submit feedback
+   - Status: pending/active/rejected
+
+========================================
+SERVICES & SERVICE ID MAPPING
+========================================
+
+Healthcare Admins are now assigned to specific services via assigned_service_id.
+Each Healthcare Admin manages appointments for ONE specific service only.
+
+📋 COMPLETE SERVICES REFERENCE TABLE
+=====================================
+
+| ID | Service Name                      | Category      | Description                                    | Duration | Appointment? |
+|----|-----------------------------------|---------------|------------------------------------------------|----------|--------------|
+| 1  | Health Card Processing            | healthcard    | NEW health card application for new patients   | 30 min   | Required     |
+| 2  | Health Card Renewal               | healthcard    | RENEWAL of existing/expired health cards       | 20 min   | Required     |
+| 3  | HIV Testing & Counseling (Free)   | hiv           | Free HIV testing and counseling services       | 45 min   | Required     |
+| 4  | Prenatal Checkup (Free)           | pregnancy     | Free prenatal care for pregnant women          | 40 min   | Required     |
+| 5  | Child Immunization (Free)         | immunization  | Free immunization services for children        | 30 min   | Required     |
+| 6  | Adult Vaccination                 | immunization  | Vaccination services for adults                | 20 min   | Required     |
+| 7  | Basic Laboratory Tests            | laboratory    | Basic laboratory diagnostic tests              | 30 min   | Required     |
+| 8  | Health Education Seminar          | general       | Walk-in health education and seminars          | 60 min   | Walk-in      |
+| 9  | Emergency Consultation            | general       | Walk-in emergency medical consultation         | 30 min   | Walk-in      |
+
+⚠️  IMPORTANT: HEALTH CARD SERVICES CLARIFICATION
+================================================
+
+Service ID 1 vs Service ID 2 - What's the difference?
+
+• Service ID: 1 (Health Card Processing)
+  → For NEWLY APPROVED patients applying for their FIRST health card
+  → Takes 30 minutes (includes photo, verification, encoding)
+  → Example: Patient just got approved by Super Admin, needs new health card
+
+• Service ID: 2 (Health Card Renewal)
+  → For EXISTING patients renewing EXPIRED or DAMAGED health cards
+  → Takes 20 minutes (faster process, patient already in system)
+  → Example: Patient's health card expired or was lost/damaged
+
+Why are they separate?
+- Different processing times (30 min vs 20 min)
+- Different workflows (new enrollment vs renewal)
+- Allows specialization: One Healthcare Admin can focus on new cards, another on renewals
+- Better queue management and appointment scheduling
+
+When creating a Healthcare Admin:
+- Assign to Service 1 if they handle NEW health card applications
+- Assign to Service 2 if they handle RENEWALS/REPLACEMENTS
+- You can create separate admins for each service if needed
+
+LEGACY MAPPING (admin_category → assigned_service_id):
+- healthcard admin → Service ID: 1 (Health Card Processing) OR Service ID: 2 (Health Card Renewal)
+- hiv admin → Service ID: 3 (HIV Testing & Counseling)
+- pregnancy admin → Service ID: 4 (Prenatal Checkup)
+- laboratory admin → Service ID: 7 (Basic Laboratory Tests)
+- immunization admin → Service ID: 5 (Child Immunization) OR Service ID: 6 (Adult Vaccination)
+- general_admin → REMOVED (role no longer used)
+
+========================================
+TEMPLATE ACCOUNTS FOR TESTING
+========================================
+
+Use these templates to create test accounts via Super Admin dashboard at /admin/users
+
+💡 TIP: For easier testing, you can use the same value for email and password.
+   Example: email: "test@test.com", password: "test@test.com"
+   This makes it easy to remember test account credentials!
+
+--- SUPER ADMIN TEMPLATE ---
 {
-  firstName: "Admin",
-  lastName: "System",
-  email: "admin@gmail.com",
-  password: "Admin@2025!",
+  firstName: "New",
+  lastName: "SuperAdmin",
+  email: "newadmin@gmail.com",
+  password: "newadmin@gmail.com",
   role: "super_admin",
   acceptTerms: true
 }
 
---- HEALTHCARD ADMIN REGISTRATION ---
+--- HEALTHCARE ADMIN TEMPLATE (Health Card Processing - NEW Cards) ---
 {
   firstName: "Healthcard",
   lastName: "Administrator",
   email: "healthcard.admin@gmail.com",
-  password: "HealthCard@2025!",
-  role: "healthcare_admin",
-  adminCategory: "healthcard",
-  acceptTerms: true
+  password: "healthcard.admin@gmail.com",
+  assigned_service_id: 1,  // Service ID: 1 (Health Card Processing - NEW health cards)
+  contact_number: "+63 900 000 0001"
 }
+Note: Use Service ID 1 for admins who handle NEW health card applications
 
---- HIV ADMIN REGISTRATION ---
+--- HEALTHCARE ADMIN TEMPLATE (Health Card Renewal - RENEWALS) ---
+{
+  firstName: "Renewal",
+  lastName: "Administrator",
+  email: "healthcard.renewal@gmail.com",
+  password: "healthcard.renewal@gmail.com",
+  assigned_service_id: 2,  // Service ID: 2 (Health Card Renewal - RENEWALS/REPLACEMENTS)
+  contact_number: "+63 900 000 0002"
+}
+Note: Use Service ID 2 for admins who handle RENEWAL/REPLACEMENT of existing health cards
+
+--- HEALTHCARE ADMIN TEMPLATE (HIV Service) ---
 {
   firstName: "HIV",
   lastName: "Administrator",
   email: "hiv.admin@gmail.com",
-  password: "HIV@2025!",
-  role: "healthcare_admin",
-  adminCategory: "hiv",
-  acceptTerms: true
+  password: "hiv.admin@gmail.com",
+  assigned_service_id: 3,  // Service ID: 3 (HIV Testing & Counseling)
+  contact_number: "+63 900 000 0003"
 }
 
---- PREGNANCY ADMIN REGISTRATION ---
+--- HEALTHCARE ADMIN TEMPLATE (Pregnancy Service) ---
 {
   firstName: "Pregnancy",
   lastName: "Administrator",
   email: "pregnancy.admin@gmail.com",
-  password: "Pregnancy@2025!",
-  role: "healthcare_admin",
-  adminCategory: "pregnancy",
-  acceptTerms: true
+  password: "pregnancy.admin@gmail.com",
+  assigned_service_id: 4,  // Service ID: 4 (Prenatal Checkup)
+  contact_number: "+63 900 000 0004"
 }
 
---- GENERAL ADMIN REGISTRATION ---
-{
-  firstName: "General",
-  lastName: "Administrator",
-  email: "general.admin@gmail.com",
-  password: "General@2025!",
-  role: "healthcare_admin",
-  adminCategory: "general_admin",
-  acceptTerms: true
-}
-
---- LABORATORY ADMIN REGISTRATION ---
+--- HEALTHCARE ADMIN TEMPLATE (Laboratory Service) ---
 {
   firstName: "Laboratory",
   lastName: "Administrator",
   email: "lab.admin@gmail.com",
-  password: "Laboratory@2025!",
-  role: "healthcare_admin",
-  adminCategory: "laboratory",
-  acceptTerms: true
+  password: "lab.admin@gmail.com",
+  assigned_service_id: 7,  // Service ID: 7 (Basic Laboratory Tests)
+  contact_number: "+63 900 000 0005"
 }
 
---- IMMUNIZATION ADMIN REGISTRATION ---
+--- HEALTHCARE ADMIN TEMPLATE (Immunization Service - Children) ---
 {
   firstName: "Immunization",
   lastName: "Administrator",
   email: "immunization.admin@gmail.com",
-  password: "Immunization@2025!",
-  role: "healthcare_admin",
-  adminCategory: "immunization",
-  acceptTerms: true
+  password: "immunization.admin@gmail.com",
+  assigned_service_id: 5,  // Service ID: 5 (Child Immunization)
+  contact_number: "+63 900 000 0006"
 }
 
---- DOCTOR 1 REGISTRATION (General Practitioner) ---
+--- HEALTHCARE ADMIN TEMPLATE (Immunization Service - Adults) ---
+{
+  firstName: "Vaccination",
+  lastName: "Administrator",
+  email: "vaccination.admin@gmail.com",
+  password: "vaccination.admin@gmail.com",
+  assigned_service_id: 6,  // Service ID: 6 (Adult Vaccination)
+  contact_number: "+63 900 000 0007"
+}
+
+--- STAFF TEMPLATE (Disease Surveillance) ---
+{
+  firstName: "Disease",
+  lastName: "Surveillance",
+  email: "staff.diseases@gmail.com",
+  password: "staff.diseases@gmail.com",
+  contact_number: "+63 900 000 0010"
+}
+
+Note: Staff members do NOT have assigned_service_id.
+      They handle ALL diseases for surveillance purposes.
+
+--- DOCTOR TEMPLATE ---
 {
   firstName: "Juan",
   lastName: "Santos",
   email: "dr.santos@gmail.com",
-  password: "Doctor@2025!",
-  role: "doctor",
+  password: "dr.santos@gmail.com",
   specialization: "General Practitioner",
-  licenseNumber: "PRC-123456789",
-  acceptTerms: true
+  licenseNumber: "PRC-123456789"
 }
 
---- DOCTOR 2 REGISTRATION (Pediatrician) ---
-{
-  firstName: "Maria",
-  lastName: "Reyes",
-  email: "dr.reyes@gmail.com",
-  password: "Doctor@2025!",
-  role: "doctor",
-  specialization: "Pediatrician",
-  licenseNumber: "PRC-987654321",
-  acceptTerms: true
-}
-
---- DOCTOR 3 REGISTRATION (Cardiologist) ---
-{
-  firstName: "Carlos",
-  lastName: "Mendoza",
-  email: "dr.mendoza@gmail.com",
-  password: "Doctor@2025!",
-  role: "doctor",
-  specialization: "Cardiologist",
-  licenseNumber: "PRC-DOC-003",
-  acceptTerms: true
-}
-
---- DOCTOR 4 REGISTRATION (OB-GYN) ---
-{
-  firstName: "Ana",
-  lastName: "Cruz",
-  email: "dr.cruz@gmail.com",
-  password: "Doctor@2025!",
-  role: "doctor",
-  specialization: "Obstetrician-Gynecologist",
-  licenseNumber: "PRC-DOC-004",
-  acceptTerms: true
-}
-
---- DOCTOR 5 REGISTRATION (Internal Medicine) ---
-{
-  firstName: "Ramon",
-  lastName: "Bautista",
-  email: "dr.bautista@gmail.com",
-  password: "Doctor@2025!",
-  role: "doctor",
-  specialization: "Internal Medicine",
-  licenseNumber: "PRC-DOC-005",
-  acceptTerms: true
-}
-
---- PATIENT 1 REGISTRATION (Active - Can Book) ---
+--- PATIENT TEMPLATE ---
 {
   firstName: "Juan",
   lastName: "Dela Cruz",
   email: "juan.delacruz@gmail.com",
-  password: "Patient@2025!",
-  role: "patient",
-  barangayId: 1,
+  password: "juan.delacruz@gmail.com",
+  barangayId: 1,  // San Nicolas
   dateOfBirth: "1990-01-15",
   gender: "male",
   contactNumber: "+63 912 345 6789",
@@ -415,161 +362,112 @@ REGISTRATION EXAMPLES
     name: "Maria Dela Cruz",
     phone: "+63 912 999 9999",
     email: "maria@email.com"
-  },
-  acceptTerms: true
-}
-
---- PATIENT 2 REGISTRATION (Pending - For Approval Testing) ---
-{
-  firstName: "Maria",
-  lastName: "Santos",
-  email: "maria.santos@gmail.com",
-  password: "Patient@2025!",
-  role: "patient",
-  barangayId: 2,
-  dateOfBirth: "1995-03-20",
-  gender: "female",
-  contactNumber: "+63 923 456 7890",
-  emergencyContact: {
-    name: "Jose Santos",
-    phone: "+63 923 888 8888",
-    email: "jose@email.com"
-  },
-  acceptTerms: true
-}
-
---- PATIENT 3 REGISTRATION (Active - With History) ---
-{
-  firstName: "Pedro",
-  lastName: "Gonzales",
-  email: "pedro.gonzales@gmail.com",
-  password: "Patient@2025!",
-  role: "patient",
-  barangayId: 3,
-  dateOfBirth: "1988-07-10",
-  gender: "male",
-  contactNumber: "+63 934 567 8901",
-  emergencyContact: {
-    name: "Ana Gonzales",
-    phone: "+63 934 777 7777",
-    email: "ana@email.com"
-  },
-  acceptTerms: true
-}
-
---- PATIENT 4 REGISTRATION (Active - Prenatal Services) ---
-{
-  firstName: "Rosa",
-  lastName: "Mendoza",
-  email: "rosa.mendoza@gmail.com",
-  password: "Patient@2025!",
-  role: "patient",
-  barangayId: 4,
-  dateOfBirth: "1992-12-05",
-  gender: "female",
-  contactNumber: "+63 945 678 9012",
-  emergencyContact: {
-    name: "Carlos Mendoza",
-    phone: "+63 945 666 6666",
-    email: "carlos@email.com"
-  },
-  acceptTerms: true
+  }
 }
 
 ========================================
 TESTING WORKFLOWS
 ========================================
 
-1. PATIENT APPROVAL:
-   → Register: maria.santos@gmail.com
-   → Login as any Healthcare Admin
-   → Approve pending patient
-   → Login as maria.santos@gmail.com
-   → Book appointment
+1. CREATE HEALTHCARE ADMIN:
+   → Login as Super Admin (admin@gmail.com or super.admin@gmail.com)
+   → Navigate to /admin/users
+   → Click "Super Admins | Healthcare Admins | Staff" tabs
+   → Create Healthcare Admin tab → Click "Create Healthcare Admin"
+   → Fill form with service assignment (REQUIRED)
+   → Verify admin can only see their service appointments
 
-2. APPOINTMENT BOOKING:
-   → Login: juan.delacruz@gmail.com
-   → Navigate to "Book Appointment"
-   → Select service (7+ days from today)
-   → Choose date and time
-   → Receive queue number
+2. CREATE STAFF:
+   → Login as Super Admin
+   → Navigate to /admin/users → Staff tab
+   → Click "Create Staff"
+   → Fill form (no service assignment needed)
+   → Login as staff → Navigate to /staff/dashboard
+   → Enter disease data for surveillance
 
-3. WALK-IN REGISTRATION:
-   → Login: general.admin@gmail.com
-   → Navigate to "Add Patient"
-   → Register walk-in (no user account)
-   → Auto-generate booking number
+3. SERVICE-BASED ACCESS:
+   → Create Healthcare Admin with Service ID 1 (Health Card)
+   → Login as that admin
+   → Dashboard should show ONLY Health Card appointments
+   → Cannot access HIV, Pregnancy, or other service appointments
 
-4. DOCTOR CONSULTATION:
-   → Login: dr.santos@gmail.com
-   → View today's queue
-   → Check-in patient
-   → Create medical record
-   → Complete appointment
-
-5. DISEASE SURVEILLANCE:
-   → Login: admin@gmail.com
-   → View heatmap (42 barangays)
-   → Filter by disease type
-   → Check risk levels
-
-6. FEEDBACK SUBMISSION:
-   → Complete appointment as patient
-   → Submit feedback (7-day window)
-   → Login as Super Admin to view
-
-7. ANNOUNCEMENTS:
-   → Login as Healthcare Admin
-   → Create announcement
-   → Set target audience
-   → View on patient dashboard
+4. DISEASE SURVEILLANCE:
+   → Login as Staff member
+   → Navigate to /staff/diseases
+   → Enter disease record (any disease type)
+   → View on /staff/analytics heatmap
+   → Super Admin can also view at /admin/disease-surveillance
 
 ========================================
-FIELD MAPPING REFERENCE
+ROLE STRING VALUES (For Database)
 ========================================
 
-SUPER ADMIN FIELDS:
-- firstName: Text input
-- lastName: Text input
-- email: Email input
-- password: Password input (min 8 chars)
-- role: Select "Super Admin"
-- acceptTerms: Checkbox (required)
+ROLES (user_role enum):
+- super_admin
+- healthcare_admin
+- staff  (NEW - added Dec 4, 2025)
+- doctor (DEPRECATED but kept for compatibility)
+- patient
 
-HEALTHCARE ADMIN FIELDS:
-- firstName: Text input
-- lastName: Text input
-- email: Email input
-- password: Password input (min 8 chars)
-- role: Select "Healthcare Admin"
-- adminCategory: Select (healthcard/hiv/pregnancy/general_admin/laboratory)
-- acceptTerms: Checkbox (required)
+ADMIN CATEGORIES (DEPRECATED - use assigned_service_id instead):
+- healthcard (legacy)
+- hiv (legacy)
+- pregnancy (legacy)
+- laboratory (legacy)
+- immunization (legacy)
+- general_admin (REMOVED - Dec 4, 2025)
 
-DOCTOR FIELDS:
-- firstName: Text input
-- lastName: Text input
-- email: Email input
-- password: Password input (min 8 chars)
-- role: Select "Doctor"
-- specialization: Text input
-- licenseNumber: Text input
-- acceptTerms: Checkbox (required)
+SERVICE CATEGORIES (from services table):
+- healthcard
+- hiv
+- pregnancy
+- immunization
+- laboratory
+- general
 
-PATIENT FIELDS:
-- firstName: Text input
-- lastName: Text input
-- email: Email input
-- password: Password input (min 8 chars)
-- confirmPassword: Password input (must match)
-- role: Select "Patient" (default)
-- barangayId: Select dropdown (1-42)
-- dateOfBirth: Date picker (YYYY-MM-DD)
-- gender: Select (male/female/other)
-- contactNumber: Phone input (+63 format)
-- emergencyContact.name: Text input
-- emergencyContact.phone: Phone input
-- emergencyContact.email: Email input (optional)
-- acceptTerms: Checkbox (required)
+GENDER OPTIONS:
+- male
+- female
+- other
+
+STATUS OPTIONS:
+- pending (patients awaiting approval)
+- active (approved users)
+- inactive (disabled accounts)
+- rejected (rejected patients)
+- suspended (temporarily disabled)
+
+========================================
+PASSWORD REQUIREMENTS
+========================================
+
+All passwords must contain:
+✓ Minimum 8 characters
+✓ At least one uppercase letter
+✓ At least one lowercase letter
+✓ At least one number
+✓ At least one special character
+
+💡 RECOMMENDED: Use email as password for easy testing!
+
+All test accounts in this file now use email = password pattern:
+- Email: healthcard.admin@test.com → Password: healthcard.admin@test.com
+- Email: hiv.admin@test.com → Password: hiv.admin@test.com
+- Email: staff.diseases@test.com → Password: staff.diseases@test.com
+
+This makes it super easy to remember credentials during development!
+
+Alternative Pattern (if you prefer): [Role]@2025!
+Examples:
+- Admin@2025!        (Super Admin)
+- HealthCard@2025!   (Healthcard Admin)
+- HIV@2025!          (HIV Admin)
+- Pregnancy@2025!    (Pregnancy Admin)
+- Laboratory@2025!   (Laboratory Admin)
+- Immunization@2025! (Immunization Admin)
+- Staff@2025!        (Staff)
+- Doctor@2025!       (Doctors)
+- Patient@2025!      (Patients)
 
 ========================================
 BARANGAY REFERENCE (First 10 of 42)
@@ -589,32 +487,15 @@ BARANGAY REFERENCE (First 10 of 42)
 Note: Total 42 barangays + "Outside Zone" option available
 
 ========================================
-PASSWORD REQUIREMENTS
+IMPORTANT NOTES & CHANGES
 ========================================
 
-All passwords must contain:
-✓ Minimum 8 characters
-✓ At least one uppercase letter
-✓ At least one lowercase letter
-✓ At least one number
-✓ At least one special character
-
-Test Password Pattern: [Role]@2025!
-
-Examples:
-- Admin@2025!        (Super Admin)
-- HealthCard@2025!   (Healthcard Admin)
-- HIV@2025!          (HIV Admin)
-- Pregnancy@2025!    (Pregnancy Admin)
-- General@2025!      (General Admin)
-- Laboratory@2025!   (Laboratory Admin)
-- Immunization@2025! (Immunization Admin)
-- Doctor@2025!       (Doctors)
-- Patient@2025!      (Patients)
-
-========================================
-IMPORTANT NOTES
-========================================
+⚠️  SYSTEM RESTRUCTURING (December 4-5, 2025):
+   - Removed general_admin role
+   - Added staff role for disease surveillance
+   - Healthcare admins now use assigned_service_id instead of admin_category
+   - All previous test accounts deleted (except 2 user accounts)
+   - Service-based access control implemented
 
 ⚠️  DEVELOPMENT ONLY - Do not use in production
 ⚠️  Change all passwords before deployment
@@ -623,94 +504,115 @@ IMPORTANT NOTES
 ⚠️  Enable audit logging for sensitive access
 
 ========================================
-ROLE STRING VALUES (For Supabase)
-========================================
-
-ROLES:
-- super_admin
-- healthcare_admin
-- doctor
-- patient
-
-ADMIN CATEGORIES (for healthcare_admin only):
-- healthcard
-- hiv
-- pregnancy
-- general_admin
-- laboratory
-- immunization
-
-GENDER OPTIONS:
-- male
-- female
-- other
-
-========================================
-COPY-PASTE READY CREDENTIALS
+DASHBOARD ACCESS ROUTES
 ========================================
 
 SUPER ADMIN:
-Email: admin@gmail.com
-Password: Admin@2025!
+- Dashboard: /admin/dashboard
+- User Management: /admin/users (Super Admins | Healthcare Admins | Staff tabs)
+- Patients: /admin/patients
+- Appointments: /admin/appointments
+- Disease Surveillance: /admin/disease-surveillance
+- Feedback: /admin/feedback
+- Reports: /admin/reports
+- Barangays: /admin/barangays
 
-HEALTHCARD ADMIN:
-Email: healthcard.admin@gmail.com
-Password: HealthCard@2025!
+HEALTHCARE ADMIN:
+- Dashboard: /healthcare-admin/dashboard (service-filtered)
+- Patients: /healthcare-admin/patients (service-filtered)
+- Appointments: /healthcare-admin/appointments (service-filtered)
+- Announcements: /healthcare-admin/announcements
 
-HIV ADMIN:
-Email: hiv.admin@gmail.com
-Password: HIV@2025!
+STAFF:
+- Dashboard: /staff/dashboard
+- Disease Surveillance: /staff/disease-surveillance
+- Reports: /staff/reports
+- Analytics: /staff/analytics
 
-PREGNANCY ADMIN:
-Email: pregnancy.admin@gmail.com
-Password: Pregnancy@2025!
+DOCTOR:
+- Dashboard: /doctor/dashboard
+- Appointments: /doctor/appointments
+- Medical Records: /doctor/medical-records
+- Patients: /doctor/patients
 
-GENERAL ADMIN:
-Email: general.admin@gmail.com
-Password: General@2025!
-
-LABORATORY ADMIN:
-Email: lab.admin@gmail.com
-Password: Laboratory@2025!
-
-IMMUNIZATION ADMIN:
-Email: immunization.admin@gmail.com
-Password: Immunization@2025!
-
-DOCTOR 1 (GP):
-Email: dr.santos@gmail.com
-Password: Doctor@2025!
-
-DOCTOR 2 (Pediatrician):
-Email: dr.reyes@gmail.com
-Password: Doctor@2025!
-
-DOCTOR 3 (Cardiologist):
-Email: dr.mendoza@gmail.com
-Password: Doctor@2025!
-
-DOCTOR 4 (OB-GYN):
-Email: dr.cruz@gmail.com
-Password: Doctor@2025!
-
-DOCTOR 5 (Internal Medicine):
-Email: dr.bautista@gmail.com
-Password: Doctor@2025!
-
-PATIENT 1 (Active):
-Email: juan.delacruz@gmail.com
-Password: Patient@2025!
-
-PATIENT 2 (Pending):
-Email: maria.santos@gmail.com
-Password: Patient@2025!
-
-PATIENT 3 (Active):
-Email: pedro.gonzales@gmail.com
-Password: Patient@2025!
-
-PATIENT 4 (Active):
-Email: rosa.mendoza@gmail.com
-Password: Patient@2025!
+PATIENT:
+- Dashboard: /patient/dashboard
+- Book Appointment: /patient/book-appointment
+- My Appointments: /patient/appointments
+- My Health Card: /patient/health-card
+- Medical Records: /patient/medical-records
+- Feedback: /patient/feedback
+- Notifications: /patient/notifications
+- Profile: /patient/profile
 
 ========================================
+⚡ COPY-PASTE READY CREDENTIALS ⚡
+========================================
+
+--- SUPER ADMIN ---
+Email: super.admin@gmail.com
+Password: super.admin@gmail.com
+
+--- HEALTHCARE ADMINS (Create via /admin/users) ---
+
+Health Card Processing Admin (Service ID: 1):
+Email: healthcard.admin@test.com
+Password: healthcard.admin@test.com
+Service: 1 - Health Card Processing (NEW cards)
+
+Health Card Renewal Admin (Service ID: 2):
+Email: healthcard.renewal@test.com
+Password: healthcard.renewal@test.com
+Service: 2 - Health Card Renewal (RENEWALS)
+
+HIV Service Admin (Service ID: 3):
+Email: hiv.admin@test.com
+Password: hiv.admin@test.com
+Service: 3 - HIV Testing & Counseling
+
+Pregnancy Service Admin (Service ID: 4):
+Email: pregnancy.admin@test.com
+Password: pregnancy.admin@test.com
+Service: 4 - Prenatal Checkup
+
+Laboratory Admin (Service ID: 7):
+Email: lab.admin@test.com
+Password: lab.admin@test.com
+Service: 7 - Basic Laboratory Tests
+
+Immunization Admin (Service ID: 5):
+Email: immunization.admin@test.com
+Password: immunization.admin@test.com
+Service: 5 - Child Immunization
+
+--- STAFF (Create via /admin/users → Staff tab) ---
+
+Staff Member 1:
+Email: staff.diseases@test.com
+Password: staff.diseases@test.com
+
+Staff Member 2:
+Email: staff.surveillance@test.com
+Password: staff.surveillance@test.com
+
+========================================
+🔑 QUICK LOGIN GUIDE
+========================================
+
+1. Login as Super Admin (super.admin@gmail.com / super.admin@gmail.com)
+2. Go to /admin/users
+3. Click "Healthcare Admins" tab → "Create Healthcare Admin"
+4. Copy/paste account details from above
+5. Select Assigned Service ID from dropdown
+6. Submit to create account
+
+For Staff:
+1. Click "Staff" tab → "Create Staff"
+2. Copy/paste staff account details
+3. NO service assignment needed
+4. Submit to create account
+
+Then login with the created credentials to test!
+
+========================================
+

@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { DashboardLayout } from '@/components/dashboard';
 import { Container } from '@/components/ui';
 import HealthCardDisplay from '@/components/health-card/HealthCardDisplay';
-import { Heart, Loader2, AlertCircle, Clock } from 'lucide-react';
+import { Heart, Loader2, AlertCircle } from 'lucide-react';
 
 interface HealthCardData {
   id: string;
@@ -37,7 +37,6 @@ export default function PatientHealthCardPage() {
   const [healthCard, setHealthCard] = useState<HealthCardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [isPending, setIsPending] = useState(false);
 
   useEffect(() => {
     loadHealthCard();
@@ -59,30 +58,8 @@ export default function PatientHealthCardPage() {
       });
 
       if (!response.ok) {
-        if (response.status === 404) {
-          console.log('[HEALTH CARD PAGE] 404 response, checking if pending...');
-          // Check if account is pending approval
-          const profileResponse = await fetch('/api/profile');
-          const profileData = await profileResponse.json();
-
-          console.log('[HEALTH CARD PAGE] Profile check:', {
-            status: profileResponse.status,
-            profileData
-          });
-
-          if (profileResponse.ok) {
-            if (profileData.data?.status === 'pending') {
-              console.log('[HEALTH CARD PAGE] Account is pending approval');
-              setIsPending(true);
-              return;
-            }
-          }
-          console.error('[HEALTH CARD PAGE] Health card not found:', data);
-          setError(data.message || 'Health card not found');
-        } else {
-          console.error('[HEALTH CARD PAGE] API error:', data);
-          setError(data.error || 'Failed to load health card');
-        }
+        console.error('[HEALTH CARD PAGE] API error:', data);
+        setError(data.error || data.message || 'Failed to load health card');
         return;
       }
 
@@ -110,27 +87,6 @@ export default function PatientHealthCardPage() {
             <div className="flex flex-col items-center justify-center py-12">
               <Loader2 className="w-12 h-12 text-blue-600 animate-spin mb-4" />
               <p className="text-gray-600">Loading your health card...</p>
-            </div>
-          </div>
-        ) : isPending ? (
-          <div className="bg-white rounded-lg shadow p-8">
-            <div className="flex flex-col items-center justify-center py-12">
-              <Clock className="w-16 h-16 text-amber-600 mx-auto mb-4" />
-              <h2 className="text-2xl font-bold text-gray-900 mb-2">Account Pending Approval</h2>
-              <p className="text-gray-600 text-center max-w-md">
-                Your account is currently pending approval by a health administrator.
-                Your digital health card will be automatically generated once your account is approved.
-              </p>
-              <div className="mt-6 bg-amber-50 border border-amber-200 rounded-lg p-4 max-w-md">
-                <p className="text-sm text-amber-800">
-                  <strong>What happens next:</strong>
-                </p>
-                <ul className="mt-2 text-sm text-amber-700 space-y-1">
-                  <li>• An administrator will review your registration</li>
-                  <li>• You'll receive a notification when approved</li>
-                  <li>• Your health card will be ready immediately after approval</li>
-                </ul>
-              </div>
             </div>
           </div>
         ) : error ? (

@@ -2,7 +2,6 @@ import { createClient } from '@/lib/supabase/server';
 
 export type NotificationType =
   | 'appointment_reminder'
-  | 'approval'
   | 'cancellation'
   | 'feedback_request'
   | 'general';
@@ -70,48 +69,6 @@ export async function createNotification(
       error: error instanceof Error ? error.message : 'Unknown error',
     };
   }
-}
-
-/**
- * Creates a patient approval notification with translation support
- */
-export async function createApprovalNotification(
-  patientId: string,
-  patientName: string,
-  approverName: string
-): Promise<{ success: boolean; error?: string }> {
-  return createNotification({
-    userId: patientId,
-    type: 'approval',
-    title: 'notifications.approval.title', // Translation key
-    message: 'notifications.approval.message', // Translation key
-    link: '/patient/dashboard',
-    data: {
-      patientName,
-      approverName,
-    },
-  });
-}
-
-/**
- * Creates a patient rejection notification with translation support
- */
-export async function createRejectionNotification(
-  patientId: string,
-  patientName: string,
-  reason?: string
-): Promise<{ success: boolean; error?: string }> {
-  return createNotification({
-    userId: patientId,
-    type: 'general',
-    title: 'notifications.rejection.title', // Translation key
-    message: 'notifications.rejection.message', // Translation key
-    link: '/patient/dashboard',
-    data: {
-      patientName,
-      reason: reason || '',
-    },
-  });
 }
 
 /**

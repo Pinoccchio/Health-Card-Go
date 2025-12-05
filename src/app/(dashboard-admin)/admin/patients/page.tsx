@@ -104,9 +104,7 @@ export default function SuperAdminPatientsPage() {
   // Toast notifications
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
 
-  // Approval/Rejection dialog states
-  const [showApproveDialog, setShowApproveDialog] = useState(false);
-  const [showRejectDialog, setShowRejectDialog] = useState(false);
+  // Activate/Deactivate dialog states
   const [showActivateDialog, setShowActivateDialog] = useState(false);
   const [showDeactivateDialog, setShowDeactivateDialog] = useState(false);
   const [pendingAction, setPendingAction] = useState<Patient | null>(null);
@@ -215,68 +213,6 @@ export default function SuperAdminPatientsPage() {
 
     return { total, pending, active, rejected, suspended, inactive };
   }, [filteredPatients, totalRecords]);
-
-  const handleApprove = async () => {
-    if (!pendingAction) return;
-
-    try {
-      setActionLoading(true);
-      const response = await fetch(`/api/admin/patients/${pendingAction.id}/approve`, {
-        method: 'POST',
-      });
-
-      const result = await response.json();
-
-      if (!response.ok) {
-        throw new Error(result.error || 'Failed to approve patient');
-      }
-
-      showToast('Patient approved successfully! Health card generated.', 'success');
-
-      await fetchPatients();
-      setIsDrawerOpen(false);
-      setShowApproveDialog(false);
-      setPendingAction(null);
-    } catch (err) {
-      console.error('[SUPER ADMIN PATIENTS] Error approving patient:', err);
-      showToast(err instanceof Error ? err.message : 'Failed to approve patient', 'error');
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
-  const handleReject = async (reason: string) => {
-    if (!pendingAction || !reason.trim()) return;
-
-    try {
-      setActionLoading(true);
-      const response = await fetch(`/api/admin/patients/${pendingAction.id}/reject`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ reason: reason.trim() }),
-      });
-
-      const result = await response.json();
-
-      if (!response.ok) {
-        throw new Error(result.error || 'Failed to reject patient');
-      }
-
-      showToast('Patient rejected successfully', 'success');
-
-      await fetchPatients();
-      setIsDrawerOpen(false);
-      setShowRejectDialog(false);
-      setPendingAction(null);
-    } catch (err) {
-      console.error('[SUPER ADMIN PATIENTS] Error rejecting patient:', err);
-      showToast(err instanceof Error ? err.message : 'Failed to reject patient', 'error');
-    } finally {
-      setActionLoading(false);
-    }
-  };
 
   const handleActivate = async () => {
     if (!pendingAction) return;
@@ -394,16 +330,6 @@ export default function SuperAdminPatientsPage() {
       emergency_contact: patient.emergency_contact,
     });
     setIsDrawerOpen(true);
-  };
-
-  const handleApproveClick = (patient: Patient) => {
-    setPendingAction(patient);
-    setShowApproveDialog(true);
-  };
-
-  const handleRejectClick = (patient: Patient) => {
-    setPendingAction(patient);
-    setShowRejectDialog(true);
   };
 
   const handleActivateClick = (patient: Patient) => {
@@ -1085,28 +1011,6 @@ export default function SuperAdminPatientsPage() {
                 {/* Action Buttons */}
                 {!isEditMode && (
                   <div className="mt-6 pt-6 border-t border-gray-200 space-y-3">
-                    {/* Approval buttons hidden for auto-approval (Task 1.2) */}
-                    {/* Note: With auto-approval, patients are never 'pending' */}
-                    {false && selectedPatient.status === 'pending' && (
-                      <div className="flex gap-3">
-                        {/* Approve button hidden - auto-approval implemented */}
-                        {/* <button
-                          onClick={() => handleApproveClick(selectedPatient)}
-                          className="flex-1 inline-flex justify-center items-center px-4 py-2.5 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors"
-                        >
-                          <CheckCircle className="w-4 h-4 mr-2" />
-                          Approve Patient
-                        </button> */}
-                        <button
-                          onClick={() => handleRejectClick(selectedPatient)}
-                          className="flex-1 inline-flex justify-center items-center px-4 py-2.5 border border-transparent text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors"
-                        >
-                          <XCircle className="w-4 h-4 mr-2" />
-                          Reject Patient
-                        </button>
-                      </div>
-                    )}
-
                     {/* Activate/Deactivate Buttons */}
                     {(selectedPatient.status === 'inactive' || selectedPatient.status === 'suspended') && (
                       <button
@@ -1133,40 +1037,6 @@ export default function SuperAdminPatientsPage() {
             </div>
           )}
         </Drawer>
-
-        {/* Approval Confirmation Dialog */}
-        <ConfirmDialog
-          isOpen={showApproveDialog}
-          onClose={() => {
-            setShowApproveDialog(false);
-            setPendingAction(null);
-          }}
-          onConfirm={handleApprove}
-          title="Approve Patient Registration"
-          message={`Are you sure you want to approve ${pendingAction?.first_name} ${pendingAction?.last_name}? This will:\n\n• Activate their patient account\n• Generate a health card with QR code\n• Send them an approval notification\n• Allow them to book appointments`}
-          confirmText="Approve Patient"
-          variant="info"
-          isLoading={actionLoading}
-        />
-
-        {/* Rejection Dialog with Reason */}
-        <ConfirmDialog
-          isOpen={showRejectDialog}
-          onClose={() => {
-            setShowRejectDialog(false);
-            setPendingAction(null);
-          }}
-          onConfirm={handleReject}
-          title="Reject Patient Registration"
-          message={`Rejecting ${pendingAction?.first_name} ${pendingAction?.last_name}'s registration. Please provide a reason:`}
-          confirmText="Reject Patient"
-          variant="danger"
-          isLoading={actionLoading}
-          showReasonInput={true}
-          isReasonRequired={true}
-          reasonLabel="Rejection Reason"
-          reasonPlaceholder="e.g., Incomplete information, Invalid documents, etc."
-        />
 
         {/* Activate Confirmation Dialog */}
         <ConfirmDialog

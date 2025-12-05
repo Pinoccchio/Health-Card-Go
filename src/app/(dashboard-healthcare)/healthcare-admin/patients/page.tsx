@@ -86,9 +86,7 @@ export default function HealthcareAdminPatientsPage() {
   // Toast notifications
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
 
-  // Approval/Rejection dialog states
-  const [showApproveDialog, setShowApproveDialog] = useState(false);
-  const [showRejectDialog, setShowRejectDialog] = useState(false);
+  // Action dialog state
   const [pendingAction, setPendingAction] = useState<Patient | null>(null);
 
   // Reset to page 1 when filter changes
@@ -182,83 +180,9 @@ export default function HealthcareAdminPatientsPage() {
     return { total, pending, active, rejected, suspended, inactive };
   }, [patients, totalRecords]);
 
-  const handleApprove = async () => {
-    if (!pendingAction) return;
-
-    try {
-      setActionLoading(true);
-      const response = await fetch(`/api/admin/patients/${pendingAction.id}/approve`, {
-        method: 'POST',
-      });
-
-      const result = await response.json();
-
-      if (!response.ok) {
-        throw new Error(result.error || 'Failed to approve patient');
-      }
-
-      showToast('Patient approved successfully! Health card generated.', 'success');
-
-      // Refresh the list
-      await fetchPatients();
-      setIsDrawerOpen(false);
-      setShowApproveDialog(false);
-      setPendingAction(null);
-    } catch (err) {
-      console.error('Error approving patient:', err);
-      showToast(err instanceof Error ? err.message : 'Failed to approve patient', 'error');
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
-  const handleReject = async (reason: string) => {
-    if (!pendingAction || !reason.trim()) return;
-
-    try {
-      setActionLoading(true);
-      const response = await fetch(`/api/admin/patients/${pendingAction.id}/reject`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ reason: reason.trim() }),
-      });
-
-      const result = await response.json();
-
-      if (!response.ok) {
-        throw new Error(result.error || 'Failed to reject patient');
-      }
-
-      showToast('Patient rejected successfully', 'success');
-
-      // Refresh the list
-      await fetchPatients();
-      setIsDrawerOpen(false);
-      setShowRejectDialog(false);
-      setPendingAction(null);
-    } catch (err) {
-      console.error('Error rejecting patient:', err);
-      showToast(err instanceof Error ? err.message : 'Failed to reject patient', 'error');
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
   const openPatientDrawer = (patient: Patient) => {
     setSelectedPatient(patient);
     setIsDrawerOpen(true);
-  };
-
-  const handleApproveClick = (patient: Patient) => {
-    setPendingAction(patient);
-    setShowApproveDialog(true);
-  };
-
-  const handleRejectClick = (patient: Patient) => {
-    setPendingAction(patient);
-    setShowRejectDialog(true);
   };
 
   // CSV Export
@@ -749,68 +673,11 @@ export default function HealthcareAdminPatientsPage() {
                 ) : null;
               })()}
 
-              {/* Action Buttons - Hidden for auto-approval (Task 1.2) */}
-              {/* Note: With auto-approval, patients are never 'pending', so this won't show */}
-              {/* Keeping code for reference in case manual approval is needed in future */}
-              {false && selectedPatient.status === 'pending' && (
-                <div className="mt-6 pt-6 border-t border-gray-200 space-y-3">
-                  <div className="flex gap-3">
-                    {/* Approve button hidden - auto-approval implemented */}
-                    {/* <button
-                      onClick={() => handleApproveClick(selectedPatient)}
-                      className="flex-1 inline-flex justify-center items-center px-4 py-2.5 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors"
-                    >
-                      <CheckCircle className="w-4 h-4 mr-2" />
-                      Approve Patient
-                    </button> */}
-                    <button
-                      onClick={() => handleRejectClick(selectedPatient)}
-                      className="flex-1 inline-flex justify-center items-center px-4 py-2.5 border border-transparent text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors"
-                    >
-                      <XCircle className="w-4 h-4 mr-2" />
-                      Reject Patient
-                    </button>
-                  </div>
-                </div>
-              )}
               </div>
             </div>
           )}
         </Drawer>
 
-        {/* Approval Confirmation Dialog */}
-        <ConfirmDialog
-          isOpen={showApproveDialog}
-          onClose={() => {
-            setShowApproveDialog(false);
-            setPendingAction(null);
-          }}
-          onConfirm={handleApprove}
-          title="Approve Patient Registration"
-          message={`Are you sure you want to approve ${pendingAction?.first_name} ${pendingAction?.last_name}? This will:\n\n• Activate their patient account\n• Generate a health card with QR code\n• Send them an approval notification\n• Allow them to book appointments`}
-          confirmText="Approve Patient"
-          variant="info"
-          isLoading={actionLoading}
-        />
-
-        {/* Rejection Dialog with Reason */}
-        <ConfirmDialog
-          isOpen={showRejectDialog}
-          onClose={() => {
-            setShowRejectDialog(false);
-            setPendingAction(null);
-          }}
-          onConfirm={handleReject}
-          title="Reject Patient Registration"
-          message={`Rejecting ${pendingAction?.first_name} ${pendingAction?.last_name}'s registration. Please provide a reason:`}
-          confirmText="Reject Patient"
-          variant="danger"
-          isLoading={actionLoading}
-          showReasonInput={true}
-          isReasonRequired={true}
-          reasonLabel="Rejection Reason"
-          reasonPlaceholder="e.g., Incomplete information, Invalid documents, etc."
-        />
       </Container>
     </DashboardLayout>
   );

@@ -2,10 +2,14 @@ import { createClient } from '@/lib/supabase/server';
 import { NextResponse } from 'next/server';
 
 /**
- * GET /api/admin/patients/pending
+ * GET /api/admin/staff
  *
- * Fetches all patients with 'pending' status for admin approval.
- * Accessible by Super Admin and Healthcare Admins only.
+ * Fetches all Staff members (disease surveillance).
+ * Accessible by Super Admin only.
+ *
+ * Query params:
+ * - search: search by name or email
+ * - status: filter by status (active, inactive)
  */
 export async function GET(request: Request) {
   try {
@@ -38,55 +42,64 @@ export async function GET(request: Request) {
       );
     }
 
-    // Only super_admin and healthcare_admin can access this endpoint
-    if (profile.role !== 'super_admin' && profile.role !== 'healthcare_admin') {
+    // Only super_admin can access this endpoint
+    if (profile.role !== 'super_admin') {
       return NextResponse.json(
-        { error: 'Forbidden: Only admins can access this resource' },
+        { error: 'Forbidden: Only Super Admin can access this resource' },
         { status: 403 }
       );
     }
 
-    // Fetch pending patients with barangay information
-    const { data: pendingPatients, error: fetchError } = await supabase
+    // Parse query parameters
+    const { searchParams } = new URL(request.url);
+    const search = searchParams.get('search')?.trim() || '';
+    const statusFilter = searchParams.get('status');
+
+    // Build query
+    let query = supabase
       .from('profiles')
       .select(`
         id,
         email,
         first_name,
         last_name,
+        contact_number,
         role,
         status,
-        contact_number,
-        date_of_birth,
-        gender,
-        emergency_contact,
-        created_at,
-        barangay_id,
-        barangays (
-          id,
-          name,
-          code
-        )
+        created_at
       `)
-      .eq('role', 'patient')
-      .eq('status', 'pending')
+      .eq('role', 'staff')
       .order('created_at', { ascending: false });
 
+    // Apply status filter
+    if (statusFilter) {
+      query = query.eq('status', statusFilter);
+    }
+
+    // Apply search filter
+    if (search) {
+      query = query.or(
+        `email.ilike.%${search}%,first_name.ilike.%${search}%,last_name.ilike.%${search}%`
+      );
+    }
+
+    const { data: staff, error: fetchError } = await query;
+
     if (fetchError) {
-      console.error('Error fetching pending patients:', fetchError);
+      console.error('Error fetching Staff:', fetchError);
       return NextResponse.json(
-        { error: 'Failed to fetch pending patients' },
+        { error: 'Failed to fetch Staff members' },
         { status: 500 }
       );
     }
 
     return NextResponse.json({
       success: true,
-      data: pendingPatients || [],
-      count: pendingPatients?.length || 0,
+      data: staff || [],
     });
+
   } catch (error) {
-    console.error('Unexpected error in GET /api/admin/patients/pending:', error);
+    console.error('Unexpected error in GET /api/admin/staff:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

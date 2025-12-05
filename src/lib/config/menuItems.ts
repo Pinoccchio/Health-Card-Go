@@ -36,6 +36,11 @@ export const SUPER_ADMIN_MENU_ITEMS: MenuItem[] = [
     icon: Users,
   },
   {
+    label: 'User Management',
+    href: '/admin/users',
+    icon: UserCircle,
+  },
+  {
     label: 'Disease Surveillance',
     href: '/admin/disease-surveillance',
     icon: Activity,
@@ -159,6 +164,34 @@ export const PATIENT_MENU_ITEMS: MenuItem[] = [
 ];
 
 /**
+ * Menu items for Staff (role_id: 5)
+ * Disease surveillance staff - handles ALL diseases (Measles, Rabies, Malaria, Dengue, etc.)
+ * NO appointment management
+ */
+export const STAFF_MENU_ITEMS: MenuItem[] = [
+  {
+    label: 'Dashboard',
+    href: '/staff/dashboard',
+    icon: LayoutDashboard,
+  },
+  {
+    label: 'Disease Surveillance',
+    href: '/staff/disease-surveillance',
+    icon: Activity,
+  },
+  {
+    label: 'Reports',
+    href: '/staff/reports',
+    icon: FileText,
+  },
+  {
+    label: 'Analytics',
+    href: '/staff/analytics',
+    icon: Activity,
+  },
+];
+
+/**
  * Get human-readable role name from role ID
  */
 export function getRoleName(roleId: RoleId): string {
@@ -167,6 +200,7 @@ export function getRoleName(roleId: RoleId): string {
     2: 'Healthcare Admin',
     3: 'Doctor',
     4: 'Patient',
+    5: 'Staff',
   };
   return roleNames[roleId];
 }
