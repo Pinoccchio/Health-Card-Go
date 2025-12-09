@@ -54,8 +54,8 @@ export function AuthProvider({ children, initialUser }: AuthProviderProps) {
     const roleMap = {
       super_admin: 1,
       healthcare_admin: 2,
-      doctor: 3,
       patient: 4,
+      staff: 5,
     } as const;
 
     return {
@@ -301,9 +301,9 @@ export function AuthProvider({ children, initialUser }: AuthProviderProps) {
         // Determine role
         const roleMap: Record<string, Database['public']['Enums']['user_role']> = {
           patient: 'patient',
-          doctor: 'doctor',
           healthcare_admin: 'healthcare_admin',
           super_admin: 'super_admin',
+          staff: 'staff',
         };
 
         const role = roleMap[data.role] || 'patient';
@@ -319,6 +319,48 @@ export function AuthProvider({ children, initialUser }: AuthProviderProps) {
         console.log('🔐 [AUTH CONTEXT] Waiting 500ms for trigger to create profile...');
         await new Promise(resolve => setTimeout(resolve, 500));
 
+        // Create patient record FIRST if role is patient (before setting status to 'active')
+        // This ensures patient record exists before any triggers fire on status change
+        if (role === 'patient') {
+          console.log('🔐 [AUTH CONTEXT] Creating patient record...');
+
+          // Generate patient number using database function (atomic, thread-safe)
+          const { data: patientNumberData, error: patientNumberError } = await supabase
+            .rpc('generate_patient_number');
+
+          if (patientNumberError || !patientNumberData) {
+            console.error('❌ [AUTH CONTEXT] Failed to generate patient number:', patientNumberError);
+            throw new Error('Failed to generate patient number');
+          }
+
+          const patientNumber = patientNumberData;
+          console.log('🔐 [AUTH CONTEXT] Generated patient number:', patientNumber);
+
+          const { error: patientError } = await supabase
+            .from('patients')
+            .insert({
+              user_id: authData.user.id,
+              patient_number: patientNumber,
+              allergies: data.allergies ? [data.allergies] : null,
+              current_medications: null,
+              medical_history: {
+                blood_type: data.bloodType || null,
+                conditions: data.medicalConditions || null,
+                registration_date: new Date().toISOString(),
+              },
+            });
+
+          if (patientError) {
+            console.error('❌ [AUTH CONTEXT] Patient record creation error:', patientError);
+            console.error('⚠️ [AUTH CONTEXT] Profile created but patient record failed - manual cleanup may be needed');
+            setError('Failed to create patient record: ' + patientError.message);
+            throw new Error('Failed to create patient record: ' + patientError.message);
+          }
+
+          console.log('✅ [AUTH CONTEXT] Patient record created successfully');
+        }
+
+        // Now update profile with role-specific fields and set status to 'active'
         const profileUpdateData = {
           role,
           admin_category: (data.adminCategory ?? null) as any,
@@ -361,46 +403,6 @@ export function AuthProvider({ children, initialUser }: AuthProviderProps) {
         }
 
         console.log('✅ [AUTH CONTEXT] Profile updated successfully');
-
-        // Create patient record if role is patient
-        if (role === 'patient') {
-          console.log('🔐 [AUTH CONTEXT] Creating patient record...');
-
-          // Generate patient number using database function (atomic, thread-safe)
-          const { data: patientNumberData, error: patientNumberError } = await supabase
-            .rpc('generate_patient_number');
-
-          if (patientNumberError || !patientNumberData) {
-            console.error('❌ [AUTH CONTEXT] Failed to generate patient number:', patientNumberError);
-            throw new Error('Failed to generate patient number');
-          }
-
-          const patientNumber = patientNumberData;
-          console.log('🔐 [AUTH CONTEXT] Generated patient number:', patientNumber);
-
-          const { error: patientError } = await supabase
-            .from('patients')
-            .insert({
-              user_id: authData.user.id,
-              patient_number: patientNumber,
-              allergies: data.allergies ? [data.allergies] : null,
-              current_medications: null,
-              medical_history: {
-                blood_type: data.bloodType || null,
-                conditions: data.medicalConditions || null,
-                registration_date: new Date().toISOString(),
-              },
-            });
-
-          if (patientError) {
-            console.error('❌ [AUTH CONTEXT] Patient record creation error:', patientError);
-            console.error('⚠️ [AUTH CONTEXT] Profile exists but patient record failed - manual cleanup may be needed');
-            setError('Failed to create patient record: ' + patientError.message);
-            throw new Error('Failed to create patient record: ' + patientError.message);
-          }
-
-          console.log('✅ [AUTH CONTEXT] Patient record created successfully');
-        }
 
         // Wait to ensure database transaction is committed (matches JobSync pattern)
         console.log('⏳ [AUTH CONTEXT] Waiting 1000ms for database commit...');

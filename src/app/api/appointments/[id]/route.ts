@@ -466,25 +466,34 @@ export async function PATCH(
       } else if (status === 'completed') {
         updateData.completed_at = new Date().toISOString();
 
-        // BACKEND VALIDATION: Require reason when completing without medical record
-        // Defense-in-depth validation (frontend already validates, but we enforce here too)
-        const { data: existingMedicalRecord } = await supabase
-          .from('medical_records')
-          .select('id')
-          .eq('appointment_id', id)
-          .limit(1);
+        // BACKEND VALIDATION: Check if service requires medical record
+        const { data: appointment } = await supabase
+          .from('appointments')
+          .select('service_id, services(requires_medical_record)')
+          .eq('id', id)
+          .single();
 
-        if (!existingMedicalRecord || existingMedicalRecord.length === 0) {
-          // No medical record exists - reason is REQUIRED
-          if (!reason || reason.trim() === '') {
+        const serviceRequiresMedicalRecord = appointment?.services?.requires_medical_record ?? true;
+
+        if (serviceRequiresMedicalRecord) {
+          // Service requires medical record - check if one exists
+          const { data: existingMedicalRecord } = await supabase
+            .from('medical_records')
+            .select('id')
+            .eq('appointment_id', id)
+            .limit(1);
+
+          if (!existingMedicalRecord || existingMedicalRecord.length === 0) {
+            // Medical record is required but doesn't exist
             return NextResponse.json(
               {
-                error: 'Reason is required when completing appointments without a medical record. Please provide a reason explaining why you are completing without documentation.',
+                error: 'This service requires a medical record before completion. Please create a medical record first, or provide a reason for completing without documentation.',
               },
               { status: 400 }
             );
           }
         }
+        // If service doesn't require medical record, allow completion without medical record
       }
 
       // Assign doctor if in_progress and not already assigned

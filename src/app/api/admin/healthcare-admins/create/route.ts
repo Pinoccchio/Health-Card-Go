@@ -57,22 +57,21 @@ export async function POST(request: Request) {
     } else if (password.length < 8) {
       errors.password = 'Password must be at least 8 characters';
     }
-    if (!assigned_service_id) {
-      errors.assigned_service_id = 'Service assignment is required';
+    // Service assignment is now optional - only validate if provided
+    if (assigned_service_id) {
+      const { data: service, error: serviceError } = await supabase
+        .from('services')
+        .select('id, name')
+        .eq('id', assigned_service_id)
+        .single();
+
+      if (serviceError || !service) {
+        errors.assigned_service_id = 'Invalid service assignment';
+      }
     }
 
     if (Object.keys(errors).length > 0) {
       return NextResponse.json({ error: 'Validation failed', errors }, { status: 400 });
-    }
-
-    const { data: service, error: serviceError } = await supabase
-      .from('services')
-      .select('id, name')
-      .eq('id', assigned_service_id)
-      .single();
-
-    if (serviceError || !service) {
-      return NextResponse.json({ error: 'Invalid service assignment' }, { status: 400 });
     }
 
     const supabaseAdmin = createAdminClient();
@@ -144,7 +143,8 @@ export async function POST(request: Request) {
       );
     }
 
-    console.log(`✅ Healthcare Admin created: ${email} (Service: ${service.name})`);
+    const serviceName = createdAdmin.services?.name || 'No service assigned';
+    console.log(`✅ Healthcare Admin created: ${email} (Service: ${serviceName})`);
 
     return NextResponse.json({
       success: true,

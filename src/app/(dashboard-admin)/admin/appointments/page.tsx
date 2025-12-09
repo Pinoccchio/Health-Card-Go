@@ -42,7 +42,6 @@ interface AdminAppointment {
   appointment_time: string;
   status: 'pending' | 'scheduled' | 'checked_in' | 'in_progress' | 'completed' | 'cancelled' | 'no_show';
   reason?: string;
-  doctor_id?: string;
   service_id: number;
   checked_in_at?: string | null;
   started_at?: string | null;
@@ -71,23 +70,6 @@ interface AdminAppointment {
       };
     };
   };
-  doctors?: {
-    id: string;
-    profiles: {
-      first_name: string;
-      last_name: string;
-      specialization?: string;
-    };
-  };
-}
-
-interface Doctor {
-  id: string;
-  profiles: {
-    first_name: string;
-    last_name: string;
-    specialization?: string;
-  };
 }
 
 // Use centralized status config for consistent colors
@@ -97,13 +79,11 @@ export default function SuperAdminAppointmentsPage() {
   const { user } = useAuth();
   const [appointments, setAppointments] = useState<AdminAppointment[]>([]);
   const [selectedAppointment, setSelectedAppointment] = useState<AdminAppointment | null>(null);
-  const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [filter, setFilter] = useState<'all' | 'pending' | 'scheduled' | 'checked_in' | 'in_progress' | 'completed' | 'cancelled'>('all');
   const [dateFilter, setDateFilter] = useState<string>('all');
   const [serviceFilter, setServiceFilter] = useState<string>('all');
-  const [assigningDoctor, setAssigningDoctor] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState('');
 
   // Pagination state
@@ -115,15 +95,6 @@ export default function SuperAdminAppointmentsPage() {
 
   // Search state
   const [searchQuery, setSearchQuery] = useState('');
-
-  // Doctor assignment state
-  const [showAssignDialog, setShowAssignDialog] = useState(false);
-  const [pendingAssignment, setPendingAssignment] = useState<{
-    appointmentId: string;
-    doctorId: string | null;
-    doctorName: string | null;
-    patientName: string;
-  } | null>(null);
 
   // Status history and reversion states
   const [showHistoryModal, setShowHistoryModal] = useState(false);
@@ -163,7 +134,6 @@ export default function SuperAdminAppointmentsPage() {
   // Fetch appointments when page or filters change
   useEffect(() => {
     fetchAppointments();
-    fetchDoctors();
   }, [currentPage, dateFilter, filter]);
 
   // Fetch last history entries when appointments change
@@ -233,21 +203,6 @@ export default function SuperAdminAppointmentsPage() {
     );
 
     setHasMedicalRecords(records);
-  };
-
-  const fetchDoctors = async () => {
-    try {
-      const response = await fetch('/api/doctors');
-      const data = await response.json();
-
-      if (data.success) {
-        setDoctors(data.data || []);
-      } else {
-        setError('Failed to load doctors list');
-      }
-    } catch (err) {
-      setError('Error loading doctors list');
-    }
   };
 
   const fetchAppointments = async () => {
@@ -381,49 +336,6 @@ export default function SuperAdminAppointmentsPage() {
     );
   };
 
-  const handleAssignDoctor = async (appointmentId: string, doctorId: string | null) => {
-    setAssigningDoctor(appointmentId);
-    setError('');
-    setSuccessMessage('');
-
-    try {
-      const response = await fetch(`/api/appointments/${appointmentId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ doctor_id: doctorId }),
-      });
-
-      const data = await response.json();
-
-      if (data.success) {
-        setSuccessMessage(doctorId ? 'Doctor assigned successfully' : 'Doctor unassigned successfully');
-        await fetchAppointments();
-        setSelectedAppointment(null);
-        setIsDrawerOpen(false);
-        setTimeout(() => setSuccessMessage(''), 3000);
-      } else {
-        setError(data.error || 'Failed to update doctor assignment');
-      }
-    } catch (err) {
-      setError('An unexpected error occurred');
-    } finally {
-      setAssigningDoctor(null);
-    }
-  };
-
-  const handleAssignConfirm = async () => {
-    if (!pendingAssignment) return;
-
-    await handleAssignDoctor(pendingAssignment.appointmentId, pendingAssignment.doctorId);
-    setShowAssignDialog(false);
-    setPendingAssignment(null);
-  };
-
-  const handleAssignCancel = () => {
-    setShowAssignDialog(false);
-    setPendingAssignment(null);
-  };
-
   const handleViewHistory = (appointmentId: string) => {
     setSelectedHistoryAppointmentId(appointmentId);
     setShowHistoryModal(true);
@@ -488,7 +400,7 @@ export default function SuperAdminAppointmentsPage() {
 
   const exportToCSV = () => {
     const filteredData = filteredAppointments;
-    const headers = ['Queue #', 'Patient Name', 'Patient #', 'Service', 'Category', 'Date', 'Time', 'Status', 'Doctor', 'Reason'];
+    const headers = ['Queue #', 'Patient Name', 'Patient #', 'Service', 'Category', 'Date', 'Time', 'Status', 'Reason'];
     const rows = filteredData.map(apt => [
       apt.appointment_number,
       `${apt.patients?.profiles?.first_name || 'N/A'} ${apt.patients?.profiles?.last_name || ''}`,
@@ -498,7 +410,6 @@ export default function SuperAdminAppointmentsPage() {
       apt.appointment_date,
       apt.appointment_time,
       apt.status,
-      apt.doctors ? `Dr. ${apt.doctors?.profiles?.first_name || ''} ${apt.doctors?.profiles?.last_name || ''}` : 'Unassigned',
       apt.reason || '',
     ]);
 
@@ -598,25 +509,6 @@ export default function SuperAdminAppointmentsPage() {
               label="Consulting"
               type="consulting"
             />
-          )}
-        </div>
-      ),
-    },
-    {
-      header: 'Doctor',
-      accessor: 'doctor',
-      sortable: false,
-      render: (_: any, row: AdminAppointment) => (
-        <div className="text-sm text-gray-700">
-          {row.doctors ? (
-            <>
-              Dr. {row.doctors.profiles.first_name} {row.doctors.profiles.last_name}
-              {row.doctors.profiles.specialization && (
-                <div className="text-xs text-gray-500">{row.doctors.profiles.specialization}</div>
-              )}
-            </>
-          ) : (
-            <span className="text-gray-400 italic">Unassigned</span>
           )}
         </div>
       ),
@@ -1140,65 +1032,6 @@ export default function SuperAdminAppointmentsPage() {
                   ) : null;
                 })()}
 
-                {/* Doctor Assignment Section - Keep healthcare-admin implementation */}
-                <div>
-                  <h4 className="text-sm font-medium text-gray-700 mb-2 flex items-center">
-                    <User className="w-4 h-4 mr-2" />
-                    Assigned Doctor
-                  </h4>
-                  <div className="bg-gray-50 rounded-md p-3">
-                    {selectedAppointment.doctors ? (
-                      <div className="space-y-1 text-sm">
-                        <p className="font-medium text-gray-900">
-                          Dr. {selectedAppointment.doctors.profiles.first_name} {selectedAppointment.doctors.profiles.last_name}
-                        </p>
-                        {selectedAppointment.doctors.profiles.specialization && (
-                          <p className="text-gray-600">{selectedAppointment.doctors.profiles.specialization}</p>
-                        )}
-                      </div>
-                    ) : (
-                      <p className="text-sm text-gray-400 italic">No doctor assigned yet</p>
-                    )}
-
-                    {/* Doctor Assignment Dropdown */}
-                    {(selectedAppointment.status === 'pending' ||
-                      (selectedAppointment.status === 'scheduled' && !selectedAppointment.checked_in_at)) &&
-                     doctors.length > 0 && (
-                      <div className="mt-3">
-                        <select
-                          value={selectedAppointment.doctor_id || ''}
-                          onChange={(e) => {
-                            const value = e.target.value;
-                            const selectedDoctor = doctors.find(d => d.id === value);
-
-                            setPendingAssignment({
-                              appointmentId: selectedAppointment.id,
-                              doctorId: value || null,
-                              doctorName: selectedDoctor
-                                ? `Dr. ${selectedDoctor.profiles?.first_name || ''} ${selectedDoctor.profiles?.last_name || ''}`
-                                : null,
-                              patientName: `${selectedAppointment.patients?.profiles?.first_name || 'N/A'} ${selectedAppointment.patients?.profiles?.last_name || ''}`
-                            });
-                            setShowAssignDialog(true);
-                          }}
-                          disabled={assigningDoctor === selectedAppointment.id}
-                          className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-teal disabled:opacity-50"
-                        >
-                          <option value="">
-                            {assigningDoctor === selectedAppointment.id ? 'Updating...' : selectedAppointment.doctor_id ? '-- Change Doctor --' : '-- Assign Doctor --'}
-                          </option>
-                          {doctors.map((doctor) => (
-                            <option key={doctor.id} value={doctor.id}>
-                              Dr. {doctor.profiles.first_name} {doctor.profiles.last_name}
-                              {doctor.profiles.specialization && ` - ${doctor.profiles.specialization}`}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
                 {/* Reason for Visit */}
                 {selectedAppointment.reason && (
                   <div>
@@ -1284,23 +1117,6 @@ export default function SuperAdminAppointmentsPage() {
             </div>
           </Drawer>
         )}
-
-        {/* Doctor Assignment Confirmation Dialog */}
-        <ConfirmDialog
-          isOpen={showAssignDialog}
-          onClose={handleAssignCancel}
-          onConfirm={handleAssignConfirm}
-          title={pendingAssignment?.doctorId ? "Assign Doctor" : "Unassign Doctor"}
-          message={
-            pendingAssignment?.doctorId
-              ? `Are you sure you want to assign ${pendingAssignment.doctorName} to ${pendingAssignment?.patientName}'s appointment?`
-              : `Are you sure you want to unassign the doctor from ${pendingAssignment?.patientName}'s appointment?`
-          }
-          confirmText={pendingAssignment?.doctorId ? "Assign Doctor" : "Unassign"}
-          cancelText="Cancel"
-          variant="info"
-          isLoading={assigningDoctor === pendingAssignment?.appointmentId}
-        />
 
         {/* Status History Modal */}
         <StatusHistoryModal

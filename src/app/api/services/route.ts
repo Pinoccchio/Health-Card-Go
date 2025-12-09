@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
     // Build query
     let query = supabase
       .from('services')
-      .select('*')
+      .select('id, name, category, requires_appointment, requires_medical_record, is_active, description, duration_minutes')
       .order('id', { ascending: true });
 
     // Apply filters

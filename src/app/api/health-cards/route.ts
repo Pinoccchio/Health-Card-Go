@@ -15,7 +15,7 @@ export async function GET() {
 
     if (authError || !user) {
       console.error('[HEALTH CARD API] Unauthorized - no user');
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
 
     // Get user profile to verify patient role
@@ -29,13 +29,13 @@ export async function GET() {
 
     if (profileError || !profile) {
       console.error('[HEALTH CARD API] Profile not found:', profileError);
-      return NextResponse.json({ error: 'Profile not found' }, { status: 404 });
+      return NextResponse.json({ success: false, error: 'Profile not found' }, { status: 404 });
     }
 
     // Only patients can fetch their own health cards
     if (profile.role !== 'patient') {
       return NextResponse.json(
-        { error: 'Only patients can access health cards' },
+        { success: false, error: 'Only patients can access health cards' },
         { status: 403 }
       );
     }
@@ -57,7 +57,31 @@ export async function GET() {
 
     if (patientError || !patient) {
       console.error('[HEALTH CARD API] Patient record not found:', patientError);
-      return NextResponse.json({ error: 'Patient record not found' }, { status: 404 });
+      return NextResponse.json({ success: false, error: 'Patient record not found' }, { status: 404 });
+    }
+
+    // Check if patient has at least one completed appointment
+    const { data: completedAppointments, error: appointmentError } = await supabase
+      .from('appointments')
+      .select('id')
+      .eq('patient_id', patient.id)
+      .eq('status', 'completed');
+
+    console.log('[HEALTH CARD API] Completed appointments check:', {
+      count: completedAppointments?.length || 0,
+      appointmentError
+    });
+
+    if (!completedAppointments || completedAppointments.length === 0) {
+      console.log('[HEALTH CARD API] No completed appointments - health card not available');
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Health card not available',
+          message: 'Your health card will be available after your first completed appointment.'
+        },
+        { status: 404 }
+      );
     }
 
     // Get barangay name separately (patients table has no FK to barangays)
@@ -86,8 +110,9 @@ export async function GET() {
       console.error('[HEALTH CARD API] Health card not found:', cardError);
       return NextResponse.json(
         {
+          success: false,
           error: 'Health card not found',
-          message: 'Your health card will be generated once your account is approved.'
+          message: 'Your health card will be available after your first completed appointment.'
         },
         { status: 404 }
       );
@@ -126,7 +151,7 @@ export async function GET() {
   } catch (error) {
     console.error('Error fetching health card:', error);
     return NextResponse.json(
-      { error: 'An unexpected error occurred' },
+      { success: false, error: 'An unexpected error occurred' },
       { status: 500 }
     );
   }

@@ -6,32 +6,37 @@ import { RoleId } from '@/types/auth';
 export const ROLE_DASHBOARDS: Record<RoleId, string> = {
   1: '/admin/dashboard',
   2: '/healthcare-admin/dashboard',
-  3: '/doctor/dashboard',
   4: '/patient/dashboard',
+  5: '/staff/dashboard',
 };
 
 /**
  * Get the dashboard path for a given role ID
- * @param roleId - The user's role ID (1-4)
+ * @param roleId - The user's role ID (1, 2, 4, 5)
  * @returns The path to the user's dashboard
  */
 export function getDashboardPath(roleId: RoleId): string {
-  return ROLE_DASHBOARDS[roleId];
+  const path = ROLE_DASHBOARDS[roleId];
+  if (!path) {
+    console.error(`No dashboard path defined for role_id: ${roleId}`);
+    return '/login'; // Fallback to login instead of undefined
+  }
+  return path;
 }
 
 /**
  * Get the human-readable name for a role ID
- * @param roleId - The role ID (1-4)
+ * @param roleId - The role ID (1, 2, 4, 5)
  * @returns The role name as a string
  */
 export function getRoleName(roleId: RoleId): string {
   const roleNames: Record<RoleId, string> = {
     1: 'Super Admin',
     2: 'Healthcare Admin',
-    3: 'Doctor',
     4: 'Patient',
+    5: 'Staff',
   };
-  return roleNames[roleId];
+  return roleNames[roleId] || 'Unknown Role';
 }
 
 /**
@@ -45,12 +50,12 @@ export function isAuthorizedForRoute(roleId: RoleId, route: string): boolean {
   const roleRoutes: Record<RoleId, string> = {
     1: '/admin',
     2: '/healthcare-admin',
-    3: '/doctor',
     4: '/patient',
+    5: '/staff',
   };
 
   const authorizedPrefix = roleRoutes[roleId];
-  return route.startsWith(authorizedPrefix);
+  return authorizedPrefix ? route.startsWith(authorizedPrefix) : false;
 }
 
 /**
@@ -62,8 +67,8 @@ export function getAllowedRoutes(roleId: RoleId): string[] {
   const routes: Record<RoleId, string[]> = {
     1: ['/admin'],
     2: ['/healthcare-admin'],
-    3: ['/doctor'],
     4: ['/patient'],
+    5: ['/staff'],
   };
   return routes[roleId] || [];
 }

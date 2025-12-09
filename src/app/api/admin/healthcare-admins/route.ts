@@ -52,7 +52,8 @@ export async function GET(request: Request) {
         created_at,
         services:assigned_service_id (
           id,
-          name
+          name,
+          category
         )
       `)
       .eq('role', 'healthcare_admin')
@@ -90,6 +91,7 @@ export async function GET(request: Request) {
       assigned_service: admin.services ? {
         id: admin.services.id,
         name: admin.services.name,
+        category: admin.services.category,
       } : null,
       created_at: admin.created_at,
     }));

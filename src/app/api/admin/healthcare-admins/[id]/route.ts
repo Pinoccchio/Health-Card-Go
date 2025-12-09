@@ -184,17 +184,23 @@ export async function PATCH(
     }
 
     if (assigned_service_id !== undefined) {
-      const { data: service, error: serviceError } = await supabase
-        .from('services')
-        .select('id')
-        .eq('id', assigned_service_id)
-        .single();
+      if (assigned_service_id === null) {
+        // Explicitly unassign service
+        updates.assigned_service_id = null;
+      } else {
+        // Validate service exists
+        const { data: service, error: serviceError } = await supabase
+          .from('services')
+          .select('id')
+          .eq('id', assigned_service_id)
+          .single();
 
-      if (serviceError || !service) {
-        return NextResponse.json({ error: 'Invalid service assignment' }, { status: 400 });
+        if (serviceError || !service) {
+          return NextResponse.json({ error: 'Invalid service assignment' }, { status: 400 });
+        }
+
+        updates.assigned_service_id = assigned_service_id;
       }
-
-      updates.assigned_service_id = assigned_service_id;
     }
 
     if (status !== undefined) {

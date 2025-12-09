@@ -314,15 +314,6 @@ export async function GET(request: NextRequest) {
             barangays(name)
           )
         ),
-        doctors(
-          id,
-          user_id,
-          profiles(
-            first_name,
-            last_name,
-            specialization
-          )
-        ),
         services(
           id,
           name,
@@ -351,33 +342,6 @@ export async function GET(request: NextRequest) {
       }
 
       query = query.eq('patient_id', patientRecord.id);
-
-    } else if (profile.role === 'doctor') {
-      // Doctors see only appointments assigned to them
-      console.log('🔍 [DOCTOR QUERY] User ID:', user.id);
-      console.log('🔍 [DOCTOR QUERY] Profile ID:', profile.id);
-
-      const { data: doctorRecord, error: doctorError } = await supabase
-        .from('doctors')
-        .select('id')
-        .eq('user_id', user.id)
-        .single();
-
-      console.log('🔍 [DOCTOR QUERY] Doctor Record:', doctorRecord);
-      console.log('🔍 [DOCTOR QUERY] Doctor Error:', doctorError);
-
-      if (!doctorRecord) {
-        console.error('❌ [DOCTOR QUERY] No doctor record found for user_id:', user.id);
-        return NextResponse.json({ error: 'Doctor record not found' }, { status: 404 });
-      }
-
-      console.log('✅ [DOCTOR QUERY] Found doctor_id:', doctorRecord.id);
-      query = query.eq('doctor_id', doctorRecord.id);
-
-      if (date) {
-        console.log('🔍 [DOCTOR QUERY] Filtering by date:', date);
-        query = query.eq('appointment_date', date);
-      }
 
     } else if (profile.role === 'healthcare_admin') {
       // Healthcare admins see appointments for their assigned service only
@@ -423,13 +387,12 @@ export async function GET(request: NextRequest) {
       query = query.in('status', statusValues);
     }
 
-    if (date && profile.role !== 'doctor') {
+    if (date) {
       query = query.eq('appointment_date', date);
     }
 
     // Declare search variables outside if block so they're accessible to count query
     let matchingPatientIds: string[] = [];
-    let matchingDoctorIds: string[] = [];
 
     // Apply search filter
     if (search) {
@@ -533,68 +496,6 @@ export async function GET(request: NextRequest) {
         console.log('⚠️ [SEARCH] No matching patients found for query:', search);
       }
 
-      // Search for matching doctors by name (query profiles directly)
-      const matchingDoctorIdsSet = new Set<string>();
-
-      if (searchWords.length > 1) {
-        // Multi-word: search each word separately
-        for (const word of searchWords) {
-          // Search profiles by name
-          const { data: matchingProfiles } = await adminClient
-            .from('profiles')
-            .select('id')
-            .eq('role', 'doctor')
-            .or(`first_name.ilike.%${word}%,last_name.ilike.%${word}%`);
-
-          if (matchingProfiles && matchingProfiles.length > 0) {
-            console.log(`🔍 [SEARCH] Word "${word}" matched ${matchingProfiles.length} doctor profiles`);
-            const profileUserIds = matchingProfiles.map(p => p.id);
-
-            // Get doctor IDs for these profiles (doctors.user_id -> profiles.id)
-            const { data: doctorsFromProfiles } = await adminClient
-              .from('doctors')
-              .select('id')
-              .in('user_id', profileUserIds);
-
-            if (doctorsFromProfiles && doctorsFromProfiles.length > 0) {
-              console.log(`🔍 [SEARCH] Found ${doctorsFromProfiles.length} doctors from profiles`);
-              doctorsFromProfiles.forEach(d => matchingDoctorIdsSet.add(d.id));
-            }
-          }
-        }
-      } else {
-        // Single-word search
-        const { data: matchingProfiles } = await adminClient
-          .from('profiles')
-          .select('id')
-          .eq('role', 'doctor')
-          .or(`first_name.ilike.%${search}%,last_name.ilike.%${search}%`);
-
-        if (matchingProfiles && matchingProfiles.length > 0) {
-          console.log(`🔍 [SEARCH] Found ${matchingProfiles.length} matching doctor profiles`);
-          const profileUserIds = matchingProfiles.map(p => p.id);
-
-          // Get doctor IDs for these profiles
-          const { data: doctorsFromProfiles } = await adminClient
-            .from('doctors')
-            .select('id')
-            .in('user_id', profileUserIds);
-
-          if (doctorsFromProfiles && doctorsFromProfiles.length > 0) {
-            console.log(`🔍 [SEARCH] Found ${doctorsFromProfiles.length} doctors from profiles`);
-            doctorsFromProfiles.forEach(d => matchingDoctorIdsSet.add(d.id));
-          }
-        }
-      }
-
-      // Convert Set to Array
-      matchingDoctorIds = Array.from(matchingDoctorIdsSet);
-
-      if (matchingDoctorIds.length > 0) {
-        console.log('🔍 [SEARCH] Total unique doctors found:', matchingDoctorIds.length);
-        console.log('🔍 [SEARCH] Doctor IDs:', matchingDoctorIds);
-      }
-
       // Build OR conditions for search
       const searchConditions: string[] = [];
 
@@ -606,11 +507,6 @@ export async function GET(request: NextRequest) {
       // Patient ID matches
       if (matchingPatientIds.length > 0) {
         searchConditions.push(`patient_id.in.(${matchingPatientIds.join(',')})`);
-      }
-
-      // Doctor ID matches
-      if (matchingDoctorIds.length > 0) {
-        searchConditions.push(`doctor_id.in.(${matchingDoctorIds.join(',')})`);
       }
 
       // Reason contains search term
@@ -646,18 +542,6 @@ export async function GET(request: NextRequest) {
       if (patientRecord) {
         countQuery = countQuery.eq('patient_id', patientRecord.id);
       }
-    } else if (profile.role === 'doctor') {
-      const { data: doctorRecord } = await supabase
-        .from('doctors')
-        .select('id')
-        .eq('user_id', user.id)
-        .single();
-      if (doctorRecord) {
-        countQuery = countQuery.eq('doctor_id', doctorRecord.id);
-      }
-      if (date) {
-        countQuery = countQuery.eq('appointment_date', date);
-      }
     } else if (profile.role === 'healthcare_admin') {
       // Healthcare admins see appointments for their assigned service only
       if (profile.assigned_service_id) {
@@ -680,7 +564,7 @@ export async function GET(request: NextRequest) {
       const statusValues = status.split(',').map(s => s.trim());
       countQuery = countQuery.in('status', statusValues);
     }
-    if (date && profile.role !== 'doctor') {
+    if (date) {
       countQuery = countQuery.eq('appointment_date', date);
     }
 
@@ -689,7 +573,7 @@ export async function GET(request: NextRequest) {
       const searchAsNumber = parseInt(search);
       const isNumericSearch = !isNaN(searchAsNumber);
 
-      // Use the same matching patient/doctor IDs from earlier search
+      // Use the same matching patient IDs from earlier search
       const countSearchConditions: string[] = [];
 
       if (isNumericSearch) {
@@ -697,9 +581,6 @@ export async function GET(request: NextRequest) {
       }
       if (matchingPatientIds.length > 0) {
         countSearchConditions.push(`patient_id.in.(${matchingPatientIds.join(',')})`);
-      }
-      if (matchingDoctorIds.length > 0) {
-        countSearchConditions.push(`doctor_id.in.(${matchingDoctorIds.join(',')})`);
       }
       countSearchConditions.push(`reason.ilike.%${search}%`);
 

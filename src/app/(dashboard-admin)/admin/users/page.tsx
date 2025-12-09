@@ -12,6 +12,7 @@ import EditHealthcareAdminForm from '@/components/admin/EditHealthcareAdminForm'
 import EditStaffForm from '@/components/admin/EditStaffForm';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { useToast } from '@/lib/contexts/ToastContext';
+import { getCategoryColors } from '@/lib/utils/serviceHelpers';
 
 type UserType = 'super-admin' | 'healthcare-admin' | 'staff';
 
@@ -34,6 +35,7 @@ interface HealthcareAdmin {
   assigned_service: {
     id: number;
     name: string;
+    category: string;
   } | null;
   status: string;
   created_at: string;
@@ -367,9 +369,15 @@ export default function UsersManagementPage() {
                             {admin.email}
                           </td>
                           <td className="px-4 py-4 whitespace-nowrap">
-                            <span className="px-2 py-1 text-xs font-medium rounded-full bg-primary-teal/10 text-primary-teal">
-                              {admin.assigned_service?.name || 'Not Assigned'}
-                            </span>
+                            {admin.assigned_service ? (
+                              <span className={`px-2 py-1 text-xs font-medium rounded-full ${getCategoryColors(admin.assigned_service.category).bgColor} ${getCategoryColors(admin.assigned_service.category).textColor}`}>
+                                {admin.assigned_service.name}
+                              </span>
+                            ) : (
+                              <span className="px-2 py-1 text-xs font-medium rounded-full bg-gray-100 text-gray-800">
+                                Not Assigned
+                              </span>
+                            )}
                           </td>
                           <td className="px-4 py-4 whitespace-nowrap">
                             <span className={`px-2 py-1 text-xs font-medium rounded-full ${

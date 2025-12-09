@@ -11,6 +11,7 @@ import {
   ClipboardList,
   Bell,
   UserCircle,
+  Briefcase,
 } from 'lucide-react';
 import { MenuItem } from '@/components/dashboard';
 import { RoleId } from '@/types/auth';
@@ -39,6 +40,11 @@ export const SUPER_ADMIN_MENU_ITEMS: MenuItem[] = [
     label: 'User Management',
     href: '/admin/users',
     icon: UserCircle,
+  },
+  {
+    label: 'Services',
+    href: '/admin/services',
+    icon: Briefcase,
   },
   {
     label: 'Disease Surveillance',
@@ -83,36 +89,19 @@ export const HEALTHCARE_ADMIN_MENU_ITEMS: MenuItem[] = [
     icon: Users,
   },
   {
-    label: 'Announcements',
-    href: '/healthcare-admin/announcements',
-    icon: Megaphone,
-  },
-];
-
-/**
- * Menu items for Doctor (role_id: 3)
- * Medical practice focused features
- */
-export const DOCTOR_MENU_ITEMS: MenuItem[] = [
-  {
-    label: 'Dashboard',
-    href: '/doctor/dashboard',
-    icon: LayoutDashboard,
-  },
-  {
-    label: 'Appointments',
-    href: '/doctor/appointments',
-    icon: Calendar,
-  },
-  {
     label: 'Medical Records',
-    href: '/doctor/medical-records',
+    href: '/healthcare-admin/medical-records',
+    icon: Heart,
+  },
+  {
+    label: 'Reports',
+    href: '/healthcare-admin/reports',
     icon: FileText,
   },
   {
-    label: 'Patients',
-    href: '/doctor/patients',
-    icon: Users,
+    label: 'Announcements',
+    href: '/healthcare-admin/announcements',
+    icon: Megaphone,
   },
 ];
 
@@ -198,7 +187,6 @@ export function getRoleName(roleId: RoleId): string {
   const roleNames: Record<RoleId, string> = {
     1: 'Super Admin',
     2: 'Healthcare Admin',
-    3: 'Doctor',
     4: 'Patient',
     5: 'Staff',
   };
