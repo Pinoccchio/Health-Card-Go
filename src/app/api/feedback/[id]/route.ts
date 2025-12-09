@@ -12,11 +12,14 @@ import { NextRequest, NextResponse } from 'next/server';
  */
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const supabase = await createClient();
-    const feedbackId = params.id;
+
+    // Await params to get id
+    const { id } = await params;
+    const feedbackId = id;
 
     // Check authentication
     const { data: { user }, error: authError } = await supabase.auth.getUser();

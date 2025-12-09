@@ -21,3 +21,5 @@ export { Drawer } from './Drawer';
 
 export { ProfessionalCard } from './ProfessionalCard';
 export type { ProfessionalCardProps } from './ProfessionalCard';
+
+export { Modal } from './Modal';

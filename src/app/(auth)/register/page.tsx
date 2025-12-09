@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, FormEvent } from 'react';
+import { useState, useEffect, FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
@@ -24,7 +24,12 @@ import {
 } from '@/components/auth';
 import { Button } from '@/components/ui';
 import { RegisterData, RoleId, ROLE_NAMES, ADMIN_CATEGORY_NAMES } from '@/types/auth';
-import { BARANGAYS } from '@/lib/config/barangaysConfig';
+
+interface Barangay {
+  id: number;
+  name: string;
+  code: string;
+}
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -38,6 +43,30 @@ export default function RegisterPage() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [serverError, setServerError] = useState<string>('');
   const [successMessage, setSuccessMessage] = useState<string>('');
+  const [barangays, setBarangays] = useState<Barangay[]>([]);
+  const [barangaysLoading, setBarangaysLoading] = useState<boolean>(true);
+
+  // Fetch barangays from API on mount
+  useEffect(() => {
+    const fetchBarangays = async () => {
+      try {
+        const response = await fetch('/api/barangays');
+        const result = await response.json();
+
+        if (result.success && result.data) {
+          setBarangays(result.data);
+        } else {
+          console.error('Failed to fetch barangays:', result.error);
+        }
+      } catch (error) {
+        console.error('Error fetching barangays:', error);
+      } finally {
+        setBarangaysLoading(false);
+      }
+    };
+
+    fetchBarangays();
+  }, []);
 
   /**
    * Validate form fields
@@ -222,7 +251,7 @@ export default function RegisterPage() {
     { value: 'laboratory', label: ADMIN_CATEGORY_NAMES.laboratory },
   ];
 
-  const barangayOptions = BARANGAYS.map((b) => ({
+  const barangayOptions = barangays.map((b) => ({
     value: b.id,
     label: b.name,
   }));
@@ -369,13 +398,13 @@ export default function RegisterPage() {
                 <Select
                   id="barangayId"
                   options={barangayOptions}
-                  placeholder="Select your barangay"
+                  placeholder={barangaysLoading ? "Loading barangays..." : "Select your barangay"}
                   value={formData.barangayId || ''}
                   onChange={(e) =>
                     handleChange('barangayId', Number(e.target.value))
                   }
                   error={errors.barangayId}
-                  disabled={loading}
+                  disabled={loading || barangaysLoading}
                 />
               </div>
 

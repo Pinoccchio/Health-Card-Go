@@ -14,6 +14,134 @@ export type Database = {
   }
   public: {
     Tables: {
+      announcements: {
+        Row: {
+          content: string
+          created_at: string
+          created_by: string
+          id: string
+          is_active: boolean | null
+          target_audience: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          created_by: string
+          id?: string
+          is_active?: boolean | null
+          target_audience?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          created_by?: string
+          id?: string
+          is_active?: boolean | null
+          target_audience?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "announcements_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      appointment_status_history: {
+        Row: {
+          appointment_id: string
+          change_type: Database["public"]["Enums"]["change_type"]
+          changed_at: string
+          changed_by: string
+          created_at: string | null
+          from_status: string | null
+          id: string
+          is_reversion: boolean | null
+          metadata: Json | null
+          new_doctor_id: string | null
+          old_doctor_id: string | null
+          reason: string | null
+          reverted_from_history_id: string | null
+          to_status: string
+        }
+        Insert: {
+          appointment_id: string
+          change_type?: Database["public"]["Enums"]["change_type"]
+          changed_at?: string
+          changed_by: string
+          created_at?: string | null
+          from_status?: string | null
+          id?: string
+          is_reversion?: boolean | null
+          metadata?: Json | null
+          new_doctor_id?: string | null
+          old_doctor_id?: string | null
+          reason?: string | null
+          reverted_from_history_id?: string | null
+          to_status: string
+        }
+        Update: {
+          appointment_id?: string
+          change_type?: Database["public"]["Enums"]["change_type"]
+          changed_at?: string
+          changed_by?: string
+          created_at?: string | null
+          from_status?: string | null
+          id?: string
+          is_reversion?: boolean | null
+          metadata?: Json | null
+          new_doctor_id?: string | null
+          old_doctor_id?: string | null
+          reason?: string | null
+          reverted_from_history_id?: string | null
+          to_status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "appointment_status_history_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: false
+            referencedRelation: "appointments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "appointment_status_history_changed_by_fkey"
+            columns: ["changed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "appointment_status_history_new_doctor_id_fkey"
+            columns: ["new_doctor_id"]
+            isOneToOne: false
+            referencedRelation: "doctors"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "appointment_status_history_old_doctor_id_fkey"
+            columns: ["old_doctor_id"]
+            isOneToOne: false
+            referencedRelation: "doctors"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "appointment_status_history_reverted_from_history_id_fkey"
+            columns: ["reverted_from_history_id"]
+            isOneToOne: false
+            referencedRelation: "appointment_status_history"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       appointments: {
         Row: {
           appointment_date: string
@@ -23,12 +151,13 @@ export type Database = {
           cancelled_at: string | null
           checked_in_at: string | null
           completed_at: string | null
+          completed_by_id: string | null
           created_at: string
-          doctor_id: string
           id: string
           patient_id: string
           reason: string | null
           reminder_sent: boolean | null
+          service_id: number
           started_at: string | null
           status: Database["public"]["Enums"]["appointment_status"]
           updated_at: string
@@ -41,12 +170,13 @@ export type Database = {
           cancelled_at?: string | null
           checked_in_at?: string | null
           completed_at?: string | null
+          completed_by_id?: string | null
           created_at?: string
-          doctor_id: string
           id?: string
           patient_id: string
           reason?: string | null
           reminder_sent?: boolean | null
+          service_id: number
           started_at?: string | null
           status?: Database["public"]["Enums"]["appointment_status"]
           updated_at?: string
@@ -59,22 +189,23 @@ export type Database = {
           cancelled_at?: string | null
           checked_in_at?: string | null
           completed_at?: string | null
+          completed_by_id?: string | null
           created_at?: string
-          doctor_id?: string
           id?: string
           patient_id?: string
           reason?: string | null
           reminder_sent?: boolean | null
+          service_id?: number
           started_at?: string | null
           status?: Database["public"]["Enums"]["appointment_status"]
           updated_at?: string
         }
         Relationships: [
           {
-            foreignKeyName: "appointments_doctor_id_fkey"
-            columns: ["doctor_id"]
+            foreignKeyName: "appointments_completed_by_id_fkey"
+            columns: ["completed_by_id"]
             isOneToOne: false
-            referencedRelation: "doctors"
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
           {
@@ -82,6 +213,13 @@ export type Database = {
             columns: ["patient_id"]
             isOneToOne: false
             referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "appointments_service_id_fkey"
+            columns: ["service_id"]
+            isOneToOne: false
+            referencedRelation: "services"
             referencedColumns: ["id"]
           },
         ]
@@ -132,33 +270,27 @@ export type Database = {
       }
       barangays: {
         Row: {
-          area_sqkm: number | null
           code: string
           coordinates: Json | null
           created_at: string
           id: number
           name: string
-          population: number | null
           updated_at: string
         }
         Insert: {
-          area_sqkm?: number | null
           code: string
           coordinates?: Json | null
           created_at?: string
           id?: number
           name: string
-          population?: number | null
           updated_at?: string
         }
         Update: {
-          area_sqkm?: number | null
           code?: string
           coordinates?: Json | null
           created_at?: string
           id?: number
           name?: string
-          population?: number | null
           updated_at?: string
         }
         Relationships: []
@@ -192,7 +324,7 @@ export type Database = {
           created_at?: string
           disease_type?: Database["public"]["Enums"]["disease_type"]
           id?: string
-          model_version?: string | null
+          model_version?: number | null
           predicted_cases?: number
           prediction_data?: Json | null
           prediction_date?: string
@@ -214,7 +346,7 @@ export type Database = {
           diagnosis_date: string
           disease_type: Database["public"]["Enums"]["disease_type"]
           id: string
-          medical_record_id: string
+          medical_record_id: string | null
           notes: string | null
           patient_id: string
           severity: Database["public"]["Enums"]["disease_severity"]
@@ -227,7 +359,7 @@ export type Database = {
           diagnosis_date: string
           disease_type: Database["public"]["Enums"]["disease_type"]
           id?: string
-          medical_record_id: string
+          medical_record_id?: string | null
           notes?: string | null
           patient_id: string
           severity: Database["public"]["Enums"]["disease_severity"]
@@ -240,7 +372,7 @@ export type Database = {
           diagnosis_date?: string
           disease_type?: Database["public"]["Enums"]["disease_type"]
           id?: string
-          medical_record_id?: string
+          medical_record_id?: string | null
           notes?: string | null
           patient_id?: string
           severity?: Database["public"]["Enums"]["disease_severity"]
@@ -308,37 +440,58 @@ export type Database = {
       }
       feedback: {
         Row: {
+          admin_response: string | null
           appointment_id: string
           comments: string | null
           created_at: string
+          doctor_rating: number
+          facility_rating: number
           id: string
           patient_id: string
           rating: number
+          responded_at: string | null
+          responded_by: string | null
           updated_at: string
+          wait_time_rating: number
+          would_recommend: boolean
         }
         Insert: {
+          admin_response?: string | null
           appointment_id: string
           comments?: string | null
           created_at?: string
+          doctor_rating: number
+          facility_rating: number
           id?: string
           patient_id: string
           rating: number
+          responded_at?: string | null
+          responded_by?: string | null
           updated_at?: string
+          wait_time_rating: number
+          would_recommend?: boolean
         }
         Update: {
+          admin_response?: string | null
           appointment_id?: string
           comments?: string | null
           created_at?: string
+          doctor_rating?: number
+          facility_rating?: number
           id?: string
           patient_id?: string
           rating?: number
+          responded_at?: string | null
+          responded_by?: string | null
           updated_at?: string
+          wait_time_rating?: number
+          would_recommend?: boolean
         }
         Relationships: [
           {
             foreignKeyName: "feedback_appointment_id_fkey"
             columns: ["appointment_id"]
-            isOneToOne: false
+            isOneToOne: true
             referencedRelation: "appointments"
             referencedColumns: ["id"]
           },
@@ -347,6 +500,13 @@ export type Database = {
             columns: ["patient_id"]
             isOneToOne: false
             referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "feedback_responded_by_fkey"
+            columns: ["responded_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -400,8 +560,8 @@ export type Database = {
           appointment_id: string | null
           category: Database["public"]["Enums"]["medical_record_category"]
           created_at: string
+          created_by_id: string
           diagnosis: string | null
-          doctor_id: string
           id: string
           is_encrypted: boolean | null
           notes: string | null
@@ -415,8 +575,8 @@ export type Database = {
           appointment_id?: string | null
           category: Database["public"]["Enums"]["medical_record_category"]
           created_at?: string
+          created_by_id: string
           diagnosis?: string | null
-          doctor_id: string
           id?: string
           is_encrypted?: boolean | null
           notes?: string | null
@@ -430,8 +590,8 @@ export type Database = {
           appointment_id?: string | null
           category?: Database["public"]["Enums"]["medical_record_category"]
           created_at?: string
+          created_by_id?: string
           diagnosis?: string | null
-          doctor_id?: string
           id?: string
           is_encrypted?: boolean | null
           notes?: string | null
@@ -451,7 +611,7 @@ export type Database = {
           },
           {
             foreignKeyName: "medical_records_doctor_id_fkey"
-            columns: ["doctor_id"]
+            columns: ["created_by_id"]
             isOneToOne: false
             referencedRelation: "doctors"
             referencedColumns: ["id"]
@@ -468,6 +628,7 @@ export type Database = {
       notifications: {
         Row: {
           created_at: string
+          data: string | null
           id: string
           link: string | null
           message: string
@@ -478,6 +639,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          data?: string | null
           id?: string
           link?: string | null
           message: string
@@ -488,6 +650,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          data?: string | null
           id?: string
           link?: string | null
           message?: string
@@ -510,36 +673,45 @@ export type Database = {
         Row: {
           accessibility_requirements: string | null
           allergies: Json | null
+          booking_count: number | null
+          booking_number: string | null
           created_at: string
           current_medications: Json | null
           id: string
           medical_history: Json | null
           patient_number: string
           philhealth_number: string | null
+          registration_date: string | null
           updated_at: string
           user_id: string
         }
         Insert: {
           accessibility_requirements?: string | null
           allergies?: Json | null
+          booking_count?: number | null
+          booking_number?: string | null
           created_at?: string
           current_medications?: Json | null
           id?: string
           medical_history?: Json | null
           patient_number: string
           philhealth_number?: string | null
+          registration_date?: string | null
           updated_at?: string
           user_id: string
         }
         Update: {
           accessibility_requirements?: string | null
           allergies?: Json | null
+          booking_count?: number | null
+          booking_number?: string | null
           created_at?: string
           current_medications?: Json | null
           id?: string
           medical_history?: Json | null
           patient_number?: string
           philhealth_number?: string | null
+          registration_date?: string | null
           updated_at?: string
           user_id?: string
         }
@@ -558,6 +730,7 @@ export type Database = {
           admin_category: Database["public"]["Enums"]["admin_category"] | null
           approved_at: string | null
           approved_by: string | null
+          assigned_service_id: number | null
           barangay_id: number | null
           contact_number: string | null
           created_at: string
@@ -569,6 +742,7 @@ export type Database = {
           id: string
           last_name: string
           license_number: string | null
+          locale: string | null
           rejection_reason: string | null
           role: Database["public"]["Enums"]["user_role"]
           specialization: string | null
@@ -579,6 +753,7 @@ export type Database = {
           admin_category?: Database["public"]["Enums"]["admin_category"] | null
           approved_at?: string | null
           approved_by?: string | null
+          assigned_service_id?: number | null
           barangay_id?: number | null
           contact_number?: string | null
           created_at?: string
@@ -590,6 +765,7 @@ export type Database = {
           id: string
           last_name: string
           license_number?: string | null
+          locale?: string | null
           rejection_reason?: string | null
           role?: Database["public"]["Enums"]["user_role"]
           specialization?: string | null
@@ -600,6 +776,7 @@ export type Database = {
           admin_category?: Database["public"]["Enums"]["admin_category"] | null
           approved_at?: string | null
           approved_by?: string | null
+          assigned_service_id?: number | null
           barangay_id?: number | null
           contact_number?: string | null
           created_at?: string
@@ -611,6 +788,7 @@ export type Database = {
           id?: string
           last_name?: string
           license_number?: string | null
+          locale?: string | null
           rejection_reason?: string | null
           role?: Database["public"]["Enums"]["user_role"]
           specialization?: string | null
@@ -632,14 +810,92 @@ export type Database = {
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "profiles_assigned_service_id_fkey"
+            columns: ["assigned_service_id"]
+            isOneToOne: false
+            referencedRelation: "services"
+            referencedColumns: ["id"]
+          },
         ]
+      }
+      services: {
+        Row: {
+          category: string
+          created_at: string
+          description: string | null
+          duration_minutes: number | null
+          id: number
+          is_active: boolean | null
+          name: string
+          requires_appointment: boolean | null
+          requires_medical_record: boolean
+          updated_at: string
+        }
+        Insert: {
+          category: string
+          created_at?: string
+          description?: string | null
+          duration_minutes?: number | null
+          id?: number
+          is_active?: boolean | null
+          name: string
+          requires_appointment?: boolean | null
+          requires_medical_record?: boolean
+          updated_at?: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          description?: string | null
+          duration_minutes?: number | null
+          id?: number
+          is_active?: boolean | null
+          name?: string
+          requires_appointment?: boolean | null
+          requires_medical_record?: boolean
+          updated_at?: string
+        }
+        Relationships: []
       }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      generate_booking_number: { Args: never; Returns: string }
+      generate_health_card_number: { Args: never; Returns: string }
+      generate_patient_number: { Args: never; Returns: string }
+      get_admin_category: {
+        Args: never
+        Returns: Database["public"]["Enums"]["admin_category"]
+      }
+      get_available_slots: {
+        Args: { p_date: string }
+        Returns: {
+          available_slots: number
+          time_slot: string
+        }[]
+      }
+      get_next_queue_number: {
+        Args: { p_appointment_date: string; p_service_id: number }
+        Returns: number
+      }
+      get_user_role: {
+        Args: never
+        Returns: Database["public"]["Enums"]["user_role"]
+      }
+      has_active_appointment: {
+        Args: { p_patient_id: string }
+        Returns: boolean
+      }
+      is_admin: { Args: never; Returns: boolean }
+      is_doctor: { Args: never; Returns: boolean }
+      is_patient: { Args: never; Returns: boolean }
+      is_patient_appointment_owner: {
+        Args: { appointment_patient_id: string }
+        Returns: boolean
+      }
     }
     Enums: {
       admin_category:
@@ -648,14 +904,20 @@ export type Database = {
         | "pregnancy"
         | "general_admin"
         | "laboratory"
+        | "immunization"
       appointment_status:
-        | "pending"
         | "scheduled"
         | "checked_in"
         | "in_progress"
         | "completed"
         | "cancelled"
         | "no_show"
+        | "pending"
+      change_type:
+        | "status_change"
+        | "doctor_assigned"
+        | "doctor_unassigned"
+        | "doctor_changed"
       disease_severity: "mild" | "moderate" | "severe" | "critical"
       disease_status: "active" | "recovered" | "deceased" | "ongoing_treatment"
       disease_type:
@@ -679,7 +941,13 @@ export type Database = {
         | "cancellation"
         | "feedback_request"
         | "general"
-      user_role: "super_admin" | "healthcare_admin" | "doctor" | "patient"
+      user_role:
+        | "super_admin"
+        | "healthcare_admin"
+        | "doctor"
+        | "patient"
+        | "general_admin"
+        | "staff"
       user_status: "pending" | "active" | "inactive" | "rejected" | "suspended"
     }
     CompositeTypes: {
@@ -814,15 +1082,22 @@ export const Constants = {
         "pregnancy",
         "general_admin",
         "laboratory",
+        "immunization",
       ],
       appointment_status: [
-        "pending",
         "scheduled",
         "checked_in",
         "in_progress",
         "completed",
         "cancelled",
         "no_show",
+        "pending",
+      ],
+      change_type: [
+        "status_change",
+        "doctor_assigned",
+        "doctor_unassigned",
+        "doctor_changed",
       ],
       disease_severity: ["mild", "moderate", "severe", "critical"],
       disease_status: ["active", "recovered", "deceased", "ongoing_treatment"],
@@ -850,7 +1125,14 @@ export const Constants = {
         "feedback_request",
         "general",
       ],
-      user_role: ["super_admin", "healthcare_admin", "doctor", "patient"],
+      user_role: [
+        "super_admin",
+        "healthcare_admin",
+        "doctor",
+        "patient",
+        "general_admin",
+        "staff",
+      ],
       user_status: ["pending", "active", "inactive", "rejected", "suspended"],
     },
   },

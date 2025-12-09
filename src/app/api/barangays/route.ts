@@ -4,17 +4,11 @@ import { NextRequest, NextResponse } from 'next/server';
 /**
  * GET /api/barangays
  * Fetch all barangays for dropdown filters and selection lists
- * Public endpoint - used across multiple pages
+ * Public endpoint - no authentication required (used in registration page)
  */
 export async function GET(request: NextRequest) {
   try {
     const supabase = await createClient();
-
-    // Check authentication
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
 
     // Fetch all barangays, ordered by name
     const { data: barangays, error: fetchError } = await supabase

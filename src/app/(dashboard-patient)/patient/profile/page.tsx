@@ -8,9 +8,14 @@ import { FormField, Select } from '@/components/auth';
 import { Button } from '@/components/ui';
 import { useToast } from '@/lib/contexts/ToastContext';
 import { User, Phone, MapPin, Heart, Calendar, Shield, FileText } from 'lucide-react';
-import { BARANGAYS } from '@/lib/config/barangaysConfig';
 import { BLOOD_TYPES, GENDER_OPTIONS } from '@/lib/config/profileConstants';
 import { validateProfileForm, hasValidationErrors, ValidationErrors, ProfileFormData } from '@/lib/validators/profileValidation';
+
+interface Barangay {
+  id: number;
+  name: string;
+  code: string;
+}
 
 export default function PatientProfilePage() {
   const { user, loading: authLoading } = useAuth();
@@ -42,9 +47,33 @@ export default function PatientProfilePage() {
   const [originalData, setOriginalData] = useState<Partial<ProfileFormData>>({});
   const [errors, setErrors] = useState<ValidationErrors>({});
   const [hasChanges, setHasChanges] = useState(false);
+  const [barangays, setBarangays] = useState<Barangay[]>([]);
+  const [barangaysLoading, setBarangaysLoading] = useState<boolean>(true);
+
+  // Fetch barangays from API on mount
+  useEffect(() => {
+    const fetchBarangays = async () => {
+      try {
+        const response = await fetch('/api/barangays');
+        const result = await response.json();
+
+        if (result.success && result.data) {
+          setBarangays(result.data);
+        } else {
+          console.error('Failed to fetch barangays:', result.error);
+        }
+      } catch (error) {
+        console.error('Error fetching barangays:', error);
+      } finally {
+        setBarangaysLoading(false);
+      }
+    };
+
+    fetchBarangays();
+  }, []);
 
   // Barangay options for select
-  const barangayOptions = BARANGAYS.map(b => ({
+  const barangayOptions = barangays.map(b => ({
     value: b.id,
     label: b.name,
   }));
@@ -272,9 +301,11 @@ export default function PatientProfilePage() {
                 label="Barangay"
                 required
                 options={barangayOptions}
+                placeholder={barangaysLoading ? "Loading barangays..." : "Select barangay"}
                 value={formData.barangay_id?.toString() || ''}
                 onChange={(e) => setFormData({ ...formData, barangay_id: parseInt(e.target.value) })}
                 error={errors.barangay_id}
+                disabled={barangaysLoading}
               />
             </div>
           </div>

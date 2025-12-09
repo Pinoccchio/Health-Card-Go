@@ -81,8 +81,6 @@ export function getTestPatientData(): Patient {
         name: 'Datu Abdul Dadia',
         code: 'DAD',
         coordinates: null,
-        population: null,
-        area_sqkm: null,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       }

@@ -7,11 +7,13 @@ import { NextRequest, NextResponse } from 'next/server';
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const supabase = await createClient();
-    const { id } = params;
+
+    // Await params to get id
+    const { id } = await params;
 
     // Validate ID is a number
     const serviceId = parseInt(id);

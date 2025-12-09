@@ -52,10 +52,10 @@ export const Modal: React.FC<ModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto">
+    <div className="fixed inset-0 z-[1002] overflow-y-auto">
       {/* Backdrop */}
       <div
-        className="fixed inset-0 bg-black/50 backdrop-blur-sm transition-opacity"
+        className="fixed inset-0 bg-gray-900/60 backdrop-blur-lg transition-all duration-300"
         onClick={onClose}
         aria-hidden="true"
       />
@@ -66,6 +66,7 @@ export const Modal: React.FC<ModalProps> = ({
         <div
           className={cn(
             'relative w-full bg-white rounded-lg shadow-xl transform transition-all',
+            'animate-in fade-in zoom-in-95 duration-200',
             sizeClasses[size],
             className
           )}
@@ -97,7 +98,7 @@ export const Modal: React.FC<ModalProps> = ({
           )}
 
           {/* Content */}
-          <div className={cn('overflow-y-auto', title ? 'max-h-[calc(90vh-80px)]' : 'max-h-[90vh]')}>
+          <div className={cn('overflow-y-auto px-6 py-4', title ? 'max-h-[calc(90vh-80px)]' : 'max-h-[90vh]')}>
             {children}
           </div>
         </div>
