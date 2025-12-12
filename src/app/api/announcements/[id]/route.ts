@@ -121,7 +121,7 @@ export async function PATCH(
 
     // Validate target_audience if provided
     if (target_audience) {
-      const validAudiences = ['all', 'patients', 'healthcare_admin', 'doctor'];
+      const validAudiences = ['all', 'patients', 'healthcare_admin', 'super_admin', 'staff'];
       if (!validAudiences.includes(target_audience)) {
         return NextResponse.json(
           { success: false, error: 'Invalid target_audience' },

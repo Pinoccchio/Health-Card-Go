@@ -335,20 +335,3 @@ export function getFeedbackTrendChartData(
     ],
   };
 }
-
-// Doctor performance comparison chart config
-export function getDoctorPerformanceChartData(
-  doctors: { doctor_name: string; completion_rate: number }[]
-): ChartData {
-  return {
-    labels: doctors.map((d) => d.doctor_name),
-    datasets: [
-      {
-        label: 'Completion Rate (%)',
-        data: doctors.map((d) => d.completion_rate),
-        backgroundColor: CHART_COLORS.success,
-        borderWidth: 0,
-      },
-    ],
-  };
-}

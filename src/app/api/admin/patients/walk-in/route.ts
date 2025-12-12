@@ -197,14 +197,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to create patient record', details: patientError.message }, { status: 500 });
     }
 
-    // 9. Get a doctor (first available or assign to current admin)
-    const { data: doctors } = await supabase
-      .from('profiles')
-      .select('id')
-      .eq('role_id', 3)
-      .limit(1);
-
-    const doctor_id = doctors && doctors.length > 0 ? doctors[0].id : session.user.id;
+    // 9. Healthcare Admin completes the appointment (no doctor assignment needed)
+    // Appointment completion is handled by Healthcare Admins now
 
     // 10. Auto-create completed appointment
     const appointment_date = new Date().toISOString().split('T')[0];
@@ -241,7 +235,6 @@ export async function POST(request: NextRequest) {
       .from('appointments')
       .insert({
         patient_id: patient.id,
-        doctor_id: doctor_id,
         service_id: service_id,
         appointment_number: appointment_number, // Queue number
         appointment_date,
@@ -250,6 +243,7 @@ export async function POST(request: NextRequest) {
         checked_in_at: new Date().toISOString(),
         started_at: new Date().toISOString(),
         completed_at: new Date().toISOString(),
+        completed_by_id: session.user.id, // Healthcare Admin who handled the walk-in
       })
       .select()
       .single();

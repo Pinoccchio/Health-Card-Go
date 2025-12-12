@@ -120,6 +120,7 @@ export default function RegisterPage() {
       newErrors.adminCategory = 'Please select an admin category';
     }
 
+    // Patient-specific validations
     if (formData.role === 'patient') {
       if (!formData.barangayId) {
         newErrors.barangayId = 'Please select your barangay';
@@ -147,15 +148,6 @@ export default function RegisterPage() {
         if (!emailRegex.test(formData.emergencyContact.email)) {
           newErrors.emergencyContactEmail = 'Please enter a valid email address';
         }
-      }
-    }
-
-    if (formData.role === 'doctor') {
-      if (!formData.specialization?.trim()) {
-        newErrors.specialization = 'Specialization is required';
-      }
-      if (!formData.licenseNumber?.trim()) {
-        newErrors.licenseNumber = 'License number is required';
       }
     }
 
@@ -584,37 +576,6 @@ export default function RegisterPage() {
                   )}
                 </div>
               </div>
-            </>
-          )}
-
-          {/* Doctor-specific Fields */}
-          {formData.role === 'doctor' && (
-            <>
-              <FormField
-                id="specialization"
-                label="Specialization"
-                type="text"
-                placeholder="e.g., General Practitioner"
-                value={formData.specialization || ''}
-                onChange={(e) => handleChange('specialization', e.target.value)}
-                error={errors.specialization}
-                icon={Stethoscope}
-                required
-                disabled={loading}
-              />
-
-              <FormField
-                id="licenseNumber"
-                label="License Number"
-                type="text"
-                placeholder="e.g., PRC-12345678"
-                value={formData.licenseNumber || ''}
-                onChange={(e) => handleChange('licenseNumber', e.target.value)}
-                error={errors.licenseNumber}
-                icon={FileText}
-                required
-                disabled={loading}
-              />
             </>
           )}
 

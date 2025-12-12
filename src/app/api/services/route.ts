@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/server';
 import { NextRequest, NextResponse } from 'next/server';
 
 /**
@@ -12,7 +12,8 @@ import { NextRequest, NextResponse } from 'next/server';
  */
 export async function GET(request: NextRequest) {
   try {
-    const supabase = await createClient();
+    // Use admin client to bypass RLS for public healthcare admin data
+    const supabase = await createAdminClient();
 
     // Get query parameters
     const { searchParams } = new URL(request.url);
@@ -20,10 +21,10 @@ export async function GET(request: NextRequest) {
     const category = searchParams.get('category');
     const isActive = searchParams.get('is_active') !== 'false'; // Default to true
 
-    // Build query
+    // Build query for services
     let query = supabase
       .from('services')
-      .select('id, name, category, requires_appointment, requires_medical_record, is_active, description, duration_minutes')
+      .select('id, name, category, requires_appointment, requires_medical_record, is_active, description, duration_minutes, requirements')
       .order('id', { ascending: true });
 
     // Apply filters
@@ -49,9 +50,38 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    // Fetch assigned healthcare admins for all services
+    const { data: healthcareAdmins, error: adminsError } = await supabase
+      .from('profiles')
+      .select('id, first_name, last_name, assigned_service_id, status')
+      .eq('role', 'healthcare_admin')
+      .eq('status', 'active')
+      .order('first_name', { ascending: true });
+
+    if (adminsError) {
+      console.error('Error fetching healthcare admins:', adminsError);
+    }
+
+    // Map admins to their assigned services
+    const servicesWithAdmins = services?.map(service => {
+      const assignedAdmins = healthcareAdmins?.filter(
+        admin => admin.assigned_service_id === service.id
+      ) || [];
+
+      return {
+        ...service,
+        assigned_admins: assignedAdmins.map(admin => ({
+          id: admin.id,
+          first_name: admin.first_name,
+          last_name: admin.last_name,
+        })),
+        admin_count: assignedAdmins.length,
+      };
+    });
+
     return NextResponse.json({
       success: true,
-      data: services || [],
+      data: servicesWithAdmins || [],
     });
 
   } catch (error) {

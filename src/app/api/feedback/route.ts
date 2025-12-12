@@ -27,7 +27,6 @@ export async function POST(request: NextRequest) {
     const {
       appointment_id,
       rating,
-      doctor_rating,
       facility_rating,
       wait_time_rating,
       would_recommend,
@@ -45,7 +44,6 @@ export async function POST(request: NextRequest) {
     // Validate all ratings are provided and in range
     const ratings = {
       'Overall rating': rating,
-      'Doctor rating': doctor_rating,
       'Facility rating': facility_rating,
       'Wait time rating': wait_time_rating,
     };
@@ -185,7 +183,6 @@ export async function POST(request: NextRequest) {
         patient_id: patient.id,
         appointment_id,
         rating,
-        doctor_rating,
         facility_rating,
         wait_time_rating,
         would_recommend,
@@ -303,14 +300,6 @@ export async function GET(request: NextRequest) {
             id,
             name,
             category
-          ),
-          doctors(
-            id,
-            profiles(
-              first_name,
-              last_name,
-              specialization
-            )
           )
         ),
         responded_by_profile:profiles!responded_by(

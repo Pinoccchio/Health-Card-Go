@@ -56,7 +56,7 @@ export default function PrivacyPolicyPage() {
                 <li>Full name (first name, last name)</li>
                 <li>Email address</li>
                 <li>Password (encrypted and securely stored)</li>
-                <li>User role (Patient, Doctor, Healthcare Administrator, Super Administrator)</li>
+                <li>User role (Patient, Healthcare Administrator, Super Administrator)</li>
               </ul>
 
               <h3 className="text-lg font-medium text-gray-800 mb-2">
@@ -74,8 +74,6 @@ export default function PrivacyPolicyPage() {
                 1.3 Healthcare Professional Information
               </h3>
               <ul className="list-disc pl-6 space-y-1 mb-4">
-                <li>Medical specialization (for Doctors)</li>
-                <li>Professional license number</li>
                 <li>Admin category (for Healthcare Administrators)</li>
               </ul>
 
@@ -181,9 +179,6 @@ export default function PrivacyPolicyPage() {
                 3.1 Within the Healthcare System
               </h3>
               <ul className="list-disc pl-6 space-y-1 mb-4">
-                <li>
-                  With assigned doctors during appointments for medical care delivery
-                </li>
                 <li>
                   With Healthcare Administrators based on their category permissions
                   (healthcard, HIV, pregnancy, general, laboratory)

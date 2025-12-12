@@ -109,9 +109,10 @@ export default function HealthcareAdminAnnouncementsPage() {
     const forAll = announcements.filter(a => a.target_audience === 'all').length;
     const forPatients = announcements.filter(a => a.target_audience === 'patients').length;
     const forAdmins = announcements.filter(a => a.target_audience === 'healthcare_admin').length;
-    const forDoctors = announcements.filter(a => a.target_audience === 'doctor').length;
+    const forSuperAdmins = announcements.filter(a => a.target_audience === 'super_admin').length;
+    const forStaff = announcements.filter(a => a.target_audience === 'staff').length;
 
-    return { total, active, inactive, forAll, forPatients, forAdmins, forDoctors };
+    return { total, active, inactive, forAll, forPatients, forAdmins, forSuperAdmins, forStaff };
   }, [announcements]);
 
   // Filter announcements
@@ -352,7 +353,8 @@ export default function HealthcareAdminAnnouncementsPage() {
           all: { label: 'All Users', color: 'purple', icon: Users },
           patients: { label: 'Patients', color: 'blue', icon: UserCheck },
           healthcare_admin: { label: 'Healthcare Admins', color: 'green', icon: Shield },
-          doctor: { label: 'Doctors', color: 'orange', icon: Stethoscope },
+          super_admin: { label: 'Super Admins', color: 'orange', icon: CheckCircle },
+          staff: { label: 'Staff', color: 'cyan', icon: Activity },
         };
 
         const config = audienceConfig[row.target_audience];
@@ -363,6 +365,7 @@ export default function HealthcareAdminAnnouncementsPage() {
           blue: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
           green: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
           orange: 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200',
+          cyan: 'bg-cyan-100 text-cyan-800 dark:bg-cyan-900 dark:text-cyan-200',
         };
 
         return (
@@ -571,11 +574,23 @@ export default function HealthcareAdminAnnouncementsPage() {
               <ProfessionalCard variant="flat" className="bg-gradient-to-br from-orange-50 to-orange-100 border-l-4 border-orange-500">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-gray-600 mb-1">For Doctors</p>
-                    <p className="text-3xl font-bold text-gray-900">{statistics.forDoctors}</p>
+                    <p className="text-sm text-gray-600 mb-1">For Super Admins</p>
+                    <p className="text-3xl font-bold text-gray-900">{statistics.forSuperAdmins}</p>
                   </div>
                   <div className="w-12 h-12 bg-orange-500 rounded-xl flex items-center justify-center shadow-lg">
-                    <Stethoscope className="w-6 h-6 text-white" />
+                    <CheckCircle className="w-6 h-6 text-white" />
+                  </div>
+                </div>
+              </ProfessionalCard>
+
+              <ProfessionalCard variant="flat" className="bg-gradient-to-br from-cyan-50 to-cyan-100 border-l-4 border-cyan-500">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-gray-600 mb-1">For Staff</p>
+                    <p className="text-3xl font-bold text-gray-900">{statistics.forStaff}</p>
+                  </div>
+                  <div className="w-12 h-12 bg-cyan-500 rounded-xl flex items-center justify-center shadow-lg">
+                    <Activity className="w-6 h-6 text-white" />
                   </div>
                 </div>
               </ProfessionalCard>
@@ -667,7 +682,11 @@ export default function HealthcareAdminAnnouncementsPage() {
                     ? 'Patients'
                     : selectedAnnouncement.target_audience === 'healthcare_admin'
                     ? 'Healthcare Admins'
-                    : 'Doctors'
+                    : selectedAnnouncement.target_audience === 'super_admin'
+                    ? 'Super Admins'
+                    : selectedAnnouncement.target_audience === 'staff'
+                    ? 'Staff'
+                    : 'Unknown'
                 }`
               : undefined
           }
@@ -679,7 +698,7 @@ export default function HealthcareAdminAnnouncementsPage() {
                     day: 'numeric',
                     year: 'numeric',
                   }),
-                  doctor: selectedAnnouncement.profiles
+                  author: selectedAnnouncement.profiles
                     ? `By: ${selectedAnnouncement.profiles.first_name} ${selectedAnnouncement.profiles.last_name}`
                     : 'Unknown Author',
                 }
@@ -762,7 +781,8 @@ export default function HealthcareAdminAnnouncementsPage() {
                         <option value="all">All Users</option>
                         <option value="patients">Patients Only</option>
                         <option value="healthcare_admin">Healthcare Admins Only</option>
-                        <option value="doctor">Doctors Only</option>
+                        <option value="super_admin">Super Admins Only</option>
+                        <option value="staff">Staff Only</option>
                       </select>
                     </div>
 
@@ -822,7 +842,8 @@ export default function HealthcareAdminAnnouncementsPage() {
                         {selectedAnnouncement?.target_audience === 'all' && 'All Users'}
                         {selectedAnnouncement?.target_audience === 'patients' && 'Patients'}
                         {selectedAnnouncement?.target_audience === 'healthcare_admin' && 'Healthcare Admins'}
-                        {selectedAnnouncement?.target_audience === 'doctor' && 'Doctors'}
+                        {selectedAnnouncement?.target_audience === 'super_admin' && 'Super Admins'}
+                        {selectedAnnouncement?.target_audience === 'staff' && 'Staff'}
                       </p>
                     </div>
                   </div>

@@ -18,7 +18,6 @@ import {
   Syringe,
   Lock,
   Calendar,
-  User,
   Eye,
   Briefcase,
   ListChecks,
@@ -235,30 +234,6 @@ export default function PatientMedicalRecordsPage() {
       render: (value: string) => getCategoryBadge(value),
     },
     {
-      header: 'Doctor',
-      accessor: 'doctor',
-      sortable: false,
-      render: (_: any, row: MedicalRecord) => (
-        <div className="flex items-center gap-2 text-sm">
-          <User className="w-4 h-4 text-gray-400 flex-shrink-0" />
-          <div>
-            {row.doctors ? (
-              <>
-                <div className="font-medium text-gray-900">
-                  Dr. {row.doctors.profiles.first_name} {row.doctors.profiles.last_name}
-                </div>
-                {row.doctors.profiles.specialization && (
-                  <div className="text-xs text-gray-500">{row.doctors.profiles.specialization}</div>
-                )}
-              </>
-            ) : (
-              <span className="text-gray-400 italic">Not assigned</span>
-            )}
-          </div>
-        </div>
-      ),
-    },
-    {
       header: 'Actions',
       accessor: 'actions',
       render: (_: any, row: MedicalRecord) => (
@@ -411,7 +386,7 @@ export default function PatientMedicalRecordsPage() {
                 columns={tableColumns}
                 data={filteredRecords}
                 searchable
-                searchPlaceholder="Search by service, template type, doctor, or category..."
+                searchPlaceholder="Search by service, template type, or category..."
                 paginated
                 pageSize={15}
               />
@@ -429,9 +404,6 @@ export default function PatientMedicalRecordsPage() {
             subtitle={getTemplate(selectedRecord.template_type as any).description}
             metadata={{
               createdOn: `${formatDate(selectedRecord.created_at)}`,
-              doctor: selectedRecord.doctors
-                ? `Dr. ${selectedRecord.doctors.profiles.first_name} ${selectedRecord.doctors.profiles.last_name}`
-                : 'Not assigned',
             }}
           >
             <MedicalRecordViewer record={selectedRecord} />

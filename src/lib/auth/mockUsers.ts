@@ -85,32 +85,6 @@ export const MOCK_USERS: (User & { password: string })[] = [
     created_at: '2025-01-01T00:00:00Z',
   },
 
-  // Doctors
-  {
-    id: '7',
-    email: 'doctor@healthcard.com',
-    password: 'doctor123',
-    first_name: 'Dr. Jose',
-    last_name: 'Martinez',
-    role_id: 3,
-    status: 'active',
-    specialization: 'General Practitioner',
-    license_number: 'PRC-12345678',
-    created_at: '2025-01-01T00:00:00Z',
-  },
-  {
-    id: '8',
-    email: 'doctor2@healthcard.com',
-    password: 'doctor123',
-    first_name: 'Dr. Elena',
-    last_name: 'Cruz',
-    role_id: 3,
-    status: 'active',
-    specialization: 'Obstetrician',
-    license_number: 'PRC-87654321',
-    created_at: '2025-01-01T00:00:00Z',
-  },
-
   // Patients
   {
     id: '9',

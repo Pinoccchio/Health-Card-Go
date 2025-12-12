@@ -39,14 +39,16 @@ export async function GET(request: NextRequest) {
       query = query.eq('is_active', true);
     }
 
-    // Filter by target audience (all, patients, healthcare_admin, doctor)
+    // Filter by target audience (all, patients, healthcare_admin, super_admin, staff)
     // Show announcements for 'all' OR the specific target audience
     if (targetAudience === 'patients') {
       query = query.or('target_audience.eq.all,target_audience.eq.patients');
     } else if (targetAudience === 'healthcare_admin') {
       query = query.or('target_audience.eq.all,target_audience.eq.healthcare_admin');
-    } else if (targetAudience === 'doctor') {
-      query = query.or('target_audience.eq.all,target_audience.eq.doctor');
+    } else if (targetAudience === 'super_admin') {
+      query = query.or('target_audience.eq.all,target_audience.eq.super_admin');
+    } else if (targetAudience === 'staff') {
+      query = query.or('target_audience.eq.all,target_audience.eq.staff');
     }
     // If targetAudience is 'all', don't add any filter (show everything)
 
@@ -113,7 +115,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Validate target_audience
-    const validAudiences = ['all', 'patients', 'healthcare_admin', 'doctor'];
+    const validAudiences = ['all', 'patients', 'healthcare_admin', 'super_admin', 'staff'];
     if (!validAudiences.includes(target_audience)) {
       return NextResponse.json(
         { success: false, error: 'Invalid target_audience' },

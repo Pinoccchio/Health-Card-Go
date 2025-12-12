@@ -223,9 +223,7 @@ export function Header() {
                             ? '/admin/dashboard'
                             : user.role_id === 2
                               ? '/healthcare-admin/dashboard'
-                              : user.role_id === 3
-                                ? '/doctor/dashboard'
-                                : '/patient/dashboard'
+                              : '/patient/dashboard'
                         }
                         className="flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-primary-teal/10 hover:text-primary-teal transition-colors"
                         onClick={() => setIsUserMenuOpen(false)}
@@ -331,9 +329,7 @@ export function Header() {
                           ? '/admin/dashboard'
                           : user.role_id === 2
                             ? '/healthcare-admin/dashboard'
-                            : user.role_id === 3
-                              ? '/doctor/dashboard'
-                              : '/patient/dashboard'
+                            : '/patient/dashboard'
                       }
                       onClick={() => setIsMobileMenuOpen(false)}
                     >

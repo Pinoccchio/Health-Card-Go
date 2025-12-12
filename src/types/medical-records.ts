@@ -12,7 +12,7 @@ export interface MedicalRecord {
   id: string;
   patient_id: string;
   appointment_id: string | null;
-  doctor_id: string;
+  created_by_id: string; // Healthcare Admin who created the record
   category: MedicalRecordCategory;
   template_type: TemplateType;
   record_data: Record<string, any>; // JSONB field containing form data
@@ -37,13 +37,11 @@ export interface MedicalRecord {
     };
   };
 
-  doctors?: {
+  created_by?: {
     id: string;
-    user_id: string;
     profiles: {
       first_name: string;
       last_name: string;
-      specialization: string | null;
     };
   };
 
@@ -84,7 +82,7 @@ export interface DiseaseCase {
  */
 export interface MedicalRecordFilters {
   patient_id?: string;
-  doctor_id?: string;
+  created_by_id?: string; // Healthcare Admin filter
   category?: MedicalRecordCategory;
   template_type?: TemplateType;
   start_date?: string;

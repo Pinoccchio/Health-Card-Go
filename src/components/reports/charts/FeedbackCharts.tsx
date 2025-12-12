@@ -130,14 +130,6 @@ export function FeedbackTrendChart({ data }: FeedbackChartsProps) {
         tension: 0.4,
       },
       {
-        label: 'Average Doctor Rating',
-        data: trendData.map((d: any) => safeNumber(d.average_doctor_rating, 0)),
-        borderColor: '#8b5cf6',
-        backgroundColor: 'rgba(139, 92, 246, 0.1)',
-        fill: true,
-        tension: 0.4,
-      },
-      {
         label: 'Average Facility Rating',
         data: trendData.map((d: any) => safeNumber(d.average_facility_rating, 0)),
         borderColor: '#10b981',
@@ -156,33 +148,3 @@ export function FeedbackTrendChart({ data }: FeedbackChartsProps) {
   );
 }
 
-export function FeedbackByDoctorChart({ data }: FeedbackChartsProps) {
-  const byDoctor = ensureArray(data?.by_doctor);
-
-  if (byDoctor.length === 0) {
-    return <div className="text-center text-gray-500 py-12">No doctor data available</div>;
-  }
-
-  // Sort by rating and take top 10
-  const topDoctors = [...byDoctor]
-    .sort((a, b) => safeNumber(b.average_rating, 0) - safeNumber(a.average_rating, 0))
-    .slice(0, 10);
-
-  const chartData = {
-    labels: topDoctors.map((d: any) => d.doctor_name || 'Unknown'),
-    datasets: [
-      {
-        label: 'Average Rating',
-        data: topDoctors.map((d: any) => safeNumber(d.average_rating, 0)),
-        backgroundColor: '#8b5cf6',
-      },
-    ],
-  };
-
-  return (
-    <div>
-      <h3 className="text-lg font-semibold mb-4">Top 10 Doctors by Rating</h3>
-      <BaseBarChart data={chartData} height={300} horizontal={true} />
-    </div>
-  );
-}

@@ -9,6 +9,7 @@ import { ProfessionalCard } from '@/components/ui/ProfessionalCard';
 import { EnhancedTable } from '@/components/ui/EnhancedTable';
 import { Drawer } from '@/components/ui/Drawer';
 import { StatusHistoryModal } from '@/components/appointments/StatusHistoryModal';
+import { AppointmentCompletionModal } from '@/components/appointments/AppointmentCompletionModal';
 import { TimeElapsedBadge } from '@/components/appointments/TimeElapsedBadge';
 import {
   Calendar,
@@ -120,6 +121,10 @@ export default function HealthcareAdminAppointmentsPage() {
 
   // Medical records check for undo validation (keyed by appointment ID)
   const [hasMedicalRecords, setHasMedicalRecords] = useState<Record<string, boolean | null>>({});
+
+  // Appointment completion modal state
+  const [showCompletionModal, setShowCompletionModal] = useState(false);
+  const [appointmentToComplete, setAppointmentToComplete] = useState<AdminAppointment | null>(null);
 
   // Check if user has access to appointments (not walk-in only service)
   useEffect(() => {
@@ -426,6 +431,25 @@ export default function HealthcareAdminAppointmentsPage() {
     }
   };
 
+  const handleCompleteAppointment = (appointment: AdminAppointment) => {
+    setAppointmentToComplete(appointment);
+    setShowCompletionModal(true);
+  };
+
+  const handleCompletionSuccess = () => {
+    setShowCompletionModal(false);
+    setAppointmentToComplete(null);
+    setIsDrawerOpen(false);
+    setSuccessMessage('Appointment completed successfully');
+    setTimeout(() => setSuccessMessage(''), 3000);
+    fetchAppointments();
+  };
+
+  const handleCompletionCancel = () => {
+    setShowCompletionModal(false);
+    setAppointmentToComplete(null);
+  };
+
   const exportToCSV = () => {
     const filteredData = appointments;
     const headers = ['Queue #', 'Patient Name', 'Patient #', 'Date', 'Time', 'Status', 'Reason'];
@@ -534,15 +558,30 @@ export default function HealthcareAdminAppointmentsPage() {
     {
       header: 'Actions',
       accessor: 'actions',
-      render: (_: any, row: AdminAppointment) => (
-        <button
-          onClick={() => handleViewDetails(row)}
-          className="inline-flex items-center px-3 py-1.5 bg-[#20C997] text-white text-xs font-medium rounded-md hover:bg-[#1AA179] transition-colors"
-        >
-          <Eye className="w-3 h-3 mr-1.5" />
-          View Details
-        </button>
-      ),
+      render: (_: any, row: AdminAppointment) => {
+        const canComplete = ['scheduled', 'checked_in', 'in_progress'].includes(row.status);
+
+        return (
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => handleViewDetails(row)}
+              className="inline-flex items-center px-3 py-1.5 bg-[#20C997] text-white text-xs font-medium rounded-md hover:bg-[#1AA179] transition-colors"
+            >
+              <Eye className="w-3 h-3 mr-1.5" />
+              View
+            </button>
+            {canComplete && (
+              <button
+                onClick={() => handleCompleteAppointment(row)}
+                className="inline-flex items-center px-3 py-1.5 bg-green-600 text-white text-xs font-medium rounded-md hover:bg-green-700 transition-colors"
+              >
+                <CheckCircle className="w-3 h-3 mr-1.5" />
+                Complete
+              </button>
+            )}
+          </div>
+        );
+      },
     },
   ];
 
@@ -1098,6 +1137,17 @@ export default function HealthcareAdminAppointmentsPage() {
 
               {/* Action Buttons */}
               <div className="mt-6 pt-6 border-t border-gray-200 space-y-3">
+                {/* Complete Appointment Button */}
+                {['scheduled', 'checked_in', 'in_progress'].includes(selectedAppointment.status) && (
+                  <button
+                    onClick={() => handleCompleteAppointment(selectedAppointment)}
+                    className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-green-600 text-white rounded-md hover:bg-green-700 font-medium text-sm shadow-sm transition-colors"
+                  >
+                    <CheckCircle className="w-5 h-5" />
+                    Complete Appointment
+                  </button>
+                )}
+
                 {/* View Status History */}
                 <button
                   onClick={() => handleViewHistory(selectedAppointment.id)}
@@ -1169,6 +1219,16 @@ export default function HealthcareAdminAppointmentsPage() {
           }
           isLoading={actionLoading}
         />
+
+        {/* Appointment Completion Modal */}
+        {appointmentToComplete && (
+          <AppointmentCompletionModal
+            isOpen={showCompletionModal}
+            onClose={handleCompletionCancel}
+            onSuccess={handleCompletionSuccess}
+            appointment={appointmentToComplete}
+          />
+        )}
       </Container>
     </DashboardLayout>
   );

@@ -8,9 +8,8 @@ import { encryptMedicalRecordData, decryptMedicalRecordData } from '@/lib/utils/
  * GET /api/medical-records
  * List medical records with filtering
  * Accessible by:
- * - Doctor (only records for patients they have appointments with)
+ * - Healthcare Admin (records for their assigned service category)
  * - Patient (own records only)
- * - Healthcare Admin (category-based filtering)
  * - Super Admin (all records)
  */
 export async function GET(request: NextRequest) {
@@ -65,14 +64,10 @@ export async function GET(request: NextRequest) {
             barangay_id
           )
         ),
-        doctors(
+        created_by:profiles!created_by_id(
           id,
-          user_id,
-          profiles(
-            first_name,
-            last_name,
-            specialization
-          )
+          first_name,
+          last_name
         ),
         appointments(
           id,
@@ -118,40 +113,6 @@ export async function GET(request: NextRequest) {
         // General admin sees all general category records
         query = query.eq('category', 'general');
       }
-    } else if (profile.role === 'doctor') {
-      // Doctors can only see records for patients they have appointments with
-      // Get doctor record
-      const { data: doctorRecord } = await supabase
-        .from('doctors')
-        .select('id')
-        .eq('user_id', user.id)
-        .single();
-
-      if (!doctorRecord) {
-        return NextResponse.json({ error: 'Doctor record not found' }, { status: 404 });
-      }
-
-      // Get all patient IDs from doctor's appointments
-      const { data: doctorAppointments } = await adminClient
-        .from('appointments')
-        .select('patient_id')
-        .eq('doctor_id', doctorRecord.id);
-
-      if (!doctorAppointments || doctorAppointments.length === 0) {
-        // Doctor has no appointments yet, return empty result
-        return NextResponse.json({
-          success: true,
-          data: [],
-          count: 0,
-          has_records: false,
-        });
-      }
-
-      // Get unique patient IDs
-      const patientIds = [...new Set(doctorAppointments.map(a => a.patient_id))];
-
-      // Filter records to only patients the doctor has seen
-      query = query.in('patient_id', patientIds);
     }
     // Super admins can see all records (no filter)
 
@@ -229,7 +190,7 @@ export async function GET(request: NextRequest) {
 /**
  * POST /api/medical-records
  * Create a new medical record
- * Only doctors can create medical records
+ * Accessible by Healthcare Admins and Super Admins
  */
 export async function POST(request: NextRequest) {
   try {
@@ -241,10 +202,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Get user profile
+    // Get user profile with assigned service
     const { data: profile } = await supabase
       .from('profiles')
-      .select('id, role')
+      .select('id, role, assigned_service_id')
       .eq('id', user.id)
       .single();
 
@@ -252,23 +213,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Profile not found' }, { status: 404 });
     }
 
-    // Only doctors can create medical records
-    if (profile.role !== 'doctor') {
+    // Only Healthcare Admins and Super Admins can create medical records
+    if (!['healthcare_admin', 'super_admin'].includes(profile.role)) {
       return NextResponse.json(
-        { error: 'Only doctors can create medical records' },
+        { error: 'Only Healthcare Admins and Super Admins can create medical records' },
         { status: 403 }
       );
-    }
-
-    // Get doctor record
-    const { data: doctorRecord } = await supabase
-      .from('doctors')
-      .select('id')
-      .eq('user_id', user.id)
-      .single();
-
-    if (!doctorRecord) {
-      return NextResponse.json({ error: 'Doctor record not found' }, { status: 404 });
     }
 
     // Parse request body
@@ -283,8 +233,41 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Verify patient exists - use admin client to bypass RLS
+    // Use admin client to bypass RLS for nested joins
     const adminClient = createAdminClient();
+
+    // For Healthcare Admins, validate service assignment
+    if (profile.role === 'healthcare_admin') {
+      if (!profile.assigned_service_id) {
+        return NextResponse.json(
+          { error: 'No service assigned to your account' },
+          { status: 403 }
+        );
+      }
+
+      // If appointment_id is provided, verify it matches the Healthcare Admin's assigned service
+      if (appointment_id) {
+        const { data: appointment, error: appointmentError } = await adminClient
+          .from('appointments')
+          .select('service_id')
+          .eq('id', appointment_id)
+          .single();
+
+        if (appointmentError || !appointment) {
+          return NextResponse.json(
+            { error: 'Appointment not found' },
+            { status: 404 }
+          );
+        }
+
+        if (appointment.service_id !== profile.assigned_service_id) {
+          return NextResponse.json(
+            { error: 'You can only create medical records for appointments in your assigned service' },
+            { status: 403 }
+          );
+        }
+      }
+    }
 
     const { data: patient, error: patientError } = await adminClient
       .from('patients')
@@ -430,7 +413,7 @@ export async function POST(request: NextRequest) {
       .insert({
         patient_id,
         appointment_id: appointment_id || null,
-        doctor_id: doctorRecord.id,
+        created_by_id: profile.id, // Healthcare Admin or Super Admin
         category,
         template_type,
         record_data: dataToStore, // Store encrypted or plain data
@@ -448,15 +431,6 @@ export async function POST(request: NextRequest) {
             date_of_birth,
             gender,
             barangay_id
-          )
-        ),
-        doctors(
-          id,
-          user_id,
-          profiles(
-            first_name,
-            last_name,
-            specialization
           )
         )
       `)

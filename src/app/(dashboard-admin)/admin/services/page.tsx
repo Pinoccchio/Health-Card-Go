@@ -5,21 +5,13 @@ import { DashboardLayout } from '@/components/dashboard';
 import { Container, Button } from '@/components/ui';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { ServiceForm, ServiceFormData, ServiceCategory } from '@/components/admin/ServiceForm';
+import { ServiceWithAdmins, formatRequirements } from '@/types/service';
+import { RequirementsDisplay } from '@/components/admin/RequirementsDisplay';
 import { Briefcase, Plus, Edit, Trash2, Search, Filter, Check, X } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { useToast } from '@/lib/contexts/ToastContext';
 
-interface Service {
-  id: number;
-  name: string;
-  category: ServiceCategory;
-  description: string;
-  duration_minutes: number;
-  requires_appointment: boolean;
-  is_active: boolean;
-  created_at: string;
-  updated_at: string;
-}
+type Service = ServiceWithAdmins;
 
 export default function AdminServicesPage() {
   const [services, setServices] = useState<Service[]>([]);
@@ -360,6 +352,9 @@ export default function AdminServicesPage() {
                     Category
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Requirements
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Duration
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -382,7 +377,7 @@ export default function AdminServicesPage() {
               <tbody className="bg-white divide-y divide-gray-200">
                 {filteredServices.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="px-6 py-12 text-center text-gray-500">
+                    <td colSpan={9} className="px-6 py-12 text-center text-gray-500">
                       {searchTerm || categoryFilter !== 'all' ? 'No services match your filters' : 'No services found'}
                     </td>
                   </tr>
@@ -401,6 +396,9 @@ export default function AdminServicesPage() {
                         <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getCategoryBadge(service.category)}`}>
                           {getCategoryLabel(service.category)}
                         </span>
+                      </td>
+                      <td className="px-6 py-4">
+                        <RequirementsDisplay requirements={service.requirements || []} />
                       </td>
                       <td className="px-6 py-4 text-sm text-gray-500">
                         {service.duration_minutes} min
@@ -544,7 +542,10 @@ export default function AdminServicesPage() {
                   <h2 className="text-2xl font-bold text-gray-900 mb-6">Edit Service</h2>
                   <ServiceForm
                     mode="edit"
-                    initialData={editingService}
+                    initialData={{
+                      ...editingService,
+                      requirements: formatRequirements(editingService.requirements || []),
+                    }}
                     onSubmit={handleUpdateService}
                     onCancel={() => setEditingService(null)}
                     isSubmitting={isSubmitting}

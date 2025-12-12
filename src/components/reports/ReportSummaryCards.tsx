@@ -235,9 +235,9 @@ export function ReportSummaryCards({ reportType, data }: SummaryCardsProps) {
       <ProfessionalCard className="bg-gradient-to-br from-purple-50 to-purple-100 border-l-4 border-purple-500">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-sm font-medium text-purple-600">Doctor Rating</p>
+            <p className="text-sm font-medium text-purple-600">Facility Rating</p>
             <p className="text-3xl font-bold text-purple-900 mt-2 flex items-center gap-1">
-              {safeToFixed(getSummaryValue(data, 'average_doctor_rating', 0), 1)}
+              {safeToFixed(getSummaryValue(data, 'average_facility_rating', 0), 1)}
               <Star className="w-6 h-6 fill-purple-500 text-purple-500" />
             </p>
           </div>

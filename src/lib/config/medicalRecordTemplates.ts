@@ -123,7 +123,7 @@ export const generalCheckupTemplate: MedicalRecordTemplate = {
     {
       title: 'Additional Notes',
       fields: [
-        { name: 'notes', label: 'Doctor\'s Notes', type: 'textarea', required: false, placeholder: 'Any additional observations or notes...' },
+        { name: 'notes', label: 'Clinical Notes', type: 'textarea', required: false, placeholder: 'Any additional observations or notes...' },
       ],
     },
   ],

@@ -172,17 +172,16 @@ export async function POST(request: NextRequest) {
     // Security: User is authenticated patient, creating their own appointment
     const adminClient = createAdminClient();
 
-    // Create appointment with 'pending' status (awaiting doctor assignment)
+    // Create appointment with 'pending' status (awaiting admin confirmation)
     const { data: appointment, error: insertError } = await adminClient
       .from('appointments')
       .insert({
         patient_id: patient.id,
         service_id: service_id, // Links to service for category-based routing
-        doctor_id: null, // Will be assigned later by admin
         appointment_date,
         appointment_time,
         appointment_number: nextQueueNumber,
-        status: 'pending', // Start as pending until doctor is assigned
+        status: 'pending', // Start as pending until confirmed by admin
         reason,
       })
       .select(`
@@ -255,7 +254,7 @@ export async function POST(request: NextRequest) {
  * Query params:
  * - status: filter by status
  * - date: filter by date
- * - patient_id: filter by patient (admin/doctor only)
+ * - patient_id: filter by patient (admin only)
  * - page: page number (default: 1)
  * - limit: records per page (default: 20, max: 100)
  */

@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server';
 import { NextRequest, NextResponse } from 'next/server';
+import { parseRequirements } from '@/types/service';
 
 type RouteContext = {
   params: Promise<{ id: string }>;
@@ -137,7 +138,7 @@ export async function PUT(
 
     // Parse request body
     const body = await request.json();
-    const { name, category, description, duration_minutes, requires_appointment, requires_medical_record, is_active } = body;
+    const { name, category, description, duration_minutes, requires_appointment, requires_medical_record, is_active, requirements } = body;
 
     // Validation
     if (name !== undefined) {
@@ -195,6 +196,10 @@ export async function PUT(
     if (requires_appointment !== undefined) updates.requires_appointment = requires_appointment;
     if (requires_medical_record !== undefined) updates.requires_medical_record = requires_medical_record;
     if (is_active !== undefined) updates.is_active = is_active;
+    if (requirements !== undefined) {
+      // Parse requirements from comma-separated string to array
+      updates.requirements = requirements ? parseRequirements(requirements) : [];
+    }
 
     // Update service
     const { data: updatedService, error: updateError } = await supabase

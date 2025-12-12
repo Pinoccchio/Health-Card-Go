@@ -2,18 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui';
-
-export type ServiceCategory = 'healthcard' | 'hiv' | 'pregnancy' | 'laboratory' | 'immunization' | 'general';
-
-export interface ServiceFormData {
-  name: string;
-  category: ServiceCategory;
-  description: string;
-  duration_minutes: number;
-  requires_appointment: boolean;
-  requires_medical_record: boolean;
-  is_active: boolean;
-}
+import { ServiceFormData, ServiceCategory } from '@/types/service';
 
 interface ServiceFormProps {
   mode: 'create' | 'edit';
@@ -47,6 +36,7 @@ export function ServiceForm({
     requires_appointment: initialData?.requires_appointment !== false,
     requires_medical_record: initialData?.requires_medical_record !== false,
     is_active: initialData?.is_active !== false,
+    requirements: initialData?.requirements || '',
   });
 
   const [errors, setErrors] = useState<Partial<Record<keyof ServiceFormData, string>>>({});
@@ -62,6 +52,7 @@ export function ServiceForm({
         requires_appointment: initialData.requires_appointment !== false,
         requires_medical_record: initialData.requires_medical_record !== false,
         is_active: initialData.is_active !== false,
+        requirements: initialData.requirements || '',
       });
     }
   }, [initialData, mode]);
@@ -77,8 +68,17 @@ export function ServiceForm({
       newErrors.category = 'Category is required';
     }
 
-    if (formData.duration_minutes < 5 || formData.duration_minutes > 240) {
+    if (
+      formData.duration_minutes === '' ||
+      formData.duration_minutes < 5 ||
+      formData.duration_minutes > 240
+    ) {
       newErrors.duration_minutes = 'Duration must be between 5 and 240 minutes';
+    }
+
+    // Validate requirements (optional, but if provided, check format)
+    if (formData.requirements && formData.requirements.length > 500) {
+      newErrors.requirements = 'Requirements must be less than 500 characters total';
     }
 
     setErrors(newErrors);
@@ -93,7 +93,14 @@ export function ServiceForm({
     }
 
     try {
-      await onSubmit(formData);
+      // Convert empty string back to number before submission
+      const submissionData = {
+        ...formData,
+        duration_minutes: typeof formData.duration_minutes === 'string'
+          ? 30 // Default fallback if somehow empty (though validation should prevent this)
+          : formData.duration_minutes
+      };
+      await onSubmit(submissionData);
     } catch (error) {
       console.error('Form submission error:', error);
     }
@@ -188,6 +195,30 @@ export function ServiceForm({
         </p>
       </div>
 
+      {/* Requirements */}
+      <div>
+        <label htmlFor="requirements" className="block text-sm font-medium text-gray-700 mb-1">
+          Requirements
+        </label>
+        <textarea
+          id="requirements"
+          value={formData.requirements}
+          onChange={(e) => handleChange('requirements', e.target.value)}
+          rows={3}
+          className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+            errors.requirements ? 'border-red-500' : 'border-gray-300'
+          }`}
+          placeholder="e.g., Fasting for 12 hours, Bring valid ID, Medical clearance letter"
+          disabled={isSubmitting}
+        />
+        {errors.requirements && (
+          <p className="mt-1 text-sm text-red-600">{errors.requirements}</p>
+        )}
+        <p className="mt-1 text-xs text-gray-500">
+          Separate multiple requirements with commas. These will be shown to patients before booking.
+        </p>
+      </div>
+
       {/* Duration */}
       <div>
         <label htmlFor="duration_minutes" className="block text-sm font-medium text-gray-700 mb-1">
@@ -199,8 +230,11 @@ export function ServiceForm({
           min="5"
           max="240"
           step="5"
-          value={formData.duration_minutes}
-          onChange={(e) => handleChange('duration_minutes', parseInt(e.target.value))}
+          value={formData.duration_minutes === '' ? '' : formData.duration_minutes}
+          onChange={(e) => {
+            const value = e.target.value === '' ? '' : parseInt(e.target.value);
+            handleChange('duration_minutes', isNaN(value as number) ? '' : value);
+          }}
           className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
             errors.duration_minutes ? 'border-red-500' : 'border-gray-300'
           }`}

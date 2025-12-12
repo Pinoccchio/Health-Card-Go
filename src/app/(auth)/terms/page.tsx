@@ -73,21 +73,11 @@ export default function TermsPage() {
               </ul>
 
               <h3 className="text-lg font-medium text-gray-800 mb-2">
-                2.3 Doctors
-              </h3>
-              <ul className="list-disc pl-6 space-y-1 mb-4">
-                <li>Must hold valid medical license in the Philippines</li>
-                <li>Responsible for accurate and complete medical record documentation</li>
-                <li>Must complete appointments in a timely manner</li>
-                <li>Required to maintain professional standards of care</li>
-              </ul>
-
-              <h3 className="text-lg font-medium text-gray-800 mb-2">
-                2.4 Super Administrators
+                2.3 Super Administrators
               </h3>
               <ul className="list-disc pl-6 space-y-1">
                 <li>Full system access and management responsibilities</li>
-                <li>User account creation and management for Healthcare Admins and Doctors</li>
+                <li>User account creation and management for Healthcare Admins</li>
                 <li>System configuration and security oversight</li>
               </ul>
             </section>

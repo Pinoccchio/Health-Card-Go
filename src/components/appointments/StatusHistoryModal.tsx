@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { X, Clock, User, RotateCcw, AlertCircle, UserPlus, UserMinus, UserCheck } from 'lucide-react';
+import { X, Clock, User, RotateCcw, AlertCircle } from 'lucide-react';
 import { formatPhilippineDateTime } from '@/lib/utils/timezone';
 import { getStatusTimelineColor, getRoleBadgeColor, TIMELINE_COLORS, AppointmentStatus } from '@/lib/constants/colors';
 
@@ -19,23 +19,7 @@ interface StatusHistory {
   reason: string | null;
   is_reversion: boolean;
   reverted_from_history_id: string | null;
-  change_type: 'status_change' | 'doctor_assigned' | 'doctor_unassigned' | 'doctor_changed';
-  old_doctor: {
-    id: string;
-    profiles: {
-      first_name: string;
-      last_name: string;
-      specialization: string | null;
-    };
-  } | null;
-  new_doctor: {
-    id: string;
-    profiles: {
-      first_name: string;
-      last_name: string;
-      specialization: string | null;
-    };
-  } | null;
+  change_type: 'status_change';
 }
 
 interface StatusHistoryModalProps {
@@ -87,37 +71,10 @@ export function StatusHistoryModal({
     return status.replace('_', ' ').replace(/\b\w/g, (l) => l.toUpperCase());
   };
 
-  const formatDoctorName = (doctor: StatusHistory['new_doctor']) => {
-    if (!doctor || !doctor.profiles) return 'Unknown Doctor';
-    const { first_name, last_name, specialization } = doctor.profiles;
-    return `Dr. ${first_name} ${last_name}${specialization ? ` (${specialization})` : ''}`;
-  };
-
-  const getChangeIcon = (changeType: StatusHistory['change_type']) => {
-    switch (changeType) {
-      case 'doctor_assigned':
-        return UserPlus;
-      case 'doctor_unassigned':
-        return UserMinus;
-      case 'doctor_changed':
-        return UserCheck;
-      default:
-        return null;
-    }
-  };
-
   // Get timeline dot color based on change type and status
   const getTimelineDotColor = (entry: StatusHistory): string => {
     if (entry.is_reversion) {
       return TIMELINE_COLORS.reversion; // Yellow for reversions
-    }
-
-    if (entry.change_type === 'doctor_assigned') {
-      return TIMELINE_COLORS.doctor_assigned; // Blue for doctor assignments
-    }
-
-    if (entry.change_type === 'doctor_unassigned' || entry.change_type === 'doctor_changed') {
-      return TIMELINE_COLORS.doctor_assigned; // Blue for doctor changes
     }
 
     // For status changes, use the actual status color
@@ -191,29 +148,15 @@ export function StatusHistoryModal({
                             {entry.is_reversion && (
                               <RotateCcw className="w-4 h-4 text-yellow-600" />
                             )}
-                            {entry.change_type !== 'status_change' && !entry.is_reversion && (() => {
-                              const Icon = getChangeIcon(entry.change_type);
-                              return Icon ? <Icon className="w-4 h-4 text-blue-600" /> : null;
-                            })()}
                             <span className="font-semibold text-gray-900">
-                              {entry.change_type === 'status_change' ? (
-                                entry.from_status ? (
-                                  <>
-                                    {formatStatus(entry.from_status)} →{' '}
-                                    {formatStatus(entry.to_status)}
-                                  </>
-                                ) : (
-                                  `Initial: ${formatStatus(entry.to_status)}`
-                                )
-                              ) : entry.change_type === 'doctor_assigned' ? (
-                                <>Doctor Assigned: {formatDoctorName(entry.new_doctor)}</>
-                              ) : entry.change_type === 'doctor_unassigned' ? (
-                                <>Doctor Unassigned: {formatDoctorName(entry.old_doctor)}</>
-                              ) : entry.change_type === 'doctor_changed' ? (
+                              {entry.from_status ? (
                                 <>
-                                  Doctor Changed: {formatDoctorName(entry.old_doctor)} → {formatDoctorName(entry.new_doctor)}
+                                  {formatStatus(entry.from_status)} →{' '}
+                                  {formatStatus(entry.to_status)}
                                 </>
-                              ) : null}
+                              ) : (
+                                `Initial: ${formatStatus(entry.to_status)}`
+                              )}
                             </span>
                           </div>
                         </div>

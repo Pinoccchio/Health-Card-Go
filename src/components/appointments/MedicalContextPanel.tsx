@@ -135,7 +135,7 @@ export function MedicalContextPanel({
         {/* Link to Full Medical Records */}
         <div className="pt-2 border-t border-gray-200">
           <a
-            href={`/doctor/patients/${patientId}/medical-records`}
+            href={`/healthcare-admin/patients/${patientId}/medical-records`}
             className="text-xs text-primary-teal hover:text-primary-teal/80 font-medium flex items-center"
           >
             <FileText className="w-3 h-3 mr-1" />

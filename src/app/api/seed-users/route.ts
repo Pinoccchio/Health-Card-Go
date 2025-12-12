@@ -3,13 +3,12 @@ import { NextResponse } from 'next/server';
 
 /**
  * POST /api/seed-users
- * Seeds all 14 test accounts from ACCOUNTS.txt/SEED_USERS.md into Supabase
+ * Seeds all 12 test accounts from ACCOUNTS.txt/SEED_USERS.md into Supabase
  * Uses Service Role Key for admin privileges
  *
  * Creates:
  * - 1 Super Admin
  * - 6 Healthcare Admins (healthcard, hiv, pregnancy, general_admin, laboratory, immunization)
- * - 2 Doctors
  * - 4 Patients (1 pending, 3 active with health cards)
  */
 export async function POST() {
@@ -29,7 +28,6 @@ export async function POST() {
     const results = {
       super_admin: null as any,
       healthcare_admins: [] as any[],
-      doctors: [] as any[],
       patients: [] as any[],
       health_cards: [] as any[],
       errors: [] as any[],
@@ -214,121 +212,7 @@ export async function POST() {
     }
 
     // ========================================
-    // 3. SEED DOCTORS
-    // ========================================
-    console.log('🔧 Seeding Doctors...');
-    const doctorsToSeed = [
-      {
-        email: 'dr.santos@gmail.com',
-        password: 'Doctor@2025!',
-        first_name: 'Juan',
-        last_name: 'Santos',
-        specialization: 'General Practitioner',
-        license_number: 'PRC-123456789',
-        contact_number: '+63 912 345 6789',
-      },
-      {
-        email: 'dr.reyes@gmail.com',
-        password: 'Doctor@2025!',
-        first_name: 'Maria',
-        last_name: 'Reyes',
-        specialization: 'Pediatrician',
-        license_number: 'PRC-987654321',
-        contact_number: '+63 923 456 7890',
-      },
-    ];
-
-    for (const doctor of doctorsToSeed) {
-      try {
-        const { data: existingUser } = await supabaseAdmin.auth.admin.listUsers();
-        const userExists = existingUser.users.find((u) => u.email === doctor.email);
-
-        let userId: string;
-
-        if (userExists) {
-          userId = userExists.id;
-          await supabaseAdmin.auth.admin.updateUserById(userId, {
-            password: doctor.password,
-          });
-        } else {
-          const { data: authUser, error: authError } = await supabaseAdmin.auth.admin.createUser({
-            email: doctor.email,
-            password: doctor.password,
-            email_confirm: true,
-          });
-
-          if (authError) throw authError;
-          userId = authUser.user.id;
-        }
-
-        // Update or insert profile
-        const { error: profileError } = await supabaseAdmin.from('profiles').upsert(
-          {
-            id: userId,
-            email: doctor.email,
-            first_name: doctor.first_name,
-            last_name: doctor.last_name,
-            contact_number: doctor.contact_number,
-            specialization: doctor.specialization,
-            license_number: doctor.license_number,
-            role: 'doctor',
-            status: 'active',
-            barangay_id: 1, // Default barangay
-            updated_at: new Date().toISOString(),
-          },
-          { onConflict: 'id' }
-        );
-
-        if (profileError) throw profileError;
-
-        // Check if doctor record exists
-        const { data: existingDoctor } = await supabaseAdmin
-          .from('doctors')
-          .select('id')
-          .eq('user_id', userId)
-          .single();
-
-        if (!existingDoctor) {
-          // Create doctor record with schedule
-          const { error: doctorError } = await supabaseAdmin.from('doctors').insert({
-            user_id: userId,
-            schedule: {
-              monday: { start: '08:00', end: '17:00' },
-              tuesday: { start: '08:00', end: '17:00' },
-              wednesday: { start: '08:00', end: '17:00' },
-              thursday: { start: '08:00', end: '17:00' },
-              friday: { start: '08:00', end: '17:00' },
-            },
-            max_patients_per_day: 100,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-          });
-
-          if (doctorError) throw doctorError;
-        }
-
-        results.doctors.push({
-          email: doctor.email,
-          name: `Dr. ${doctor.first_name} ${doctor.last_name}`,
-          specialization: doctor.specialization,
-          license_number: doctor.license_number,
-          success: true,
-          action: userExists ? 'updated' : 'created',
-        });
-
-        console.log(`✅ Doctor created: ${doctor.email} (${doctor.specialization})`);
-      } catch (error: any) {
-        console.error(`❌ Doctor error (${doctor.email}):`, error);
-        results.errors.push({
-          type: 'doctor',
-          email: doctor.email,
-          error: error.message,
-        });
-      }
-    }
-
-    // ========================================
-    // 4. SEED PATIENTS (1 Pending, 3 Active)
+    // 3. SEED PATIENTS (1 Pending, 3 Active)
     // ========================================
     console.log('🔧 Seeding Patients...');
     const patientsToSeed = [
@@ -567,7 +451,6 @@ export async function POST() {
     console.log('Summary:', {
       super_admin: results.super_admin ? 1 : 0,
       healthcare_admins: results.healthcare_admins.length,
-      doctors: results.doctors.length,
       patients: results.patients.length,
       health_cards: results.health_cards.length,
       errors: results.errors.length,
@@ -576,11 +459,10 @@ export async function POST() {
     return NextResponse.json(
       {
         success: true,
-        message: 'All 14 test users seeded successfully!',
+        message: 'All 12 test users seeded successfully!',
         summary: {
           super_admin: results.super_admin ? 1 : 0,
           healthcare_admins_created: results.healthcare_admins.length,
-          doctors_created: results.doctors.length,
           patients_created: results.patients.length,
           health_cards_created: results.health_cards.length,
           errors: results.errors.length,

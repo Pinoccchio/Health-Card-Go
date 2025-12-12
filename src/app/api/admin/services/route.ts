@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server';
 import { NextRequest, NextResponse } from 'next/server';
+import { parseRequirements } from '@/types/service';
 
 /**
  * GET /api/admin/services
@@ -159,7 +160,7 @@ export async function POST(request: NextRequest) {
 
     // Parse request body
     const body = await request.json();
-    const { name, category, description, duration_minutes, requires_appointment, requires_medical_record, is_active } = body;
+    const { name, category, description, duration_minutes, requires_appointment, requires_medical_record, is_active, requirements } = body;
 
     // Validation
     if (!name || name.trim() === '') {
@@ -205,6 +206,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Parse requirements from comma-separated string to array
+    const requirementsArray = requirements ? parseRequirements(requirements) : [];
+
     // Create service
     const { data: newService, error: insertError } = await supabase
       .from('services')
@@ -216,6 +220,7 @@ export async function POST(request: NextRequest) {
         requires_appointment: requires_appointment !== false, // Default true
         requires_medical_record: requires_medical_record !== false, // Default true
         is_active: is_active !== false, // Default true
+        requirements: requirementsArray, // JSONB array
       })
       .select()
       .single();

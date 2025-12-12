@@ -45,7 +45,7 @@ export default function SuperAdminDashboard() {
           <ul className="mt-3 space-y-2 text-blue-800">
             <li className="flex items-center gap-2">
               <Users className="w-4 h-4" />
-              Manage all users (Admins, Doctors, Patients)
+              Manage all users (Admins, Healthcare Staff, Patients)
             </li>
             <li className="flex items-center gap-2">
               <Calendar className="w-4 h-4" />
@@ -88,17 +88,6 @@ export default function SuperAdminDashboard() {
           <div className="bg-white rounded-lg shadow p-6 hover:shadow-lg transition-shadow">
             <div className="flex flex-col">
               <div className="flex items-center justify-between mb-2">
-                <p className="text-sm font-medium text-gray-600">Doctors</p>
-                <Users className="w-8 h-8 text-cta-orange" />
-              </div>
-              <p className="text-2xl font-bold text-gray-900">0</p>
-              <p className="text-xs text-gray-500 mt-1">Medical staff</p>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-lg shadow p-6 hover:shadow-lg transition-shadow">
-            <div className="flex flex-col">
-              <div className="flex items-center justify-between mb-2">
                 <p className="text-sm font-medium text-gray-600">
                   HC Admins
                 </p>
@@ -106,6 +95,17 @@ export default function SuperAdminDashboard() {
               </div>
               <p className="text-2xl font-bold text-gray-900">0</p>
               <p className="text-xs text-gray-500 mt-1">5 categories</p>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-lg shadow p-6 hover:shadow-lg transition-shadow">
+            <div className="flex flex-col">
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-sm font-medium text-gray-600">Healthcare Staff</p>
+                <Users className="w-8 h-8 text-cta-orange" />
+              </div>
+              <p className="text-2xl font-bold text-gray-900">0</p>
+              <p className="text-xs text-gray-500 mt-1">All categories</p>
             </div>
           </div>
 
@@ -158,7 +158,6 @@ export default function SuperAdminDashboard() {
           <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-2">
             <ul className="text-sm text-primary-teal-dark space-y-1">
               <li>• Create and manage Healthcare Admins (all categories)</li>
-              <li>• Create and manage Doctors</li>
               <li>• Approve or reject patient registrations</li>
               <li>• View all appointments and medical records</li>
             </ul>

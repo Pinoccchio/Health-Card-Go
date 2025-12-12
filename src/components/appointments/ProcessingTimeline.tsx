@@ -4,7 +4,7 @@ import { CheckCircle, Clock, UserCheck, Calendar } from 'lucide-react';
 import { getAdminRoleLabel } from '@/lib/utils/serviceHelpers';
 
 interface ProcessingTimelineProps {
-  currentStep: 'booking' | 'admin_review' | 'doctor_assignment' | 'confirmed';
+  currentStep: 'booking' | 'admin_review' | 'confirmed';
   serviceCategory: string;
   compact?: boolean;
 }
@@ -35,12 +35,6 @@ export function ProcessingTimeline({
       label: 'Admin Review',
       description: `Our ${adminRole} will review your booking`,
       icon: Clock,
-    },
-    {
-      id: 'doctor_assignment',
-      label: 'Doctor Assignment',
-      description: 'A qualified doctor will be assigned to your appointment',
-      icon: UserCheck,
     },
     {
       id: 'confirmed',
@@ -142,7 +136,7 @@ export function ProcessingTimeline({
               <h5 className="text-sm font-semibold text-blue-900">Expected Timeline</h5>
               <p className="mt-1 text-sm text-blue-700">
                 Your appointment confirmation usually arrives within 24 hours. You'll receive a
-                notification once a doctor is assigned.
+                notification once your booking is confirmed.
               </p>
             </div>
           </div>

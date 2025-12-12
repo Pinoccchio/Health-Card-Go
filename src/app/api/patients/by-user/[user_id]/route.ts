@@ -6,7 +6,7 @@ import { NextRequest, NextResponse } from 'next/server';
  * GET /api/patients/by-user/[user_id]
  * Fetch a patient by their user_id (profiles table id)
  * Used when scanning QR codes which contain user_id instead of patients table id
- * Only accessible by doctors who have appointments with this patient
+ * Only accessible by healthcare admins and super admins
  */
 export async function GET(
   request: NextRequest,
@@ -33,20 +33,9 @@ export async function GET(
       return NextResponse.json({ error: 'Profile not found' }, { status: 404 });
     }
 
-    // Only doctors can use this endpoint (for QR scanning)
-    if (profile.role !== 'doctor') {
-      return NextResponse.json({ error: 'Forbidden: Only doctors can access this endpoint' }, { status: 403 });
-    }
-
-    // Get doctor record
-    const { data: doctorRecord } = await supabase
-      .from('doctors')
-      .select('id')
-      .eq('user_id', user.id)
-      .single();
-
-    if (!doctorRecord) {
-      return NextResponse.json({ error: 'Doctor record not found' }, { status: 404 });
+    // Only healthcare admins and super admins can use this endpoint (for QR scanning)
+    if (!['healthcare_admin', 'super_admin'].includes(profile.role)) {
+      return NextResponse.json({ error: 'Forbidden: Only healthcare staff can access this endpoint' }, { status: 403 });
     }
 
     // Create admin client for bypassing RLS
@@ -112,28 +101,11 @@ export async function GET(
       );
     }
 
-    // Verify doctor has appointments with this patient (security check)
-    const { data: appointment } = await adminClient
-      .from('appointments')
-      .select('id')
-      .eq('doctor_id', doctorRecord.id)
-      .eq('patient_id', patient.id)
-      .limit(1)
-      .single();
-
-    if (!appointment) {
-      return NextResponse.json(
-        { error: 'You do not have access to this patient\'s records' },
-        { status: 403 }
-      );
-    }
-
-    // Fetch last visit
+    // Fetch last visit (any completed appointment)
     const { data: lastVisit } = await adminClient
       .from('appointments')
       .select('appointment_date, appointment_time, status')
       .eq('patient_id', patient.id)
-      .eq('doctor_id', doctorRecord.id)
       .in('status', ['completed', 'in_progress'])
       .order('appointment_date', { ascending: false })
       .order('appointment_time', { ascending: false })

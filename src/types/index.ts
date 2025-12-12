@@ -67,7 +67,7 @@ export interface MapConfig {
 }
 
 // Announcement Types
-export type TargetAudience = 'all' | 'patients' | 'healthcare_admin' | 'doctor';
+export type TargetAudience = 'all' | 'patients' | 'healthcare_admin' | 'super_admin' | 'staff';
 
 export interface Announcement {
   id: string;

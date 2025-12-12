@@ -4,7 +4,7 @@ import { NextRequest, NextResponse } from 'next/server';
 /**
  * GET /api/patients/[id]
  * Fetch a specific patient by ID for medical record creation
- * Used when doctors create medical records directly (not from appointments)
+ * Used when healthcare admins create medical records directly (not from appointments)
  */
 export async function GET(
   request: NextRequest,
@@ -31,8 +31,8 @@ export async function GET(
       return NextResponse.json({ error: 'Profile not found' }, { status: 404 });
     }
 
-    // Only doctors, healthcare admins, and super admins can fetch patient details
-    if (!['super_admin', 'healthcare_admin', 'doctor'].includes(profile.role)) {
+    // Only healthcare admins and super admins can fetch patient details
+    if (!['super_admin', 'healthcare_admin'].includes(profile.role)) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 

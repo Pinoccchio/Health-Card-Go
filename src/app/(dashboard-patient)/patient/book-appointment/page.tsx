@@ -3,10 +3,11 @@
 import { useState, useEffect } from 'react';
 import { DashboardLayout } from '@/components/dashboard';
 import { Container } from '@/components/ui';
-import { Calendar, Clock, AlertCircle, CheckCircle2, Lock, Sparkles, Info } from 'lucide-react';
+import { Calendar, Clock, AlertCircle, CheckCircle2, Lock, Sparkles, Info, User } from 'lucide-react';
 import { getReasonTemplates } from '@/lib/config/appointmentTemplates';
 import { getMinBookingDateString } from '@/lib/utils/timezone';
 import { ProcessingTimeline } from '@/components/appointments/ProcessingTimeline';
+import { ServiceRequirements } from '@/components/patient/ServiceRequirements';
 import {
   getCategoryLabel,
   getAdminRoleLabel,
@@ -23,6 +24,13 @@ interface Service {
   description: string;
   duration_minutes: number;
   requires_appointment: boolean;
+  requirements?: string[]; // JSONB array of requirement strings
+  admin_count?: number;
+  assigned_admins?: Array<{
+    id: string;
+    first_name: string;
+    last_name: string;
+  }>;
 }
 
 interface TimeSlot {
@@ -34,6 +42,7 @@ interface TimeSlot {
 export default function PatientBookAppointmentPage() {
   const [step, setStep] = useState(1);
   const [services, setServices] = useState<Service[]>([]);
+  const [servicesLoading, setServicesLoading] = useState(true);
   const [selectedService, setSelectedService] = useState<number | null>(null);
   const [selectedDate, setSelectedDate] = useState('');
   const [selectedTime, setSelectedTime] = useState('');
@@ -51,6 +60,7 @@ export default function PatientBookAppointmentPage() {
   }, []);
 
   const fetchServices = async () => {
+    setServicesLoading(true);
     try {
       const response = await fetch('/api/services?requires_appointment=true');
       const data = await response.json();
@@ -59,6 +69,9 @@ export default function PatientBookAppointmentPage() {
       }
     } catch (err) {
       console.error('Error loading services:', err);
+      setServices([]); // Set empty array on error
+    } finally {
+      setServicesLoading(false);
     }
   };
 
@@ -191,7 +204,7 @@ export default function PatientBookAppointmentPage() {
                 <div className="text-sm text-blue-800">
                   <h4 className="font-semibold mb-1">What Happens Next?</h4>
                   <p>
-                    Our {getAdminRoleLabel(selectedServiceDetails.category)} will review your booking and assign an appropriate doctor.
+                    Our {getAdminRoleLabel(selectedServiceDetails.category)} will review your booking and confirm your appointment.
                     You'll receive a confirmation notification {getExpectedProcessingTime(selectedServiceDetails.category).toLowerCase()}.
                   </p>
                 </div>
@@ -262,8 +275,20 @@ export default function PatientBookAppointmentPage() {
                 <p className="text-sm text-gray-600 mb-6">
                   Choose the healthcare service you need. Each service is managed by specialized administrators.
                 </p>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {services.map((service) => {
+
+                {/* Loading State */}
+                {servicesLoading ? (
+                  <div className="text-center py-12">
+                    <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary-teal"></div>
+                    <p className="mt-2 text-sm text-gray-500">Loading services...</p>
+                  </div>
+                ) : services.length === 0 ? (
+                  <div className="text-center py-12">
+                    <p className="text-gray-500">No services available at this time.</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
+                    {services.map((service) => {
                     const categoryColors = getCategoryColors(service.category);
                     const isConfidential = isConfidentialCategory(service.category);
                     const isFree = isFreeService(service.name);
@@ -291,7 +316,7 @@ export default function PatientBookAppointmentPage() {
                         </p>
 
                         {/* Admin Category Badge */}
-                        <div className="flex flex-wrap items-center gap-2 mb-2">
+                        <div className="flex flex-wrap items-center gap-2 mb-3">
                           <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium ${categoryColors.bgColor} ${categoryColors.textColor}`}>
                             {getAdminRoleLabel(service.category)}
                           </span>
@@ -303,14 +328,35 @@ export default function PatientBookAppointmentPage() {
                           )}
                         </div>
 
-                        <div className="flex items-center justify-between text-xs text-gray-500 mt-3 pt-3 border-t border-gray-200">
+                        {/* Requirements Section */}
+                        {service.requirements && service.requirements.length > 0 && (
+                          <div className="mb-3">
+                            <ServiceRequirements requirements={service.requirements} />
+                          </div>
+                        )}
+
+                        {/* Assigned Admin */}
+                        {service.assigned_admins && service.assigned_admins.length > 0 && (
+                          <div className="flex items-center gap-1.5 text-xs text-gray-600 mb-3">
+                            <User className="w-3.5 h-3.5" />
+                            <span>
+                              Managed by {service.assigned_admins[0].first_name} {service.assigned_admins[0].last_name}
+                              {service.admin_count && service.admin_count > 1 && (
+                                <span className="text-gray-500"> +{service.admin_count - 1} more</span>
+                              )}
+                            </span>
+                          </div>
+                        )}
+
+                        <div className="flex items-center justify-between text-xs text-gray-500 pt-3 border-t border-gray-200">
                           <span>Duration: {service.duration_minutes} min</span>
-                          <span className="text-gray-400">• Doctor assigned after booking</span>
+                          <span className="text-gray-400">• Booking confirmation</span>
                         </div>
                       </button>
                     );
                   })}
-                </div>
+                  </div>
+                )}
 
                 {/* Information Panel */}
                 <div className="mt-6 bg-gray-50 border border-gray-200 rounded-lg p-4">
@@ -319,7 +365,7 @@ export default function PatientBookAppointmentPage() {
                     <div className="text-sm text-gray-700">
                       <h5 className="font-semibold text-gray-900 mb-1">About Our Appointment System</h5>
                       <p>
-                        Each service is managed by specialized administrators who will review your booking and assign the most appropriate doctor based on your needs and their availability.
+                        Each service is managed by specialized administrators who will review and confirm your booking based on your needs and availability.
                       </p>
                     </div>
                   </div>
@@ -460,7 +506,7 @@ export default function PatientBookAppointmentPage() {
                     </li>
                     <li className="flex items-start">
                       <span className="font-bold mr-2 flex-shrink-0">2.</span>
-                      <span>A qualified doctor will be assigned based on availability and your needs</span>
+                      <span>Your appointment will be confirmed based on availability and your needs</span>
                     </li>
                     <li className="flex items-start">
                       <span className="font-bold mr-2 flex-shrink-0">3.</span>
@@ -479,7 +525,7 @@ export default function PatientBookAppointmentPage() {
                     Reason for Visit (Optional)
                   </label>
                   <p className="text-xs text-gray-600 mb-3">
-                    Providing a reason helps our {getAdminRoleLabel(selectedServiceDetails.category)} assign the most appropriate doctor for your needs.
+                    Providing a reason helps our {getAdminRoleLabel(selectedServiceDetails.category)} better prepare for your appointment.
                   </p>
 
                   {/* Dropdown for template selection */}

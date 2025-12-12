@@ -54,15 +54,6 @@ export async function GET(
             gender,
             barangay_id
           )
-        ),
-        doctors(
-          id,
-          user_id,
-          profiles(
-            first_name,
-            last_name,
-            specialization
-          )
         )
       `)
       .eq('id', id)
@@ -155,17 +146,6 @@ async function handleStatusReversion(
 
   const targetStatus = historyEntry.from_status || 'scheduled';
 
-  // CRITICAL BUSINESS RULE: Doctors cannot revert to 'pending' status
-  // Reverting to pending automatically unassigns the doctor (lines 187-195)
-  // This would make the appointment disappear from the doctor's queue and move it to healthcare admin's pending queue
-  // Only healthcare admins should be able to manage doctor assignments
-  if (userProfile.role === 'doctor' && targetStatus === 'pending') {
-    return NextResponse.json(
-      { error: 'Doctors cannot revert appointments to pending status. Only healthcare admins can manage doctor assignments.' },
-      { status: 403 }
-    );
-  }
-
   // Business rule: Cannot revert completed appointments with medical records
   if (currentAppointment.status === 'completed') {
     const { data: medicalRecord } = await supabase
@@ -193,7 +173,7 @@ async function handleStatusReversion(
 
     if (medicalRecord && medicalRecord.length > 0) {
       return NextResponse.json(
-        { error: `Cannot revert ${currentAppointment.status} appointments that have medical records. The doctor has already started documenting this visit.` },
+        { error: `Cannot revert ${currentAppointment.status} appointments that have medical records.` },
         { status: 400 }
       );
     }
@@ -226,10 +206,6 @@ async function handleStatusReversion(
   } else if (targetStatus === 'in_progress') {
     updateData.completed_at = null;
   } else if (targetStatus === 'pending') {
-    // CRITICAL FIX: Clear doctor assignment when reverting to pending status
-    // Business rule: pending appointments cannot have assigned doctors
-    // This maintains consistency with the mirror logic where assigning a doctor to pending → auto-transitions to scheduled
-    updateData.doctor_id = null;
     updateData.checked_in_at = null;
     updateData.started_at = null;
     updateData.completed_at = null;
@@ -277,21 +253,6 @@ async function handleStatusReversion(
       reason: reason || `Reverted from ${currentAppointment.status} to ${targetStatus}`,
     });
 
-  // If reverting to pending and doctor was assigned, log doctor unassignment
-  // This maintains audit trail consistency with the business rule that pending appointments cannot have doctors
-  if (targetStatus === 'pending' && currentAppointment.doctor_id !== null) {
-    await adminClient
-      .from('appointment_status_history')
-      .insert({
-        appointment_id: appointmentId,
-        change_type: 'doctor_unassigned',
-        from_status: null,
-        to_status: null,
-        changed_by: userId,
-        reason: 'Doctor removed due to status reversion to pending',
-      });
-  }
-
   return NextResponse.json({
     success: true,
     data: updatedAppointment,
@@ -301,8 +262,8 @@ async function handleStatusReversion(
 
 /**
  * PATCH /api/appointments/[id]
- * Update appointment (assign doctor, check-in, status updates)
- * Only doctors and admins can update
+ * Update appointment (check-in, status updates)
+ * Only admins can update
  */
 export async function PATCH(
   request: NextRequest,
@@ -329,8 +290,8 @@ export async function PATCH(
       return NextResponse.json({ error: 'Profile not found' }, { status: 404 });
     }
 
-    // Only doctors, healthcare admins, and super admins can update appointments
-    if (!['doctor', 'healthcare_admin', 'super_admin'].includes(profile.role)) {
+    // Only healthcare admins and super admins can update appointments
+    if (!['healthcare_admin', 'super_admin'].includes(profile.role)) {
       return NextResponse.json(
         { error: 'Only medical staff can update appointments' },
         { status: 403 }
@@ -339,7 +300,7 @@ export async function PATCH(
 
     // Get request body
     const body = await request.json();
-    const { status, notes, doctor_id, revert_to_history_id, reason } = body;
+    const { status, notes, revert_to_history_id, reason } = body;
 
     // Handle status reversion
     if (revert_to_history_id) {
@@ -348,85 +309,6 @@ export async function PATCH(
 
     // Build update object
     const updateData: any = {};
-
-    // Handle doctor assignment (healthcare admin action)
-    if (doctor_id !== undefined) {
-      if (!['healthcare_admin', 'super_admin'].includes(profile.role)) {
-        return NextResponse.json(
-          { error: 'Only admins can assign doctors' },
-          { status: 403 }
-        );
-      }
-
-      // Allow null to unassign doctor
-      if (doctor_id !== null) {
-        // Only validate if assigning a doctor (not unassigning)
-        const { data: doctorExists } = await supabase
-          .from('doctors')
-          .select('id')
-          .eq('id', doctor_id)
-          .single();
-
-        if (!doctorExists) {
-          return NextResponse.json(
-            { error: 'Invalid doctor ID' },
-            { status: 400 }
-          );
-        }
-      }
-
-      // BUSINESS RULE: Block doctor reassignment during active appointments
-      // Get current appointment status to enforce reassignment restrictions
-      const { data: currentAppt } = await supabase
-        .from('appointments')
-        .select('status, checked_in_at')
-        .eq('id', id)
-        .single();
-
-      if (currentAppt) {
-        // Block reassignment if patient has checked in
-        if (currentAppt.status === 'checked_in') {
-          return NextResponse.json(
-            { error: 'Cannot reassign doctor while patient has checked in. Please wait until appointment is completed or revert status.' },
-            { status: 400 }
-          );
-        }
-
-        // Block reassignment during active treatment
-        if (currentAppt.status === 'in_progress') {
-          return NextResponse.json(
-            { error: 'Cannot reassign doctor while appointment is in progress. This ensures continuity of care and medical record integrity.' },
-            { status: 400 }
-          );
-        }
-
-        // Block reassignment on completed appointments (medical records are linked to original doctor)
-        if (currentAppt.status === 'completed') {
-          return NextResponse.json(
-            { error: 'Cannot reassign doctor on completed appointments. Medical records are already associated with the original doctor.' },
-            { status: 400 }
-          );
-        }
-
-        // Block reassignment on cancelled or no-show appointments
-        if (currentAppt.status === 'cancelled' || currentAppt.status === 'no_show') {
-          return NextResponse.json(
-            { error: `Cannot reassign doctor on ${currentAppt.status} appointments.` },
-            { status: 400 }
-          );
-        }
-
-        // Allow reassignment for 'scheduled' only if patient hasn't checked in yet
-        if (currentAppt.status === 'scheduled' && currentAppt.checked_in_at) {
-          return NextResponse.json(
-            { error: 'Cannot reassign doctor after patient has checked in. Please revert check-in status first if reassignment is necessary.' },
-            { status: 400 }
-          );
-        }
-      }
-
-      updateData.doctor_id = doctor_id;
-    }
 
     // Handle status updates
     if (status) {
@@ -495,19 +377,6 @@ export async function PATCH(
         }
         // If service doesn't require medical record, allow completion without medical record
       }
-
-      // Assign doctor if in_progress and not already assigned
-      if (status === 'in_progress' && profile.role === 'doctor' && !doctor_id) {
-        const { data: doctorRecord } = await supabase
-          .from('doctors')
-          .select('id')
-          .eq('user_id', user.id)
-          .single();
-
-        if (doctorRecord) {
-          updateData.doctor_id = doctorRecord.id;
-        }
-      }
     }
 
     // Ensure we have something to update
@@ -518,15 +387,14 @@ export async function PATCH(
       );
     }
 
-    // Get current appointment status and doctor before updating (for history logging)
+    // Get current appointment status before updating (for history logging)
     const { data: currentAppointment } = await supabase
       .from('appointments')
-      .select('status, doctor_id')
+      .select('status')
       .eq('id', id)
       .single();
 
     const oldStatus = currentAppointment?.status;
-    const oldDoctorId = currentAppointment?.doctor_id;
 
     // Use admin client to bypass RLS for update operation
     // We've already verified authentication and authorization above
@@ -568,80 +436,8 @@ export async function PATCH(
           change_type: 'status_change',
           from_status: oldStatus,
           to_status: status,
-          changed_by: user.id, // Use the authenticated user ID (doctor/admin), not patient!
+          changed_by: user.id, // Use the authenticated user ID (admin), not patient!
           reason: reason || null, // Include reason if provided by user
-        });
-    }
-
-    // Log doctor assignment/change/unassignment in history
-    if (appointment && 'doctor_id' in updateData && updateData.doctor_id !== oldDoctorId) {
-      let changeType = 'doctor_assigned';
-      let historyReason = 'Doctor assigned to appointment';
-
-      if (oldDoctorId === null && updateData.doctor_id !== null) {
-        // Doctor assigned for the first time
-        changeType = 'doctor_assigned';
-        historyReason = 'Doctor assigned to appointment';
-
-        // Also update status to 'scheduled' when doctor is first assigned
-        if (appointment.status === 'pending') {
-          await adminClient
-            .from('appointments')
-            .update({ status: 'scheduled' })
-            .eq('id', id);
-
-          // Log the pending → scheduled transition
-          await adminClient
-            .from('appointment_status_history')
-            .insert({
-              appointment_id: id,
-              change_type: 'status_change',
-              from_status: 'pending',
-              to_status: 'scheduled',
-              changed_by: user.id,
-              reason: 'Appointment scheduled after doctor assignment',
-            });
-        }
-      } else if (oldDoctorId !== null && updateData.doctor_id !== null) {
-        // Doctor changed
-        changeType = 'doctor_changed';
-        historyReason = 'Doctor reassigned';
-      } else if (oldDoctorId !== null && updateData.doctor_id === null) {
-        // Doctor unassigned
-        changeType = 'doctor_unassigned';
-        historyReason = 'Doctor removed from appointment';
-
-        // MIRROR LOGIC: Revert status to 'pending' when doctor is unassigned from 'scheduled'
-        // This creates symmetry with the assignment logic (lines 443-461)
-        if (appointment.status === 'scheduled') {
-          await adminClient
-            .from('appointments')
-            .update({ status: 'pending' })
-            .eq('id', id);
-
-          // Log the scheduled → pending transition
-          await adminClient
-            .from('appointment_status_history')
-            .insert({
-              appointment_id: id,
-              change_type: 'status_change',
-              from_status: 'scheduled',
-              to_status: 'pending',
-              changed_by: user.id,
-              reason: 'Appointment reverted to pending after doctor unassignment',
-            });
-        }
-      }
-
-      await adminClient
-        .from('appointment_status_history')
-        .insert({
-          appointment_id: id,
-          change_type: changeType,
-          from_status: null,
-          to_status: null,
-          changed_by: user.id,
-          reason: reason || historyReason,
         });
     }
 
@@ -755,7 +551,6 @@ export async function DELETE(
         status: 'cancelled',
         cancellation_reason,
         cancelled_at: new Date().toISOString(),
-        doctor_id: null, // Clear doctor assignment when cancelled
       })
       .eq('id', id)
       .select();
@@ -786,7 +581,7 @@ export async function DELETE(
         change_type: 'status_change',
         from_status: appointment.status, // Previous status before cancellation
         to_status: 'cancelled',
-        changed_by: user.id, // The person who cancelled (patient, doctor, or admin)
+        changed_by: user.id, // The person who cancelled (patient or admin)
         reason: cancellation_reason, // Include the cancellation reason
       });
 

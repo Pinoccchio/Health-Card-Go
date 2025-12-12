@@ -22,7 +22,6 @@ export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams;
     const startDate = searchParams.get('start_date');
     const endDate = searchParams.get('end_date');
-    const doctorId = searchParams.get('doctor_id');
     const serviceId = searchParams.get('service_id');
 
     // Default to last 30 days if no date range specified
@@ -46,16 +45,12 @@ export async function GET(request: NextRequest) {
         checked_in_at,
         completed_at,
         cancelled_at,
-        doctor_id,
         service_id,
         services(name, category)
       `)
       .gte('appointment_date', finalStartDate)
       .lte('appointment_date', finalEndDate);
 
-    if (doctorId) {
-      query = query.eq('doctor_id', doctorId);
-    }
     if (serviceId) {
       query = query.eq('service_id', parseInt(serviceId));
     }
@@ -89,7 +84,6 @@ export async function GET(request: NextRequest) {
         metadata: {
           start_date: finalStartDate,
           end_date: finalEndDate,
-          doctor_id: doctorId,
           service_id: serviceId,
         },
       });
@@ -241,7 +235,6 @@ export async function GET(request: NextRequest) {
       metadata: {
         start_date: finalStartDate,
         end_date: finalEndDate,
-        doctor_id: doctorId,
         service_id: serviceId,
         days_in_range: Math.ceil((new Date(finalEndDate).getTime() - new Date(finalStartDate).getTime()) / (1000 * 60 * 60 * 24)),
       },

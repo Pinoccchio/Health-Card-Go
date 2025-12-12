@@ -54,7 +54,7 @@ export async function GET(
       }
     }
 
-    // Fetch status history with user details and doctor information
+    // Fetch status history with user details
     // Use admin client to bypass RLS for cross-profile lookups
     // (We've already verified authentication and authorization above)
     const adminClient = createAdminClient();
@@ -66,22 +66,6 @@ export async function GET(
           first_name,
           last_name,
           role
-        ),
-        old_doctor:doctors!old_doctor_id(
-          id,
-          profiles(
-            first_name,
-            last_name,
-            specialization
-          )
-        ),
-        new_doctor:doctors!new_doctor_id(
-          id,
-          profiles(
-            first_name,
-            last_name,
-            specialization
-          )
         )
       `)
       .eq('appointment_id', id)

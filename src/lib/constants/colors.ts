@@ -115,11 +115,10 @@ export const PATIENT_STATUS_CONFIG: Record<PatientStatus, StatusColorConfig> = {
 // USER ROLE COLORS
 // ============================================================================
 
-export type UserRole = 'patient' | 'doctor' | 'healthcare_admin' | 'super_admin';
+export type UserRole = 'patient' | 'healthcare_admin' | 'super_admin';
 
 export const USER_ROLE_COLORS: Record<UserRole, string> = {
   patient: 'bg-blue-100 text-blue-800',
-  doctor: 'bg-green-100 text-green-800',
   healthcare_admin: 'bg-purple-100 text-purple-800',
   super_admin: 'bg-red-100 text-red-800',
 };
@@ -129,8 +128,6 @@ export const USER_ROLE_COLORS: Record<UserRole, string> = {
 // ============================================================================
 
 export const TIMELINE_COLORS = {
-  doctor_assigned: 'bg-blue-500',      // Blue for doctor assignment/changes
-  doctor_unassigned: 'bg-gray-500',    // Gray for doctor removal
   reversion: 'bg-yellow-500',          // Yellow for status reversions (warning)
 };
 

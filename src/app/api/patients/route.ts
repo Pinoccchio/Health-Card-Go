@@ -28,8 +28,8 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Profile not found' }, { status: 404 });
     }
 
-    // Only doctors, healthcare admins, and super admins can search patients
-    if (!['super_admin', 'healthcare_admin', 'doctor'].includes(profile.role)) {
+    // Only healthcare admins and super admins can search patients
+    if (!['super_admin', 'healthcare_admin'].includes(profile.role)) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 

@@ -242,15 +242,10 @@ async function generateAppointmentSummaryReport(
     .select(`
       *,
       patients(patient_number, profiles(first_name, last_name)),
-      doctors(profiles(first_name, last_name)),
       services(name, category)
     `)
     .gte('appointment_date', startDate)
     .lte('appointment_date', endDate);
-
-  if (filters.doctor_id) {
-    query = query.eq('doctor_id', filters.doctor_id);
-  }
   if (filters.service_id) {
     query = query.eq('service_id', filters.service_id);
   }
@@ -538,17 +533,12 @@ async function generateFeedbackSatisfactionReport(
       patients(patient_number, profiles(first_name, last_name)),
       appointments!inner(
         appointment_date,
-        doctor_id,
         service_id,
         services(name, category)
       )
     `)
     .gte('created_at', startDate)
     .lte('created_at', endDate);
-
-  if (filters.doctor_id) {
-    query = query.eq('appointments.doctor_id', filters.doctor_id);
-  }
   if (filters.service_id) {
     query = query.eq('appointments.service_id', filters.service_id);
   }
@@ -559,72 +549,9 @@ async function generateFeedbackSatisfactionReport(
 
   const total = feedback?.length || 0;
 
-  // ✅ FIX: Fetch doctor profiles using two-query approach (reliable)
-  const doctorIds = [...new Set(feedback?.map(f => f.appointments?.doctor_id).filter(Boolean))] as string[];
-  const doctorProfilesMap: Record<string, string> = {};
-
-  if (doctorIds.length > 0) {
-    console.log('🔍 [REPORTS DEBUG] Fetching profiles for doctor IDs:', doctorIds);
-
-    // STEP 1: Query doctors table to get doctor.id → user_id mapping
-    const { data: doctors, error: doctorsError } = await supabase
-      .from('doctors')
-      .select('id, user_id')
-      .in('id', doctorIds);
-
-    console.log('🔍 [REPORTS DEBUG] Doctors query error:', doctorsError);
-    console.log('🔍 [REPORTS DEBUG] Doctors query result:', JSON.stringify(doctors, null, 2));
-
-    if (doctorsError) {
-      console.error('❌ [REPORTS DEBUG] Error fetching doctors:', doctorsError);
-    }
-
-    if (doctors && doctors.length > 0) {
-      // Extract user_ids from doctors
-      const userIds = doctors.map(d => d.user_id).filter(Boolean);
-      console.log('🔍 [REPORTS DEBUG] Extracted user IDs:', userIds);
-
-      // STEP 2: Query profiles table with user_ids
-      const { data: profiles, error: profilesError } = await supabase
-        .from('profiles')
-        .select('id, first_name, last_name')
-        .in('id', userIds);
-
-      console.log('🔍 [REPORTS DEBUG] Profiles query error:', profilesError);
-      console.log('🔍 [REPORTS DEBUG] Profiles query result:', JSON.stringify(profiles, null, 2));
-
-      if (profilesError) {
-        console.error('❌ [REPORTS DEBUG] Error fetching profiles:', profilesError);
-      }
-
-      // STEP 3: Create mapping from user_id → full name
-      const userIdToNameMap: Record<string, string> = {};
-      profiles?.forEach(profile => {
-        userIdToNameMap[profile.id] = `${profile.first_name} ${profile.last_name}`;
-      });
-
-      console.log('🔍 [REPORTS DEBUG] userIdToNameMap:', userIdToNameMap);
-
-      // STEP 4: Map doctor.id → doctor name using the two mappings
-      doctors.forEach(doctor => {
-        if (doctor.user_id && userIdToNameMap[doctor.user_id]) {
-          doctorProfilesMap[doctor.id] = userIdToNameMap[doctor.user_id];
-          console.log('✅ [REPORTS DEBUG] Mapped doctor', doctor.id, 'to', doctorProfilesMap[doctor.id]);
-        } else {
-          console.log('❌ [REPORTS DEBUG] No profile found for doctor', doctor.id, 'with user_id', doctor.user_id);
-        }
-      });
-
-      console.log('🔍 [REPORTS DEBUG] Final doctorProfilesMap:', doctorProfilesMap);
-    }
-  }
-
   // ✅ FIX: Return raw numbers, not strings
   const avgOverallRating = total > 0
     ? feedback.reduce((sum, f) => sum + f.rating, 0) / total
-    : 0;
-  const avgDoctorRating = total > 0
-    ? feedback.reduce((sum, f) => sum + (f.doctor_rating || 0), 0) / total
     : 0;
   const avgFacilityRating = total > 0
     ? feedback.reduce((sum, f) => sum + (f.facility_rating || 0), 0) / total
@@ -650,45 +577,6 @@ async function generateFeedbackSatisfactionReport(
     count,
     // ✅ FIX: Return raw number
     percentage: total > 0 ? (count / total) * 100 : 0,
-  }));
-
-  // Group by doctor
-  const byDoctor: Record<string, any> = {};
-  console.log('🔍 [REPORTS DEBUG] Building byDoctor map with', feedback?.length, 'feedback records');
-
-  feedback?.forEach((f, index) => {
-    // ✅ FIX: Use doctorProfilesMap for proper name lookup
-    const doctorId = f.appointments?.doctor_id;
-    const doctorName = doctorId && doctorProfilesMap[doctorId]
-      ? doctorProfilesMap[doctorId]
-      : 'Unknown';
-
-    if (index === 0) {
-      console.log('🔍 [REPORTS DEBUG] First feedback - doctor_id:', doctorId);
-      console.log('🔍 [REPORTS DEBUG] Lookup in doctorProfilesMap[', doctorId, ']:', doctorProfilesMap[doctorId]);
-      console.log('🔍 [REPORTS DEBUG] Resolved doctor name:', doctorName);
-    }
-
-    if (!byDoctor[doctorName]) {
-      byDoctor[doctorName] = {
-        total_feedback: 0,
-        total_rating: 0,
-        would_recommend: 0,
-      };
-    }
-    byDoctor[doctorName].total_feedback++;
-    byDoctor[doctorName].total_rating += f.doctor_rating || f.rating;
-    if (f.would_recommend) byDoctor[doctorName].would_recommend++;
-  });
-
-  console.log('🔍 [REPORTS DEBUG] Final byDoctor:', JSON.stringify(byDoctor, null, 2));
-
-  const byDoctorArray = Object.entries(byDoctor).map(([name, stats]: [string, any]) => ({
-    doctor_name: name,
-    total_feedback: stats.total_feedback,
-    // ✅ FIX: Return raw number
-    average_rating: stats.total_rating / stats.total_feedback,
-    would_recommend_percentage: (stats.would_recommend / stats.total_feedback) * 100,
   }));
 
   // Group by service
@@ -721,20 +609,17 @@ async function generateFeedbackSatisfactionReport(
         date,
         count: 0,
         total_rating: 0,
-        total_doctor_rating: 0,
         total_facility_rating: 0,
       };
     }
     trendByDate[date].count++;
     trendByDate[date].total_rating += f.rating || 0;
-    trendByDate[date].total_doctor_rating += f.doctor_rating || 0;
     trendByDate[date].total_facility_rating += f.facility_rating || 0;
   });
 
   const trend_data = Object.values(trendByDate).map((day: any) => ({
     date: day.date,
     average_rating: day.count > 0 ? day.total_rating / day.count : 0,
-    average_doctor_rating: day.count > 0 ? day.total_doctor_rating / day.count : 0,
     average_facility_rating: day.count > 0 ? day.total_facility_rating / day.count : 0,
   })).sort((a: any, b: any) => a.date.localeCompare(b.date));
 
@@ -744,14 +629,12 @@ async function generateFeedbackSatisfactionReport(
       would_recommend_count: wouldRecommendCount,
       // ✅ FIX: Match component field names
       average_overall_rating: avgOverallRating,
-      average_doctor_rating: avgDoctorRating,
       average_facility_rating: avgFacilityRating,
       average_wait_time_rating: avgWaitTimeRating,
       recommendation_percentage: wouldRecommendPercentage, // ✅ FIX: Field name match
       response_rate: responseRate,
     },
     rating_distribution: ratingDistributionArray,
-    by_doctor: byDoctorArray,
     by_service: byServiceArray,
     trend_data, // ✅ NEW: Add trend data
     filters: filters,
@@ -768,13 +651,11 @@ async function generateHealthOfficeOverviewReport(
     { data: appointments },
     { data: diseases },
     { data: patients },
-    { data: doctors },
     { data: feedback },
   ] = await Promise.all([
     supabase.from('appointments').select('*').gte('appointment_date', startDate).lte('appointment_date', endDate),
     supabase.from('diseases').select('*').gte('diagnosis_date', startDate).lte('diagnosis_date', endDate),
     supabase.from('patients').select('*').gte('created_at', startDate).lte('created_at', endDate),
-    supabase.from('doctors').select('*'),
     supabase.from('feedback').select('*').gte('created_at', startDate).lte('created_at', endDate),
   ]);
 
@@ -784,7 +665,6 @@ async function generateHealthOfficeOverviewReport(
   const totalDiseases = diseases?.length || 0;
   const activeDiseases = diseases?.filter(d => d.status === 'active').length || 0;
   const newPatients = patients?.length || 0;
-  const totalDoctors = doctors?.length || 0;
 
   // Feedback statistics
   const totalFeedback = feedback?.length || 0;
@@ -805,7 +685,6 @@ async function generateHealthOfficeOverviewReport(
       total_disease_cases: totalDiseases,
       active_disease_cases: activeDiseases,
       new_patients: newPatients,
-      total_doctors: totalDoctors,
       total_feedback: totalFeedback,
       // ✅ FIX: Match component field names
       average_rating: avgRating,

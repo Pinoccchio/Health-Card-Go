@@ -167,7 +167,6 @@ export function prepareAppointmentCSVData(appointments: unknown[]): Record<strin
   return (appointments as Record<string, unknown>[]).map((apt) => ({
     'Appointment ID': apt.id,
     'Patient Name': apt.patient_name || 'N/A',
-    'Doctor Name': apt.doctor_name || 'Unassigned',
     'Service': apt.service_name || 'N/A',
     'Date': apt.appointment_date ? format(new Date(apt.appointment_date as string), 'MMM dd, yyyy') : 'N/A',
     'Time': apt.appointment_time || 'N/A',
@@ -209,10 +208,8 @@ export function prepareFeedbackCSVData(feedback: unknown[]): Record<string, unkn
   return (feedback as Record<string, unknown>[]).map((fb) => ({
     'Feedback ID': fb.id,
     'Patient Name': fb.patient_name || 'N/A',
-    'Doctor Name': fb.doctor_name || 'N/A',
     'Service': fb.service_name || 'N/A',
     'Overall Rating': fb.rating || 'N/A',
-    'Doctor Rating': fb.doctor_rating || 'N/A',
     'Facility Rating': fb.facility_rating || 'N/A',
     'Wait Time Rating': fb.wait_time_rating || 'N/A',
     'Would Recommend': fb.would_recommend ? 'Yes' : 'No',

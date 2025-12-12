@@ -21,7 +21,6 @@ import {
 interface Feedback {
   id: string;
   rating: number;
-  doctor_rating: number;
   facility_rating: number;
   wait_time_rating: number;
   would_recommend: boolean;
@@ -42,12 +41,6 @@ interface Feedback {
     appointment_time: string;
     services?: {
       name: string;
-    };
-    doctors?: {
-      profiles?: {
-        first_name: string;
-        last_name: string;
-      };
     };
   };
   responded_by_profile?: {
@@ -170,10 +163,6 @@ export default function AdminFeedbackPage() {
       ? (feedbackList.reduce((sum, f) => sum + f.rating, 0) / total).toFixed(1)
       : '0.0';
 
-    const avgDoctor = total > 0
-      ? (feedbackList.reduce((sum, f) => sum + f.doctor_rating, 0) / total).toFixed(1)
-      : '0.0';
-
     const avgFacility = total > 0
       ? (feedbackList.reduce((sum, f) => sum + f.facility_rating, 0) / total).toFixed(1)
       : '0.0';
@@ -190,7 +179,6 @@ export default function AdminFeedbackPage() {
       responded,
       pending,
       avgOverall,
-      avgDoctor,
       avgFacility,
       avgWaitTime,
       recommendPercent,
@@ -324,9 +312,6 @@ export default function AdminFeedbackPage() {
                 const patientName = feedback.patients?.profiles
                   ? `${feedback.patients.profiles.first_name} ${feedback.patients.profiles.last_name}`
                   : 'Unknown Patient';
-                const doctorName = feedback.appointments?.doctors?.profiles
-                  ? `Dr. ${feedback.appointments.doctors.profiles.first_name} ${feedback.appointments.doctors.profiles.last_name}`
-                  : 'Unknown Doctor';
 
                 return (
                   <div key={feedback.id} className="p-6 hover:bg-gray-50 transition-colors">
@@ -361,19 +346,14 @@ export default function AdminFeedbackPage() {
                               })}
                             </span>
                             <span>{feedback.appointments?.services?.name || 'N/A'}</span>
-                            <span>{doctorName}</span>
                           </div>
                         </div>
 
                         {/* Ratings Grid */}
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-4">
                           <div className="bg-gray-50 rounded p-2">
                             <p className="text-xs text-gray-500 mb-1">Overall</p>
                             <StarRating value={feedback.rating} readonly size="sm" />
-                          </div>
-                          <div className="bg-gray-50 rounded p-2">
-                            <p className="text-xs text-gray-500 mb-1">Doctor</p>
-                            <StarRating value={feedback.doctor_rating} readonly size="sm" />
                           </div>
                           <div className="bg-gray-50 rounded p-2">
                             <p className="text-xs text-gray-500 mb-1">Facility</p>

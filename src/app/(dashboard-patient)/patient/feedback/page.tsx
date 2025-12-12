@@ -31,19 +31,12 @@ interface Appointment {
     name: string;
     category: string;
   };
-  doctors?: {
-    profiles?: {
-      first_name: string;
-      last_name: string;
-    };
-  };
   feedback?: Array<{ id: string }>;
 }
 
 interface Feedback {
   id: string;
   rating: number;
-  doctor_rating: number;
   facility_rating: number;
   wait_time_rating: number;
   would_recommend: boolean;
@@ -56,12 +49,6 @@ interface Feedback {
     appointment_time: string;
     services?: {
       name: string;
-    };
-    doctors?: {
-      profiles?: {
-        first_name: string;
-        last_name: string;
-      };
     };
   };
   responded_by_profile?: {
@@ -224,22 +211,6 @@ export default function PatientFeedbackPage() {
         <div className="text-sm">
           {row.appointments?.services ? (
             <span className="text-gray-900">{row.appointments.services.name}</span>
-          ) : (
-            <span className="text-gray-400 italic">N/A</span>
-          )}
-        </div>
-      ),
-    },
-    {
-      header: 'Doctor',
-      accessor: 'doctor',
-      sortable: false,
-      render: (_: any, row: Feedback) => (
-        <div className="text-sm">
-          {row.appointments?.doctors?.profiles ? (
-            <span className="text-gray-900">
-              Dr. {row.appointments.doctors.profiles.first_name} {row.appointments.doctors.profiles.last_name}
-            </span>
           ) : (
             <span className="text-gray-400 italic">N/A</span>
           )}
@@ -560,7 +531,7 @@ export default function PatientFeedbackPage() {
                     columns={tableColumns}
                     data={filteredFeedback}
                     searchable
-                    searchPlaceholder="Search by service, doctor, or rating..."
+                    searchPlaceholder="Search by service or rating..."
                     paginated
                     pageSize={10}
                   />

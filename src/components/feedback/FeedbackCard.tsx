@@ -1,13 +1,12 @@
 'use client';
 
 import StarRating from '@/components/ui/StarRating';
-import { Calendar, User, Stethoscope, Building2, Timer, ThumbsUp, ThumbsDown, MessageSquare, Reply } from 'lucide-react';
+import { Calendar, User, Building2, Timer, ThumbsUp, ThumbsDown, MessageSquare, Reply } from 'lucide-react';
 
 interface FeedbackCardProps {
   feedback: {
     id: string;
     rating: number;
-    doctor_rating: number;
     facility_rating: number;
     wait_time_rating: number;
     would_recommend: boolean;
@@ -21,12 +20,6 @@ interface FeedbackCardProps {
       services?: {
         name: string;
       };
-      doctors?: {
-        profiles?: {
-          first_name: string;
-          last_name: string;
-        };
-      };
     };
     responded_by_profile?: {
       first_name: string;
@@ -37,10 +30,6 @@ interface FeedbackCardProps {
 }
 
 export default function FeedbackCard({ feedback, showAppointmentDetails = true }: FeedbackCardProps) {
-  const doctorName = feedback.appointments?.doctors?.profiles
-    ? `Dr. ${feedback.appointments.doctors.profiles.first_name} ${feedback.appointments.doctors.profiles.last_name}`
-    : 'Unknown Doctor';
-
   const adminName = feedback.responded_by_profile
     ? `${feedback.responded_by_profile.first_name} ${feedback.responded_by_profile.last_name}`
     : 'Administrator';
@@ -55,11 +44,6 @@ export default function FeedbackCard({ feedback, showAppointmentDetails = true }
               <Building2 className="w-4 h-4 mr-2 text-gray-500" />
               <span className="font-medium">Service:</span>
               <span className="ml-2">{feedback.appointments.services?.name || 'N/A'}</span>
-            </div>
-            <div className="flex items-center text-gray-700">
-              <Stethoscope className="w-4 h-4 mr-2 text-gray-500" />
-              <span className="font-medium">Doctor:</span>
-              <span className="ml-2">{doctorName}</span>
             </div>
             <div className="flex items-center text-gray-700">
               <Calendar className="w-4 h-4 mr-2 text-gray-500" />
@@ -101,14 +85,10 @@ export default function FeedbackCard({ feedback, showAppointmentDetails = true }
       </div>
 
       {/* Ratings Grid */}
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-3 gap-4">
         <div>
           <p className="text-xs text-gray-500 mb-1">Overall Experience</p>
           <StarRating value={feedback.rating} readonly size="sm" />
-        </div>
-        <div>
-          <p className="text-xs text-gray-500 mb-1">Doctor Performance</p>
-          <StarRating value={feedback.doctor_rating} readonly size="sm" />
         </div>
         <div>
           <p className="text-xs text-gray-500 mb-1">Facility Cleanliness</p>

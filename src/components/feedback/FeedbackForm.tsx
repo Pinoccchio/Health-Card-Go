@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import StarRating from '@/components/ui/StarRating';
-import { Calendar, Clock, Stethoscope, Building2, Timer, ThumbsUp, MessageSquare } from 'lucide-react';
+import { Calendar, Clock, Building2, Timer, ThumbsUp, MessageSquare } from 'lucide-react';
 
 interface Appointment {
   id: string;
@@ -11,12 +11,6 @@ interface Appointment {
   completed_at: string;
   services?: {
     name: string;
-  };
-  doctors?: {
-    profiles?: {
-      first_name: string;
-      last_name: string;
-    };
   };
 }
 
@@ -29,7 +23,6 @@ interface FeedbackFormProps {
 export default function FeedbackForm({ appointment, onSuccess, onCancel }: FeedbackFormProps) {
   const [formData, setFormData] = useState({
     rating: 0,
-    doctor_rating: 0,
     facility_rating: 0,
     wait_time_rating: 0,
     would_recommend: false,
@@ -43,9 +36,6 @@ export default function FeedbackForm({ appointment, onSuccess, onCancel }: Feedb
 
     if (formData.rating === 0) {
       newErrors.rating = 'Overall rating is required';
-    }
-    if (formData.doctor_rating === 0) {
-      newErrors.doctor_rating = 'Doctor rating is required';
     }
     if (formData.facility_rating === 0) {
       newErrors.facility_rating = 'Facility rating is required';
@@ -100,10 +90,6 @@ export default function FeedbackForm({ appointment, onSuccess, onCancel }: Feedb
     }
   };
 
-  const doctorName = appointment.doctors?.profiles
-    ? `Dr. ${appointment.doctors.profiles.first_name} ${appointment.doctors.profiles.last_name}`
-    : 'Unknown Doctor';
-
   return (
     <div className="bg-white rounded-lg">
       {/* Appointment Context */}
@@ -114,11 +100,6 @@ export default function FeedbackForm({ appointment, onSuccess, onCancel }: Feedb
             <Building2 className="w-4 h-4 mr-2 text-blue-600" />
             <span className="font-medium">Service:</span>
             <span className="ml-2">{appointment.services?.name || 'N/A'}</span>
-          </div>
-          <div className="flex items-center text-gray-700">
-            <Stethoscope className="w-4 h-4 mr-2 text-blue-600" />
-            <span className="font-medium">Doctor:</span>
-            <span className="ml-2">{doctorName}</span>
           </div>
           <div className="flex items-center text-gray-700">
             <Calendar className="w-4 h-4 mr-2 text-blue-600" />
@@ -148,23 +129,6 @@ export default function FeedbackForm({ appointment, onSuccess, onCancel }: Feedb
           />
           {errors.rating && (
             <p className="text-red-500 text-sm mt-1">{errors.rating}</p>
-          )}
-        </div>
-
-        {/* Doctor Performance */}
-        <div>
-          <StarRating
-            label="Doctor Performance"
-            value={formData.doctor_rating}
-            onChange={(value) => {
-              setFormData({ ...formData, doctor_rating: value });
-              setErrors({ ...errors, doctor_rating: '' });
-            }}
-            size="md"
-            required
-          />
-          {errors.doctor_rating && (
-            <p className="text-red-500 text-sm mt-1">{errors.doctor_rating}</p>
           )}
         </div>
 

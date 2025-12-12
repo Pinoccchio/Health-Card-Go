@@ -8,7 +8,7 @@ import { Announcement } from '@/types';
 interface AnnouncementsWidgetProps {
   limit?: number;
   showViewAll?: boolean;
-  targetAudience?: 'patients' | 'healthcare_admin' | 'doctor' | 'all';
+  targetAudience?: 'patients' | 'healthcare_admin' | 'all';
   viewAllLink?: string;
 }
 

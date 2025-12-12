@@ -43,7 +43,6 @@ export interface ReportFilters {
   end_date?: string;
   barangay_id?: number;
   service_id?: number;
-  doctor_id?: string;
   status?: AppointmentStatus | PatientStatus;
   disease_type?: DiseaseType;
   severity?: Severity;
@@ -85,15 +84,6 @@ export interface AppointmentsByStatus {
   percentage: number;
 }
 
-export interface DoctorPerformance {
-  doctor_id: string;
-  doctor_name: string;
-  total_appointments: number;
-  completed: number;
-  avg_wait_time_minutes: number | null;
-  completion_rate: number;
-}
-
 export interface AppointmentTrend {
   date: string;
   total: number;
@@ -113,7 +103,6 @@ export interface AppointmentReportData {
   summary: AppointmentSummary;
   by_service: AppointmentsByService[];
   by_status: AppointmentsByStatus[];
-  doctor_performance: DoctorPerformance[];
   trends: AppointmentTrend[];
   queue_metrics: QueueMetrics;
 }
@@ -220,7 +209,6 @@ export interface PatientReportData {
 export interface FeedbackSummary {
   total_feedback: number;
   avg_overall_rating: number;
-  avg_doctor_rating: number;
   avg_facility_rating: number;
   avg_wait_time_rating: number;
   would_recommend_percentage: number;
@@ -231,14 +219,6 @@ export interface FeedbackTrend {
   date: string;
   avg_rating: number;
   count: number;
-}
-
-export interface FeedbackByDoctor {
-  doctor_id: string;
-  doctor_name: string;
-  total_feedback: number;
-  avg_rating: number;
-  would_recommend_percentage: number;
 }
 
 export interface FeedbackByService {
@@ -257,7 +237,6 @@ export interface RatingDistribution {
 export interface FeedbackReportData {
   summary: FeedbackSummary;
   trends: FeedbackTrend[];
-  by_doctor: FeedbackByDoctor[];
   by_service: FeedbackByService[];
   rating_distribution: RatingDistribution[];
 }
@@ -280,7 +259,6 @@ export interface SystemOverviewData {
   users: {
     total_super_admins: number;
     total_healthcare_admins: number;
-    total_doctors: number;
     total_patients: number;
   };
 }
