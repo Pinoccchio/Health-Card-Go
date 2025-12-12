@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth';
 import { DashboardLayout } from '@/components/dashboard';
 import { Container, ConfirmDialog } from '@/components/ui';
@@ -30,9 +31,12 @@ import {
   MapPin,
   Heart,
   Droplet,
+  AlertTriangle,
 } from 'lucide-react';
 import { getPhilippineTime } from '@/lib/utils/timezone';
 import { APPOINTMENT_STATUS_CONFIG } from '@/lib/constants/colors';
+import { canAccessAppointments } from '@/lib/utils/serviceAccessGuard';
+import { useToast } from '@/lib/contexts/ToastContext';
 
 interface AdminAppointment {
   id: string;
@@ -76,6 +80,10 @@ const statusConfig = APPOINTMENT_STATUS_CONFIG;
 
 export default function HealthcareAdminAppointmentsPage() {
   const { user } = useAuth();
+  const router = useRouter();
+  const toast = useToast();
+  const [isCheckingAccess, setIsCheckingAccess] = useState(true);
+  const [hasAccess, setHasAccess] = useState(false);
   const [appointments, setAppointments] = useState<AdminAppointment[]>([]);
   const [selectedAppointment, setSelectedAppointment] = useState<AdminAppointment | null>(null);
   const [loading, setLoading] = useState(true);
@@ -112,6 +120,30 @@ export default function HealthcareAdminAppointmentsPage() {
 
   // Medical records check for undo validation (keyed by appointment ID)
   const [hasMedicalRecords, setHasMedicalRecords] = useState<Record<string, boolean | null>>({});
+
+  // Check if user has access to appointments (not walk-in only service)
+  useEffect(() => {
+    async function checkAccess() {
+      if (!user?.assigned_service_id) {
+        toast.error('No service assigned to your account');
+        router.push('/healthcare-admin/dashboard');
+        return;
+      }
+
+      const canAccess = await canAccessAppointments(user.assigned_service_id);
+
+      if (!canAccess) {
+        toast.error('Your service is walk-in only. Redirecting to Walk-in Queue...');
+        router.push('/healthcare-admin/walk-in');
+        return;
+      }
+
+      setHasAccess(true);
+      setIsCheckingAccess(false);
+    }
+
+    checkAccess();
+  }, [user?.assigned_service_id, router]);
 
   // Reset to page 1 when filters change
   // Reset to page 1 when filters or search change
@@ -513,6 +545,39 @@ export default function HealthcareAdminAppointmentsPage() {
       ),
     },
   ];
+
+  // Show loading state while checking access
+  if (isCheckingAccess) {
+    return (
+      <DashboardLayout roleId={2} pageTitle="Appointments" pageDescription="Loading...">
+        <Container size="full">
+          <div className="flex items-center justify-center h-64">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-teal"></div>
+          </div>
+        </Container>
+      </DashboardLayout>
+    );
+  }
+
+  // If no access, show error (will redirect, but show this temporarily)
+  if (!hasAccess) {
+    return (
+      <DashboardLayout roleId={2} pageTitle="Access Denied" pageDescription="Redirecting...">
+        <Container size="full">
+          <div className="bg-orange-50 border border-orange-200 rounded-lg p-8 text-center">
+            <AlertTriangle className="w-16 h-16 text-orange-600 mx-auto mb-4" />
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">Walk-in Service Detected</h2>
+            <p className="text-gray-600 mb-4">
+              Your assigned service is walk-in only and does not use the appointment system.
+            </p>
+            <p className="text-sm text-gray-500">
+              Redirecting to Walk-in Queue...
+            </p>
+          </div>
+        </Container>
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout

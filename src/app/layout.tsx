@@ -3,6 +3,7 @@ import { Inter } from "next/font/google";
 import { cookies } from "next/headers";
 import "./globals.css";
 import { AuthProvider } from "@/lib/auth";
+import { ToastProvider } from "@/lib/contexts/ToastContext";
 import { createServerClient } from "@supabase/ssr";
 
 const inter = Inter({
@@ -59,7 +60,9 @@ export default async function RootLayout({
   return (
     <html lang={locale} className="scroll-smooth">
       <body className={`${inter.variable} font-sans antialiased`}>
-        <AuthProvider initialUser={user}>{children}</AuthProvider>
+        <AuthProvider initialUser={user}>
+          <ToastProvider>{children}</ToastProvider>
+        </AuthProvider>
       </body>
     </html>
   );

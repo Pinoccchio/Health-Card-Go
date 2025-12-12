@@ -12,6 +12,7 @@ import {
   Bell,
   UserCircle,
   Briefcase,
+  UserPlus,
 } from 'lucide-react';
 import { MenuItem } from '@/components/dashboard';
 import { RoleId } from '@/types/auth';
@@ -179,6 +180,117 @@ export const STAFF_MENU_ITEMS: MenuItem[] = [
     icon: Activity,
   },
 ];
+
+/**
+ * Get dynamic menu items for Healthcare Admin based on assigned service properties
+ * Returns different menu items depending on whether the service requires appointments/medical records
+ *
+ * @param assignedServiceId - The service ID assigned to the Healthcare Admin
+ * @returns Promise<MenuItem[]> - Array of menu items tailored to the service capabilities
+ *
+ * Service Property Logic:
+ * - requires_appointment = true → Show "Appointments" tab
+ * - requires_appointment = false → Show "Walk-in Queue" tab instead
+ * - requires_medical_record = true → Show "Medical Records" tab
+ * - requires_medical_record = false → Hide "Medical Records" tab
+ * - Always show: Dashboard, Patients, Reports, Announcements
+ */
+export async function getHealthcareAdminMenuItems(
+  assignedServiceId: number | null
+): Promise<MenuItem[]> {
+  // Base menu items (always shown)
+  const baseItems: MenuItem[] = [
+    {
+      label: 'Dashboard',
+      href: '/healthcare-admin/dashboard',
+      icon: LayoutDashboard,
+    },
+  ];
+
+  // If no service assigned, return minimal menu with warning
+  if (!assignedServiceId) {
+    console.warn('⚠️ Healthcare Admin has no assigned service - showing minimal menu');
+    return baseItems;
+  }
+
+  try {
+    // Fetch service properties from API
+    const serviceRes = await fetch(`/api/services/${assignedServiceId}`);
+
+    if (!serviceRes.ok) {
+      console.error('❌ Failed to fetch service data:', serviceRes.statusText);
+      return HEALTHCARE_ADMIN_MENU_ITEMS; // Fallback to static menu
+    }
+
+    const serviceData = await serviceRes.json();
+
+    if (!serviceData.success || !serviceData.data) {
+      console.error('❌ Invalid service data response:', serviceData);
+      return HEALTHCARE_ADMIN_MENU_ITEMS; // Fallback to static menu
+    }
+
+    const service = serviceData.data;
+    console.log('📋 Building menu for service:', service.name, {
+      requires_appointment: service.requires_appointment,
+      requires_medical_record: service.requires_medical_record,
+    });
+
+    const menuItems = [...baseItems];
+
+    // Add appointment-specific or walk-in items
+    if (service.requires_appointment) {
+      menuItems.push({
+        label: 'Appointments',
+        href: '/healthcare-admin/appointments',
+        icon: Calendar,
+      });
+    } else {
+      // Walk-in service (Services 22, 23)
+      menuItems.push({
+        label: 'Walk-in Queue',
+        href: '/healthcare-admin/walk-in',
+        icon: UserPlus,
+      });
+    }
+
+    // Always show Patients
+    menuItems.push({
+      label: 'Patients',
+      href: '/healthcare-admin/patients',
+      icon: Users,
+    });
+
+    // Conditionally add Medical Records
+    if (service.requires_medical_record) {
+      menuItems.push({
+        label: 'Medical Records',
+        href: '/healthcare-admin/medical-records',
+        icon: Heart,
+      });
+    }
+
+    // Always show Reports and Announcements
+    menuItems.push(
+      {
+        label: 'Reports',
+        href: '/healthcare-admin/reports',
+        icon: FileText,
+      },
+      {
+        label: 'Announcements',
+        href: '/healthcare-admin/announcements',
+        icon: Megaphone,
+      }
+    );
+
+    console.log('✅ Generated menu items:', menuItems.length, 'items');
+    return menuItems;
+  } catch (error) {
+    console.error('❌ Error fetching service for menu generation:', error);
+    // Fallback to static menu if API call fails
+    return HEALTHCARE_ADMIN_MENU_ITEMS;
+  }
+}
 
 /**
  * Get human-readable role name from role ID

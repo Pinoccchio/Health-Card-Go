@@ -65,6 +65,7 @@ export function AuthProvider({ children, initialUser }: AuthProviderProps) {
       last_name: profile.last_name,
       role_id: roleMap[profile.role] || 4,
       admin_category: profile.admin_category as any,
+      assigned_service_id: profile.assigned_service_id || undefined,
       status: profile.status as any,
       barangay_id: profile.barangay_id || undefined,
       contact_number: profile.contact_number || undefined,
@@ -318,6 +319,41 @@ export function AuthProvider({ children, initialUser }: AuthProviderProps) {
         // We UPDATE it here with role-specific fields
         console.log('🔐 [AUTH CONTEXT] Waiting 500ms for trigger to create profile...');
         await new Promise(resolve => setTimeout(resolve, 500));
+
+        // DUPLICATE PREVENTION: Check for existing patient with same name + DOB
+        if (role === 'patient' && data.dateOfBirth) {
+          console.log('🔍 [AUTH CONTEXT] Checking for duplicate patient (name + DOB)...');
+
+          const { data: existingProfiles, error: duplicateCheckError } = await supabase
+            .from('profiles')
+            .select('id, first_name, last_name, date_of_birth, email')
+            .eq('first_name', data.firstName)
+            .eq('last_name', data.lastName)
+            .eq('date_of_birth', data.dateOfBirth)
+            .eq('role', 'patient');
+
+          if (duplicateCheckError) {
+            console.error('❌ [AUTH CONTEXT] Error checking for duplicates:', duplicateCheckError);
+            // Don't block registration if duplicate check fails - log and continue
+            console.warn('⚠️ [AUTH CONTEXT] Duplicate check failed, proceeding with registration');
+          } else if (existingProfiles && existingProfiles.length > 0) {
+            console.error('❌ [AUTH CONTEXT] Duplicate patient found:', {
+              firstName: data.firstName,
+              lastName: data.lastName,
+              dateOfBirth: data.dateOfBirth,
+              existingEmails: existingProfiles.map(p => p.email),
+            });
+
+            // Sign out the newly created auth user
+            await supabase.auth.signOut();
+
+            const errorMessage = `A patient with the name "${data.firstName} ${data.lastName}" and birthdate ${data.dateOfBirth} already exists in the system. If this is you, please use the login page or contact support for assistance.`;
+            setError(errorMessage);
+            throw new Error(errorMessage);
+          }
+
+          console.log('✅ [AUTH CONTEXT] No duplicate found, proceeding with registration');
+        }
 
         // Create patient record FIRST if role is patient (before setting status to 'active')
         // This ensures patient record exists before any triggers fire on status change

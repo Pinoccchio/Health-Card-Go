@@ -8,7 +8,7 @@ import { isValidBookingDate, isWeekday } from '@/lib/utils/timezone';
  *
  * Business Rules:
  * - 7-day advance booking required
- * - One active appointment per patient
+ * - Maximum 2 active appointments per patient (can book 2 different services)
  * - Max 100 appointments per service per day
  * - Queue numbers: 1-100 per service per day
  * - Operating hours: 8 AM - 5 PM, Monday-Friday
@@ -122,17 +122,24 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check for existing active appointment
-    const { data: existingAppointment } = await supabase
+    // Check for existing active appointments (limit: 2 concurrent appointments)
+    const { data: existingAppointments } = await supabase
       .from('appointments')
-      .select('id')
+      .select('id, service_id')
       .eq('patient_id', patient.id)
-      .in('status', ['scheduled', 'checked_in', 'in_progress'])
-      .limit(1);
+      .in('status', ['scheduled', 'checked_in', 'in_progress']);
 
-    if (existingAppointment && existingAppointment.length > 0) {
+    if (existingAppointments && existingAppointments.length >= 2) {
       return NextResponse.json(
-        { error: 'You already have an active appointment. Please cancel it before booking a new one.' },
+        { error: 'You have reached the maximum of 2 active appointments. Please complete or cancel one before booking another.' },
+        { status: 400 }
+      );
+    }
+
+    // Check if patient already has an active appointment for this specific service
+    if (existingAppointments && existingAppointments.some(apt => apt.service_id === service_id)) {
+      return NextResponse.json(
+        { error: 'You already have an active appointment for this service. Please cancel it if you need to reschedule.' },
         { status: 400 }
       );
     }
