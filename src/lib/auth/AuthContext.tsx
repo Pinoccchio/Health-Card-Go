@@ -267,6 +267,52 @@ export function AuthProvider({ children, initialUser }: AuthProviderProps) {
         setLoading(true);
         setError(null);
 
+        // DUPLICATE PREVENTION: Check for existing patient BEFORE creating auth user
+        // This prevents orphaned auth users if duplicate is detected
+        if (data.role === 'patient' && data.dateOfBirth) {
+          console.log('🔍 [AUTH CONTEXT] Checking for duplicate patient before auth user creation...');
+
+          // Use database function for duplicate check
+          // This ensures check matches database constraint EXACTLY
+          const { data: existingProfiles, error: duplicateCheckError } = await supabase
+            .rpc('check_duplicate_patient', {
+              p_first_name: data.firstName,  // Function handles trimming
+              p_last_name: data.lastName,     // Function handles trimming
+              p_date_of_birth: data.dateOfBirth
+            });
+
+          if (duplicateCheckError) {
+            console.error('❌ [AUTH CONTEXT] Error checking for duplicates:', duplicateCheckError);
+
+            // FAIL CLOSED: If duplicate check fails, abort registration for safety
+            const errorMessage = 'Unable to verify registration. Please try again or contact support if the problem persists.';
+            setError(errorMessage);
+            throw new Error(errorMessage);
+          }
+
+          if (existingProfiles && existingProfiles.length > 0) {
+            console.error('❌ [AUTH CONTEXT] Duplicate patient found BEFORE auth creation:', {
+              firstName: data.firstName,
+              lastName: data.lastName,
+              dateOfBirth: data.dateOfBirth,
+              existingEmails: existingProfiles.map(p => p.email),
+            });
+
+            // Mask email for privacy: show first char and domain
+            const maskEmail = (email: string) => {
+              const [localPart, domain] = email.split('@');
+              return `${localPart[0]}***@${domain}`;
+            };
+
+            const maskedEmail = existingProfiles[0]?.email ? maskEmail(existingProfiles[0].email) : '';
+            const errorMessage = `A patient named "${data.firstName} ${data.lastName}" born on ${data.dateOfBirth} already exists in the system${maskedEmail ? ` (${maskedEmail})` : ''}. If this is you, please use the login page or contact support for assistance.`;
+            setError(errorMessage);
+            throw new Error(errorMessage);
+          }
+
+          console.log('✅ [AUTH CONTEXT] No duplicate found, proceeding with auth user creation');
+        }
+
         console.log('🔐 [AUTH CONTEXT] Calling Supabase signUp...');
         // Create auth user
         const { data: authData, error: authError } = await supabase.auth.signUp({
@@ -320,40 +366,8 @@ export function AuthProvider({ children, initialUser }: AuthProviderProps) {
         console.log('🔐 [AUTH CONTEXT] Waiting 500ms for trigger to create profile...');
         await new Promise(resolve => setTimeout(resolve, 500));
 
-        // DUPLICATE PREVENTION: Check for existing patient with same name + DOB
-        if (role === 'patient' && data.dateOfBirth) {
-          console.log('🔍 [AUTH CONTEXT] Checking for duplicate patient (name + DOB)...');
-
-          const { data: existingProfiles, error: duplicateCheckError } = await supabase
-            .from('profiles')
-            .select('id, first_name, last_name, date_of_birth, email')
-            .eq('first_name', data.firstName)
-            .eq('last_name', data.lastName)
-            .eq('date_of_birth', data.dateOfBirth)
-            .eq('role', 'patient');
-
-          if (duplicateCheckError) {
-            console.error('❌ [AUTH CONTEXT] Error checking for duplicates:', duplicateCheckError);
-            // Don't block registration if duplicate check fails - log and continue
-            console.warn('⚠️ [AUTH CONTEXT] Duplicate check failed, proceeding with registration');
-          } else if (existingProfiles && existingProfiles.length > 0) {
-            console.error('❌ [AUTH CONTEXT] Duplicate patient found:', {
-              firstName: data.firstName,
-              lastName: data.lastName,
-              dateOfBirth: data.dateOfBirth,
-              existingEmails: existingProfiles.map(p => p.email),
-            });
-
-            // Sign out the newly created auth user
-            await supabase.auth.signOut();
-
-            const errorMessage = `A patient with the name "${data.firstName} ${data.lastName}" and birthdate ${data.dateOfBirth} already exists in the system. If this is you, please use the login page or contact support for assistance.`;
-            setError(errorMessage);
-            throw new Error(errorMessage);
-          }
-
-          console.log('✅ [AUTH CONTEXT] No duplicate found, proceeding with registration');
-        }
+        // NOTE: Duplicate check now happens BEFORE auth user creation (lines 270-317)
+        // This prevents orphaned auth users if duplicate is detected
 
         // Create patient record FIRST if role is patient (before setting status to 'active')
         // This ensures patient record exists before any triggers fire on status change
@@ -434,8 +448,30 @@ export function AuthProvider({ children, initialUser }: AuthProviderProps) {
           console.error('⚠️ [AUTH CONTEXT] Auth user created but profile failed - manual cleanup may be needed');
           console.error('⚠️ [AUTH CONTEXT] User ID for cleanup:', authData.user.id);
 
-          setError(profileError.message);
-          throw new Error(profileError.message);
+          // Translate database error codes to user-friendly messages
+          let userFriendlyMessage = profileError.message;
+
+          if (profileError.code === '23505') {
+            // PostgreSQL unique constraint violation
+            if (profileError.message.includes('idx_patient_duplicate_prevention')) {
+              userFriendlyMessage =
+                `A patient with this name and date of birth already exists in the system. ` +
+                `If this is you, please use the login page to sign in. ` +
+                `If you believe this is an error, please contact support for assistance.`;
+            } else if (profileError.message.includes('profiles_email_key') || profileError.message.includes('email')) {
+              userFriendlyMessage =
+                `This email address is already registered. ` +
+                `Please use the login page to sign in or use a different email address.`;
+            } else {
+              // Generic duplicate error
+              userFriendlyMessage =
+                `This information is already registered in the system. ` +
+                `Please check your details or contact support for assistance.`;
+            }
+          }
+
+          setError(userFriendlyMessage);
+          throw new Error(userFriendlyMessage);
         }
 
         console.log('✅ [AUTH CONTEXT] Profile updated successfully');
@@ -444,15 +480,15 @@ export function AuthProvider({ children, initialUser }: AuthProviderProps) {
         console.log('⏳ [AUTH CONTEXT] Waiting 1000ms for database commit...');
         await new Promise(resolve => setTimeout(resolve, 1000));
 
-        // All users are auto-approved, fetch profile and keep them logged in
-        console.log('✅ [AUTH CONTEXT] Registration successful, fetching profile...');
-        const profile = await fetchUserProfile(authData.user);
-        if (profile) {
-          console.log('✅ [AUTH CONTEXT] Profile set successfully, user ready for redirect');
-          setUser(profile);
-        } else {
-          console.error('❌ [AUTH CONTEXT] Failed to set profile - fetchUserProfile returned null');
-        }
+        // Sign out user to require explicit login after registration
+        console.log('🔐 [AUTH CONTEXT] Signing out user - explicit login required');
+        await supabase.auth.signOut();
+
+        console.log('✅ [AUTH CONTEXT] Registration complete - user must login explicitly');
+        console.log('✅ [AUTH CONTEXT] User account created successfully, redirecting to login page');
+
+        // Do NOT fetch/set user profile - user must login explicitly
+        // This prevents auto-login and requires users to authenticate after registration
       } catch (err) {
         const errorMessage =
           err instanceof Error

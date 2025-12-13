@@ -179,15 +179,23 @@ export default function RegisterPage() {
     }
 
     console.log('✅ [FORM SUBMIT] Validation passed, proceeding with registration');
-    console.log('📝 [FORM SUBMIT] Registration data:', {
+
+    // Normalize names: trim whitespace and capitalize properly
+    const normalizedData = {
       ...formData,
+      firstName: formData.firstName.trim(),
+      lastName: formData.lastName.trim(),
+    };
+
+    console.log('📝 [FORM SUBMIT] Registration data:', {
+      ...normalizedData,
       password: '***REDACTED***',
       confirmPassword: '***REDACTED***'
     });
 
     try {
       console.log('🚀 [FORM SUBMIT] Calling register function...');
-      await register(formData as RegisterData);
+      await register(normalizedData as RegisterData);
       console.log('✅ [FORM SUBMIT] Registration successful!');
 
       setSuccessMessage(
