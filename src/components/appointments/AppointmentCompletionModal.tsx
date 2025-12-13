@@ -1,9 +1,10 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { X, CheckCircle, FileText, AlertCircle, Loader2 } from 'lucide-react';
+import { X, CheckCircle, FileText, AlertCircle, Loader2, Calendar, Clock } from 'lucide-react';
 import { Button } from '@/components/ui';
 import { useToast } from '@/lib/contexts/ToastContext';
+import { formatTimeBlock, TimeBlock, TIME_BLOCKS } from '@/types/appointment';
 
 interface AppointmentCompletionModalProps {
   isOpen: boolean;
@@ -14,6 +15,7 @@ interface AppointmentCompletionModalProps {
     appointment_number: number;
     appointment_date: string;
     appointment_time: string;
+    time_block: TimeBlock;
     service_id: number;
     patients: {
       id: string;
@@ -183,6 +185,49 @@ export function AppointmentCompletionModal({
               </div>
             ) : (
               <>
+                {/* Appointment Details */}
+                <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-6">
+                  <h4 className="font-medium text-gray-900 mb-3">Appointment Details</h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div className="flex items-center gap-2">
+                      <Calendar className="w-4 h-4 text-gray-500" />
+                      <div>
+                        <p className="text-xs text-gray-500">Date</p>
+                        <p className="text-sm font-medium text-gray-900">
+                          {new Date(appointment.appointment_date).toLocaleDateString()}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Clock className="w-4 h-4 text-gray-500" />
+                      <div>
+                        <p className="text-xs text-gray-500">Time Block</p>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          <span className={`px-2 py-0.5 rounded text-xs font-bold ${
+                            appointment.time_block === 'AM'
+                              ? 'bg-blue-100 text-blue-800'
+                              : 'bg-amber-100 text-amber-800'
+                          }`}>
+                            {appointment.time_block}
+                          </span>
+                          <span className="text-xs text-gray-600">
+                            {TIME_BLOCKS[appointment.time_block].timeRange}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <FileText className="w-4 h-4 text-gray-500" />
+                      <div>
+                        <p className="text-xs text-gray-500">Queue Number</p>
+                        <p className="text-sm font-medium text-gray-900">
+                          #{appointment.appointment_number}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
                 {/* Service Info */}
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
                   <div className="flex items-start gap-3">
@@ -205,7 +250,7 @@ export function AppointmentCompletionModal({
                 </div>
 
                 {/* Medical Record Section */}
-                {(serviceDetails?.requires_medical_record || true) && (
+                {serviceDetails?.requires_medical_record && (
                   <div className="space-y-4">
                     <div className="flex items-center gap-2 mb-4">
                       <FileText className="w-5 h-5 text-gray-700" />

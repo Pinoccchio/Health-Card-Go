@@ -1,6 +1,15 @@
 import { createClient, createAdminClient } from '@/lib/supabase/server';
 import { NextRequest, NextResponse } from 'next/server';
 import { isValidBookingDate, isWeekday } from '@/lib/utils/timezone';
+import {
+  TimeBlock,
+  TIME_BLOCKS,
+  getBlockCapacity,
+  getBlockDefaultTime,
+  isValidTimeBlock,
+  formatTimeBlock,
+  type CreateAppointmentRequest,
+} from '@/types/appointment';
 
 /**
  * POST /api/appointments
@@ -9,7 +18,9 @@ import { isValidBookingDate, isWeekday } from '@/lib/utils/timezone';
  * Business Rules:
  * - 7-day advance booking required
  * - Maximum 2 active appointments per patient (can book 2 different services)
- * - Max 100 appointments per service per day
+ * - AM Block: 50 appointments max (8:00 AM - 12:00 PM)
+ * - PM Block: 50 appointments max (1:00 PM - 5:00 PM)
+ * - Total: 100 appointments per service per day
  * - Queue numbers: 1-100 per service per day
  * - Operating hours: 8 AM - 5 PM, Monday-Friday
  */
@@ -25,12 +36,20 @@ export async function POST(request: NextRequest) {
 
     // Get request body
     const body = await request.json();
-    const { service_id, appointment_date, appointment_time, reason } = body;
+    const { service_id, appointment_date, time_block, reason } = body as CreateAppointmentRequest;
 
     // Validate required fields
-    if (!service_id || !appointment_date || !appointment_time) {
+    if (!service_id || !appointment_date || !time_block) {
       return NextResponse.json(
-        { error: 'Service, date, and time are required' },
+        { error: 'Service, date, and time block are required' },
+        { status: 400 }
+      );
+    }
+
+    // Validate time_block value
+    if (!isValidTimeBlock(time_block)) {
+      return NextResponse.json(
+        { error: 'Invalid time block. Please select AM or PM.' },
         { status: 400 }
       );
     }
@@ -112,15 +131,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Validate operating hours (8 AM - 5 PM)
-    const timeParts = appointment_time.split(':');
-    const hours = parseInt(timeParts[0]);
-    if (hours < 8 || hours >= 17) {
-      return NextResponse.json(
-        { error: 'Appointments are only available between 8:00 AM and 5:00 PM' },
-        { status: 400 }
-      );
-    }
+    // Set appointment_time based on time_block
+    // AM: 08:00:00, PM: 13:00:00 (hidden from users, used for backend operations)
+    const appointment_time = getBlockDefaultTime(time_block);
 
     // Check for existing active appointments (limit: 2 concurrent appointments)
     const { data: existingAppointments } = await supabase
@@ -160,10 +173,28 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check if we've reached capacity (100 per day per service)
+    // Check if we've reached daily capacity (100 per day per service)
     if (nextQueueNumber > 100) {
       return NextResponse.json(
         { error: `This service is fully booked for ${appointment_date}. Please select another date.` },
+        { status: 400 }
+      );
+    }
+
+    // Check block-specific capacity (50 per block)
+    const blockCapacity = getBlockCapacity(time_block);
+    const { data: blockAppointments } = await supabase
+      .from('appointments')
+      .select('id')
+      .eq('appointment_date', appointment_date)
+      .eq('service_id', service_id)
+      .eq('time_block', time_block)
+      .in('status', ['pending', 'scheduled', 'checked_in', 'in_progress']);
+
+    if (blockAppointments && blockAppointments.length >= blockCapacity) {
+      const blockInfo = formatTimeBlock(time_block);
+      return NextResponse.json(
+        { error: `The ${blockInfo} is fully booked for ${appointment_date}. Please select another time block or date.` },
         { status: 400 }
       );
     }
@@ -179,7 +210,8 @@ export async function POST(request: NextRequest) {
         patient_id: patient.id,
         service_id: service_id, // Links to service for category-based routing
         appointment_date,
-        appointment_time,
+        appointment_time, // Default time for the block (08:00 or 13:00)
+        time_block, // User-selected time block (AM or PM)
         appointment_number: nextQueueNumber,
         status: 'pending', // Start as pending until confirmed by admin
         reason,
@@ -224,11 +256,12 @@ export async function POST(request: NextRequest) {
     }
 
     // Create notification for patient
+    const blockInfo = formatTimeBlock(time_block);
     await supabase.from('notifications').insert({
       user_id: user.id,
       type: 'general',
       title: 'Appointment Confirmed',
-      message: `Your appointment for ${service.name} on ${appointment_date} at ${appointment_time} has been confirmed. Queue number: ${nextQueueNumber}`,
+      message: `Your appointment for ${service.name} on ${appointment_date} in the ${blockInfo} has been confirmed. Queue number: ${nextQueueNumber}`,
       link: '/patient/appointments',
     });
 
@@ -324,6 +357,11 @@ export async function GET(request: NextRequest) {
           id,
           name,
           category
+        ),
+        completed_by_profile:profiles!completed_by_id(
+          id,
+          first_name,
+          last_name
         ),
         medical_records(
           id

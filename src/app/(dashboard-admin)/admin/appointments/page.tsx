@@ -9,6 +9,8 @@ import { EnhancedTable } from '@/components/ui/EnhancedTable';
 import { Drawer } from '@/components/ui/Drawer';
 import { StatusHistoryModal } from '@/components/appointments/StatusHistoryModal';
 import { TimeElapsedBadge } from '@/components/appointments/TimeElapsedBadge';
+import { StatusTransitionButtons } from '@/components/appointments/StatusTransitionButtons';
+import { AppointmentCompletionModal } from '@/components/appointments/AppointmentCompletionModal';
 import {
   Calendar,
   Clock,
@@ -34,12 +36,20 @@ import {
 } from 'lucide-react';
 import { getPhilippineTime } from '@/lib/utils/timezone';
 import { APPOINTMENT_STATUS_CONFIG } from '@/lib/constants/colors';
+import { calculateAppointmentStatistics } from '@/lib/utils/appointmentStats';
+import {
+  TimeBlock,
+  formatTimeBlock,
+  getTimeBlockColor,
+  TIME_BLOCKS,
+} from '@/types/appointment';
 
 interface AdminAppointment {
   id: string;
   appointment_number: number;
   appointment_date: string;
   appointment_time: string;
+  time_block: TimeBlock;
   status: 'pending' | 'scheduled' | 'checked_in' | 'in_progress' | 'completed' | 'cancelled' | 'no_show';
   reason?: string;
   service_id: number;
@@ -81,7 +91,7 @@ export default function SuperAdminAppointmentsPage() {
   const [selectedAppointment, setSelectedAppointment] = useState<AdminAppointment | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [filter, setFilter] = useState<'all' | 'pending' | 'scheduled' | 'checked_in' | 'in_progress' | 'completed' | 'cancelled'>('all');
+  const [filter, setFilter] = useState<'all' | 'pending' | 'scheduled' | 'checked_in' | 'in_progress' | 'completed' | 'cancelled' | 'no_show'>('all');
   const [dateFilter, setDateFilter] = useState<string>('all');
   const [serviceFilter, setServiceFilter] = useState<string>('all');
   const [successMessage, setSuccessMessage] = useState('');
@@ -114,6 +124,10 @@ export default function SuperAdminAppointmentsPage() {
 
   // Medical records check for undo validation (keyed by appointment ID)
   const [hasMedicalRecords, setHasMedicalRecords] = useState<Record<string, boolean | null>>({});
+
+  // Completion modal state
+  const [showCompletionModal, setShowCompletionModal] = useState(false);
+  const [appointmentToComplete, setAppointmentToComplete] = useState<AdminAppointment | null>(null);
 
   // Reset to page 1 when filters change
   useEffect(() => {
@@ -294,19 +308,11 @@ export default function SuperAdminAppointmentsPage() {
     });
   }, [appointments, serviceFilter]);
 
-  // Calculate statistics from filtered data
-  const statistics = useMemo(() => {
-    const total = totalRecords;
-    const pending = filteredAppointments.filter(a => a.status === 'pending').length;
-    const scheduled = filteredAppointments.filter(a => a.status === 'scheduled').length;
-    const checked_in = filteredAppointments.filter(a => a.status === 'checked_in').length;
-    const in_progress = filteredAppointments.filter(a => a.status === 'in_progress').length;
-    const completed = filteredAppointments.filter(a => a.status === 'completed').length;
-    const cancelled = filteredAppointments.filter(a => a.status === 'cancelled').length;
-    const no_show = filteredAppointments.filter(a => a.status === 'no_show').length;
-
-    return { total, pending, scheduled, checked_in, in_progress, completed, cancelled, no_show };
-  }, [filteredAppointments, totalRecords]);
+  // Calculate statistics from current page appointments using shared utility
+  const statistics = useMemo(
+    () => calculateAppointmentStatistics(filteredAppointments),
+    [filteredAppointments]
+  );
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {
@@ -398,6 +404,25 @@ export default function SuperAdminAppointmentsPage() {
     }
   };
 
+  const handleCompleteAppointment = (appointment: AdminAppointment) => {
+    setAppointmentToComplete(appointment);
+    setShowCompletionModal(true);
+  };
+
+  const handleCompletionCancel = () => {
+    setShowCompletionModal(false);
+    setAppointmentToComplete(null);
+  };
+
+  const handleCompletionSuccess = async () => {
+    setShowCompletionModal(false);
+    setAppointmentToComplete(null);
+    setSelectedAppointment(null);
+    await fetchAppointments();
+    setSuccessMessage('Appointment completed successfully');
+    setTimeout(() => setSuccessMessage(''), 3000);
+  };
+
   const exportToCSV = () => {
     const filteredData = filteredAppointments;
     const headers = ['Queue #', 'Patient Name', 'Patient #', 'Service', 'Category', 'Date', 'Time', 'Status', 'Reason'];
@@ -408,7 +433,7 @@ export default function SuperAdminAppointmentsPage() {
       (apt as any).services?.name || 'N/A',
       (apt as any).services?.category || 'N/A',
       apt.appointment_date,
-      apt.appointment_time,
+      formatTimeBlock(apt.time_block),
       apt.status,
       apt.reason || '',
     ]);
@@ -479,13 +504,17 @@ export default function SuperAdminAppointmentsPage() {
       ),
     },
     {
-      header: 'Time',
-      accessor: 'appointment_time',
+      header: 'Time Block',
+      accessor: 'time_block',
       sortable: true,
-      render: (value: string) => (
-        <div className="flex items-center gap-1 text-sm text-gray-700">
-          <Clock className="w-3 h-3 text-gray-400" />
-          {formatTime(value)}
+      render: (value: TimeBlock) => (
+        <div className="flex items-center gap-2">
+          <span className={`px-2 py-1 rounded text-xs font-bold ${getTimeBlockColor(value)}`}>
+            {value}
+          </span>
+          <span className="text-xs text-gray-600">
+            {TIME_BLOCKS[value].timeRange}
+          </span>
         </div>
       ),
     },
@@ -593,7 +622,7 @@ export default function SuperAdminAppointmentsPage() {
             </div>
 
             {/* Statistics Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 gap-4 mb-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-4 gap-4 mb-6">
               <ProfessionalCard variant="flat" className="bg-gradient-to-br from-teal-50 to-teal-100 border-l-4 border-teal-500">
                 <div className="flex items-center justify-between">
                   <div>
@@ -670,10 +699,22 @@ export default function SuperAdminAppointmentsPage() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm text-gray-600 mb-1">Cancelled</p>
-                    <p className="text-3xl font-bold text-gray-900">{statistics.cancelled + statistics.no_show}</p>
+                    <p className="text-3xl font-bold text-gray-900">{statistics.cancelled}</p>
                   </div>
                   <div className="w-12 h-12 bg-gray-500 rounded-xl flex items-center justify-center shadow-lg">
                     <XCircle className="w-6 h-6 text-white" />
+                  </div>
+                </div>
+              </ProfessionalCard>
+
+              <ProfessionalCard variant="flat" className="bg-gradient-to-br from-red-50 to-red-100 border-l-4 border-red-500">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-gray-600 mb-1">No Show</p>
+                    <p className="text-3xl font-bold text-gray-900">{statistics.no_show}</p>
+                  </div>
+                  <div className="w-12 h-12 bg-red-500 rounded-xl flex items-center justify-center shadow-lg">
+                    <AlertCircle className="w-6 h-6 text-white" />
                   </div>
                 </div>
               </ProfessionalCard>
@@ -688,7 +729,8 @@ export default function SuperAdminAppointmentsPage() {
                 { id: 'checked_in', label: 'Checked In', count: statistics.checked_in, color: 'purple', icon: UserCheck },
                 { id: 'in_progress', label: 'In Progress', count: statistics.in_progress, color: 'amber', icon: Activity },
                 { id: 'completed', label: 'Completed', count: statistics.completed, color: 'green', icon: CheckCircle },
-                { id: 'cancelled', label: 'Cancelled', count: statistics.cancelled + statistics.no_show, color: 'gray', icon: XCircle },
+                { id: 'cancelled', label: 'Cancelled', count: statistics.cancelled, color: 'gray', icon: XCircle },
+                { id: 'no_show', label: 'No Show', count: statistics.no_show, color: 'red', icon: AlertCircle },
               ].map((statusFilter) => {
                 const Icon = statusFilter.icon;
                 const isActive = filter === statusFilter.id;
@@ -699,6 +741,7 @@ export default function SuperAdminAppointmentsPage() {
                   purple: { bg: 'bg-purple-100 hover:bg-purple-200', text: 'text-purple-700', ring: 'ring-purple-500', activeBg: 'bg-purple-200' },
                   amber: { bg: 'bg-amber-100 hover:bg-amber-200', text: 'text-amber-700', ring: 'ring-amber-500', activeBg: 'bg-amber-200' },
                   green: { bg: 'bg-green-100 hover:bg-green-200', text: 'text-green-700', ring: 'ring-green-500', activeBg: 'bg-green-200' },
+                  red: { bg: 'bg-red-100 hover:bg-red-200', text: 'text-red-700', ring: 'ring-red-500', activeBg: 'bg-red-200' },
                 };
                 const colors = colorClasses[statusFilter.color as keyof typeof colorClasses];
 
@@ -818,7 +861,7 @@ export default function SuperAdminAppointmentsPage() {
             title={`Appointment #${selectedAppointment.appointment_number}`}
             subtitle={`${selectedAppointment.patients?.profiles?.first_name || 'N/A'} ${selectedAppointment.patients?.profiles?.last_name || ''}`}
             metadata={{
-              createdOn: `${formatDate(selectedAppointment.appointment_date)} at ${formatTime(selectedAppointment.appointment_time)}`,
+              createdOn: `${formatDate(selectedAppointment.appointment_date)} - ${formatTimeBlock(selectedAppointment.time_block)}`,
               status: selectedAppointment.status,
             }}
           >
@@ -854,8 +897,15 @@ export default function SuperAdminAppointmentsPage() {
                       <span className="font-medium text-gray-900">{formatDate(selectedAppointment.appointment_date)}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-gray-600">Time:</span>
-                      <span className="font-medium text-gray-900">{formatTime(selectedAppointment.appointment_time)}</span>
+                      <span className="text-gray-600">Time Block:</span>
+                      <div className="flex items-center gap-2">
+                        <span className={`px-2 py-1 rounded text-xs font-bold ${getTimeBlockColor(selectedAppointment.time_block)}`}>
+                          {selectedAppointment.time_block}
+                        </span>
+                        <span className="text-sm text-gray-600">
+                          {formatTimeBlock(selectedAppointment.time_block)}
+                        </span>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -1078,6 +1128,30 @@ export default function SuperAdminAppointmentsPage() {
 
               {/* Action Buttons */}
               <div className="mt-6 pt-6 border-t border-gray-200 space-y-3">
+                {/* Status Transition Buttons */}
+                <StatusTransitionButtons
+                  appointmentId={selectedAppointment.id}
+                  currentStatus={selectedAppointment.status as any}
+                  appointmentDate={selectedAppointment.appointment_date}
+                  onStatusUpdate={() => {
+                    fetchAppointments();
+                    setSelectedAppointment(null);
+                  }}
+                  variant="full"
+                  className="flex-col"
+                />
+
+                {/* Complete Appointment Button */}
+                {selectedAppointment.status === 'in_progress' && (
+                  <button
+                    onClick={() => handleCompleteAppointment(selectedAppointment)}
+                    className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-green-600 text-white rounded-md hover:bg-green-700 font-medium text-sm shadow-sm transition-colors"
+                  >
+                    <CheckCircle className="w-5 h-5" />
+                    Complete Appointment
+                  </button>
+                )}
+
                 <button
                   onClick={() => handleViewHistory(selectedAppointment.id)}
                   className="w-full flex items-center justify-center gap-2 px-4 py-2 text-sm text-primary-teal hover:text-primary-teal/80 font-medium border border-primary-teal/20 rounded-md hover:bg-primary-teal/5 transition-colors"
@@ -1148,6 +1222,16 @@ export default function SuperAdminAppointmentsPage() {
           }
           isLoading={actionLoading}
         />
+
+        {/* Appointment Completion Modal */}
+        {appointmentToComplete && (
+          <AppointmentCompletionModal
+            isOpen={showCompletionModal}
+            onClose={handleCompletionCancel}
+            onSuccess={handleCompletionSuccess}
+            appointment={appointmentToComplete}
+          />
+        )}
       </Container>
     </DashboardLayout>
   );

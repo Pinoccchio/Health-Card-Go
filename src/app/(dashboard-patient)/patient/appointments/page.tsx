@@ -18,18 +18,28 @@ import {
   History,
   MapPin,
   User,
+  UserCheck,
   ListChecks,
   Activity,
   Eye,
+  PlayCircle,
 } from 'lucide-react';
 import { canCancelAppointment as canCancelByTimezone } from '@/lib/utils/timezone';
 import { APPOINTMENT_STATUS_CONFIG } from '@/lib/constants/colors';
 import { getAdminRoleLabel } from '@/lib/utils/serviceHelpers';
+import { calculateAppointmentStatistics } from '@/lib/utils/appointmentStats';
+import {
+  TimeBlock,
+  formatTimeBlock,
+  getTimeBlockColor,
+  TIME_BLOCKS,
+} from '@/types/appointment';
 
 interface Appointment {
   id: string;
   appointment_date: string;
   appointment_time: string;
+  time_block: TimeBlock;
   appointment_number: number;
   status: 'pending' | 'scheduled' | 'checked_in' | 'in_progress' | 'completed' | 'cancelled' | 'no_show';
   reason?: string;
@@ -44,6 +54,11 @@ interface Appointment {
     name: string;
     category: string;
   } | null;
+  completed_by_profile?: {
+    id: string;
+    first_name: string;
+    last_name: string;
+  } | null;
 }
 
 // Use centralized status config for consistent colors
@@ -55,7 +70,7 @@ export default function PatientAppointmentsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [cancellingId, setCancellingId] = useState<string | null>(null);
-  const [filter, setFilter] = useState<'all' | 'pending' | 'upcoming' | 'completed' | 'cancelled'>('all');
+  const [filter, setFilter] = useState<'all' | 'pending' | 'scheduled' | 'checked_in' | 'in_progress' | 'completed' | 'cancelled' | 'no_show'>('all');
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
   // Cancel confirmation dialog state
@@ -93,19 +108,11 @@ export default function PatientAppointmentsPage() {
   };
 
   // Calculate statistics
-  const statistics = useMemo(() => {
-    const total = appointments.length;
-    const pending = appointments.filter(a => a.status === 'pending').length;
-    const upcoming = appointments.filter(a =>
-      (a.status === 'scheduled' || a.status === 'pending') &&
-      new Date(a.appointment_date) >= new Date(new Date().setHours(0, 0, 0, 0))
-    ).length;
-    const completed = appointments.filter(a => a.status === 'completed').length;
-    const cancelled = appointments.filter(a => a.status === 'cancelled').length;
-    const no_show = appointments.filter(a => a.status === 'no_show').length;
-
-    return { total, pending, upcoming, completed, cancelled, no_show };
-  }, [appointments]);
+  // Use shared statistics calculation for consistency across all roles
+  const statistics = useMemo(
+    () => calculateAppointmentStatistics(appointments),
+    [appointments]
+  );
 
   const handleCancelClick = (appointmentId: string, appointmentDate: string, appointmentTime: string) => {
     // Check 24-hour policy (using Philippine timezone)
@@ -255,13 +262,17 @@ export default function PatientAppointmentsPage() {
       ),
     },
     {
-      header: 'Time',
-      accessor: 'appointment_time',
+      header: 'Time Block',
+      accessor: 'time_block',
       sortable: true,
-      render: (value: string) => (
-        <div className="flex items-center gap-1 text-sm text-gray-700">
-          <Clock className="w-3 h-3 text-gray-400" />
-          {formatTime(value)}
+      render: (value: TimeBlock, row: Appointment) => (
+        <div className="flex items-center gap-2">
+          <span className={`px-2 py-1 rounded text-xs font-bold ${getTimeBlockColor(value)}`}>
+            {value}
+          </span>
+          <span className="text-xs text-gray-600">
+            {TIME_BLOCKS[value].timeRange}
+          </span>
         </div>
       ),
     },
@@ -289,12 +300,12 @@ export default function PatientAppointmentsPage() {
   const filteredAppointments = appointments.filter((apt) => {
     if (filter === 'all') return true;
     if (filter === 'pending') return apt.status === 'pending';
-    if (filter === 'upcoming') {
-      return (apt.status === 'scheduled' || apt.status === 'pending') &&
-        new Date(apt.appointment_date) >= new Date(new Date().setHours(0, 0, 0, 0));
-    }
+    if (filter === 'scheduled') return apt.status === 'scheduled';
+    if (filter === 'checked_in') return apt.status === 'checked_in';
+    if (filter === 'in_progress') return apt.status === 'in_progress';
     if (filter === 'completed') return apt.status === 'completed';
-    if (filter === 'cancelled') return apt.status === 'cancelled' || apt.status === 'no_show';
+    if (filter === 'cancelled') return apt.status === 'cancelled';
+    if (filter === 'no_show') return apt.status === 'no_show';
     return true;
   });
 
@@ -322,7 +333,7 @@ export default function PatientAppointmentsPage() {
         ) : (
           <>
             {/* Statistics Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 mb-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 mb-6">
               <ProfessionalCard variant="flat" className="bg-gradient-to-br from-teal-50 to-teal-100 border-l-4 border-teal-500">
                 <div className="flex items-center justify-between">
                   <div>
@@ -350,11 +361,35 @@ export default function PatientAppointmentsPage() {
               <ProfessionalCard variant="flat" className="bg-gradient-to-br from-blue-50 to-blue-100 border-l-4 border-blue-500">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-gray-600 mb-1">Upcoming</p>
-                    <p className="text-3xl font-bold text-gray-900">{statistics.upcoming}</p>
+                    <p className="text-sm text-gray-600 mb-1">Scheduled</p>
+                    <p className="text-3xl font-bold text-gray-900">{statistics.scheduled}</p>
                   </div>
                   <div className="w-12 h-12 bg-blue-500 rounded-xl flex items-center justify-center shadow-lg">
                     <Calendar className="w-6 h-6 text-white" />
+                  </div>
+                </div>
+              </ProfessionalCard>
+
+              <ProfessionalCard variant="flat" className="bg-gradient-to-br from-purple-50 to-purple-100 border-l-4 border-purple-500">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-gray-600 mb-1">Checked In</p>
+                    <p className="text-3xl font-bold text-gray-900">{statistics.checked_in}</p>
+                  </div>
+                  <div className="w-12 h-12 bg-purple-500 rounded-xl flex items-center justify-center shadow-lg">
+                    <UserCheck className="w-6 h-6 text-white" />
+                  </div>
+                </div>
+              </ProfessionalCard>
+
+              <ProfessionalCard variant="flat" className="bg-gradient-to-br from-amber-50 to-amber-100 border-l-4 border-amber-500">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-gray-600 mb-1">In Progress</p>
+                    <p className="text-3xl font-bold text-gray-900">{statistics.in_progress}</p>
+                  </div>
+                  <div className="w-12 h-12 bg-amber-500 rounded-xl flex items-center justify-center shadow-lg">
+                    <Activity className="w-6 h-6 text-white" />
                   </div>
                 </div>
               </ProfessionalCard>
@@ -401,9 +436,12 @@ export default function PatientAppointmentsPage() {
               {[
                 { id: 'all', label: 'All Appointments', count: statistics.total, color: 'gray', icon: ListChecks },
                 { id: 'pending', label: 'Pending', count: statistics.pending, color: 'orange', icon: Clock },
-                { id: 'upcoming', label: 'Upcoming', count: statistics.upcoming, color: 'blue', icon: Calendar },
+                { id: 'scheduled', label: 'Scheduled', count: statistics.scheduled, color: 'blue', icon: Calendar },
+                { id: 'checked_in', label: 'Checked In', count: statistics.checked_in, color: 'purple', icon: UserCheck },
+                { id: 'in_progress', label: 'In Progress', count: statistics.in_progress, color: 'amber', icon: Activity },
                 { id: 'completed', label: 'Completed', count: statistics.completed, color: 'green', icon: CheckCircle },
                 { id: 'cancelled', label: 'Cancelled', count: statistics.cancelled, color: 'gray', icon: XCircle },
+                { id: 'no_show', label: 'No Show', count: statistics.no_show, color: 'red', icon: AlertCircle },
               ].map((statusFilter) => {
                 const Icon = statusFilter.icon;
                 const isActive = filter === statusFilter.id;
@@ -411,7 +449,10 @@ export default function PatientAppointmentsPage() {
                   gray: { bg: 'bg-gray-100 hover:bg-gray-200', text: 'text-gray-700', ring: 'ring-gray-400', activeBg: 'bg-gray-200' },
                   orange: { bg: 'bg-orange-100 hover:bg-orange-200', text: 'text-orange-700', ring: 'ring-orange-500', activeBg: 'bg-orange-200' },
                   blue: { bg: 'bg-blue-100 hover:bg-blue-200', text: 'text-blue-700', ring: 'ring-blue-500', activeBg: 'bg-blue-200' },
+                  purple: { bg: 'bg-purple-100 hover:bg-purple-200', text: 'text-purple-700', ring: 'ring-purple-500', activeBg: 'bg-purple-200' },
+                  amber: { bg: 'bg-amber-100 hover:bg-amber-200', text: 'text-amber-700', ring: 'ring-amber-500', activeBg: 'bg-amber-200' },
                   green: { bg: 'bg-green-100 hover:bg-green-200', text: 'text-green-700', ring: 'ring-green-500', activeBg: 'bg-green-200' },
+                  red: { bg: 'bg-red-100 hover:bg-red-200', text: 'text-red-700', ring: 'ring-red-500', activeBg: 'bg-red-200' },
                 };
                 const colors = colorClasses[statusFilter.color as keyof typeof colorClasses];
 
@@ -470,7 +511,7 @@ export default function PatientAppointmentsPage() {
             title={`Appointment #${selectedAppointment.appointment_number}`}
             subtitle={`My Appointment`}
             metadata={{
-              createdOn: `${formatDate(selectedAppointment.appointment_date)} at ${formatTime(selectedAppointment.appointment_time)}`,
+              createdOn: `${formatDate(selectedAppointment.appointment_date)} - ${formatTimeBlock(selectedAppointment.time_block)}`,
               status: selectedAppointment.status,
             }}
           >
@@ -507,8 +548,15 @@ export default function PatientAppointmentsPage() {
                       <span className="font-medium text-gray-900">{formatDate(selectedAppointment.appointment_date)}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-gray-600">Time:</span>
-                      <span className="font-medium text-gray-900">{formatTime(selectedAppointment.appointment_time)}</span>
+                      <span className="text-gray-600">Time Block:</span>
+                      <div className="flex items-center gap-2">
+                        <span className={`px-2 py-1 rounded text-xs font-bold ${getTimeBlockColor(selectedAppointment.time_block)}`}>
+                          {selectedAppointment.time_block}
+                        </span>
+                        <span className="text-sm text-gray-600">
+                          {formatTimeBlock(selectedAppointment.time_block)}
+                        </span>
+                      </div>
                     </div>
                   </div>
                 </div>

@@ -170,14 +170,18 @@ export function getHoursUntilAppointment(appointmentDate: string, appointmentTim
 }
 
 /**
- * Check if an appointment can be cancelled (at least 24 hours before scheduled time)
+ * Check if an appointment can be cancelled
+ * POLICY CHANGE: Patients can now cancel anytime, even same-day
+ * Rationale: Cancellation (even last-minute) is better than no-show
+ * Late cancellations trigger admin notifications (handled in API)
  * @param appointmentDate Date string
  * @param appointmentTime Time string
- * @returns true if appointment can be cancelled
+ * @returns true (always - patients can cancel anytime)
  */
 export function canCancelAppointment(appointmentDate: string, appointmentTime: string): boolean {
-  const hoursUntil = getHoursUntilAppointment(appointmentDate, appointmentTime);
-  return hoursUntil >= 24;
+  // Allow cancellation anytime - patients should be able to cancel
+  // even in emergencies or same-day situations (better than no-show)
+  return true;
 }
 
 /**

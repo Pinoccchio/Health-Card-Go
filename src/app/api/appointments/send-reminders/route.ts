@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { formatTimeBlock, TimeBlock } from '@/types/appointment';
 
 /**
  * POST /api/appointments/send-reminders
@@ -34,6 +35,7 @@ export async function POST(request: NextRequest) {
         id,
         appointment_date,
         appointment_time,
+        time_block,
         appointment_number,
         patient_id,
         patients!inner(
@@ -76,13 +78,14 @@ export async function POST(request: NextRequest) {
         const profile = patient.profiles;
 
         // Create notification
+        const blockInfo = formatTimeBlock(appointment.time_block as TimeBlock);
         const { error: notifError } = await supabase
           .from('notifications')
           .insert({
             user_id: profile.id,
             type: 'appointment_reminder',
             title: 'Appointment Reminder',
-            message: `Hi ${profile.first_name}! This is a reminder that you have an appointment scheduled for ${new Date(appointment.appointment_date).toLocaleDateString()} at ${appointment.appointment_time}. Your queue number is ${appointment.appointment_number}. ${appointment.services?.name ? `Service: ${appointment.services.name}.` : ''} Please arrive 15 minutes early.`,
+            message: `Hi ${profile.first_name}! This is a reminder that you have an appointment scheduled for ${new Date(appointment.appointment_date).toLocaleDateString()} in the ${blockInfo}. Your queue number is ${appointment.appointment_number}. ${appointment.services?.name ? `Service: ${appointment.services.name}.` : ''} Please arrive 15 minutes early.`,
             link: '/patient/appointments',
           });
 
@@ -122,7 +125,7 @@ export async function POST(request: NextRequest) {
           patient_number: patient.patient_number,
           patient_name: `${profile.first_name} ${profile.last_name}`,
           appointment_date: appointment.appointment_date,
-          appointment_time: appointment.appointment_time,
+          time_block: formatTimeBlock(appointment.time_block as TimeBlock),
           success: true,
         });
 
@@ -184,6 +187,7 @@ export async function GET(request: NextRequest) {
         id,
         appointment_date,
         appointment_time,
+        time_block,
         appointment_number,
         reminder_sent,
         patient_id,
@@ -211,7 +215,7 @@ export async function GET(request: NextRequest) {
       patient_name: `${apt.patients.profiles.first_name} ${apt.patients.profiles.last_name}`,
       email: apt.patients.profiles.email,
       appointment_date: apt.appointment_date,
-      appointment_time: apt.appointment_time,
+      time_block: formatTimeBlock(apt.time_block as TimeBlock),
       queue_number: apt.appointment_number,
       service: apt.services?.name,
       reminder_sent: apt.reminder_sent,

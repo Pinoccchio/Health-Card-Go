@@ -11,6 +11,7 @@ import { Drawer } from '@/components/ui/Drawer';
 import { StatusHistoryModal } from '@/components/appointments/StatusHistoryModal';
 import { AppointmentCompletionModal } from '@/components/appointments/AppointmentCompletionModal';
 import { TimeElapsedBadge } from '@/components/appointments/TimeElapsedBadge';
+import { StatusTransitionButtons } from '@/components/appointments/StatusTransitionButtons';
 import {
   Calendar,
   Clock,
@@ -38,14 +39,23 @@ import { getPhilippineTime } from '@/lib/utils/timezone';
 import { APPOINTMENT_STATUS_CONFIG } from '@/lib/constants/colors';
 import { canAccessAppointments } from '@/lib/utils/serviceAccessGuard';
 import { useToast } from '@/lib/contexts/ToastContext';
+import { calculateAppointmentStatistics } from '@/lib/utils/appointmentStats';
+import {
+  TimeBlock,
+  formatTimeBlock,
+  getTimeBlockColor,
+  TIME_BLOCKS,
+} from '@/types/appointment';
 
 interface AdminAppointment {
   id: string;
   appointment_number: number;
   appointment_date: string;
   appointment_time: string;
+  time_block: TimeBlock;
   status: 'pending' | 'scheduled' | 'checked_in' | 'in_progress' | 'completed' | 'cancelled' | 'no_show'; // Added 'pending'
   reason?: string;
+  cancellation_reason?: string | null;
   service_id: number;
   checked_in_at?: string | null;
   started_at?: string | null;
@@ -89,7 +99,7 @@ export default function HealthcareAdminAppointmentsPage() {
   const [selectedAppointment, setSelectedAppointment] = useState<AdminAppointment | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [filter, setFilter] = useState<'all' | 'pending' | 'scheduled' | 'checked_in' | 'in_progress' | 'completed' | 'cancelled'>('all');
+  const [filter, setFilter] = useState<'all' | 'pending' | 'scheduled' | 'checked_in' | 'in_progress' | 'completed' | 'cancelled' | 'no_show'>('all');
   const [dateFilter, setDateFilter] = useState<string>('all');
   const [successMessage, setSuccessMessage] = useState('');
 
@@ -326,19 +336,11 @@ export default function HealthcareAdminAppointmentsPage() {
 
   // Calculate statistics
   // Note: With pagination, statistics show counts for current page only
-  // Total count shows all records from API pagination metadata
-  const statistics = useMemo(() => {
-    const total = totalRecords; // Use total from API instead of current page
-    const pending = appointments.filter(a => a.status === 'pending').length;
-    const scheduled = appointments.filter(a => a.status === 'scheduled').length;
-    const checked_in = appointments.filter(a => a.status === 'checked_in').length;
-    const in_progress = appointments.filter(a => a.status === 'in_progress').length;
-    const completed = appointments.filter(a => a.status === 'completed').length;
-    const cancelled = appointments.filter(a => a.status === 'cancelled').length;
-    const no_show = appointments.filter(a => a.status === 'no_show').length;
-
-    return { total, pending, scheduled, checked_in, in_progress, completed, cancelled, no_show };
-  }, [appointments, totalRecords]);
+  // Calculate statistics from current page appointments using shared utility
+  const statistics = useMemo(
+    () => calculateAppointmentStatistics(appointments),
+    [appointments]
+  );
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {
@@ -458,7 +460,7 @@ export default function HealthcareAdminAppointmentsPage() {
       `${apt.patients?.profiles?.first_name || 'N/A'} ${apt.patients?.profiles?.last_name || ''}`,
       apt.patients?.patient_number || 'N/A',
       apt.appointment_date,
-      apt.appointment_time,
+      formatTimeBlock(apt.time_block),
       apt.status,
       apt.reason || '',
     ]);
@@ -511,13 +513,17 @@ export default function HealthcareAdminAppointmentsPage() {
       ),
     },
     {
-      header: 'Time',
-      accessor: 'appointment_time',
+      header: 'Time Block',
+      accessor: 'time_block',
       sortable: true,
-      render: (value: string) => (
-        <div className="flex items-center gap-1 text-sm text-gray-700">
-          <Clock className="w-3 h-3 text-gray-400" />
-          {formatTime(value)}
+      render: (value: TimeBlock) => (
+        <div className="flex items-center gap-2">
+          <span className={`px-2 py-1 rounded text-xs font-bold ${getTimeBlockColor(value)}`}>
+            {value}
+          </span>
+          <span className="text-xs text-gray-600">
+            {TIME_BLOCKS[value].timeRange}
+          </span>
         </div>
       ),
     },
@@ -559,7 +565,7 @@ export default function HealthcareAdminAppointmentsPage() {
       header: 'Actions',
       accessor: 'actions',
       render: (_: any, row: AdminAppointment) => {
-        const canComplete = ['scheduled', 'checked_in', 'in_progress'].includes(row.status);
+        const canComplete = row.status === 'in_progress';
 
         return (
           <div className="flex items-center gap-2">
@@ -647,7 +653,7 @@ export default function HealthcareAdminAppointmentsPage() {
         ) : (
           <>
             {/* Statistics Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 gap-4 mb-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-4 gap-4 mb-6">
               <ProfessionalCard variant="flat" className="bg-gradient-to-br from-teal-50 to-teal-100 border-l-4 border-teal-500">
                 <div className="flex items-center justify-between">
                   <div>
@@ -724,10 +730,22 @@ export default function HealthcareAdminAppointmentsPage() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm text-gray-600 mb-1">Cancelled</p>
-                    <p className="text-3xl font-bold text-gray-900">{statistics.cancelled + statistics.no_show}</p>
+                    <p className="text-3xl font-bold text-gray-900">{statistics.cancelled}</p>
                   </div>
                   <div className="w-12 h-12 bg-gray-500 rounded-xl flex items-center justify-center shadow-lg">
                     <XCircle className="w-6 h-6 text-white" />
+                  </div>
+                </div>
+              </ProfessionalCard>
+
+              <ProfessionalCard variant="flat" className="bg-gradient-to-br from-red-50 to-red-100 border-l-4 border-red-500">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-gray-600 mb-1">No Show</p>
+                    <p className="text-3xl font-bold text-gray-900">{statistics.no_show}</p>
+                  </div>
+                  <div className="w-12 h-12 bg-red-500 rounded-xl flex items-center justify-center shadow-lg">
+                    <AlertCircle className="w-6 h-6 text-white" />
                   </div>
                 </div>
               </ProfessionalCard>
@@ -742,7 +760,8 @@ export default function HealthcareAdminAppointmentsPage() {
                 { id: 'checked_in', label: 'Checked In', count: statistics.checked_in, color: 'purple', icon: UserCheck },
                 { id: 'in_progress', label: 'In Progress', count: statistics.in_progress, color: 'amber', icon: Activity },
                 { id: 'completed', label: 'Completed', count: statistics.completed, color: 'green', icon: CheckCircle },
-                { id: 'cancelled', label: 'Cancelled', count: statistics.cancelled + statistics.no_show, color: 'gray', icon: XCircle },
+                { id: 'cancelled', label: 'Cancelled', count: statistics.cancelled, color: 'gray', icon: XCircle },
+                { id: 'no_show', label: 'No Show', count: statistics.no_show, color: 'red', icon: AlertCircle },
               ].map((statusFilter) => {
                 const Icon = statusFilter.icon;
                 const isActive = filter === statusFilter.id;
@@ -753,6 +772,7 @@ export default function HealthcareAdminAppointmentsPage() {
                   purple: { bg: 'bg-purple-100 hover:bg-purple-200', text: 'text-purple-700', ring: 'ring-purple-500', activeBg: 'bg-purple-200' },
                   amber: { bg: 'bg-amber-100 hover:bg-amber-200', text: 'text-amber-700', ring: 'ring-amber-500', activeBg: 'bg-amber-200' },
                   green: { bg: 'bg-green-100 hover:bg-green-200', text: 'text-green-700', ring: 'ring-green-500', activeBg: 'bg-green-200' },
+                  red: { bg: 'bg-red-100 hover:bg-red-200', text: 'text-red-700', ring: 'ring-red-500', activeBg: 'bg-red-200' },
                 };
                 const colors = colorClasses[statusFilter.color as keyof typeof colorClasses];
 
@@ -885,7 +905,7 @@ export default function HealthcareAdminAppointmentsPage() {
             title={`Appointment #${selectedAppointment.appointment_number}`}
             subtitle={`${selectedAppointment.patients?.profiles?.first_name || 'N/A'} ${selectedAppointment.patients?.profiles?.last_name || ''}`}
             metadata={{
-              createdOn: `${formatDate(selectedAppointment.appointment_date)} at ${formatTime(selectedAppointment.appointment_time)}`,
+              createdOn: `${formatDate(selectedAppointment.appointment_date)} - ${formatTimeBlock(selectedAppointment.time_block)}`,
               status: selectedAppointment.status,
             }}
           >
@@ -913,8 +933,15 @@ export default function HealthcareAdminAppointmentsPage() {
                       <span className="font-medium text-gray-900">{formatDate(selectedAppointment.appointment_date)}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-gray-600">Time:</span>
-                      <span className="font-medium text-gray-900">{formatTime(selectedAppointment.appointment_time)}</span>
+                      <span className="text-gray-600">Time Block:</span>
+                      <div className="flex items-center gap-2">
+                        <span className={`px-2 py-1 rounded text-xs font-bold ${getTimeBlockColor(selectedAppointment.time_block)}`}>
+                          {selectedAppointment.time_block}
+                        </span>
+                        <span className="text-sm text-gray-600">
+                          {formatTimeBlock(selectedAppointment.time_block)}
+                        </span>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -1104,6 +1131,19 @@ export default function HealthcareAdminAppointmentsPage() {
                   </div>
                 )}
 
+                {/* Cancellation Reason */}
+                {selectedAppointment.status === 'cancelled' && selectedAppointment.cancellation_reason && (
+                  <div>
+                    <h4 className="text-sm font-medium text-red-700 mb-2 flex items-center">
+                      <XCircle className="w-4 h-4 mr-2" />
+                      Cancellation Reason
+                    </h4>
+                    <div className="bg-red-50 rounded-md p-3 text-sm text-red-700">
+                      {selectedAppointment.cancellation_reason}
+                    </div>
+                  </div>
+                )}
+
                 {/* Timestamps */}
                 {(selectedAppointment.checked_in_at || selectedAppointment.started_at || selectedAppointment.completed_at) && (
                   <div>
@@ -1137,8 +1177,21 @@ export default function HealthcareAdminAppointmentsPage() {
 
               {/* Action Buttons */}
               <div className="mt-6 pt-6 border-t border-gray-200 space-y-3">
+                {/* Status Transition Buttons */}
+                <StatusTransitionButtons
+                  appointmentId={selectedAppointment.id}
+                  currentStatus={selectedAppointment.status as any}
+                  appointmentDate={selectedAppointment.appointment_date}
+                  onStatusUpdate={() => {
+                    fetchAppointments();
+                    setSelectedAppointment(null);
+                  }}
+                  variant="full"
+                  className="flex-col"
+                />
+
                 {/* Complete Appointment Button */}
-                {['scheduled', 'checked_in', 'in_progress'].includes(selectedAppointment.status) && (
+                {selectedAppointment.status === 'in_progress' && (
                   <button
                     onClick={() => handleCompleteAppointment(selectedAppointment)}
                     className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-green-600 text-white rounded-md hover:bg-green-700 font-medium text-sm shadow-sm transition-colors"
@@ -1157,10 +1210,11 @@ export default function HealthcareAdminAppointmentsPage() {
                   View Status History
                 </button>
 
-                {/* Undo Button */}
+                {/* Undo Button - Hidden for pending status (no previous state to undo to) */}
                 {lastHistoryEntries[selectedAppointment.id] &&
                  lastHistoryEntries[selectedAppointment.id].from_status &&
                  selectedAppointment.status !== lastHistoryEntries[selectedAppointment.id].from_status &&
+                 selectedAppointment.status !== 'pending' &&
                  selectedAppointment.status !== 'cancelled' && (
                   selectedAppointment.status === 'completed' ? (
                     hasMedicalRecords[selectedAppointment.id] === false ? (

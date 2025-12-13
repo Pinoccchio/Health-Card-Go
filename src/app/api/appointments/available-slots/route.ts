@@ -1,16 +1,27 @@
 import { createClient } from '@/lib/supabase/server';
 import { NextRequest, NextResponse } from 'next/server';
 import { getPhilippineTime, isValidBookingDate, isWeekday } from '@/lib/utils/timezone';
+import {
+  TimeBlock,
+  TimeBlockInfo,
+  TIME_BLOCKS,
+  AM_CAPACITY,
+  PM_CAPACITY,
+  DAILY_CAPACITY,
+  type AvailableSlotsResponse,
+} from '@/types/appointment';
 
 /**
  * GET /api/appointments/available-slots
- * Check available time slots for a specific date and service
+ * Check available time blocks (AM/PM) for a specific date
  *
  * Query params:
  * - date: YYYY-MM-DD (required)
  * - service_id: number (optional, for capacity checking)
  *
- * Returns: Available time slots with capacity information
+ * Returns: Available time blocks with capacity information
+ * - AM Block: 8:00 AM - 12:00 PM (50 max)
+ * - PM Block: 1:00 PM - 5:00 PM (50 max)
  */
 export async function GET(request: NextRequest) {
   try {
@@ -54,10 +65,10 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // Get total appointments for this date
+    // Get total appointments for this date (grouped by time_block)
     const { data: appointments, error: fetchError } = await supabase
       .from('appointments')
-      .select('appointment_time, status')
+      .select('time_block, status')
       .eq('appointment_date', date)
       .in('status', ['scheduled', 'checked_in', 'in_progress']);
 
@@ -69,53 +80,62 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Generate all possible time slots (8 AM - 5 PM, 30-minute intervals)
-    const timeSlots = [];
-    for (let hour = 8; hour < 17; hour++) {
-      timeSlots.push(`${String(hour).padStart(2, '0')}:00:00`);
-      timeSlots.push(`${String(hour).padStart(2, '0')}:30:00`);
-    }
+    // Count appointments per time block
+    const blockCounts = {
+      AM: 0,
+      PM: 0,
+    };
 
-    // Count appointments per time slot
-    const slotCounts = new Map<string, number>();
     appointments?.forEach((apt) => {
-      const count = slotCounts.get(apt.appointment_time) || 0;
-      slotCounts.set(apt.appointment_time, count + 1);
+      if (apt.time_block === 'AM') {
+        blockCounts.AM++;
+      } else if (apt.time_block === 'PM') {
+        blockCounts.PM++;
+      }
     });
 
-    // Calculate available slots (max 100 total per day, distributed across time slots)
-    const totalAppointments = appointments?.length || 0;
-    const dailyCapacity = 100;
-    const slotsPerTimeSlot = Math.floor(dailyCapacity / timeSlots.length);
+    // Calculate total appointments
+    const totalAppointments = blockCounts.AM + blockCounts.PM;
 
-    const availableSlots = timeSlots.map((time) => {
-      const booked = slotCounts.get(time) || 0;
-      const available = slotsPerTimeSlot - booked;
+    // Build time block availability
+    const blocks: TimeBlockInfo[] = [
+      {
+        block: 'AM' as TimeBlock,
+        label: TIME_BLOCKS.AM.label,
+        timeRange: TIME_BLOCKS.AM.timeRange,
+        capacity: AM_CAPACITY,
+        booked: blockCounts.AM,
+        remaining: AM_CAPACITY - blockCounts.AM,
+        available: blockCounts.AM < AM_CAPACITY,
+      },
+      {
+        block: 'PM' as TimeBlock,
+        label: TIME_BLOCKS.PM.label,
+        timeRange: TIME_BLOCKS.PM.timeRange,
+        capacity: PM_CAPACITY,
+        booked: blockCounts.PM,
+        remaining: PM_CAPACITY - blockCounts.PM,
+        available: blockCounts.PM < PM_CAPACITY,
+      },
+    ];
 
-      return {
-        time,
-        available: available > 0,
-        capacity: slotsPerTimeSlot,
-        booked,
-        remaining: Math.max(0, available),
-      };
-    });
-
-    // Filter to only show available slots if needed
+    // Filter to only show available blocks if needed
     const onlyAvailable = searchParams.get('only_available') === 'true';
-    const resultSlots = onlyAvailable
-      ? availableSlots.filter((slot) => slot.available)
-      : availableSlots;
+    const resultBlocks = onlyAvailable
+      ? blocks.filter((block) => block.available)
+      : blocks;
 
-    return NextResponse.json({
+    const response: AvailableSlotsResponse = {
       success: true,
-      available: totalAppointments < dailyCapacity,
+      available: totalAppointments < DAILY_CAPACITY,
       date,
-      total_capacity: dailyCapacity,
+      total_capacity: DAILY_CAPACITY,
       total_booked: totalAppointments,
-      total_remaining: Math.max(0, dailyCapacity - totalAppointments),
-      slots: resultSlots,
-    });
+      total_remaining: Math.max(0, DAILY_CAPACITY - totalAppointments),
+      blocks: resultBlocks,
+    };
+
+    return NextResponse.json(response);
 
   } catch (error) {
     console.error('Available slots error:', error);

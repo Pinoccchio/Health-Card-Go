@@ -1,6 +1,6 @@
 import { createClient, createAdminClient } from '@/lib/supabase/server';
 import { NextRequest, NextResponse } from 'next/server';
-import { canCancelAppointment, getPhilippineTime } from '@/lib/utils/timezone';
+import { canCancelAppointment, getPhilippineTime, getHoursUntilAppointment } from '@/lib/utils/timezone';
 
 /**
  * GET /api/appointments/[id]
@@ -302,6 +302,16 @@ export async function PATCH(
     const body = await request.json();
     const { status, notes, revert_to_history_id, reason } = body;
 
+    // Log incoming request
+    console.log(`[PATCH /api/appointments/${id}] Request:`, {
+      status,
+      reason,
+      revert_to_history_id,
+      user_id: user.id,
+      user_role: profile.role,
+      timestamp: new Date().toISOString()
+    });
+
     // Handle status reversion
     if (revert_to_history_id) {
       return handleStatusReversion(supabase, id, revert_to_history_id, user.id, reason);
@@ -313,8 +323,12 @@ export async function PATCH(
     // Handle status updates
     if (status) {
       // Validate status transition
-      const validStatuses = ['scheduled', 'checked_in', 'in_progress', 'completed', 'no_show'];
+      const validStatuses = ['pending', 'scheduled', 'checked_in', 'in_progress', 'completed', 'cancelled', 'no_show'];
       if (!validStatuses.includes(status)) {
+        console.error(`[PATCH /api/appointments/${id}] Invalid status rejected: "${status}"`, {
+          validStatuses,
+          received: status
+        });
         return NextResponse.json(
           { error: 'Invalid status' },
           { status: 400 }
@@ -452,6 +466,16 @@ export async function PATCH(
       });
     }
 
+    // Log successful update
+    console.log(`[PATCH /api/appointments/${id}] Status updated successfully:`, {
+      appointment_id: id,
+      appointment_number: appointment.appointment_number,
+      patient_id: appointment.patient_id,
+      old_status: currentAppointment.status,
+      new_status: status || currentAppointment.status,
+      timestamp: new Date().toISOString()
+    });
+
     return NextResponse.json({
       success: true,
       data: appointment,
@@ -531,13 +555,9 @@ export async function DELETE(
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
       }
 
-      // Check 24-hour cancellation policy (using Philippine timezone)
-      if (!canCancelAppointment(appointment.appointment_date, appointment.appointment_time)) {
-        return NextResponse.json(
-          { error: 'Appointments can only be cancelled at least 24 hours in advance' },
-          { status: 400 }
-        );
-      }
+      // POLICY CHANGE: Removed 24-hour cancellation restriction
+      // Patients can now cancel anytime (better than no-show)
+      // Late cancellations will trigger admin notifications below
     }
 
     // Get cancellation reason from request body
@@ -606,7 +626,7 @@ export async function DELETE(
       }
     }
 
-    // Send cancellation notification
+    // Send cancellation notification to patient
     await supabase.from('notifications').insert({
       user_id: appointment.patients.user_id,
       type: 'cancellation',
@@ -614,6 +634,47 @@ export async function DELETE(
       message: `Your appointment on ${appointment.appointment_date} has been cancelled.`,
       link: '/patient/appointments',
     });
+
+    // NEW: Notify healthcare admin if cancellation is within 24 hours
+    const hoursUntil = getHoursUntilAppointment(appointment.appointment_date, appointment.appointment_time);
+
+    if (hoursUntil < 24) {
+      // Get healthcare admin for this service
+      const { data: healthcareAdmins } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('role', 'healthcare_admin')
+        .eq('assigned_service_id', appointment.service_id);
+
+      if (healthcareAdmins && healthcareAdmins.length > 0) {
+        // Determine urgency level and notification type
+        let notificationTitle = '';
+        let notificationType = 'late_cancellation';
+        let notificationMessage = '';
+
+        if (hoursUntil < 2) {
+          // URGENT: Less than 2 hours
+          notificationTitle = `🚨 URGENT: Last-minute cancellation (${Math.floor(hoursUntil * 60)} minutes notice)`;
+          notificationType = 'urgent_cancellation';
+          notificationMessage = `Patient cancelled appointment #${appointment.appointment_number} for ${appointment.services.name} on ${appointment.appointment_date}. Reason: ${cancellation_reason}. Slot may be available for walk-ins.`;
+        } else if (hoursUntil < 24) {
+          // Late cancellation (2-24 hours)
+          notificationTitle = `⚠️ Late cancellation (${Math.floor(hoursUntil)} hours notice)`;
+          notificationMessage = `Patient cancelled appointment #${appointment.appointment_number} for ${appointment.services.name} on ${appointment.appointment_date}. Reason: ${cancellation_reason}.`;
+        }
+
+        // Send notification to all healthcare admins assigned to this service
+        const adminNotifications = healthcareAdmins.map(admin => ({
+          user_id: admin.id,
+          type: notificationType,
+          title: notificationTitle,
+          message: notificationMessage,
+          link: '/healthcare-admin/appointments',
+        }));
+
+        await supabase.from('notifications').insert(adminNotifications);
+      }
+    }
 
     return NextResponse.json({
       success: true,

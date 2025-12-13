@@ -87,10 +87,10 @@ export async function POST(
       }
     }
 
-    // Verify appointment can be completed
-    if (!['scheduled', 'checked_in', 'in_progress'].includes(appointment.status)) {
+    // Verify appointment can be completed (must be in_progress)
+    if (appointment.status !== 'in_progress') {
       return NextResponse.json(
-        { error: `Cannot complete appointment with status '${appointment.status}'` },
+        { error: `Cannot complete appointment with status '${appointment.status}'. Appointment must be in 'in_progress' status to be completed.` },
         { status: 400 }
       );
     }

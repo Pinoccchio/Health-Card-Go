@@ -16,6 +16,12 @@ import {
   getCategoryColors,
   getExpectedProcessingTime,
 } from '@/lib/utils/serviceHelpers';
+import {
+  TimeBlock,
+  TimeBlockInfo,
+  formatTimeBlock,
+  getTimeBlockColor,
+} from '@/types/appointment';
 
 interface Service {
   id: number;
@@ -33,23 +39,17 @@ interface Service {
   }>;
 }
 
-interface TimeSlot {
-  time: string;
-  available: boolean;
-  remaining: number;
-}
-
 export default function PatientBookAppointmentPage() {
   const [step, setStep] = useState(1);
   const [services, setServices] = useState<Service[]>([]);
   const [servicesLoading, setServicesLoading] = useState(true);
   const [selectedService, setSelectedService] = useState<number | null>(null);
   const [selectedDate, setSelectedDate] = useState('');
-  const [selectedTime, setSelectedTime] = useState('');
+  const [selectedBlock, setSelectedBlock] = useState<TimeBlock | ''>('');
   const [reasonTemplate, setReasonTemplate] = useState('');
   const [customReason, setCustomReason] = useState('');
   const [reason, setReason] = useState('');
-  const [availableSlots, setAvailableSlots] = useState<TimeSlot[]>([]);
+  const [availableBlocks, setAvailableBlocks] = useState<TimeBlockInfo[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
@@ -75,14 +75,14 @@ export default function PatientBookAppointmentPage() {
     }
   };
 
-  // Load available slots when date changes
+  // Load available blocks when date changes
   useEffect(() => {
     if (selectedDate) {
-      fetchAvailableSlots();
+      fetchAvailableBlocks();
     }
   }, [selectedDate]);
 
-  const fetchAvailableSlots = async () => {
+  const fetchAvailableBlocks = async () => {
     if (!selectedDate) return;
 
     setLoading(true);
@@ -93,14 +93,14 @@ export default function PatientBookAppointmentPage() {
       const data = await response.json();
 
       if (data.success) {
-        setAvailableSlots(data.slots || []);
+        setAvailableBlocks(data.blocks || []);
       } else {
-        setError(data.reason || 'Unable to load available slots');
-        setAvailableSlots([]);
+        setError(data.reason || 'Unable to load available blocks');
+        setAvailableBlocks([]);
       }
     } catch (err) {
-      setError('Failed to load available time slots');
-      setAvailableSlots([]);
+      setError('Failed to load available time blocks');
+      setAvailableBlocks([]);
     } finally {
       setLoading(false);
     }
@@ -113,14 +113,15 @@ export default function PatientBookAppointmentPage() {
 
   const handleDateSelect = (date: string) => {
     setSelectedDate(date);
-    setSelectedTime('');
+    setSelectedBlock('');
     setStep(3);
   };
 
-  const handleTimeSelect = (time: string) => {
-    setSelectedTime(time);
+  const handleBlockSelect = (block: TimeBlock) => {
+    setSelectedBlock(block);
     setStep(4);
   };
+
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -144,7 +145,7 @@ export default function PatientBookAppointmentPage() {
         body: JSON.stringify({
           service_id: selectedService,
           appointment_date: selectedDate,
-          appointment_time: selectedTime,
+          time_block: selectedBlock,
           reason: finalReason,
         }),
       });
@@ -400,53 +401,98 @@ export default function PatientBookAppointmentPage() {
               </div>
             )}
 
-            {/* Step 3: Pick Time */}
+            {/* Step 3: Pick Time Block */}
             {step === 3 && (
               <div>
                 <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                  Select Time Slot
+                  Select Time Block
                 </h3>
-                <p className="text-sm text-gray-600 mb-4">
-                  Available time slots for {selectedDate} (Operating hours: 8:00 AM - 5:00 PM)
+                <p className="text-sm text-gray-600 mb-6">
+                  Choose between Morning (AM) or Afternoon (PM) time block for {selectedDate}
                 </p>
                 {loading ? (
                   <div className="text-center py-8">
                     <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary-teal"></div>
-                    <p className="mt-2 text-sm text-gray-500">Loading available slots...</p>
+                    <p className="mt-2 text-sm text-gray-500">Loading available blocks...</p>
                   </div>
-                ) : availableSlots.length > 0 ? (
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-                    {availableSlots.map((slot) => (
+                ) : availableBlocks.length > 0 ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {availableBlocks.map((block) => (
                       <button
-                        key={slot.time}
-                        onClick={() => handleTimeSelect(slot.time)}
-                        disabled={!slot.available}
-                        className={`p-3 text-center rounded-lg border-2 transition-colors ${
-                          slot.available
-                            ? 'border-gray-300 hover:border-primary-teal hover:bg-primary-teal/5'
-                            : 'border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed'
-                        }`}
+                        key={block.block}
+                        onClick={() => handleBlockSelect(block.block)}
+                        disabled={!block.available}
+                        className={`
+                          p-6 rounded-lg border-2 transition-all text-left
+                          ${block.available
+                            ? 'border-gray-300 hover:border-primary-teal hover:bg-primary-teal/5 hover:shadow-lg'
+                            : 'border-gray-200 bg-gray-50 cursor-not-allowed opacity-60'
+                          }
+                        `}
                       >
-                        <Clock className="w-4 h-4 mx-auto mb-1" />
-                        <div className="text-sm font-medium">
-                          {new Date(`2000-01-01T${slot.time}`).toLocaleTimeString('en-US', {
-                            hour: 'numeric',
-                            minute: '2-digit',
-                            hour12: true,
-                          })}
+                        {/* Block Header */}
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center gap-3">
+                            <Clock className={`w-6 h-6 ${block.available ? 'text-primary-teal' : 'text-gray-400'}`} />
+                            <div>
+                              <h4 className="text-lg font-bold text-gray-900">
+                                {block.label}
+                              </h4>
+                              <p className="text-sm text-gray-600">
+                                {block.timeRange}
+                              </p>
+                            </div>
+                          </div>
+                          {!block.available && (
+                            <span className="px-3 py-1 bg-red-100 text-red-800 text-xs font-bold rounded-full">
+                              FULL
+                            </span>
+                          )}
                         </div>
-                        <div className="text-xs text-gray-500">
-                          {slot.remaining} left
+
+                        {/* Capacity Bar */}
+                        <div className="mb-3">
+                          <div className="flex justify-between text-sm mb-1">
+                            <span className="text-gray-600">Availability</span>
+                            <span className={`font-bold ${
+                              block.remaining > 10 ? 'text-green-600' :
+                              block.remaining > 5 ? 'text-amber-600' :
+                              'text-red-600'
+                            }`}>
+                              {block.remaining} / {block.capacity} slots
+                            </span>
+                          </div>
+                          <div className="w-full bg-gray-200 rounded-full h-2.5">
+                            <div
+                              className={`h-2.5 rounded-full transition-all ${
+                                block.remaining > 10 ? 'bg-green-500' :
+                                block.remaining > 5 ? 'bg-amber-500' :
+                                'bg-red-500'
+                              }`}
+                              style={{ width: `${(block.remaining / block.capacity) * 100}%` }}
+                            ></div>
+                          </div>
                         </div>
+
+                        {/* Status Message */}
+                        {block.available ? (
+                          <p className="text-xs text-green-700 font-medium">
+                            ✓ Available - Click to select
+                          </p>
+                        ) : (
+                          <p className="text-xs text-red-700 font-medium">
+                            ✗ Fully booked - Please choose another date or time block
+                          </p>
+                        )}
                       </button>
                     ))}
                   </div>
                 ) : (
                   <div className="text-center py-8 text-gray-500">
-                    No available slots for this date
+                    No available blocks for this date
                   </div>
                 )}
-                <div className="mt-4">
+                <div className="mt-6">
                   <button
                     onClick={() => {
                       setStep(2);
@@ -481,13 +527,14 @@ export default function PatientBookAppointmentPage() {
                       <dd className="text-sm text-gray-900">{selectedDate}</dd>
                     </div>
                     <div className="flex justify-between">
-                      <dt className="text-sm font-medium text-gray-500">Time:</dt>
+                      <dt className="text-sm font-medium text-gray-500">Time Block:</dt>
                       <dd className="text-sm text-gray-900">
-                        {new Date(`2000-01-01T${selectedTime}`).toLocaleTimeString('en-US', {
-                          hour: 'numeric',
-                          minute: '2-digit',
-                          hour12: true,
-                        })}
+                        <span className={`px-2 py-1 rounded text-xs font-bold ${getTimeBlockColor(selectedBlock as TimeBlock)}`}>
+                          {selectedBlock}
+                        </span>
+                        <span className="ml-2 text-gray-600">
+                          {selectedBlock && formatTimeBlock(selectedBlock as TimeBlock)}
+                        </span>
                       </dd>
                     </div>
                   </dl>
