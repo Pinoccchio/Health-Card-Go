@@ -253,6 +253,22 @@ async function handleStatusReversion(
       reason: reason || `Reverted from ${currentAppointment.status} to ${targetStatus}`,
     });
 
+  // Send notification to patient about status reversion
+  if (updatedAppointment) {
+    const statusDisplay = targetStatus.replace(/_/g, ' ');
+    const notificationMessage = reason
+      ? `Your appointment status was reverted to "${statusDisplay}". Reason: ${reason}`
+      : `Your appointment status was reverted to "${statusDisplay}"`;
+
+    await adminClient.from('notifications').insert({
+      user_id: updatedAppointment.patients.user_id,
+      type: 'general',
+      title: 'Appointment Status Updated',
+      message: notificationMessage,
+      link: '/patient/appointments',
+    });
+  }
+
   return NextResponse.json({
     success: true,
     data: updatedAppointment,
@@ -337,18 +353,48 @@ export async function PATCH(
 
       // Business rule: Cannot mark future appointments as no_show
       if (status === 'no_show') {
-        const philippineNow = getPhilippineTime();
-        const appointmentDate = new Date(appointment.appointment_date);
+        // Fetch current appointment data first before validating
+        const { data: currentAppointmentData, error: fetchError } = await supabase
+          .from('appointments')
+          .select('status, appointment_date, checked_in_at, started_at')
+          .eq('id', id)
+          .single();
 
-        // Set to midnight for date-only comparison
-        philippineNow.setHours(0, 0, 0, 0);
-        appointmentDate.setHours(0, 0, 0, 0);
-
-        if (appointmentDate.getTime() > philippineNow.getTime()) {
+        if (fetchError || !currentAppointmentData) {
           return NextResponse.json(
-            { error: 'Cannot mark future appointments as no_show. Please wait until the appointment date.' },
+            { error: 'Appointment not found' },
+            { status: 404 }
+          );
+        }
+
+        // Business rule: Cannot mark as no-show after patient has checked in
+        // This prevents contradictory data (patient showed up but marked as no-show)
+        if (currentAppointmentData.status === 'checked_in' || currentAppointmentData.status === 'in_progress') {
+          return NextResponse.json(
+            {
+              error: 'Cannot mark as no-show after patient has checked in. Use "Undo Last Action" to revert the check-in if this was an error.'
+            },
             { status: 400 }
           );
+        }
+
+        // Allow future no-show if environment variable is set to 'true' (for testing)
+        const allowFutureNoShow = process.env.NEXT_PUBLIC_ALLOW_FUTURE_NO_SHOW === 'true';
+
+        if (!allowFutureNoShow) {
+          const philippineNow = getPhilippineTime();
+          const appointmentDate = new Date(currentAppointmentData.appointment_date);
+
+          // Set to midnight for date-only comparison
+          philippineNow.setHours(0, 0, 0, 0);
+          appointmentDate.setHours(0, 0, 0, 0);
+
+          if (appointmentDate.getTime() > philippineNow.getTime()) {
+            return NextResponse.json(
+              { error: 'Cannot mark future appointments as no_show. Please wait until the appointment date.' },
+              { status: 400 }
+            );
+          }
         }
       }
 
@@ -463,6 +509,61 @@ export async function PATCH(
         title: 'Appointment Completed',
         message: 'Your appointment has been completed. You can now submit feedback.',
         link: '/patient/feedback',
+      });
+    }
+
+    // Send "Appointment Confirmed" notification when pending appointment is approved
+    if (appointment && status === 'scheduled' && oldStatus === 'pending') {
+      await supabase.from('notifications').insert({
+        user_id: appointment.patients.user_id,
+        type: 'approval',
+        title: 'Appointment Confirmed',
+        message: `Your appointment on ${appointment.appointment_date} in the ${appointment.time_block} (${appointment.appointment_time}) has been confirmed. Queue number: ${appointment.appointment_number}`,
+        link: '/patient/appointments',
+      });
+    }
+
+    // Send "Checked In" notification when patient is checked in
+    if (appointment && status === 'checked_in') {
+      await supabase.from('notifications').insert({
+        user_id: appointment.patients.user_id,
+        type: 'general',
+        title: 'Checked In Successfully',
+        message: `You have been checked in for your appointment. Queue number: ${appointment.appointment_number}. Please wait for your name to be called.`,
+        link: '/patient/appointments',
+      });
+    }
+
+    // Send "Consultation Started" notification when consultation begins
+    if (appointment && status === 'in_progress') {
+      await supabase.from('notifications').insert({
+        user_id: appointment.patients.user_id,
+        type: 'general',
+        title: 'Consultation Started',
+        message: 'Your consultation has started. Your healthcare provider is ready to see you.',
+        link: '/patient/appointments',
+      });
+    }
+
+    // Send "No Show" notification when patient is marked as no-show
+    if (appointment && status === 'no_show') {
+      await supabase.from('notifications').insert({
+        user_id: appointment.patients.user_id,
+        type: 'cancellation',
+        title: 'Appointment Marked as No Show',
+        message: `Your appointment on ${appointment.appointment_date} was marked as not attended. If this was done in error, please contact us immediately.`,
+        link: '/patient/appointments',
+      });
+    }
+
+    // Send "Appointment Rejected" notification when admin rejects pending appointment
+    if (appointment && status === 'cancelled' && oldStatus === 'pending' && reason) {
+      await supabase.from('notifications').insert({
+        user_id: appointment.patients.user_id,
+        type: 'cancellation',
+        title: 'Appointment Request Rejected',
+        message: `Your appointment request has been rejected. Reason: ${reason}. Please contact us if you have questions.`,
+        link: '/patient/appointments',
       });
     }
 

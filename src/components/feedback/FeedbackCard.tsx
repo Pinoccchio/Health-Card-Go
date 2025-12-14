@@ -1,7 +1,8 @@
 'use client';
 
 import StarRating from '@/components/ui/StarRating';
-import { Calendar, User, Building2, Timer, ThumbsUp, ThumbsDown, MessageSquare, Reply } from 'lucide-react';
+import { Calendar, User, Building2, Timer, ThumbsUp, ThumbsDown, MessageSquare, Reply, Clock } from 'lucide-react';
+import { TimeBlock, TIME_BLOCKS, getTimeBlockColor } from '@/types/appointment';
 
 interface FeedbackCardProps {
   feedback: {
@@ -17,6 +18,7 @@ interface FeedbackCardProps {
     appointments?: {
       appointment_date: string;
       appointment_time: string;
+      time_block?: TimeBlock;
       services?: {
         name: string;
       };
@@ -52,10 +54,21 @@ export default function FeedbackCard({ feedback, showAppointmentDetails = true }
                 {new Date(feedback.appointments.appointment_date).toLocaleDateString()}
               </span>
             </div>
-            <div className="flex items-center text-gray-700">
-              <Timer className="w-4 h-4 mr-2 text-gray-500" />
+            <div className="flex items-center gap-2 text-gray-700">
+              <Clock className="w-4 h-4 text-gray-500" />
               <span className="font-medium">Time:</span>
-              <span className="ml-2">{feedback.appointments.appointment_time}</span>
+              {feedback.appointments.time_block ? (
+                <>
+                  <span className={`px-2 py-0.5 rounded text-xs font-bold ${getTimeBlockColor(feedback.appointments.time_block)}`}>
+                    {feedback.appointments.time_block}
+                  </span>
+                  <span className="text-xs">
+                    {TIME_BLOCKS[feedback.appointments.time_block].timeRange}
+                  </span>
+                </>
+              ) : (
+                <span className="ml-2">{feedback.appointments.appointment_time}</span>
+              )}
             </div>
           </div>
         </div>

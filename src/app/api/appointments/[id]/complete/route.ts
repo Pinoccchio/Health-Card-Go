@@ -176,6 +176,31 @@ export async function POST(
       }
     }
 
+    // Step 3: Log status history for audit trail
+    const fromStatus = appointment.status; // Was 'in_progress'
+    await adminClient
+      .from('appointment_status_history')
+      .insert({
+        appointment_id: appointmentId,
+        change_type: 'status_change',
+        from_status: fromStatus,
+        to_status: 'completed',
+        changed_by: profile.id,
+        // Dynamic message based on whether medical records were created
+        reason: createdMedicalRecord
+          ? 'Appointment completed with medical consultation'
+          : 'Appointment completed',
+      });
+
+    // Step 4: Send notification to patient
+    await adminClient.from('notifications').insert({
+      user_id: appointment.patients.user_id,
+      type: 'general',
+      title: 'Appointment Completed',
+      message: 'Your appointment has been completed. You can now submit feedback.',
+      link: '/patient/feedback',
+    });
+
     return NextResponse.json({
       success: true,
       message: 'Appointment completed successfully',

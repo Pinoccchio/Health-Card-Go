@@ -19,11 +19,18 @@ import {
   Send,
   ListChecks,
 } from 'lucide-react';
+import {
+  TimeBlock,
+  TIME_BLOCKS,
+  formatTimeBlock,
+  getTimeBlockColor,
+} from '@/types/appointment';
 
 interface Appointment {
   id: string;
   appointment_date: string;
   appointment_time: string;
+  time_block: TimeBlock;
   appointment_number: number;
   completed_at: string;
   has_feedback?: boolean;
@@ -187,8 +194,11 @@ export default function PatientFeedbackPage() {
     return feedbackHistory;
   }, [feedbackHistory, filter]);
 
-  // Show eligible appointments when 'pending' filter is active
-  const showEligibleAppointments = filter === 'pending';
+  // Show eligible appointments when 'pending' or 'all' filter is active
+  const showEligibleAppointments = filter === 'pending' || filter === 'all';
+
+  // Show feedback history when not 'pending' filter (includes 'all')
+  const showFeedbackHistory = filter !== 'pending';
 
   // Define table columns for feedback history
   const tableColumns = [
@@ -414,130 +424,141 @@ export default function PatientFeedbackPage() {
             </div>
 
             {/* Content Area */}
-            {showEligibleAppointments ? (
-              <div className="bg-white rounded-lg shadow p-6">
-                <div className="mb-6">
-                  <h2 className="text-lg font-semibold text-gray-900 mb-2">
-                    Eligible Appointments
-                  </h2>
-                  <p className="text-sm text-gray-600">
-                    You can submit feedback within 7 days of appointment completion.
-                  </p>
-                </div>
-
-                {eligibleAppointments.length === 0 ? (
-                  <div className="text-center py-12">
-                    <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gray-100 mb-4">
-                      <Clock className="w-8 h-8 text-gray-400" />
-                    </div>
-                    <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                      No Eligible Appointments
-                    </h3>
-                    <p className="text-gray-600">
-                      You don't have any completed appointments eligible for feedback at this time.
+            <div className="space-y-6">
+              {/* Eligible Appointments Section */}
+              {showEligibleAppointments && (
+                <div className="bg-white rounded-lg shadow p-6">
+                  <div className="mb-6">
+                    <h2 className="text-lg font-semibold text-gray-900 mb-2">
+                      Eligible Appointments
+                    </h2>
+                    <p className="text-sm text-gray-600">
+                      You can submit feedback within 7 days of appointment completion.
                     </p>
                   </div>
-                ) : (
-                  <div className="space-y-4">
-                    {eligibleAppointments.map((appointment) => {
-                      const daysRemaining = calculateDaysRemaining(appointment.completed_at);
 
-                      return (
-                        <div
-                          key={appointment.id}
-                          className="border border-gray-200 rounded-lg p-4 hover:border-primary-teal transition-colors"
-                        >
-                          <div className="flex items-start justify-between">
-                            <div className="flex-1">
-                              <div className="flex items-center gap-3 mb-2">
-                                <h3 className="font-medium text-gray-900">
-                                  {appointment.services?.name || 'N/A'}
-                                </h3>
-                                <span className="px-2 py-1 bg-green-100 text-green-700 text-xs font-medium rounded">
-                                  Completed
-                                </span>
-                              </div>
+                  {eligibleAppointments.length === 0 ? (
+                    <div className="text-center py-12">
+                      <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gray-100 mb-4">
+                        <Clock className="w-8 h-8 text-gray-400" />
+                      </div>
+                      <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                        No Eligible Appointments
+                      </h3>
+                      <p className="text-gray-600">
+                        You don't have any completed appointments eligible for feedback at this time.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {eligibleAppointments.map((appointment) => {
+                        const daysRemaining = calculateDaysRemaining(appointment.completed_at);
 
-                              <div className="grid grid-cols-2 gap-3 text-sm text-gray-600 mb-3">
-                                <div className="flex items-center">
-                                  <Calendar className="w-4 h-4 mr-2 text-gray-400" />
-                                  {new Date(appointment.appointment_date).toLocaleDateString()}
-                                </div>
-                                <div className="flex items-center">
-                                  <Clock className="w-4 h-4 mr-2 text-gray-400" />
-                                  {appointment.appointment_time}
-                                </div>
-                              </div>
-
-                              <div className="flex items-center text-sm">
-                                {daysRemaining > 0 ? (
-                                  <span className="text-amber-600 font-medium">
-                                    {daysRemaining} day{daysRemaining !== 1 ? 's' : ''} remaining to submit feedback
+                        return (
+                          <div
+                            key={appointment.id}
+                            className="border border-gray-200 rounded-lg p-4 hover:border-primary-teal transition-colors"
+                          >
+                            <div className="flex items-start justify-between">
+                              <div className="flex-1">
+                                <div className="flex items-center gap-3 mb-2">
+                                  <h3 className="font-medium text-gray-900">
+                                    {appointment.services?.name || 'N/A'}
+                                  </h3>
+                                  <span className="px-2 py-1 bg-green-100 text-green-700 text-xs font-medium rounded">
+                                    Completed
                                   </span>
-                                ) : (
-                                  <span className="text-red-600 font-medium">
-                                    Feedback deadline expired
-                                  </span>
-                                )}
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-3 text-sm text-gray-600 mb-3">
+                                  <div className="flex items-center">
+                                    <Calendar className="w-4 h-4 mr-2 text-gray-400" />
+                                    {new Date(appointment.appointment_date).toLocaleDateString()}
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <Clock className="w-4 h-4 text-gray-400" />
+                                    <span className={`px-2 py-0.5 rounded text-xs font-bold ${getTimeBlockColor(appointment.time_block)}`}>
+                                      {appointment.time_block}
+                                    </span>
+                                    <span className="text-xs">
+                                      {TIME_BLOCKS[appointment.time_block].timeRange}
+                                    </span>
+                                  </div>
+                                </div>
+
+                                <div className="flex items-center text-sm">
+                                  {daysRemaining > 0 ? (
+                                    <span className="text-amber-600 font-medium">
+                                      {daysRemaining} day{daysRemaining !== 1 ? 's' : ''} remaining to submit feedback
+                                    </span>
+                                  ) : (
+                                    <span className="text-red-600 font-medium">
+                                      Feedback deadline expired
+                                    </span>
+                                  )}
+                                </div>
                               </div>
+
+                              {daysRemaining > 0 && (
+                                <button
+                                  onClick={() => handleSubmitClick(appointment)}
+                                  className="ml-4 px-4 py-2 bg-primary-teal text-white rounded-lg hover:bg-primary-teal/90 transition-colors text-sm font-medium"
+                                >
+                                  Submit Feedback
+                                </button>
+                              )}
                             </div>
-
-                            {daysRemaining > 0 && (
-                              <button
-                                onClick={() => handleSubmitClick(appointment)}
-                                className="ml-4 px-4 py-2 bg-primary-teal text-white rounded-lg hover:bg-primary-teal/90 transition-colors text-sm font-medium"
-                              >
-                                Submit Feedback
-                              </button>
-                            )}
                           </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div className="bg-white rounded-lg shadow p-6">
-                <div className="mb-6">
-                  <h2 className="text-lg font-semibold text-gray-900 mb-2">
-                    Your Feedback History
-                  </h2>
-                  <p className="text-sm text-gray-600">
-                    View all your submitted feedback and admin responses.
-                  </p>
-                </div>
-
-                {filteredFeedback.length === 0 ? (
-                  <div className="text-center py-12">
-                    <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gray-100 mb-4">
-                      <MessageSquare className="w-8 h-8 text-gray-400" />
+                        );
+                      })}
                     </div>
-                    <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                      No Feedback Yet
-                    </h3>
-                    <p className="text-gray-600 mb-4">
-                      You haven't submitted any feedback yet.
+                  )}
+                </div>
+              )}
+
+              {/* Feedback History Section */}
+              {showFeedbackHistory && (
+                <div className="bg-white rounded-lg shadow p-6">
+                  <div className="mb-6">
+                    <h2 className="text-lg font-semibold text-gray-900 mb-2">
+                      Your Feedback History
+                    </h2>
+                    <p className="text-sm text-gray-600">
+                      View all your submitted feedback and admin responses.
                     </p>
-                    <button
-                      onClick={() => setFilter('pending')}
-                      className="px-4 py-2 bg-primary-teal text-white rounded-lg hover:bg-primary-teal/90 transition-colors text-sm font-medium"
-                    >
-                      View Eligible Appointments
-                    </button>
                   </div>
-                ) : (
-                  <EnhancedTable
-                    columns={tableColumns}
-                    data={filteredFeedback}
-                    searchable
-                    searchPlaceholder="Search by service or rating..."
-                    paginated
-                    pageSize={10}
-                  />
-                )}
-              </div>
-            )}
+
+                  {filteredFeedback.length === 0 ? (
+                    <div className="text-center py-12">
+                      <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gray-100 mb-4">
+                        <MessageSquare className="w-8 h-8 text-gray-400" />
+                      </div>
+                      <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                        No Feedback Yet
+                      </h3>
+                      <p className="text-gray-600 mb-4">
+                        You haven't submitted any feedback yet.
+                      </p>
+                      <button
+                        onClick={() => setFilter('pending')}
+                        className="px-4 py-2 bg-primary-teal text-white rounded-lg hover:bg-primary-teal/90 transition-colors text-sm font-medium"
+                      >
+                        View Eligible Appointments
+                      </button>
+                    </div>
+                  ) : (
+                    <EnhancedTable
+                      columns={tableColumns}
+                      data={filteredFeedback}
+                      searchable
+                      searchPlaceholder="Search by service or rating..."
+                      paginated
+                      pageSize={10}
+                    />
+                  )}
+                </div>
+              )}
+            </div>
           </>
         )}
 
@@ -559,6 +580,13 @@ export default function PatientFeedbackPage() {
             onClose={() => {
               setIsFormDrawerOpen(false);
               setSelectedAppointment(null);
+
+              // Remove appointment_id from URL to prevent re-opening
+              if (typeof window !== 'undefined') {
+                const url = new URL(window.location.href);
+                url.searchParams.delete('appointment_id');
+                window.history.replaceState({}, '', url.pathname);
+              }
             }}
             size="xl"
             title="Submit Feedback"
@@ -571,6 +599,13 @@ export default function PatientFeedbackPage() {
                 onCancel={() => {
                   setIsFormDrawerOpen(false);
                   setSelectedAppointment(null);
+
+                  // Remove appointment_id from URL to prevent re-opening
+                  if (typeof window !== 'undefined') {
+                    const url = new URL(window.location.href);
+                    url.searchParams.delete('appointment_id');
+                    window.history.replaceState({}, '', url.pathname);
+                  }
                 }}
               />
             </div>

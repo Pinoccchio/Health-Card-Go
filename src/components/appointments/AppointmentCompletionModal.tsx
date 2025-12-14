@@ -147,11 +147,11 @@ export function AppointmentCompletionModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto">
+    <div className="fixed inset-0 z-[1002] overflow-y-auto">
       <div className="flex min-h-full items-center justify-center p-4">
         {/* Backdrop */}
         <div
-          className="fixed inset-0 bg-black/50 transition-opacity"
+          className="fixed inset-0 bg-gray-900/60 backdrop-blur-lg transition-all duration-300"
           onClick={handleClose}
         />
 
@@ -242,7 +242,7 @@ export function AppointmentCompletionModal({
                         </p>
                       ) : (
                         <p className="text-blue-800">
-                          Medical record is optional for this service. You may complete the appointment without providing medical information.
+                          Medical record is not required for this service. You may complete the appointment without providing medical information.
                         </p>
                       )}
                     </div>

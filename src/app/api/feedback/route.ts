@@ -295,6 +295,7 @@ export async function GET(request: NextRequest) {
           id,
           appointment_date,
           appointment_time,
+          time_block,
           appointment_number,
           services(
             id,

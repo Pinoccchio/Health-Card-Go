@@ -116,11 +116,31 @@ export function StatusTransitionButtons({
       toast.error('Patients can only be checked in on the appointment day');
       return;
     }
+    setConfirmDialog({
+      isOpen: true,
+      action: 'check_in',
+      title: 'Check In Patient',
+      message: 'Confirm that the patient has arrived and is ready for service. The patient will be notified.',
+    });
+  };
+
+  // Confirm check-in action
+  const confirmCheckIn = () => {
     updateStatus('checked_in');
   };
 
   // Handle start consultation action
   const handleStart = () => {
+    setConfirmDialog({
+      isOpen: true,
+      action: 'start',
+      title: 'Start Consultation',
+      message: 'Begin the consultation with this patient? The patient will be notified that their consultation has started.',
+    });
+  };
+
+  // Confirm start consultation action
+  const confirmStart = () => {
     updateStatus('in_progress');
   };
 
@@ -217,36 +237,27 @@ export function StatusTransitionButtons({
         );
 
       case 'checked_in':
+        // Only show "Start Consultation" button
+        // To undo a check-in mistake, use "Undo Last Action" button instead of marking as no-show
         return (
-          <>
-            <Button
-              onClick={handleStart}
-              disabled={isLoading}
-              variant="outline"
-              className="bg-green-50 text-green-700 border-green-200 hover:bg-green-100"
-            >
-              {isLoading && loadingAction === 'in_progress' ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Starting...
-                </>
-              ) : (
-                <>
-                  <PlayCircle className="w-4 h-4 mr-2" />
-                  Start Consultation
-                </>
-              )}
-            </Button>
-            <Button
-              onClick={handleNoShow}
-              disabled={isLoading}
-              variant="outline"
-              className="bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100"
-            >
-              <XCircle className="w-4 h-4 mr-2" />
-              Mark as No Show
-            </Button>
-          </>
+          <Button
+            onClick={handleStart}
+            disabled={isLoading}
+            variant="outline"
+            className="bg-green-50 text-green-700 border-green-200 hover:bg-green-100"
+          >
+            {isLoading && loadingAction === 'in_progress' ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Starting...
+              </>
+            ) : (
+              <>
+                <PlayCircle className="w-4 h-4 mr-2" />
+                Start Consultation
+              </>
+            )}
+          </Button>
         );
 
       case 'in_progress':
@@ -363,6 +374,10 @@ export function StatusTransitionButtons({
                       onClick={() => {
                         if (confirmDialog.action === 'approve') {
                           confirmApprove();
+                        } else if (confirmDialog.action === 'check_in') {
+                          confirmCheckIn();
+                        } else if (confirmDialog.action === 'start') {
+                          confirmStart();
                         } else if (confirmDialog.action === 'no_show') {
                           confirmNoShow();
                         } else if (confirmDialog.action === 'reject') {

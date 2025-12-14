@@ -260,8 +260,8 @@ export async function POST(request: NextRequest) {
     await supabase.from('notifications').insert({
       user_id: user.id,
       type: 'general',
-      title: 'Appointment Confirmed',
-      message: `Your appointment for ${service.name} on ${appointment_date} in the ${blockInfo} has been confirmed. Queue number: ${nextQueueNumber}`,
+      title: 'Booking Received',
+      message: `Your appointment request for ${service.name} on ${appointment_date} in the ${blockInfo} has been received and is pending admin review. You'll be notified once it's confirmed.`,
       link: '/patient/appointments',
     });
 

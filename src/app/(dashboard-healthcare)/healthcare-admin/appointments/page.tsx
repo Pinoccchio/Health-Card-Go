@@ -202,8 +202,13 @@ export default function HealthcareAdminAppointmentsPage() {
           const data = await response.json();
 
           if (data.success && data.data.length > 0) {
+            // Find the most recent forward status change that led to the current status
+            // Filter out reversions to get the actual last forward status change
             const lastEntry = data.data.find((entry: any) =>
-              entry.change_type === 'status_change' && entry.from_status !== null
+              entry.change_type === 'status_change' &&
+              entry.to_status === appointment.status &&  // Must match current status
+              !entry.is_reversion &&  // Must not be a previous reversion
+              entry.from_status !== null
             );
             if (lastEntry) {
               entries[appointment.id] = {
@@ -418,17 +423,24 @@ export default function HealthcareAdminAppointmentsPage() {
       const data = await response.json();
 
       if (data.success) {
-        await fetchAppointments();
+        // Close dialog and show success immediately
         setShowRevertDialog(false);
+        toast.success('Appointment status reverted successfully');
         setPendingRevert(null);
-        setSuccessMessage('Status reverted successfully');
-        setTimeout(() => setSuccessMessage(''), 3000);
+
+        // Close drawer immediately (don't wait for data refresh)
+        setIsDrawerOpen(false);
+        setSelectedAppointment(null);
+
+        // Refresh appointments list in background (not awaited for instant UI response)
+        fetchAppointments();
+        setActionLoading(false);
       } else {
-        setError(data.error || 'Failed to revert status');
+        toast.error(data.error || 'Failed to revert status');
+        setActionLoading(false);
       }
     } catch (err) {
-      setError('An unexpected error occurred');
-    } finally {
+      toast.error('An unexpected error occurred');
       setActionLoading(false);
     }
   };

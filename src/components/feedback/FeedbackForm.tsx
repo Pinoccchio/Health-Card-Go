@@ -3,11 +3,14 @@
 import { useState } from 'react';
 import StarRating from '@/components/ui/StarRating';
 import { Calendar, Clock, Building2, Timer, ThumbsUp, MessageSquare } from 'lucide-react';
+import { useToast } from '@/lib/contexts/ToastContext';
+import { TimeBlock, TIME_BLOCKS, getTimeBlockColor } from '@/types/appointment';
 
 interface Appointment {
   id: string;
   appointment_date: string;
   appointment_time: string;
+  time_block: TimeBlock;
   completed_at: string;
   services?: {
     name: string;
@@ -30,6 +33,7 @@ export default function FeedbackForm({ appointment, onSuccess, onCancel }: Feedb
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const toast = useToast();
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
@@ -81,10 +85,13 @@ export default function FeedbackForm({ appointment, onSuccess, onCancel }: Feedb
         throw new Error(data.error || 'Failed to submit feedback');
       }
 
+      toast.success('Thank you! Your feedback has been submitted successfully.');
       onSuccess();
     } catch (error) {
       console.error('Error submitting feedback:', error);
-      setErrors({ submit: error instanceof Error ? error.message : 'Failed to submit feedback' });
+      const errorMessage = error instanceof Error ? error.message : 'Failed to submit feedback';
+      setErrors({ submit: errorMessage });
+      toast.error(errorMessage);
     } finally {
       setIsSubmitting(false);
     }
@@ -106,10 +113,15 @@ export default function FeedbackForm({ appointment, onSuccess, onCancel }: Feedb
             <span className="font-medium">Date:</span>
             <span className="ml-2">{new Date(appointment.appointment_date).toLocaleDateString()}</span>
           </div>
-          <div className="flex items-center text-gray-700">
-            <Clock className="w-4 h-4 mr-2 text-blue-600" />
+          <div className="flex items-center gap-2 text-gray-700">
+            <Clock className="w-4 h-4 text-blue-600" />
             <span className="font-medium">Time:</span>
-            <span className="ml-2">{appointment.appointment_time}</span>
+            <span className={`px-2 py-0.5 rounded text-xs font-bold ${getTimeBlockColor(appointment.time_block)}`}>
+              {appointment.time_block}
+            </span>
+            <span className="text-xs">
+              {TIME_BLOCKS[appointment.time_block].timeRange}
+            </span>
           </div>
         </div>
       </div>
