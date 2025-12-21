@@ -54,10 +54,43 @@ export default function PatientBookAppointmentPage() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
 
-  // Load services on mount
+  // Suspension state
+  const [isSuspended, setIsSuspended] = useState(false);
+  const [suspendedUntil, setSuspendedUntil] = useState<string | null>(null);
+  const [noShowCount, setNoShowCount] = useState(0);
+  const [daysRemaining, setDaysRemaining] = useState(0);
+
+  // Load services and check suspension status on mount
   useEffect(() => {
     fetchServices();
+    checkSuspensionStatus();
   }, []);
+
+  const checkSuspensionStatus = async () => {
+    try {
+      const response = await fetch('/api/profile');
+      const data = await response.json();
+
+      if (data.success && data.data) {
+        const profile = data.data.profile;
+        const patient = data.data.patient;
+
+        if (profile?.status === 'suspended' && patient?.suspended_until) {
+          setIsSuspended(true);
+          setSuspendedUntil(patient.suspended_until);
+          setNoShowCount(patient.no_show_count || 0);
+
+          // Calculate days remaining
+          const suspendedDate = new Date(patient.suspended_until);
+          const now = new Date();
+          const days = Math.ceil((suspendedDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+          setDaysRemaining(days);
+        }
+      }
+    } catch (err) {
+      console.error('Error checking suspension status:', err);
+    }
+  };
 
   const fetchServices = async () => {
     setServicesLoading(true);
@@ -127,6 +160,13 @@ export default function PatientBookAppointmentPage() {
     e.preventDefault();
     setLoading(true);
     setError('');
+
+    // Block submission if account is suspended
+    if (isSuspended) {
+      setError('Cannot book appointments while your account is suspended');
+      setLoading(false);
+      return;
+    }
 
     // Validate if "Other" is selected but no custom reason provided
     if (reasonTemplate === 'Other (please specify)' && !customReason.trim()) {
@@ -226,6 +266,51 @@ export default function PatientBookAppointmentPage() {
       pageDescription="Schedule your next visit (7-day advance booking required)"
     >
       <Container size="full">
+        {/* Suspension Warning Banner */}
+        {isSuspended && suspendedUntil && (
+          <div className="mb-6 bg-red-50 border-l-4 border-red-600 p-6 rounded-r-lg shadow-md">
+            <div className="flex items-start">
+              <Lock className="w-6 h-6 text-red-600 mt-1 mr-4 flex-shrink-0" />
+              <div className="flex-1">
+                <h3 className="text-lg font-bold text-red-900 mb-2">
+                  Account Suspended - Booking Disabled
+                </h3>
+                <div className="text-sm text-red-800 space-y-2">
+                  <p className="font-medium">
+                    Your account has been suspended due to {noShowCount} missed appointments (no-shows).
+                  </p>
+                  <p>
+                    <strong>Suspension Period:</strong> {daysRemaining > 0 ? `${daysRemaining} ${daysRemaining === 1 ? 'day' : 'days'} remaining` : 'Expires today'}
+                  </p>
+                  <p>
+                    <strong>Reinstatement Date:</strong>{' '}
+                    {new Date(suspendedUntil).toLocaleDateString('en-US', {
+                      weekday: 'long',
+                      year: 'numeric',
+                      month: 'long',
+                      day: 'numeric',
+                    })}
+                  </p>
+                  <div className="mt-4 pt-4 border-t border-red-200">
+                    <p className="font-medium">What this means:</p>
+                    <ul className="list-disc list-inside mt-2 space-y-1 ml-2">
+                      <li>You cannot book new appointments during the suspension period</li>
+                      <li>Your account will be automatically reinstated on the date above</li>
+                      <li>Please attend scheduled appointments to avoid future suspensions</li>
+                    </ul>
+                  </div>
+                  <div className="mt-4 pt-4 border-t border-red-200">
+                    <p className="text-xs">
+                      If you believe this suspension is an error or have extenuating circumstances,
+                      please contact the City Health Office of Panabo City immediately.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="bg-white rounded-lg shadow">
           {/* Progress Steps */}
           <div className="border-b border-gray-200 px-6 py-4">

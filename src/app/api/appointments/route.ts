@@ -1,6 +1,7 @@
 import { createClient, createAdminClient } from '@/lib/supabase/server';
 import { NextRequest, NextResponse } from 'next/server';
 import { isValidBookingDate, isWeekday } from '@/lib/utils/timezone';
+import { checkAndUnsuspendPatient } from '@/lib/utils/appointmentUtils';
 import {
   TimeBlock,
   TIME_BLOCKS,
@@ -81,15 +82,45 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Get patient record
+    // Get patient record with suspension data
     const { data: patient, error: patientError } = await supabase
       .from('patients')
-      .select('id')
+      .select('id, no_show_count, suspended_until')
       .eq('user_id', user.id)
       .single();
 
     if (patientError || !patient) {
       return NextResponse.json({ error: 'Patient record not found' }, { status: 404 });
+    }
+
+    // Check if patient is suspended
+    if (profile.status === 'suspended') {
+      // Try to auto-unsuspend if suspension period has expired
+      const wasUnsuspended = await checkAndUnsuspendPatient(patient.id, user.id);
+
+      if (!wasUnsuspended) {
+        // Still suspended - block booking
+        if (patient.suspended_until) {
+          const suspendedUntil = new Date(patient.suspended_until);
+          const daysRemaining = Math.ceil((suspendedUntil.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+
+          return NextResponse.json(
+            {
+              error: 'Your account is suspended due to multiple no-shows',
+              suspended_until: patient.suspended_until,
+              days_remaining: daysRemaining,
+              message: `Your account will be automatically reinstated on ${suspendedUntil.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}. If you believe this is an error, please contact the City Health Office.`,
+            },
+            { status: 403 }
+          );
+        } else {
+          return NextResponse.json(
+            { error: 'Your account is suspended. Please contact the City Health Office.' },
+            { status: 403 }
+          );
+        }
+      }
+      // If successfully unsuspended, continue with booking
     }
 
     // Validate service exists and requires appointment

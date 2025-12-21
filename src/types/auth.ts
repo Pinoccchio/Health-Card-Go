@@ -210,6 +210,32 @@ export interface Barangay {
 }
 
 // ============================================================================
+// Patient Type
+// ============================================================================
+
+export interface Patient {
+  id: string;
+  user_id: string;
+  patient_number: string;
+  philhealth_number?: string;
+  medical_history?: Record<string, any>;
+  allergies?: Record<string, any>;
+  current_medications?: Record<string, any>;
+  accessibility_requirements?: string;
+  booking_number?: string;
+  booking_count?: number;
+  registration_date?: string;
+
+  // No-show tracking and suspension fields
+  no_show_count: number;
+  suspended_until?: string | null;
+  last_no_show_at?: string | null;
+
+  created_at: string;
+  updated_at: string;
+}
+
+// ============================================================================
 // Helper Types
 // ============================================================================
 

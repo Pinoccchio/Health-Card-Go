@@ -1,5 +1,8 @@
 // TypeScript Type Definitions for HealthCardGo
 
+// Re-export from other type files
+export type { Patient } from './auth';
+
 // Navigation Types
 export interface NavItem {
   label: string;

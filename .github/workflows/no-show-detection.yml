@@ -1,0 +1,45 @@
+name: Daily No-Show Detection
+
+on:
+  schedule:
+    # Runs at 1:00 AM PHT (UTC+8) which is 5:00 PM UTC previous day
+    # Cron format: minute hour day month weekday
+    - cron: '0 17 * * *'
+
+  # Allow manual triggering for testing
+  workflow_dispatch:
+
+jobs:
+  check-no-shows:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Trigger No-Show Detection API
+        run: |
+          response=$(curl -X POST ${{ secrets.PRODUCTION_URL }}/api/cron/check-no-shows \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -w "\nHTTP_STATUS:%{http_code}" \
+            -s)
+
+          # Extract HTTP status code
+          http_status=$(echo "$response" | grep "HTTP_STATUS" | cut -d':' -f2)
+          response_body=$(echo "$response" | sed '/HTTP_STATUS/d')
+
+          # Print response
+          echo "Response Body:"
+          echo "$response_body" | jq '.' || echo "$response_body"
+
+          # Check if successful
+          if [ "$http_status" -eq 200 ]; then
+            echo "✅ No-show detection completed successfully"
+          else
+            echo "❌ No-show detection failed with status $http_status"
+            exit 1
+          fi
+
+      - name: Send Notification on Failure
+        if: failure()
+        run: |
+          echo "⚠️ No-show detection cron job failed!"
+          echo "Please check the logs and verify the cron endpoint is working."
