@@ -3,12 +3,53 @@ import { createClient } from '@/lib/supabase/server';
 import { createClient as createSupabaseClient } from '@supabase/supabase-js';
 
 /**
+ * Generate a cryptographically secure random password
+ */
+function generateSecurePassword(length = 32): string {
+  const charset = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()_+-=[]{}|;:,.<>?';
+  let password = '';
+  const array = new Uint8Array(length);
+  crypto.getRandomValues(array);
+  for (let i = 0; i < length; i++) {
+    password += charset[array[i] % charset.length];
+  }
+  return password;
+}
+
+/**
+ * Calculate time block based on appointment time
+ * Operating Hours:
+ * - AM Block: 8:00 AM - 12:59 PM (hours 8-12)
+ * - PM Block: 1:00 PM - 4:59 PM (hours 13-16)
+ *
+ * @param timeString Time in HH:MM:SS or HH:MM format
+ * @returns 'AM' or 'PM' time block
+ */
+function getTimeBlock(timeString: string): 'AM' | 'PM' {
+  const [hours] = timeString.split(':').map(Number);
+
+  // AM Block: 8:00-12:59 (hours 8-12)
+  if (hours >= 8 && hours < 13) {
+    return 'AM';
+  }
+  // PM Block: 13:00-16:59 (hours 13-16)
+  if (hours >= 13 && hours < 17) {
+    return 'PM';
+  }
+
+  // Outside operating hours - default based on time of day
+  // If before noon, use AM; otherwise PM
+  return hours < 12 ? 'AM' : 'PM';
+}
+
+/**
  * POST /api/admin/patients/walk-in
  * Create a walk-in patient registration (General Admin only)
  *
  * BUSINESS RULES:
- * - Only general_admin can register walk-in patients (403 for others)
- * - user_id = NULL for walk-in patients (no user account)
+ * - Only Healthcare Admins assigned to walk-in services can register walk-ins
+ * - ALL walk-in patients get auth accounts (can claim later via password reset)
+ * - Email format: walkin-{patient_number}@noreply.healthcard.local
  * - Auto-active status (no approval needed)
  * - Auto-complete appointment (status='completed')
  * - Booking number auto-generated (BKG-YYYYMMDD-XXXX)
@@ -30,7 +71,7 @@ export async function POST(request: NextRequest) {
     // 2. Get user profile and verify role
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
-      .select('role_id, admin_category')
+      .select('role, admin_category, assigned_service_id')
       .eq('id', session.user.id)
       .single();
 
@@ -38,10 +79,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Profile not found' }, { status: 404 });
     }
 
-    // 3. CRITICAL: Verify user is Healthcare Admin with general_admin category
-    if (profile.role_id !== 2 || profile.admin_category !== 'general_admin') {
+    // 3. CRITICAL: Verify user is Healthcare Admin assigned to walk-in service
+    // Accept either 'general' admin_category or assigned to Service 22 (Walk-in Emergency)
+    const isHealthcareAdmin = profile.role === 'healthcare_admin';
+    const isGeneralAdmin = profile.admin_category === 'general' || profile.admin_category === 'general_admin';
+    const isWalkInService = profile.assigned_service_id === 22 || profile.assigned_service_id === 23;
+
+    if (!isHealthcareAdmin || !(isGeneralAdmin || isWalkInService)) {
       return NextResponse.json(
-        { error: 'Access denied. Only General Admins can register walk-in patients.' },
+        { error: 'Access denied. Only Healthcare Admins assigned to walk-in services can register walk-in patients.' },
         { status: 403 }
       );
     }
@@ -55,106 +101,28 @@ export async function POST(request: NextRequest) {
       gender,
       barangay_id,
       contact_number,
-      email,
       blood_type,
       allergies,
       current_medications,
-      emergency_contact,
+      emergency_contact_name,
+      emergency_contact_phone,
+      emergency_contact_email,
       disease_type,
-      create_user_account,
-      password,
+      create_user_account, // Optional: if true, use provided email/password
+      email, // Optional: custom email for portal access
+      password, // Optional: custom password for portal access
     } = body;
 
     // 5. Validate required fields
-    if (!first_name || !last_name || !date_of_birth || !gender || !barangay_id || !contact_number || !emergency_contact) {
+    if (!first_name || !last_name || !date_of_birth || !gender || !barangay_id || !contact_number || !emergency_contact_name || !emergency_contact_phone) {
       return NextResponse.json(
-        { error: 'Missing required fields: first_name, last_name, date_of_birth, gender, barangay_id, contact_number, emergency_contact' },
+        { error: 'Missing required fields: first_name, last_name, date_of_birth, gender, barangay_id, contact_number, emergency_contact_name, emergency_contact_phone' },
         { status: 400 }
       );
     }
 
-    // 6. Create patient profile (FIRST create profile if create_user_account is true)
-    let user_id = null;
-    let patient_number = null;
-
-    if (create_user_account && email && password) {
-      try {
-        // Validate email and password are provided
-        if (!email || !password) {
-          return NextResponse.json(
-            { error: 'Email and password are required when creating a user account' },
-            { status: 400 }
-          );
-        }
-
-        // Create a Supabase Admin client using service role key
-        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-        const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-        const supabaseAdmin = createSupabaseClient(supabaseUrl, supabaseServiceKey, {
-          auth: {
-            autoRefreshToken: false,
-            persistSession: false
-          }
-        });
-
-        // Create auth user with admin privileges (no email verification required)
-        const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
-          email: email,
-          password: password,
-          email_confirm: true, // Skip email verification
-          user_metadata: {
-            first_name: first_name,
-            last_name: last_name,
-          },
-        });
-
-        if (authError || !authData.user) {
-          console.error('Error creating auth user:', authError);
-          return NextResponse.json(
-            { error: 'Failed to create user account', details: authError?.message },
-            { status: 500 }
-          );
-        }
-
-        user_id = authData.user.id;
-
-        // Wait a moment for the database trigger to create the profile
-        await new Promise(resolve => setTimeout(resolve, 500));
-
-        // Update the profile with patient-specific data and set status to 'active'
-        const { error: profileUpdateError } = await supabaseAdmin
-          .from('profiles')
-          .update({
-            first_name: first_name,
-            last_name: last_name,
-            date_of_birth: date_of_birth,
-            gender: gender,
-            contact_number: contact_number,
-            barangay_id: barangay_id,
-            role_id: 4, // Patient role
-            status: 'active', // Auto-approved for walk-in
-            approved_at: new Date().toISOString(),
-            approved_by: session.user.id, // Admin who created the account
-          })
-          .eq('id', user_id);
-
-        if (profileUpdateError) {
-          console.error('Error updating profile:', profileUpdateError);
-          // Don't fail the entire request, but log the error
-        }
-
-        console.log(`User account created successfully for walk-in patient: ${email}`);
-      } catch (accountError) {
-        console.error('Error in account creation process:', accountError);
-        return NextResponse.json(
-          { error: 'Failed to create user account', details: accountError instanceof Error ? accountError.message : 'Unknown error' },
-          { status: 500 }
-        );
-      }
-    }
-
-    // 7. Generate patient number using database function (atomic, thread-safe)
-    const { data: patientNumberData, error: patientNumberError } = await supabase
+    // 6. Generate patient number FIRST (needed for email)
+    const { data: patientNumberData, error: patientNumberError} = await supabase
       .rpc('generate_patient_number');
 
     if (patientNumberError || !patientNumberData) {
@@ -165,44 +133,202 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    patient_number = patientNumberData;
+    const patient_number = patientNumberData;
 
-    // 8. Create patient record (user_id = NULL for walk-in)
-    // The booking_number will be auto-generated by the database trigger
-    const { data: patient, error: patientError } = await supabase
+    // 6.5. Generate booking number using RPC (same pattern as patient_number)
+    const { data: bookingNumberData, error: bookingNumberError } = await supabase
+      .rpc('generate_booking_number');
+
+    if (bookingNumberError || !bookingNumberData) {
+      console.error('Error generating booking number:', bookingNumberError);
+      return NextResponse.json(
+        { error: 'Failed to generate booking number' },
+        { status: 500 }
+      );
+    }
+
+    const booking_number = bookingNumberData;
+
+    // 7. Validate portal account fields if provided
+    if (create_user_account) {
+      if (!email || !password) {
+        return NextResponse.json(
+          { error: 'Email and password are required when create_user_account is true' },
+          { status: 400 }
+        );
+      }
+      if (password.length < 8) {
+        return NextResponse.json(
+          { error: 'Password must be at least 8 characters' },
+          { status: 400 }
+        );
+      }
+    }
+
+    // 7.5. Create Supabase Admin client (service role) for all database operations
+    // This bypasses RLS policies and is used for authorized admin operations
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+    const supabaseAdmin = createSupabaseClient(supabaseUrl, supabaseServiceKey, {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false
+      }
+    });
+
+    // 8. Create auth user for ALL walk-in patients
+    // Two modes:
+    // - Portal account (create_user_account=true): Use provided email/password for immediate access
+    // - Quick walk-in (create_user_account=false/undefined): Auto-generate email/password (patient can claim later)
+    const walkInEmail = create_user_account && email
+      ? email
+      : `walkin-${patient_number}@noreply.healthcard.local`;
+    const walkInPassword = create_user_account && password
+      ? password
+      : generateSecurePassword();
+
+    let user_id: string;
+
+    try {
+      // Create auth user using the admin client defined above
+      const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
+        email: walkInEmail,
+        password: walkInPassword,
+        email_confirm: true, // Skip email verification
+        user_metadata: {
+          first_name,
+          last_name,
+          is_walk_in: !create_user_account, // Flag walk-in accounts (auto-generated credentials)
+          has_portal_access: !!create_user_account, // Flag if given custom email/password
+        },
+      });
+
+      if (authError || !authData.user) {
+        console.error('❌ [AUTH USER CREATION ERROR]', {
+          message: authError?.message,
+          status: authError?.status,
+          email: walkInEmail,
+          patient_number,
+        });
+        return NextResponse.json(
+          { error: 'Failed to create walk-in patient account', details: authError?.message },
+          { status: 500 }
+        );
+      }
+
+      user_id = authData.user.id;
+
+      // Wait for database trigger to create profile
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      // Update profile with complete walk-in data
+      const { error: profileUpdateError } = await supabaseAdmin
+        .from('profiles')
+        .update({
+          first_name,
+          last_name,
+          date_of_birth,
+          gender,
+          contact_number,
+          barangay_id,
+          emergency_contact: {
+            name: emergency_contact_name,
+            phone: emergency_contact_phone,
+            email: emergency_contact_email || null
+          },
+          role: 'patient',
+          status: 'active', // Auto-approved for walk-in
+          approved_at: new Date().toISOString(),
+          approved_by: session.user.id,
+        })
+        .eq('id', user_id);
+
+      if (profileUpdateError) {
+        console.error('❌ [PROFILE UPDATE ERROR]', {
+          message: profileUpdateError.message,
+          code: profileUpdateError.code,
+          details: profileUpdateError.details,
+          hint: profileUpdateError.hint,
+          user_id,
+        });
+        return NextResponse.json(
+          { error: 'Failed to update walk-in patient profile', details: profileUpdateError.message },
+          { status: 500 }
+        );
+      }
+
+      console.log(`Walk-in patient account created: ${walkInEmail}`);
+    } catch (accountError) {
+      console.error('Error in walk-in account creation:', accountError);
+      return NextResponse.json(
+        { error: 'Failed to create walk-in patient account', details: accountError instanceof Error ? accountError.message : 'Unknown error' },
+        { status: 500 }
+      );
+    }
+
+    // 8. Create patient record using admin client to bypass RLS
+    // Note: Using supabaseAdmin because RLS policy "Patients can insert own record"
+    // requires user_id = auth.uid(), but we're inserting a different user's record
+    const { data: patient, error: patientError } = await supabaseAdmin
       .from('patients')
       .insert({
-        user_id: user_id, // NULL for walk-in patients
+        user_id: user_id, // Auth user ID (always set for walk-ins now)
         patient_number: patient_number,
-        first_name,
-        last_name,
-        date_of_birth,
-        gender,
-        barangay_id,
-        contact_number,
-        email: email || null,
+        booking_number: booking_number, // Generated via RPC
         blood_type: blood_type || null,
-        allergies: allergies || null,
-        current_medications: current_medications || null,
-        emergency_contact,
+        philhealth_number: null,
+        medical_history: null,
+        allergies: allergies ? [allergies] : null,
+        current_medications: current_medications ? [current_medications] : null,
+        accessibility_requirements: null,
         registration_date: new Date().toISOString().split('T')[0],
-        // booking_number auto-generated by trigger
         // booking_count auto-set to 1 by trigger
       })
       .select()
       .single();
 
     if (patientError) {
-      console.error('Error creating patient:', patientError);
-      return NextResponse.json({ error: 'Failed to create patient record', details: patientError.message }, { status: 500 });
+      console.error('❌ [PATIENT CREATION ERROR]', {
+        message: patientError.message,
+        code: patientError.code,
+        details: patientError.details,
+        hint: patientError.hint,
+        user_id,
+        patient_number,
+      });
+      return NextResponse.json({
+        error: 'Failed to create patient record',
+        details: patientError.message,
+        hint: patientError.hint,
+      }, { status: 500 });
     }
 
     // 9. Healthcare Admin completes the appointment (no doctor assignment needed)
     // Appointment completion is handled by Healthcare Admins now
 
-    // 10. Auto-create completed appointment
-    const appointment_date = new Date().toISOString().split('T')[0];
-    const appointment_time = new Date().toTimeString().split(' ')[0].substring(0, 5); // HH:MM format
+    // 10. Auto-create completed appointment with valid operating hours
+    const now = new Date();
+    const appointment_date = now.toISOString().split('T')[0];
+    const currentHour = now.getHours();
+
+    // Use default times that always pass the CHECK constraint
+    // Determine block based on current time, use standard times for each block
+    let appointment_time: string;
+    let time_block: 'AM' | 'PM';
+
+    if (currentHour >= 8 && currentHour < 13) {
+      // During AM hours (8:00-12:59) - use 08:00 AM as standard walk-in time
+      appointment_time = '08:00:00';
+      time_block = 'AM';
+    } else if (currentHour >= 13 && currentHour < 17) {
+      // During PM hours (13:00-16:59) - use 13:00 PM as standard walk-in time
+      appointment_time = '13:00:00';
+      time_block = 'PM';
+    } else {
+      // Outside operating hours (before 8 AM or after 5 PM) - default to 08:00 AM
+      appointment_time = '08:00:00';
+      time_block = 'AM';
+    }
 
     // Get appointment count for today to determine appointment number
     const { data: todayAppointments } = await supabase
@@ -221,17 +347,11 @@ export async function POST(request: NextRequest) {
     const year = new Date().getFullYear();
     const appointment_number_formatted = `A${year}${String(appointmentCount + 1).padStart(6, '0')}`;
 
-    // Get a general service (or first service available)
-    const { data: services } = await supabase
-      .from('services')
-      .select('id')
-      .eq('category', 'general')
-      .eq('is_active', true)
-      .limit(1);
+    // Use the healthcare admin's assigned service
+    const service_id = profile.assigned_service_id;
 
-    const service_id = services && services.length > 0 ? services[0].id : 1; // Default to service ID 1 if none found
-
-    const { data: appointment, error: appointmentError } = await supabase
+    // Use admin client for appointment insert to bypass RLS
+    const { data: appointment, error: appointmentError } = await supabaseAdmin
       .from('appointments')
       .insert({
         patient_id: patient.id,
@@ -239,7 +359,9 @@ export async function POST(request: NextRequest) {
         appointment_number: appointment_number, // Queue number
         appointment_date,
         appointment_time,
+        time_block, // AM or PM block based on current time
         status: 'completed', // Auto-complete for walk-in
+        reason: 'Walk-in patient',
         checked_in_at: new Date().toISOString(),
         started_at: new Date().toISOString(),
         completed_at: new Date().toISOString(),
@@ -253,9 +375,9 @@ export async function POST(request: NextRequest) {
       // Don't fail the entire request, but log the error
     }
 
-    // 11. If disease data provided, create disease record
+    // 11. If disease data provided, create disease record using admin client
     if (disease_type && appointment) {
-      const { error: diseaseError } = await supabase
+      const { error: diseaseError } = await supabaseAdmin
         .from('diseases')
         .insert({
           patient_id: patient.id,
@@ -272,12 +394,12 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // 12. Return success response with booking number
+    // 12. Return success response with booking number and account info
     return NextResponse.json({
       success: true,
-      message: user_id
-        ? 'Walk-in patient registered successfully with user account'
-        : 'Walk-in patient registered successfully',
+      message: create_user_account
+        ? 'Walk-in patient registered successfully with portal access'
+        : 'Walk-in patient registered successfully with account',
       data: {
         patient_id: patient.id,
         patient_number: patient.patient_number,
@@ -285,8 +407,9 @@ export async function POST(request: NextRequest) {
         booking_count: patient.booking_count,
         appointment_id: appointment?.id,
         name: `${first_name} ${last_name}`,
-        user_account_created: !!user_id,
-        email: user_id ? email : undefined,
+        user_account_created: true, // Always true now
+        email: walkInEmail,
+        has_portal_access: !!create_user_account,
       },
     });
   } catch (error) {

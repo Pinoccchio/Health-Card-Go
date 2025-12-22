@@ -30,6 +30,7 @@ export default function CreateHealthcareAdminForm({ isOpen, onClose, onSuccess }
     password: '',
     contact_number: '',
     assigned_service_id: '',
+    admin_category: '', // Auto-derived from service category
   });
 
   const [services, setServices] = useState<Service[]>([]);
@@ -43,6 +44,27 @@ export default function CreateHealthcareAdminForm({ isOpen, onClose, onSuccess }
   const selectedService: ServiceProperties | null = formData.assigned_service_id
     ? services.find(s => s.id === parseInt(formData.assigned_service_id)) || null
     : null;
+
+  // Auto-derive admin_category from selected service
+  useEffect(() => {
+    if (selectedService) {
+      // Map service category to admin_category
+      const categoryMap: Record<string, string> = {
+        'healthcard': 'healthcard',
+        'hiv': 'hiv',
+        'pregnancy': 'pregnancy',
+        'laboratory': 'laboratory',
+        'immunization': 'immunization',
+        'general': 'general',
+      };
+
+      const adminCategory = categoryMap[selectedService.category] || 'general';
+      setFormData(prev => ({ ...prev, admin_category: adminCategory }));
+    } else {
+      // Reset admin_category if no service selected
+      setFormData(prev => ({ ...prev, admin_category: '' }));
+    }
+  }, [selectedService]);
 
   useEffect(() => {
     if (isOpen) {
@@ -115,6 +137,7 @@ export default function CreateHealthcareAdminForm({ isOpen, onClose, onSuccess }
         body: JSON.stringify({
           ...formData,
           assigned_service_id: formData.assigned_service_id ? parseInt(formData.assigned_service_id) : null,
+          admin_category: formData.admin_category || null,
         }),
       });
 
@@ -147,6 +170,7 @@ export default function CreateHealthcareAdminForm({ isOpen, onClose, onSuccess }
       password: '',
       contact_number: '',
       assigned_service_id: '',
+      admin_category: '',
     });
     setErrors({});
     onClose();

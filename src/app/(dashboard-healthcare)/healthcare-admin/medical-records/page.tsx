@@ -4,17 +4,74 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { DashboardLayout } from '@/components/dashboard';
 import { Container } from '@/components/ui';
-import { Heart, FileText, Search, Lock, Filter, Download, AlertTriangle } from 'lucide-react';
+import { FileText, AlertTriangle, TrendingUp, Clock, User } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { canAccessMedicalRecords } from '@/lib/utils/serviceAccessGuard';
 import { useToast } from '@/lib/contexts/ToastContext';
+import { MedicalRecordsList } from '@/components/medical-records/MedicalRecordsList';
+import { CreateMedicalRecordModal } from '@/components/medical-records/CreateMedicalRecordModal';
+
+interface MedicalRecord {
+  id: string;
+  patient_id: string;
+  appointment_id?: string;
+  created_by_id: string;
+  category: 'general' | 'healthcard' | 'hiv' | 'pregnancy' | 'immunization' | 'laboratory';
+  template_type?: string;
+  diagnosis?: string;
+  prescription?: string;
+  notes?: string;
+  record_data?: any;
+  is_encrypted: boolean;
+  created_at: string;
+  updated_at: string;
+  patients?: {
+    patient_number: string;
+    profiles?: {
+      first_name: string;
+      last_name: string;
+    };
+  };
+  created_by?: {
+    first_name: string;
+    last_name: string;
+  };
+}
+
+interface Stats {
+  total: number;
+  thisMonth: number;
+  encrypted: number;
+  byCategory: Record<string, number>;
+}
 
 export default function HealthcareAdminMedicalRecordsPage() {
   const { user } = useAuth();
   const router = useRouter();
   const toast = useToast();
+
   const [isCheckingAccess, setIsCheckingAccess] = useState(true);
   const [hasAccess, setHasAccess] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [records, setRecords] = useState<MedicalRecord[]>([]);
+  const [serviceDetails, setServiceDetails] = useState<{ requires_appointment: boolean } | null>(null);
+  const [stats, setStats] = useState<Stats>({
+    total: 0,
+    thisMonth: 0,
+    encrypted: 0,
+    byCategory: {},
+  });
+  const [showCreateModal, setShowCreateModal] = useState(false);
+
+  // Pagination
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalRecords, setTotalRecords] = useState(0);
+  const itemsPerPage = 20;
+
+  // Filters
+  const [searchQuery, setSearchQuery] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState('all');
 
   // Check if user has access to medical records
   useEffect(() => {
@@ -33,12 +90,148 @@ export default function HealthcareAdminMedicalRecordsPage() {
         return;
       }
 
+      // Fetch service details to check if it's appointment-based or walk-in
+      try {
+        const serviceResponse = await fetch(`/api/services/${user.assigned_service_id}`);
+        if (serviceResponse.ok) {
+          const serviceData = await serviceResponse.json();
+          setServiceDetails(serviceData);
+        }
+      } catch (error) {
+        console.error('Failed to fetch service details:', error);
+      }
+
       setHasAccess(true);
       setIsCheckingAccess(false);
     }
 
     checkAccess();
-  }, [user?.assigned_service_id, router]);
+  }, [user?.assigned_service_id, router, toast]);
+
+  // Fetch medical records
+  useEffect(() => {
+    if (!hasAccess) return;
+
+    async function fetchRecords() {
+      try {
+        setIsLoading(true);
+
+        // Build query params
+        const params = new URLSearchParams({
+          page: currentPage.toString(),
+          limit: itemsPerPage.toString(),
+        });
+
+        if (searchQuery) {
+          params.append('search', searchQuery);
+        }
+
+        if (categoryFilter && categoryFilter !== 'all') {
+          params.append('category', categoryFilter);
+        }
+
+        const response = await fetch(`/api/medical-records?${params.toString()}`);
+
+        if (!response.ok) {
+          throw new Error('Failed to fetch medical records');
+        }
+
+        const data = await response.json();
+
+        console.log('📊 API Response:', data);
+        console.log('📋 Records received:', data.records);
+        console.log('🔍 First record details:', data.records?.[0]);
+
+        setRecords(data.records || []);
+        setTotalRecords(data.total || 0);
+        setTotalPages(Math.ceil((data.total || 0) / itemsPerPage));
+
+        // Calculate stats
+        const now = new Date();
+        const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+
+        const allRecords = data.records || [];
+        const thisMonthCount = allRecords.filter((r: MedicalRecord) =>
+          new Date(r.created_at) >= thisMonthStart
+        ).length;
+
+        const encryptedCount = allRecords.filter((r: MedicalRecord) => r.is_encrypted).length;
+
+        const byCategory = allRecords.reduce((acc: Record<string, number>, r: MedicalRecord) => {
+          acc[r.category] = (acc[r.category] || 0) + 1;
+          return acc;
+        }, {});
+
+        setStats({
+          total: data.total || 0,
+          thisMonth: thisMonthCount,
+          encrypted: encryptedCount,
+          byCategory,
+        });
+
+      } catch (error) {
+        console.error('Error fetching medical records:', error);
+        toast.error('Failed to load medical records');
+      } finally {
+        setIsLoading(false);
+      }
+    }
+
+    fetchRecords();
+  }, [hasAccess, currentPage, searchQuery, categoryFilter, toast]);
+
+  const handleSearch = (query: string) => {
+    setSearchQuery(query);
+    setCurrentPage(1); // Reset to first page on new search
+  };
+
+  const handleCategoryFilter = (category: string) => {
+    setCategoryFilter(category);
+    setCurrentPage(1); // Reset to first page on new filter
+  };
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+  };
+
+  const handleExport = async () => {
+    try {
+      toast.info('Exporting medical records...');
+
+      const params = new URLSearchParams();
+      if (categoryFilter && categoryFilter !== 'all') {
+        params.append('category', categoryFilter);
+      }
+
+      const response = await fetch(`/api/medical-records/export?${params.toString()}`);
+
+      if (!response.ok) {
+        throw new Error('Export failed');
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `medical-records-${new Date().toISOString().split('T')[0]}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+
+      toast.success('Medical records exported successfully');
+    } catch (error) {
+      console.error('Export error:', error);
+      toast.error('Failed to export medical records');
+    }
+  };
+
+  const handleCreateSuccess = () => {
+    setShowCreateModal(false);
+    // Refetch records to include the new one
+    setCurrentPage(1); // Reset to first page
+    // The useEffect will automatically refetch when currentPage changes
+  };
 
   // Show loading state while checking access
   if (isCheckingAccess) {
@@ -77,119 +270,83 @@ export default function HealthcareAdminMedicalRecordsPage() {
       pageDescription="View and manage medical records for your assigned service"
     >
       <Container size="full">
-        {/* Coming Soon Banner */}
-        <div className="bg-gradient-to-r from-teal-50 to-cyan-50 border border-teal-200 rounded-lg p-8 mb-6">
-          <div className="flex items-center justify-center mb-4">
-            <Heart className="w-16 h-16 text-teal-600" />
-          </div>
-          <h2 className="text-2xl font-bold text-center text-gray-900 mb-2">
-            Medical Records Management Coming Soon
-          </h2>
-          <p className="text-center text-gray-600 max-w-2xl mx-auto">
-            This page will provide comprehensive medical records management for patients within your assigned service category,
-            with secure access controls and complete patient medical histories.
-          </p>
-        </div>
-
-        {/* Planned Features */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-          <div className="bg-white rounded-lg shadow p-6 border-l-4 border-teal-500">
-            <Filter className="w-10 h-10 text-teal-600 mb-3" />
-            <h3 className="font-semibold text-gray-900 mb-2">Service-Based Filtering</h3>
-            <p className="text-sm text-gray-600">
-              Automatically filtered medical records based on your assigned service category
-            </p>
+        {/* Statistics Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Total Records</p>
+                <p className="text-2xl font-bold text-gray-900 mt-1">{stats.total}</p>
+              </div>
+              <div className="h-12 w-12 bg-teal-100 rounded-lg flex items-center justify-center">
+                <FileText className="h-6 w-6 text-teal-600" />
+              </div>
+            </div>
           </div>
 
-          <div className="bg-white rounded-lg shadow p-6 border-l-4 border-blue-500">
-            <FileText className="w-10 h-10 text-blue-600 mb-3" />
-            <h3 className="font-semibold text-gray-900 mb-2">Record Templates</h3>
-            <p className="text-sm text-gray-600">
-              Specialized templates for different record types (HIV, Pregnancy, Healthcard, General)
-            </p>
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">This Month</p>
+                <p className="text-2xl font-bold text-gray-900 mt-1">{stats.thisMonth}</p>
+              </div>
+              <div className="h-12 w-12 bg-blue-100 rounded-lg flex items-center justify-center">
+                <TrendingUp className="h-6 w-6 text-blue-600" />
+              </div>
+            </div>
           </div>
 
-          <div className="bg-white rounded-lg shadow p-6 border-l-4 border-purple-500">
-            <Lock className="w-10 h-10 text-purple-600 mb-3" />
-            <h3 className="font-semibold text-gray-900 mb-2">Secure Access</h3>
-            <p className="text-sm text-gray-600">
-              Encrypted records for sensitive categories with comprehensive audit logging
-            </p>
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Encrypted</p>
+                <p className="text-2xl font-bold text-gray-900 mt-1">{stats.encrypted}</p>
+              </div>
+              <div className="h-12 w-12 bg-yellow-100 rounded-lg flex items-center justify-center">
+                <AlertTriangle className="h-6 w-6 text-yellow-600" />
+              </div>
+            </div>
           </div>
 
-          <div className="bg-white rounded-lg shadow p-6 border-l-4 border-green-500">
-            <Search className="w-10 h-10 text-green-600 mb-3" />
-            <h3 className="font-semibold text-gray-900 mb-2">Advanced Search</h3>
-            <p className="text-sm text-gray-600">
-              Search records by patient name, number, date range, diagnosis, and more
-            </p>
-          </div>
-
-          <div className="bg-white rounded-lg shadow p-6 border-l-4 border-orange-500">
-            <Download className="w-10 h-10 text-orange-600 mb-3" />
-            <h3 className="font-semibold text-gray-900 mb-2">Export Capabilities</h3>
-            <p className="text-sm text-gray-600">
-              Export medical records and summaries in CSV or PDF format
-            </p>
-          </div>
-
-          <div className="bg-white rounded-lg shadow p-6 border-l-4 border-pink-500">
-            <Heart className="w-10 h-10 text-pink-600 mb-3" />
-            <h3 className="font-semibold text-gray-900 mb-2">Patient History</h3>
-            <p className="text-sm text-gray-600">
-              Complete medical history view with timeline of diagnoses and treatments
-            </p>
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Categories</p>
+                <p className="text-2xl font-bold text-gray-900 mt-1">
+                  {Object.keys(stats.byCategory).length}
+                </p>
+              </div>
+              <div className="h-12 w-12 bg-purple-100 rounded-lg flex items-center justify-center">
+                <User className="h-6 w-6 text-purple-600" />
+              </div>
+            </div>
           </div>
         </div>
 
-        {/* Additional Features */}
-        <div className="bg-white rounded-lg shadow p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Upcoming Features</h3>
-          <ul className="space-y-3">
-            <li className="flex items-start">
-              <span className="inline-block w-2 h-2 bg-teal-600 rounded-full mt-2 mr-3"></span>
-              <div>
-                <strong className="text-gray-900">Service Category Filtering:</strong>
-                <span className="text-gray-600"> Only view records for patients in your assigned service (Healthcard, HIV, Pregnancy, General Admin, Laboratory)</span>
-              </div>
-            </li>
-            <li className="flex items-start">
-              <span className="inline-block w-2 h-2 bg-teal-600 rounded-full mt-2 mr-3"></span>
-              <div>
-                <strong className="text-gray-900">Create & Update Records:</strong>
-                <span className="text-gray-600"> Add new medical records and update existing ones with standardized templates</span>
-              </div>
-            </li>
-            <li className="flex items-start">
-              <span className="inline-block w-2 h-2 bg-teal-600 rounded-full mt-2 mr-3"></span>
-              <div>
-                <strong className="text-gray-900">Record Encryption:</strong>
-                <span className="text-gray-600"> Automatic encryption for sensitive categories (HIV, Pregnancy) with secure access controls</span>
-              </div>
-            </li>
-            <li className="flex items-start">
-              <span className="inline-block w-2 h-2 bg-teal-600 rounded-full mt-2 mr-3"></span>
-              <div>
-                <strong className="text-gray-900">Audit Trail:</strong>
-                <span className="text-gray-600"> Track all record access and modifications for compliance and security</span>
-              </div>
-            </li>
-            <li className="flex items-start">
-              <span className="inline-block w-2 h-2 bg-teal-600 rounded-full mt-2 mr-3"></span>
-              <div>
-                <strong className="text-gray-900">Linked to Appointments:</strong>
-                <span className="text-gray-600"> Medical records automatically linked to completed appointments</span>
-              </div>
-            </li>
-            <li className="flex items-start">
-              <span className="inline-block w-2 h-2 bg-teal-600 rounded-full mt-2 mr-3"></span>
-              <div>
-                <strong className="text-gray-900">Disease Surveillance Integration:</strong>
-                <span className="text-gray-600"> Diagnoses automatically feed into disease surveillance system for tracking and analytics</span>
-              </div>
-            </li>
-          </ul>
-        </div>
+        {/* Medical Records List */}
+        <MedicalRecordsList
+          records={records}
+          isLoading={isLoading}
+          currentPage={currentPage}
+          totalPages={totalPages}
+          totalRecords={totalRecords}
+          onPageChange={handlePageChange}
+          onSearch={handleSearch}
+          onCategoryFilter={handleCategoryFilter}
+          onExport={handleExport}
+          onCreate={
+            serviceDetails && !serviceDetails.requires_appointment
+              ? () => setShowCreateModal(true)
+              : undefined
+          }
+        />
+
+        {/* Create Medical Record Modal */}
+        <CreateMedicalRecordModal
+          isOpen={showCreateModal}
+          onClose={() => setShowCreateModal(false)}
+          onSuccess={handleCreateSuccess}
+        />
       </Container>
     </DashboardLayout>
   );

@@ -44,7 +44,7 @@ export default function PatientMedicalRecordsPage() {
           throw new Error(data.error || 'Failed to fetch medical records');
         }
 
-        setRecords(data.data || []);
+        setRecords(data.records || []);
       } catch (err: any) {
         console.error('Error fetching records:', err);
         setError(err.message);

@@ -50,7 +50,7 @@ export async function GET() {
     if (profile.role === 'patient') {
       const { data: patientData, error: patientError } = await supabase
         .from('patients')
-        .select('patient_number, philhealth_number, medical_history, allergies, current_medications, accessibility_requirements')
+        .select('patient_number, blood_type, philhealth_number, medical_history, allergies, current_medications, accessibility_requirements')
         .eq('user_id', user.id)
         .single();
 
@@ -60,6 +60,7 @@ export async function GET() {
           data: {
             ...profile,
             patient_number: patientData.patient_number,
+            blood_type: patientData.blood_type,
             philhealth_number: patientData.philhealth_number,
             medical_history: patientData.medical_history,
             allergies: patientData.allergies,
@@ -153,6 +154,10 @@ export async function PUT(request: NextRequest) {
     if (currentProfile.role === 'patient') {
       const patientUpdate: any = {};
 
+      if (body.blood_type !== undefined) {
+        patientUpdate.blood_type = body.blood_type || null;
+      }
+
       if (body.philhealth_number !== undefined) {
         patientUpdate.philhealth_number = body.philhealth_number?.trim() || null;
       }
@@ -191,7 +196,7 @@ export async function PUT(request: NextRequest) {
       // Fetch complete updated data
       const { data: patientData } = await supabase
         .from('patients')
-        .select('patient_number, philhealth_number, medical_history, allergies, current_medications, accessibility_requirements')
+        .select('patient_number, blood_type, philhealth_number, medical_history, allergies, current_medications, accessibility_requirements')
         .eq('user_id', user.id)
         .single();
 
@@ -200,6 +205,7 @@ export async function PUT(request: NextRequest) {
         data: {
           ...updatedProfile,
           patient_number: patientData?.patient_number,
+          blood_type: patientData?.blood_type,
           philhealth_number: patientData?.philhealth_number,
           medical_history: patientData?.medical_history,
           allergies: patientData?.allergies,

@@ -160,7 +160,13 @@ export async function POST(
           diagnosis: medical_record.diagnosis || null,
           prescription: medical_record.prescription || null,
           notes: medical_record.notes || null,
-          record_data: medical_record.record_data || null,
+          record_data: medical_record.record_data || {
+            diagnosis: medical_record.diagnosis || '',
+            prescription: medical_record.prescription || '',
+            notes: medical_record.notes || '',
+            created_via: 'appointment_completion',
+            created_at: new Date().toISOString(),
+          },
           is_encrypted: medical_record.category === 'hiv' || medical_record.category === 'pregnancy',
         })
         .select()
@@ -168,9 +174,28 @@ export async function POST(
 
       if (medicalRecordError) {
         console.error('Error creating medical record:', medicalRecordError);
-        // Don't fail the request - appointment is already completed
-        // Log the error and continue
-        console.warn('Appointment completed but medical record creation failed');
+        console.error('Medical record error details:', {
+          code: medicalRecordError.code,
+          message: medicalRecordError.message,
+          details: medicalRecordError.details,
+          hint: medicalRecordError.hint,
+        });
+
+        // If service REQUIRES medical record, this is a critical failure
+        if (appointment.services.requires_medical_record) {
+          return NextResponse.json(
+            {
+              error: 'Failed to create required medical record',
+              details: medicalRecordError.message,
+              appointmentCompleted: true,
+              message: 'Appointment was marked as completed, but medical record creation failed. Please create the medical record separately from the Medical Records page.',
+            },
+            { status: 500 }
+          );
+        }
+
+        // For optional medical records, log warning but continue
+        console.warn('Appointment completed but medical record creation failed (optional)');
       } else {
         createdMedicalRecord = medicalRecord;
       }

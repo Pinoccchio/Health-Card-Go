@@ -37,15 +37,29 @@ export default function WalkInQueuePage() {
   const [walkInQueue, setWalkInQueue] = useState<WalkInPatient[]>([]);
   const [isLoadingQueue, setIsLoadingQueue] = useState(true);
   const [serviceName, setServiceName] = useState<string>('');
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
+
+  // Portal account toggle
+  const [createPortalAccount, setCreatePortalAccount] = useState(false);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [emailError, setEmailError] = useState('');
 
   // Form state for patient registration
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
     dateOfBirth: '',
+    gender: '',
     contactNumber: '',
     barangayId: '',
-    address: '',
+    emergencyContactName: '',
+    emergencyContactPhone: '',
+    emergencyContactEmail: '',
+    bloodType: '',
+    allergies: '',
+    currentMedications: '',
   });
 
   const [barangays, setBarangays] = useState<Array<{ id: number; name: string }>>([]);
@@ -93,15 +107,16 @@ export default function WalkInQueuePage() {
 
       setIsLoadingQueue(true);
       try {
-        // TODO: Replace with actual API endpoint for walk-in queue
-        // const res = await fetch(`/api/walk-in/queue?service_id=${user.assigned_service_id}`);
-        // const data = await res.json();
-        // if (data.success) {
-        //   setWalkInQueue(data.data);
-        // }
+        const res = await fetch('/api/walk-in/queue');
+        const data = await res.json();
 
-        // Placeholder empty queue for now
-        setWalkInQueue([]);
+        if (!res.ok) {
+          throw new Error(data.error || 'Failed to fetch walk-in queue');
+        }
+
+        if (data.success) {
+          setWalkInQueue(data.data || []);
+        }
       } catch (error) {
         console.error('Error fetching walk-in queue:', error);
         toast.error('Failed to load walk-in queue');
@@ -111,9 +126,9 @@ export default function WalkInQueuePage() {
     }
 
     fetchWalkInQueue();
-  }, [user?.assigned_service_id]);
+  }, [user?.assigned_service_id, toast, refreshTrigger]);
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setFormData((prev) => ({
       ...prev,
@@ -121,26 +136,127 @@ export default function WalkInQueuePage() {
     }));
   };
 
+  const checkEmailUniqueness = async (emailToCheck: string): Promise<boolean> => {
+    try {
+      const res = await fetch(`/api/auth/check-email?email=${encodeURIComponent(emailToCheck)}`);
+      const data = await res.json();
+      return data.available === true;
+    } catch (error) {
+      console.error('Error checking email uniqueness:', error);
+      return false;
+    }
+  };
+
   const handleRegisterWalkIn = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsRegistering(true);
 
     try {
-      // TODO: Replace with actual walk-in registration API
-      toast.success('Walk-in patient registered (placeholder - API not yet implemented)');
+      // Validate portal account fields if enabled
+      if (createPortalAccount) {
+        if (!email || !password || !confirmPassword) {
+          toast.error('Please fill in all portal account fields');
+          setIsRegistering(false);
+          return;
+        }
+        if (password.length < 8) {
+          toast.error('Password must be at least 8 characters');
+          setIsRegistering(false);
+          return;
+        }
+        if (password !== confirmPassword) {
+          toast.error('Passwords do not match');
+          setIsRegistering(false);
+          return;
+        }
+        if (emailError) {
+          toast.error('Please fix email errors before submitting');
+          setIsRegistering(false);
+          return;
+        }
+
+        // Final email uniqueness check
+        const isEmailUnique = await checkEmailUniqueness(email);
+        if (!isEmailUnique) {
+          setEmailError('This email is already registered');
+          toast.error('Email is already in use');
+          setIsRegistering(false);
+          return;
+        }
+      }
+
+      // Map form data to API expected format (camelCase → snake_case)
+      const requestBody: any = {
+        first_name: formData.firstName,
+        last_name: formData.lastName,
+        date_of_birth: formData.dateOfBirth,
+        gender: formData.gender,
+        barangay_id: parseInt(formData.barangayId),
+        contact_number: formData.contactNumber,
+        emergency_contact_name: formData.emergencyContactName,
+        emergency_contact_phone: formData.emergencyContactPhone,
+        emergency_contact_email: formData.emergencyContactEmail || null,
+        blood_type: formData.bloodType || null,
+        allergies: formData.allergies || null,
+        current_medications: formData.currentMedications || null,
+      };
+
+      // Add portal account fields if enabled
+      if (createPortalAccount) {
+        requestBody.create_user_account = true;
+        requestBody.email = email;
+        requestBody.password = password;
+      }
+
+      const response = await fetch('/api/admin/patients/walk-in', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestBody),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to register walk-in patient');
+      }
+
+      // Success!
+      const successMessage = createPortalAccount
+        ? `Patient registered successfully! Booking Number: ${data.data.booking_number}\nEmail: ${email}`
+        : `Patient registered successfully! Booking Number: ${data.data.booking_number}`;
+
+      toast.success(successMessage);
 
       // Reset form
       setFormData({
         firstName: '',
         lastName: '',
         dateOfBirth: '',
+        gender: '',
         contactNumber: '',
         barangayId: '',
-        address: '',
+        emergencyContactName: '',
+        emergencyContactPhone: '',
+        emergencyContactEmail: '',
+        bloodType: '',
+        allergies: '',
+        currentMedications: '',
       });
+
+      // Reset portal account fields
+      setCreatePortalAccount(false);
+      setEmail('');
+      setPassword('');
+      setConfirmPassword('');
+      setEmailError('');
+
+      // Refresh the walk-in queue by incrementing the trigger
+      setRefreshTrigger(prev => prev + 1);
     } catch (error) {
       console.error('Error registering walk-in patient:', error);
-      toast.error('An error occurred while registering the patient');
+      toast.error(error instanceof Error ? error.message : 'An error occurred while registering the patient');
     } finally {
       setIsRegistering(false);
     }
@@ -210,6 +326,25 @@ export default function WalkInQueuePage() {
                 </div>
 
                 <div>
+                  <label htmlFor="gender" className="block text-sm font-medium text-gray-700 mb-1">
+                    Gender *
+                  </label>
+                  <select
+                    id="gender"
+                    name="gender"
+                    value={formData.gender}
+                    onChange={handleInputChange}
+                    required
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-teal focus:border-transparent"
+                  >
+                    <option value="">Select Gender</option>
+                    <option value="male">Male</option>
+                    <option value="female">Female</option>
+                    <option value="other">Other</option>
+                  </select>
+                </div>
+
+                <div>
                   <label htmlFor="contactNumber" className="block text-sm font-medium text-gray-700 mb-1">
                     Contact Number *
                   </label>
@@ -247,20 +382,196 @@ export default function WalkInQueuePage() {
                 </div>
 
                 <div>
-                  <label htmlFor="address" className="block text-sm font-medium text-gray-700 mb-1">
-                    Address *
+                  <label htmlFor="emergencyContactName" className="block text-sm font-medium text-gray-700 mb-1">
+                    Emergency Contact Name *
                   </label>
                   <input
-                    id="address"
-                    name="address"
+                    id="emergencyContactName"
+                    name="emergencyContactName"
                     type="text"
-                    value={formData.address}
+                    value={formData.emergencyContactName}
                     onChange={handleInputChange}
                     required
-                    placeholder="Street, Purok, etc."
+                    placeholder="Rosa Dela Cruz"
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-teal focus:border-transparent"
                   />
                 </div>
+
+                <div>
+                  <label htmlFor="emergencyContactPhone" className="block text-sm font-medium text-gray-700 mb-1">
+                    Emergency Contact Phone *
+                  </label>
+                  <input
+                    id="emergencyContactPhone"
+                    name="emergencyContactPhone"
+                    type="tel"
+                    value={formData.emergencyContactPhone}
+                    onChange={handleInputChange}
+                    required
+                    placeholder="+639198765432"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-teal focus:border-transparent"
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="emergencyContactEmail" className="block text-sm font-medium text-gray-700 mb-1">
+                    Emergency Contact Email
+                  </label>
+                  <input
+                    id="emergencyContactEmail"
+                    name="emergencyContactEmail"
+                    type="email"
+                    value={formData.emergencyContactEmail}
+                    onChange={handleInputChange}
+                    placeholder="juanmiguel.santos@email.com"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-teal focus:border-transparent"
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="bloodType" className="block text-sm font-medium text-gray-700 mb-1">
+                    Blood Type
+                  </label>
+                  <select
+                    id="bloodType"
+                    name="bloodType"
+                    value={formData.bloodType}
+                    onChange={handleInputChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-teal focus:border-transparent"
+                  >
+                    <option value="">Select Blood Type</option>
+                    <option value="A+">A+</option>
+                    <option value="A-">A-</option>
+                    <option value="B+">B+</option>
+                    <option value="B-">B-</option>
+                    <option value="AB+">AB+</option>
+                    <option value="AB-">AB-</option>
+                    <option value="O+">O+</option>
+                    <option value="O-">O-</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label htmlFor="allergies" className="block text-sm font-medium text-gray-700 mb-1">
+                    Allergies
+                  </label>
+                  <input
+                    id="allergies"
+                    name="allergies"
+                    type="text"
+                    value={formData.allergies}
+                    onChange={handleInputChange}
+                    placeholder="Peanuts"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-teal focus:border-transparent"
+                  />
+                </div>
+
+                <div className="md:col-span-2">
+                  <label htmlFor="currentMedications" className="block text-sm font-medium text-gray-700 mb-1">
+                    Current Medications / Medical Conditions
+                  </label>
+                  <textarea
+                    id="currentMedications"
+                    name="currentMedications"
+                    value={formData.currentMedications}
+                    onChange={handleInputChange}
+                    placeholder="HIV, Hypertension medications, etc."
+                    rows={3}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-teal focus:border-transparent"
+                  />
+                </div>
+              </div>
+
+              {/* Portal Account Section */}
+              <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={createPortalAccount}
+                    onChange={(e) => setCreatePortalAccount(e.target.checked)}
+                    className="w-4 h-4 text-primary-teal focus:ring-primary-teal border-gray-300 rounded"
+                  />
+                  <span className="text-sm font-medium text-gray-900">
+                    Create portal account for patient (optional)
+                  </span>
+                </label>
+                <p className="text-xs text-gray-600 mt-1 ml-6">
+                  Enable this to provide immediate access to the patient portal. Otherwise, patient can claim account later via password reset.
+                </p>
+
+                {createPortalAccount && (
+                  <div className="mt-4 space-y-4">
+                    <div>
+                      <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+                        Email Address *
+                      </label>
+                      <input
+                        id="email"
+                        name="email"
+                        type="email"
+                        value={email}
+                        onChange={(e) => {
+                          setEmail(e.target.value);
+                          setEmailError('');
+                        }}
+                        onBlur={async () => {
+                          if (email) {
+                            const isUnique = await checkEmailUniqueness(email);
+                            if (!isUnique) {
+                              setEmailError('This email is already registered');
+                            }
+                          }
+                        }}
+                        required={createPortalAccount}
+                        placeholder="patient@email.com"
+                        className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary-teal focus:border-transparent ${
+                          emailError ? 'border-red-500' : 'border-gray-300'
+                        }`}
+                      />
+                      {emailError && (
+                        <p className="text-xs text-red-500 mt-1">{emailError}</p>
+                      )}
+                    </div>
+
+                    <div>
+                      <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
+                        Password *
+                      </label>
+                      <input
+                        id="password"
+                        name="password"
+                        type="password"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        required={createPortalAccount}
+                        placeholder="Minimum 8 characters"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-teal focus:border-transparent"
+                      />
+                      {password && password.length < 8 && (
+                        <p className="text-xs text-red-500 mt-1">Password must be at least 8 characters</p>
+                      )}
+                    </div>
+
+                    <div>
+                      <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-1">
+                        Confirm Password *
+                      </label>
+                      <input
+                        id="confirmPassword"
+                        name="confirmPassword"
+                        type="password"
+                        value={confirmPassword}
+                        onChange={(e) => setConfirmPassword(e.target.value)}
+                        required={createPortalAccount}
+                        placeholder="Re-enter password"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-teal focus:border-transparent"
+                      />
+                      {confirmPassword && password !== confirmPassword && (
+                        <p className="text-xs text-red-500 mt-1">Passwords do not match</p>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
 
               <Button type="submit" disabled={isRegistering} className="w-full md:w-auto">

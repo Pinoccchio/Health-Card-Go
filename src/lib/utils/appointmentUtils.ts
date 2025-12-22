@@ -118,15 +118,15 @@ export async function markNoShowsAndSuspend(): Promise<NoShowStats> {
         }
 
         // 2. Increment patient's no_show_count and update last_no_show_at
-        const newNoShowCount = (appointment.patients.no_show_count || 0) + 1;
-
-        const { error: patientUpdateError } = await adminClient
-          .from('patients')
-          .update({
-            no_show_count: newNoShowCount,
-            last_no_show_at: now.toISOString(),
+        // Use RPC to atomically increment the counter to avoid race conditions
+        const { data: updatedPatient, error: patientUpdateError } = await adminClient
+          .rpc('increment_patient_no_show_count', {
+            p_patient_id: appointment.patient_id,
+            p_last_no_show_at: now.toISOString(),
           })
-          .eq('id', appointment.patient_id);
+          .single();
+
+        const newNoShowCount = updatedPatient?.no_show_count || (appointment.patients.no_show_count || 0) + 1;
 
         if (patientUpdateError) {
           console.error(`[markNoShowsAndSuspend] Error updating patient ${appointment.patient_id} no-show count:`, patientUpdateError);

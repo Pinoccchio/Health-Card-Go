@@ -26,9 +26,11 @@ export async function GET(request: NextRequest) {
     // Get user profile
     const { data: profile } = await supabase
       .from('profiles')
-      .select('id, role, admin_category')
+      .select('id, role, admin_category, assigned_service_id')
       .eq('id', user.id)
       .single();
+
+    console.log('👤 [PROFILE] User:', user.id, '| Role:', profile?.role, '| Assigned Service:', profile?.assigned_service_id);
 
     if (!profile) {
       return NextResponse.json({ error: 'Profile not found' }, { status: 404 });
@@ -100,18 +102,39 @@ export async function GET(request: NextRequest) {
       query = query.eq('patient_id', patientRecord.id);
 
     } else if (profile.role === 'healthcare_admin') {
-      // Healthcare admins see records based on their category
-      if (profile.admin_category === 'healthcard') {
-        query = query.eq('category', 'healthcard');
-      } else if (profile.admin_category === 'hiv') {
-        query = query.eq('category', 'hiv');
-      } else if (profile.admin_category === 'pregnancy') {
-        query = query.eq('category', 'pregnancy');
-      } else if (profile.admin_category === 'laboratory') {
-        query = query.eq('template_type', 'laboratory');
-      } else if (profile.admin_category === 'general_admin') {
-        // General admin sees all general category records
-        query = query.eq('category', 'general');
+      // Healthcare admins see records from appointments in their assigned service
+      if (!profile.assigned_service_id) {
+        return NextResponse.json(
+          { error: 'No service assigned to your account' },
+          { status: 403 }
+        );
+      }
+
+      // Filter medical records by appointments in the admin's assigned service
+      // This aligns with appointment access control logic
+      const { data: serviceAppointments } = await adminClient
+        .from('appointments')
+        .select('id')
+        .eq('service_id', profile.assigned_service_id);
+
+      console.log('📅 [HEALTHCARE ADMIN] Service query - Service ID:', profile.assigned_service_id, '| Appointments found:', serviceAppointments?.length || 0);
+      if (serviceAppointments && serviceAppointments.length > 0) {
+        console.log('📅 [HEALTHCARE ADMIN] Appointment IDs:', serviceAppointments.map(a => a.id));
+      }
+
+      if (serviceAppointments && serviceAppointments.length > 0) {
+        const appointmentIds = serviceAppointments.map((a) => a.id);
+        query = query.in('appointment_id', appointmentIds);
+      } else {
+        // No appointments in this service yet, return empty results
+        console.log('⚠️ [HEALTHCARE ADMIN] No appointments found for service - returning empty records');
+        return NextResponse.json({
+          success: true,
+          records: [],
+          total: 0,
+          count: 0,
+          has_records: false,
+        });
       }
     }
     // Super admins can see all records (no filter)
@@ -146,8 +169,10 @@ export async function GET(request: NextRequest) {
 
     const { data: records, error: fetchError } = await query;
 
+    console.log('📊 [RECORDS QUERY] Fetched:', records?.length || 0, 'records | Errors:', fetchError?.message || 'none');
+
     if (fetchError) {
-      console.error('Error fetching medical records:', fetchError);
+      console.error('❌ [QUERY ERROR] Failed to fetch medical records:', fetchError);
       return NextResponse.json(
         { error: 'Failed to fetch medical records' },
         { status: 500 }
@@ -155,6 +180,9 @@ export async function GET(request: NextRequest) {
     }
 
     // Decrypt encrypted records before returning
+    const encryptedCount = (records || []).filter(r => r.is_encrypted).length;
+    console.log('🔐 [DECRYPTION] Processing', (records || []).length, 'records | Encrypted:', encryptedCount);
+
     const decryptedRecords = await Promise.all(
       (records || []).map(async (record) => {
         if (record.is_encrypted && typeof record.record_data === 'string') {
@@ -162,7 +190,7 @@ export async function GET(request: NextRequest) {
             const decryptedData = await decryptMedicalRecordData(record.record_data);
             return { ...record, record_data: decryptedData };
           } catch (error) {
-            console.error('Failed to decrypt record:', record.id, error);
+            console.error('❌ [DECRYPTION FAILED] Record ID:', record.id, '| Error:', error);
             // Return record with encrypted data flag for UI to handle
             return { ...record, decryption_failed: true };
           }
@@ -171,11 +199,20 @@ export async function GET(request: NextRequest) {
       })
     );
 
+    console.log('✅ [RESPONSE] Returning:', {
+      total: decryptedRecords.length,
+      encrypted_records: decryptedRecords.filter(r => r.is_encrypted).length,
+      has_records: decryptedRecords.length > 0,
+      role: profile.role,
+      service_assigned: profile.assigned_service_id
+    });
+
     return NextResponse.json({
       success: true,
-      data: decryptedRecords,
-      count: decryptedRecords.length,
-      has_records: decryptedRecords.length > 0, // For backward compatibility
+      records: decryptedRecords,
+      total: decryptedRecords.length,
+      count: decryptedRecords.length, // For backward compatibility
+      has_records: decryptedRecords.length > 0,
     });
 
   } catch (error) {

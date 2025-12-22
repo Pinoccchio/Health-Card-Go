@@ -41,6 +41,7 @@ export async function POST(request: Request) {
       password,
       contact_number,
       assigned_service_id,
+      admin_category,
     } = body;
 
     const errors: Record<string, string> = {};
@@ -103,6 +104,7 @@ export async function POST(request: Request) {
         contact_number: contact_number?.trim() || null,
         role: 'healthcare_admin',
         assigned_service_id,
+        admin_category: admin_category || null,
         status: 'active',
         barangay_id: 1,
         updated_at: new Date().toISOString(),

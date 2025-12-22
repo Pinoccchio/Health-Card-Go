@@ -4,6 +4,7 @@ import { forwardRef, SelectHTMLAttributes } from 'react';
 import { cva, VariantProps } from 'class-variance-authority';
 import { cn } from '@/lib/utils';
 import { ChevronDown } from 'lucide-react';
+import { Label } from './Label';
 
 const selectVariants = cva(
   'w-full px-4 py-3 rounded-lg transition-all duration-200 outline-none appearance-none pr-10 bg-white',
@@ -40,6 +41,8 @@ export interface SelectProps
   extends Omit<SelectHTMLAttributes<HTMLSelectElement>, 'size'>,
     VariantProps<typeof selectVariants> {
   options: SelectOption[];
+  label?: string;
+  required?: boolean;
   placeholder?: string;
   error?: string;
   helperText?: string;
@@ -52,6 +55,8 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
       variant,
       selectSize,
       options,
+      label,
+      required,
       placeholder,
       error,
       helperText,
@@ -64,6 +69,11 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
 
     return (
       <div className="w-full">
+        {label && (
+          <Label htmlFor={props.id} required={required} disabled={disabled}>
+            {label}
+          </Label>
+        )}
         <div className="relative">
           <select
             ref={ref}

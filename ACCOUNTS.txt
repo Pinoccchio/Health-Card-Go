@@ -3,136 +3,525 @@ HEALTHCARD SYSTEM - TEST ACCOUNTS
 Next.js + Supabase Implementation
 ========================================
 
-Last Updated: December 5, 2025
-Total Active Accounts: 9 (1 Super Admin + 6 Healthcare Admins + 2 User Accounts)
+Last Updated: December 21, 2025
+Total Active Accounts: 15 (1 Super Admin + 12 Healthcare Admins + 2 Patient Accounts)
 
 NOTE: For easy testing, use email as password (e.g., email: test@test.com, password: test@test.com)
 
-IMPORTANT: Service-based assignment system implemented.
-           All Healthcare Admins must be assigned to a specific service.
+IMPORTANT: Service-based assignment system with dynamic sidebar implementation.
+           Healthcare Admins see different features based on their assigned service properties.
+           Sidebar adapts automatically: Appointments vs Walk-in Queue, Medical Records visibility.
 
 ========================================
-📊 CURRENT SERVICE STRUCTURE (12 Services)
+📊 COMPLETE SERVICE STRUCTURE (12 Active Services)
 ========================================
 
-| ID | Service Name                           | Category      | Type          | Med Record | Duration |
-|----|----------------------------------------|---------------|---------------|------------|----------|
-| 12 | Food Handler Health Card Processing    | healthcard    | Appointment   | NO         | 30 min   |
-| 13 | Food Handler Health Card Renewal       | healthcard    | Appointment   | NO         | 20 min   |
-| 14 | Non-Food Health Card Processing        | healthcard    | Appointment   | NO         | 30 min   |
-| 15 | Non-Food Health Card Renewal           | healthcard    | Appointment   | NO         | 20 min   |
-| 16 | HIV Testing & Counseling (Free)        | hiv           | Appointment   | YES        | 45 min   |
-| 17 | Prenatal Checkup (Free)                | pregnancy     | Appointment   | YES        | 40 min   |
-| 18 | Basic Laboratory Tests                 | laboratory    | Appointment   | YES        | 30 min   |
-| 19 | Child Immunization (Free)              | immunization  | Appointment   | YES        | 30 min   |
-| 20 | Adult Vaccination                      | immunization  | Appointment   | YES        | 20 min   |
-| 21 | General Checkup                        | general       | Appointment   | YES        | 30 min   |
-| 22 | Walk-in Emergency Consultation         | general       | Walk-in       | YES        | 30 min   |
-| 23 | Health Education Seminar               | general       | Walk-in       | NO         | 60 min   |
+| ID | Service Name                           | Category      | Type        | Appointment | Med Record | Duration | Pattern |
+|----|----------------------------------------|---------------|-------------|-------------|------------|----------|---------|
+| 12 | Food Handler Health Card Processing    | healthcard    | Appointment | YES         | NO         | 30 min   | 1       |
+| 13 | Food Handler Health Card Renewal       | healthcard    | Appointment | YES         | NO         | 20 min   | 1       |
+| 14 | Non-Food Health Card Processing        | healthcard    | Appointment | YES         | NO         | 30 min   | 1       |
+| 15 | Non-Food Health Card Renewal           | healthcard    | Appointment | YES         | NO         | 20 min   | 1       |
+| 16 | HIV Testing & Counseling (Free)        | hiv           | Appointment | YES         | YES        | 45 min   | 2       |
+| 17 | Prenatal Checkup (Free)                | pregnancy     | Appointment | YES         | YES        | 40 min   | 2       |
+| 18 | Basic Laboratory Tests                 | laboratory    | Appointment | YES         | YES        | 30 min   | 2       |
+| 19 | Child Immunization (Free)              | immunization  | Appointment | YES         | YES        | 30 min   | 2       |
+| 20 | Adult Vaccination                      | immunization  | Appointment | YES         | YES        | 20 min   | 2       |
+| 21 | General Checkup                        | general       | Appointment | YES         | YES        | 30 min   | 2       |
+| 22 | Walk-in Emergency Consultation         | general       | Walk-in     | NO          | YES        | 30 min   | 3       |
+| 23 | Health Education Seminar               | general       | Walk-in     | NO          | NO         | 60 min   | 4       |
 
 ========================================
-✅ ACTIVE HEALTHCARE ADMINS (6 - Already Created & Assigned)
+🎯 DYNAMIC SIDEBAR PATTERNS EXPLAINED
 ========================================
+
+The sidebar adapts based on two service properties:
+1. requires_appointment (true/false) → Shows "Appointments" OR "Walk-in Queue"
+2. requires_medical_record (true/false) → Shows/Hides "Medical Records" tab
+
+PATTERN 1: Appointment + NO Medical Records (Services 12-15)
+├─ Dashboard
+├─ Appointments ✅
+├─ Patients
+├─ Reports
+└─ Announcements
+Total: 5 items
+
+PATTERN 2: Appointment + Medical Records (Services 16-21)
+├─ Dashboard
+├─ Appointments ✅
+├─ Patients
+├─ Medical Records ✅
+├─ Reports
+└─ Announcements
+Total: 6 items
+
+PATTERN 3: Walk-in + Medical Records (Service 22)
+├─ Dashboard
+├─ Walk-in Queue ✅
+├─ Patients
+├─ Medical Records ✅
+├─ Reports
+└─ Announcements
+Total: 6 items
+
+PATTERN 4: Walk-in + NO Medical Records (Service 23)
+├─ Dashboard
+├─ Walk-in Queue ✅
+├─ Patients
+├─ Reports
+└─ Announcements
+Total: 5 items
+
+========================================
+✅ ALL HEALTHCARE ADMINS (12 Total - All Active & Assigned)
+========================================
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PATTERN 1 ADMINS (4 admins - Health Card Services)
+Sidebar: Dashboard, Appointments, Patients, Reports, Announcements
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 1. Maria Santos
    Email: healthcard.admin@test.com
    Password: healthcard.admin@test.com
    Service: ID 12 - Food Handler Health Card Processing
    Contact: +639120000001
-   Status: ✅ ASSIGNED
+   Status: ✅ ACTIVE & ASSIGNED
+   Sidebar Pattern: 1 (Appointment + NO Medical Records)
+
+   Capabilities:
+   ✅ Manage Appointments (for Service 12 only)
+   ❌ Manage Walk-in Queue (hidden - appointment-based service)
+   ❌ Create Medical Records (hidden - service doesn't require medical records)
+   ✅ Complete Appointments (required for health card issuance)
+   ✅ View Service-Specific Patients
+   ✅ View Service-Specific Reports
+   ✅ Manage Announcements
+
+   Sidebar Items (5 total):
+   1. Dashboard
+   2. Appointments
+   3. Patients
+   4. Reports
+   5. Announcements
+
+   Why Medical Records Hidden:
+   - Food Handler Health Card Processing doesn't require medical record creation
+   - Admins process health card applications and renewals only
+   - No clinical diagnosis or treatment involved
+
+---
 
 2. Carmen Bautista
    Email: healthcard.renewal@test.com
    Password: healthcard.renewal@test.com
    Service: ID 13 - Food Handler Health Card Renewal
    Contact: +639120000002
-   Status: ✅ ASSIGNED
+   Status: ✅ ACTIVE & ASSIGNED
+   Sidebar Pattern: 1 (Appointment + NO Medical Records)
 
-3. Juan Reyes
+   Capabilities:
+   ✅ Manage Appointments (for Service 13 only)
+   ❌ Manage Walk-in Queue (hidden - appointment-based service)
+   ❌ Create Medical Records (hidden - service doesn't require medical records)
+   ✅ Complete Appointments (required for health card renewal)
+   ✅ View Service-Specific Patients
+   ✅ View Service-Specific Reports
+   ✅ Manage Announcements
+
+   Sidebar Items (5 total):
+   1. Dashboard
+   2. Appointments
+   3. Patients
+   4. Reports
+   5. Announcements
+
+---
+
+3. Lisa Aquino
+   Email: healthcard.nonfood@test.com
+   Password: healthcard.nonfood@test.com
+   Service: ID 14 - Non-Food Health Card Processing
+   Contact: +639120000007
+   Status: ✅ ACTIVE & ASSIGNED
+   Sidebar Pattern: 1 (Appointment + NO Medical Records)
+
+   Capabilities:
+   ✅ Manage Appointments (for Service 14 only)
+   ❌ Manage Walk-in Queue (hidden - appointment-based service)
+   ❌ Create Medical Records (hidden - service doesn't require medical records)
+   ✅ Complete Appointments (required for health card issuance)
+   ✅ View Service-Specific Patients
+   ✅ View Service-Specific Reports
+   ✅ Manage Announcements
+
+   Sidebar Items (5 total):
+   1. Dashboard
+   2. Appointments
+   3. Patients
+   4. Reports
+   5. Announcements
+
+---
+
+4. Roberto Fernandez
+   Email: healthcard.nonfood.renewal@test.com
+   Password: healthcard.nonfood.renewal@test.com
+   Service: ID 15 - Non-Food Health Card Renewal
+   Contact: +639120000008
+   Status: ✅ ACTIVE & ASSIGNED
+   Sidebar Pattern: 1 (Appointment + NO Medical Records)
+
+   Capabilities:
+   ✅ Manage Appointments (for Service 15 only)
+   ❌ Manage Walk-in Queue (hidden - appointment-based service)
+   ❌ Create Medical Records (hidden - service doesn't require medical records)
+   ✅ Complete Appointments (required for health card renewal)
+   ✅ View Service-Specific Patients
+   ✅ View Service-Specific Reports
+   ✅ Manage Announcements
+
+   Sidebar Items (5 total):
+   1. Dashboard
+   2. Appointments
+   3. Patients
+   4. Reports
+   5. Announcements
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PATTERN 2 ADMINS (6 admins - Clinical Services with Medical Records)
+Sidebar: Dashboard, Appointments, Patients, Medical Records, Reports, Announcements
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+5. Juan Reyes
    Email: hiv.admin@test.com
    Password: hiv.admin@test.com
    Service: ID 16 - HIV Testing & Counseling (Free)
    Contact: +639120000003
-   Status: ✅ ASSIGNED
+   Status: ✅ ACTIVE & ASSIGNED
+   Sidebar Pattern: 2 (Appointment + Medical Records)
 
-4. Ana Cruz
+   Capabilities:
+   ✅ Manage Appointments (for Service 16 only)
+   ❌ Manage Walk-in Queue (hidden - appointment-based service)
+   ✅ Create Medical Records (visible - service requires medical documentation)
+   ✅ Complete Appointments (triggers medical record creation)
+   ✅ View Service-Specific Patients
+   ✅ View Service-Specific Medical Records (encrypted for HIV)
+   ✅ View Service-Specific Reports
+   ✅ Manage Announcements
+
+   Sidebar Items (6 total):
+   1. Dashboard
+   2. Appointments
+   3. Patients
+   4. Medical Records
+   5. Reports
+   6. Announcements
+
+   Special Notes:
+   - HIV records are automatically encrypted (category: 'hiv')
+   - Can create medical records during appointment completion
+   - Medical Records tab is visible and accessible
+
+---
+
+6. Ana Cruz
    Email: pregnancy.admin@test.com
    Password: pregnancy.admin@test.com
    Service: ID 17 - Prenatal Checkup (Free)
    Contact: +639120000004
-   Status: ✅ ASSIGNED
+   Status: ✅ ACTIVE & ASSIGNED
+   Sidebar Pattern: 2 (Appointment + Medical Records)
 
-5. Pedro Garcia
+   Capabilities:
+   ✅ Manage Appointments (for Service 17 only)
+   ❌ Manage Walk-in Queue (hidden - appointment-based service)
+   ✅ Create Medical Records (visible - service requires medical documentation)
+   ✅ Complete Appointments (triggers medical record creation)
+   ✅ View Service-Specific Patients
+   ✅ View Service-Specific Medical Records (encrypted for pregnancy)
+   ✅ View Service-Specific Reports
+   ✅ Manage Announcements
+
+   Sidebar Items (6 total):
+   1. Dashboard
+   2. Appointments
+   3. Patients
+   4. Medical Records
+   5. Reports
+   6. Announcements
+
+   Special Notes:
+   - Pregnancy records are automatically encrypted (category: 'pregnancy')
+   - Can create medical records during appointment completion
+   - Medical Records tab is visible and accessible
+
+---
+
+7. Pedro Garcia
    Email: lab.admin@test.com
    Password: lab.admin@test.com
    Service: ID 18 - Basic Laboratory Tests
    Contact: +639120000005
-   Status: ✅ ASSIGNED
+   Status: ✅ ACTIVE & ASSIGNED
+   Sidebar Pattern: 2 (Appointment + Medical Records)
 
-6. Rosa Mendoza
+   Capabilities:
+   ✅ Manage Appointments (for Service 18 only)
+   ❌ Manage Walk-in Queue (hidden - appointment-based service)
+   ✅ Create Medical Records (visible - service requires medical documentation)
+   ✅ Complete Appointments (triggers medical record creation)
+   ✅ View Service-Specific Patients
+   ✅ View Service-Specific Medical Records (laboratory category)
+   ✅ View Service-Specific Reports
+   ✅ Manage Announcements
+
+   Sidebar Items (6 total):
+   1. Dashboard
+   2. Appointments
+   3. Patients
+   4. Medical Records
+   5. Reports
+   6. Announcements
+
+---
+
+8. Rosa Mendoza
    Email: immunization.admin@test.com
    Password: immunization.admin@test.com
    Service: ID 19 - Child Immunization (Free)
    Contact: +639120000006
-   Status: ✅ ASSIGNED
+   Status: ✅ ACTIVE & ASSIGNED
+   Sidebar Pattern: 2 (Appointment + Medical Records)
+
+   Capabilities:
+   ✅ Manage Appointments (for Service 19 only)
+   ❌ Manage Walk-in Queue (hidden - appointment-based service)
+   ✅ Create Medical Records (visible - service requires medical documentation)
+   ✅ Complete Appointments (triggers medical record creation)
+   ✅ View Service-Specific Patients
+   ✅ View Service-Specific Medical Records (immunization category)
+   ✅ View Service-Specific Reports
+   ✅ Manage Announcements
+
+   Sidebar Items (6 total):
+   1. Dashboard
+   2. Appointments
+   3. Patients
+   4. Medical Records
+   5. Reports
+   6. Announcements
+
+---
+
+9. Elena Villanueva
+   Email: vaccination.admin@test.com
+   Password: vaccination.admin@test.com
+   Service: ID 20 - Adult Vaccination
+   Contact: +639120000009
+   Status: ✅ ACTIVE & ASSIGNED
+   Sidebar Pattern: 2 (Appointment + Medical Records)
+
+   Capabilities:
+   ✅ Manage Appointments (for Service 20 only)
+   ❌ Manage Walk-in Queue (hidden - appointment-based service)
+   ✅ Create Medical Records (visible - service requires medical documentation)
+   ✅ Complete Appointments (triggers medical record creation)
+   ✅ View Service-Specific Patients
+   ✅ View Service-Specific Medical Records (immunization category)
+   ✅ View Service-Specific Reports
+   ✅ Manage Announcements
+
+   Sidebar Items (6 total):
+   1. Dashboard
+   2. Appointments
+   3. Patients
+   4. Medical Records
+   5. Reports
+   6. Announcements
+
+---
+
+10. Miguel Pascual
+    Email: checkup.admin@test.com
+    Password: checkup.admin@test.com
+    Service: ID 21 - General Checkup
+    Contact: +639120000010
+    Status: ✅ ACTIVE & ASSIGNED
+    Sidebar Pattern: 2 (Appointment + Medical Records)
+
+    Capabilities:
+    ✅ Manage Appointments (for Service 21 only)
+    ❌ Manage Walk-in Queue (hidden - appointment-based service)
+    ✅ Create Medical Records (visible - service requires medical documentation)
+    ✅ Complete Appointments (triggers medical record creation)
+    ✅ View Service-Specific Patients
+    ✅ View Service-Specific Medical Records (general category)
+    ✅ View Service-Specific Reports
+    ✅ Manage Announcements
+
+    Sidebar Items (6 total):
+    1. Dashboard
+    2. Appointments
+    3. Patients
+    4. Medical Records
+    5. Reports
+    6. Announcements
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PATTERN 3 ADMIN (1 admin - Walk-in Service with Medical Records)
+Sidebar: Dashboard, Walk-in Queue, Patients, Medical Records, Reports, Announcements
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+11. Sandra Lopez
+    Email: emergency.admin@test.com
+    Password: emergency.admin@test.com
+    Service: ID 22 - Walk-in Emergency Consultation
+    Contact: +639120000011
+    Status: ✅ ACTIVE & ASSIGNED
+    Sidebar Pattern: 3 (Walk-in + Medical Records)
+
+    Capabilities:
+    ❌ Manage Appointments (hidden - walk-in service, no scheduled appointments)
+    ✅ Manage Walk-in Queue (visible - handles same-day walk-in patients)
+    ✅ Create Medical Records (visible - emergency consultations require documentation)
+    ✅ Complete Walk-in Visits (triggers medical record creation)
+    ✅ View Service-Specific Patients
+    ✅ View Service-Specific Medical Records (general/emergency category)
+    ✅ View Service-Specific Reports
+    ✅ Manage Announcements
+
+    Sidebar Items (6 total):
+    1. Dashboard
+    2. Walk-in Queue
+    3. Patients
+    4. Medical Records
+    5. Reports
+    6. Announcements
+
+    Special Notes:
+    - This service does NOT use the appointment system
+    - Patients are registered directly in walk-in queue
+    - Bypasses 7-day advance booking rule
+    - Medical records created for emergency consultations
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PATTERN 4 ADMIN (1 admin - Walk-in Service without Medical Records)
+Sidebar: Dashboard, Walk-in Queue, Patients, Reports, Announcements
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+12. Patricia Gonzales
+    Email: education.admin@test.com
+    Password: education.admin@test.com
+    Service: ID 23 - Health Education Seminar
+    Contact: +639120000012
+    Status: ✅ ACTIVE & ASSIGNED
+    Sidebar Pattern: 4 (Walk-in + NO Medical Records)
+
+    Capabilities:
+    ❌ Manage Appointments (hidden - walk-in service, no scheduled appointments)
+    ✅ Manage Walk-in Queue (visible - tracks seminar attendance)
+    ❌ Create Medical Records (hidden - educational service, no medical documentation)
+    ✅ Complete Walk-in Visits (tracks attendance only, no medical records)
+    ✅ View Service-Specific Patients
+    ✅ View Service-Specific Reports
+    ✅ Manage Announcements
+
+    Sidebar Items (5 total):
+    1. Dashboard
+    2. Walk-in Queue
+    3. Patients
+    4. Reports
+    5. Announcements
+
+    Special Notes:
+    - This service does NOT use the appointment system
+    - Patients register directly for seminars
+    - No medical records created (educational purpose only)
+    - Tracks attendance and participation
 
 ========================================
-⚡ ACCOUNTS TO CREATE (6 Missing Service Assignments)
+📋 SERVICE CAPABILITY MATRIX - QUICK REFERENCE
 ========================================
 
-Copy and paste these to create via http://localhost:3000/admin/users → Healthcare Admins tab
-
---- 1. NON-FOOD HEALTH CARD PROCESSING ADMIN ---
-First Name: Lisa
-Last Name: Aquino
-Email: healthcard.nonfood@test.com
-Password: healthcard.nonfood@test.com
-Service: 14 - Non-Food Health Card Processing
-Contact: +639120000007
-
---- 2. NON-FOOD HEALTH CARD RENEWAL ADMIN ---
-First Name: Roberto
-Last Name: Fernandez
-Email: healthcard.nonfood.renewal@test.com
-Password: healthcard.nonfood.renewal@test.com
-Service: 15 - Non-Food Health Card Renewal
-Contact: +639120000008
-
---- 3. ADULT VACCINATION ADMIN ---
-First Name: Elena
-Last Name: Villanueva
-Email: vaccination.admin@test.com
-Password: vaccination.admin@test.com
-Service: 20 - Adult Vaccination
-Contact: +639120000009
-
---- 4. GENERAL CHECKUP ADMIN ---
-First Name: Miguel
-Last Name: Pascual
-Email: checkup.admin@test.com
-Password: checkup.admin@test.com
-Service: 21 - General Checkup
-Contact: +639120000010
-
---- 5. WALK-IN EMERGENCY ADMIN ---
-First Name: Sandra
-Last Name: Lopez
-Email: emergency.admin@test.com
-Password: emergency.admin@test.com
-Service: 22 - Walk-in Emergency Consultation
-Contact: +639120000011
-
---- 6. HEALTH EDUCATION ADMIN ---
-First Name: Patricia
-Last Name: Gonzales
-Email: education.admin@test.com
-Password: education.admin@test.com
-Service: 23 - Health Education Seminar
-Contact: +639120000012
-
+| Service ID | Admin Email                      | Appointments | Walk-in | Med Records | Sidebar Items |
+|------------|----------------------------------|--------------|---------|-------------|---------------|
+| 12         | healthcard.admin@test.com        | ✅ YES       | ❌ NO   | ❌ NO       | 5 items       |
+| 13         | healthcard.renewal@test.com      | ✅ YES       | ❌ NO   | ❌ NO       | 5 items       |
+| 14         | healthcard.nonfood@test.com      | ✅ YES       | ❌ NO   | ❌ NO       | 5 items       |
+| 15         | healthcard.nonfood.renewal@...   | ✅ YES       | ❌ NO   | ❌ NO       | 5 items       |
+| 16         | hiv.admin@test.com               | ✅ YES       | ❌ NO   | ✅ YES      | 6 items       |
+| 17         | pregnancy.admin@test.com         | ✅ YES       | ❌ NO   | ✅ YES      | 6 items       |
+| 18         | lab.admin@test.com               | ✅ YES       | ❌ NO   | ✅ YES      | 6 items       |
+| 19         | immunization.admin@test.com      | ✅ YES       | ❌ NO   | ✅ YES      | 6 items       |
+| 20         | vaccination.admin@test.com       | ✅ YES       | ❌ NO   | ✅ YES      | 6 items       |
+| 21         | checkup.admin@test.com           | ✅ YES       | ❌ NO   | ✅ YES      | 6 items       |
+| 22         | emergency.admin@test.com         | ❌ NO        | ✅ YES  | ✅ YES      | 6 items       |
+| 23         | education.admin@test.com         | ❌ NO        | ✅ YES  | ❌ NO       | 5 items       |
 
 ========================================
-STAFF ACCOUNTS (Create These Too)
+🔧 DYNAMIC SIDEBAR IMPLEMENTATION LOGIC
+========================================
+
+The system uses the following logic (from src/lib/config/menuItems.ts):
+
+```typescript
+export function getHealthcareAdminMenuItems(user: User) {
+  // Base items (always shown)
+  const menuItems = [
+    { label: 'Dashboard', href: '/healthcare-admin/dashboard', icon: LayoutDashboard },
+  ];
+
+  // Fetch assigned service from database
+  const service = getServiceById(user.assigned_service_id);
+
+  // Dynamic item: Appointments OR Walk-in Queue
+  if (service.requires_appointment) {
+    menuItems.push({ label: 'Appointments', href: '/healthcare-admin/appointments', icon: Calendar });
+  } else {
+    menuItems.push({ label: 'Walk-in Queue', href: '/healthcare-admin/walk-in', icon: Users });
+  }
+
+  // Always show Patients
+  menuItems.push({ label: 'Patients', href: '/healthcare-admin/patients', icon: Users });
+
+  // Conditional: Medical Records (only if service requires it)
+  if (service.requires_medical_record) {
+    menuItems.push({ label: 'Medical Records', href: '/healthcare-admin/medical-records', icon: FileText });
+  }
+
+  // Always show Reports and Announcements
+  menuItems.push({ label: 'Reports', href: '/healthcare-admin/reports', icon: BarChart });
+  menuItems.push({ label: 'Announcements', href: '/healthcare-admin/announcements', icon: Megaphone });
+
+  return menuItems;
+}
+```
+
+Page-Level Access Guards (from src/lib/utils/serviceAccessGuard.ts):
+
+```typescript
+export function canAccessMedicalRecords(service: Service): boolean {
+  return service.requires_medical_record === true;
+}
+
+export function canAccessAppointments(service: Service): boolean {
+  return service.requires_appointment === true;
+}
+
+export function canAccessWalkInQueue(service: Service): boolean {
+  return service.requires_appointment === false;
+}
+```
+
+If a Healthcare Admin tries to access a page their service doesn't support:
+- Redirect to /healthcare-admin/dashboard
+- Show error toast: "Your service does not support this feature"
+
+========================================
+STAFF ACCOUNTS (Create These - For Disease Surveillance)
 ========================================
 
 --- STAFF MEMBER 1: DISEASE SURVEILLANCE ---
@@ -141,7 +530,7 @@ Last Name: Ramos
 Email: staff.diseases@test.com
 Password: staff.diseases@test.com
 Contact: +639120000020
-Note: NO service assignment - handles ALL diseases
+Note: NO service assignment - handles ALL diseases across all barangays
 
 --- STAFF MEMBER 2: DISEASE SURVEILLANCE ---
 First Name: Lisa
@@ -149,15 +538,15 @@ Last Name: Torres
 Email: staff.surveillance@test.com
 Password: staff.surveillance@test.com
 Contact: +639120000021
-Note: NO service assignment - handles ALL diseases
+Note: NO service assignment - handles ALL diseases across all barangays
 
 ========================================
 ACTIVE SYSTEM ACCOUNTS (Already Exist)
 ========================================
 
 SUPER ADMIN: super.admin@gmail.com / super.admin@gmail.com
-DOCTOR (USER): janmikoarnado@gmail.com / [User's Password]
-PATIENT (USER): jexxejs@gmail.com / [User's Password]
+PATIENT (Doctor - Legacy): janmikoarnado@gmail.com / [User's Password]
+PATIENT (Test User): jexxejs@gmail.com / [User's Password]
 
 ========================================
 ROLE STRUCTURE
@@ -167,46 +556,42 @@ ROLE STRUCTURE
    - Full system access
    - Create all user types
    - Manage all services and records
+   - Access all reports and analytics
+   - View disease surveillance dashboard
+   - Can complete appointments for ANY service
 
 2. HEALTHCARE ADMIN (role: healthcare_admin)
    - Service-specific access via assigned_service_id
-   - Manage appointments for assigned service only
+   - Dynamic sidebar based on service properties:
+     * requires_appointment → Shows "Appointments" OR "Walk-in Queue"
+     * requires_medical_record → Shows/Hides "Medical Records"
+   - Manage appointments/walk-ins for assigned service only
+   - Create/edit medical records (if service requires it)
+   - Complete appointments/visits (triggers health card on first completion)
    - Create/edit/delete announcements
-   - Access service-specific records
+   - View service-specific patients and reports
+   - CANNOT switch services or access other services' data
 
 3. STAFF (role: staff)
    - Disease surveillance for ALL diseases
-   - Enter disease data (Dengue, Measles, Rabies, Malaria, etc.)
+   - Enter disease data (Dengue, Measles, Rabies, Malaria, HIV, Pregnancy, etc.)
    - Generate disease reports
+   - NO service assignment (system-wide access for disease tracking)
    - NO appointment management access
+   - Access disease heatmap and SARIMA predictions
 
-4. DOCTOR (role: doctor) - DEPRECATED
-   - Kept for backward compatibility
-   - View ALL records during appointments
-   - Create medical records
+4. PATIENT (role: patient)
+   - Book appointments (max 2 active appointments)
+   - Cannot rebook same service while active appointment exists
+   - View own appointments and medical records
+   - Download health card (available after first completed appointment)
+   - Submit feedback after appointments
+   - Account auto-activated on registration
+   - Account suspended for 1 month after 2 no-shows (automatic enforcement)
 
-5. PATIENT (role: patient)
-   - Book appointments (max 2 services)
-   - View own records
-   - Download health card
-   - Submit feedback
-
-========================================
-QUICK CREATE GUIDE
-========================================
-
-1. Login as Super Admin (super.admin@gmail.com)
-2. Go to http://localhost:3000/admin/users
-3. Click "Healthcare Admins" tab → "Create Healthcare Admin"
-4. Copy account details from "ACCOUNTS TO CREATE" section above
-5. Select Service ID from dropdown
-6. Submit to create account
-
-For Staff:
-1. Click "Staff" tab → "Create Staff"
-2. Copy staff account details
-3. NO service assignment needed
-4. Submit
+DEPRECATED:
+- DOCTOR (role: doctor) - Removed December 12, 2025
+  Healthcare Admins now complete appointments and create medical records
 
 ========================================
 SERVICE ASSIGNMENT MAPPING
@@ -215,8 +600,8 @@ SERVICE ASSIGNMENT MAPPING
 HEALTHCARD Category (4 services):
 - Service 12: Food Handler Health Card Processing ✅ ASSIGNED (Maria Santos)
 - Service 13: Food Handler Health Card Renewal ✅ ASSIGNED (Carmen Bautista)
-- Service 14: Non-Food Health Card Processing ❌ NEEDS ADMIN
-- Service 15: Non-Food Health Card Renewal ❌ NEEDS ADMIN
+- Service 14: Non-Food Health Card Processing ✅ ASSIGNED (Lisa Aquino)
+- Service 15: Non-Food Health Card Renewal ✅ ASSIGNED (Roberto Fernandez)
 
 HIV Category (1 service):
 - Service 16: HIV Testing & Counseling ✅ ASSIGNED (Juan Reyes)
@@ -229,12 +614,12 @@ LABORATORY Category (1 service):
 
 IMMUNIZATION Category (2 services):
 - Service 19: Child Immunization ✅ ASSIGNED (Rosa Mendoza)
-- Service 20: Adult Vaccination ❌ NEEDS ADMIN
+- Service 20: Adult Vaccination ✅ ASSIGNED (Elena Villanueva)
 
 GENERAL Category (3 services):
-- Service 21: General Checkup ❌ NEEDS ADMIN
-- Service 22: Walk-in Emergency ❌ NEEDS ADMIN
-- Service 23: Health Education ❌ NEEDS ADMIN
+- Service 21: General Checkup ✅ ASSIGNED (Miguel Pascual)
+- Service 22: Walk-in Emergency ✅ ASSIGNED (Sandra Lopez)
+- Service 23: Health Education ✅ ASSIGNED (Patricia Gonzales)
 
 ========================================
 DASHBOARD ACCESS ROUTES
@@ -251,7 +636,11 @@ SUPER ADMIN:
 HEALTHCARE ADMIN:
 - Dashboard: /healthcare-admin/dashboard (service-filtered)
 - Patients: /healthcare-admin/patients (service-filtered)
-- Appointments: /healthcare-admin/appointments (service-filtered)
+- Appointments: /healthcare-admin/appointments (service-filtered, if requires_appointment)
+- Walk-in Queue: /healthcare-admin/walk-in (if !requires_appointment)
+- Medical Records: /healthcare-admin/medical-records (service-filtered, if requires_medical_record)
+- Reports: /healthcare-admin/reports (service-filtered)
+- Announcements: /healthcare-admin/announcements
 
 STAFF:
 - Dashboard: /staff/dashboard
@@ -263,18 +652,72 @@ PATIENT:
 - Book Appointment: /patient/book-appointment
 - My Appointments: /patient/appointments
 - Health Card: /patient/health-card
+- Medical Records: /patient/medical-records
+- Feedback: /patient/feedback
 
 ========================================
 IMPORTANT NOTES
 ========================================
 
-✅ All 6 existing Healthcare Admins have been assigned to services
-❌ 6 additional Healthcare Admins needed for remaining services
-⚠️  2 Staff members still need to be created for disease surveillance
+✅ ALL 12 Healthcare Admins are ACTIVE and ASSIGNED (one per service)
+✅ Dynamic sidebar system implemented and working
+✅ Service-based access control enforced at database (RLS) and application level
+✅ Medical Records tab automatically hidden for non-clinical services
+✅ Walk-in Queue replaces Appointments for walk-in services
+✅ Automatic no-show detection system operational (runs daily at 1:00 AM PHT)
 
-Total Accounts Needed:
-- Healthcare Admins: 6 existing + 6 to create = 12 total (one per service)
-- Staff: 2 to create
-- Total New Accounts: 8
+⚠️  2 Staff members still need to be created for disease surveillance
+⚠️  All Healthcare Admins can ONLY access their assigned service's data
+⚠️  Page-level guards redirect unauthorized access attempts
+
+Account Summary:
+- Super Admin: 1 (full system access)
+- Healthcare Admins: 12 (all assigned, one per service)
+- Staff: 0 (2 need to be created)
+- Patients: 2+ (test accounts + real patients)
+- Total System Accounts: 15+
+
+Service Coverage:
+- All 12 services have assigned Healthcare Admins ✅
+- 4 services use Pattern 1 (Appointment, no Med Records)
+- 6 services use Pattern 2 (Appointment, with Med Records)
+- 1 service uses Pattern 3 (Walk-in, with Med Records)
+- 1 service uses Pattern 4 (Walk-in, no Med Records)
 
 ========================================
+TESTING GUIDE
+========================================
+
+To test service-based access control:
+
+1. Login as Maria Santos (healthcard.admin@test.com)
+   - Should see 5 sidebar items (no Medical Records)
+   - Can access Appointments page
+   - Cannot access Walk-in Queue page (redirect)
+   - Cannot access Medical Records page (redirect)
+
+2. Login as Juan Reyes (hiv.admin@test.com)
+   - Should see 6 sidebar items (includes Medical Records)
+   - Can access Appointments page
+   - Can access Medical Records page
+   - Cannot access Walk-in Queue page (redirect)
+
+3. Login as Sandra Lopez (emergency.admin@test.com)
+   - Should see 6 sidebar items (Walk-in Queue + Medical Records)
+   - Cannot access Appointments page (redirect)
+   - Can access Walk-in Queue page
+   - Can access Medical Records page
+
+4. Login as Patricia Gonzales (education.admin@test.com)
+   - Should see 5 sidebar items (Walk-in Queue, no Medical Records)
+   - Cannot access Appointments page (redirect)
+   - Can access Walk-in Queue page
+   - Cannot access Medical Records page (redirect)
+
+========================================
+
+Last Updated: December 21, 2025
+System Version: Next.js + Supabase
+Database: https://wjwxcxvilqsuoldaduyj.supabase.co
+All 12 Healthcare Admins verified active in database
+Dynamic sidebar implementation confirmed working

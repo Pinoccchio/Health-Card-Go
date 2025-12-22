@@ -36,10 +36,9 @@ export default function PatientProfilePage() {
       phone: '',
       email: '',
     },
+    blood_type: '',
     philhealth_number: '',
-    medical_history: {
-      blood_type: '',
-    },
+    medical_history: {},
     allergies: [],
     current_medications: '',
     accessibility_requirements: '',
@@ -112,10 +111,9 @@ export default function PatientProfilePage() {
             phone: data.data.emergency_contact?.phone || '',
             email: data.data.emergency_contact?.email || '',
           },
+          blood_type: data.data.blood_type || '',
           philhealth_number: data.data.philhealth_number || '',
-          medical_history: {
-            blood_type: data.data.medical_history?.blood_type || '',
-          },
+          medical_history: data.data.medical_history || {},
           allergies: Array.isArray(data.data.allergies) ? data.data.allergies : [],
           current_medications: data.data.current_medications || '',
           accessibility_requirements: data.data.accessibility_requirements || '',
@@ -175,10 +173,9 @@ export default function PatientProfilePage() {
             phone: data.data.emergency_contact?.phone || '',
             email: data.data.emergency_contact?.email || '',
           },
+          blood_type: data.data.blood_type || '',
           philhealth_number: data.data.philhealth_number || '',
-          medical_history: {
-            blood_type: data.data.medical_history?.blood_type || '',
-          },
+          medical_history: data.data.medical_history || {},
           allergies: Array.isArray(data.data.allergies) ? data.data.allergies : [],
           current_medications: data.data.current_medications || '',
           accessibility_requirements: data.data.accessibility_requirements || '',
@@ -243,7 +240,7 @@ export default function PatientProfilePage() {
               <h2 className="text-xl font-bold text-gray-900">Personal Information</h2>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
               <FormField
                 label="First Name"
                 required
@@ -365,10 +362,10 @@ export default function PatientProfilePage() {
               <Select
                 label="Blood Type"
                 options={BLOOD_TYPES}
-                value={formData.medical_history?.blood_type || ''}
+                value={formData.blood_type || ''}
                 onChange={(e) => setFormData({
                   ...formData,
-                  medical_history: { ...formData.medical_history, blood_type: e.target.value }
+                  blood_type: e.target.value
                 })}
                 placeholder="Select blood type"
               />
@@ -399,36 +396,6 @@ export default function PatientProfilePage() {
                   value={formData.current_medications || ''}
                   onChange={(e) => setFormData({ ...formData, current_medications: e.target.value })}
                   placeholder="List any medications you are currently taking"
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Additional Information */}
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="flex items-center gap-3 mb-6">
-              <FileText className="w-6 h-6 text-primary-teal" />
-              <h2 className="text-xl font-bold text-gray-900">Additional Information</h2>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <FormField
-                label="PhilHealth Number (Optional)"
-                value={formData.philhealth_number || ''}
-                onChange={(e) => setFormData({ ...formData, philhealth_number: e.target.value })}
-                placeholder="XX-XXXXXXXXX-X"
-              />
-
-              <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Accessibility Requirements (Optional)
-                </label>
-                <textarea
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-teal focus:border-transparent"
-                  rows={2}
-                  value={formData.accessibility_requirements || ''}
-                  onChange={(e) => setFormData({ ...formData, accessibility_requirements: e.target.value })}
-                  placeholder="e.g., Wheelchair access, Sign language interpreter"
                 />
               </div>
             </div>

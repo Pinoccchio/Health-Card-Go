@@ -546,7 +546,7 @@ export async function PATCH(
     }
 
     // Send "No Show" notification when patient is marked as no-show
-    if (appointment && status === 'no_show') {
+    if (appointment && status === 'no_show' && oldStatus !== 'no_show') {
       await supabase.from('notifications').insert({
         user_id: appointment.patients.user_id,
         type: 'cancellation',
@@ -554,6 +554,63 @@ export async function PATCH(
         message: `Your appointment on ${appointment.appointment_date} was marked as not attended. If this was done in error, please contact us immediately.`,
         link: '/patient/appointments',
       });
+
+      // Increment patient's no_show_count and check for suspension
+      // This ensures manual marking works the same as automatic detection
+      const adminClient = await createAdminClient();
+      const now = getPhilippineTime();
+
+      const { data: updatedPatient, error: patientUpdateError } = await adminClient
+        .rpc('increment_patient_no_show_count', {
+          p_patient_id: appointment.patient_id,
+          p_last_no_show_at: now.toISOString(),
+        })
+        .single();
+
+      if (!patientUpdateError && updatedPatient) {
+        const newNoShowCount = updatedPatient.no_show_count;
+
+        console.log(`[Manual No-Show] Patient ${appointment.patient_id} no-show count: ${newNoShowCount}`);
+
+        // Check if patient should be suspended (2 or more no-shows)
+        if (newNoShowCount >= 2) {
+          const suspendedUntil = new Date(now);
+          suspendedUntil.setMonth(suspendedUntil.getMonth() + 1);
+
+          // Suspend profile
+          const { error: suspensionError } = await adminClient
+            .from('profiles')
+            .update({ status: 'suspended' })
+            .eq('id', appointment.patients.user_id);
+
+          if (suspensionError) {
+            console.error(`[Manual No-Show] Error suspending profile:`, suspensionError);
+          }
+
+          // Set suspended_until in patients table
+          const { error: patientSuspensionError } = await adminClient
+            .from('patients')
+            .update({ suspended_until: suspendedUntil.toISOString() })
+            .eq('id', appointment.patient_id);
+
+          if (patientSuspensionError) {
+            console.error(`[Manual No-Show] Error setting suspended_until:`, patientSuspensionError);
+          } else {
+            // Send suspension notification
+            await adminClient.from('notifications').insert({
+              user_id: appointment.patients.user_id,
+              type: 'general',
+              title: 'Account Suspended Due to No-Shows',
+              message: `Your account has been suspended for 1 month due to ${newNoShowCount} no-shows. You can book appointments again on ${suspendedUntil.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}. If you believe this is an error, please contact the City Health Office.`,
+              link: '/patient/dashboard',
+            });
+
+            console.log(`[Manual No-Show] Patient ${appointment.patient_id} suspended until ${suspendedUntil.toISOString()}`);
+          }
+        }
+      } else if (patientUpdateError) {
+        console.error(`[Manual No-Show] Error incrementing no_show_count:`, patientUpdateError);
+      }
     }
 
     // Send "Appointment Rejected" notification when admin rejects pending appointment

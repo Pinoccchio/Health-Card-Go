@@ -39,10 +39,8 @@ export interface MedicalRecord {
 
   created_by?: {
     id: string;
-    profiles: {
-      first_name: string;
-      last_name: string;
-    };
+    first_name: string;
+    last_name: string;
   };
 
   appointments?: {
