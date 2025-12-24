@@ -1,9 +1,11 @@
-import { createClient, createAdminClient } from '@/lib/supabase/server';
 import { NextRequest, NextResponse } from 'next/server';
+import { createClient } from '@/lib/supabase/server';
 
 /**
  * GET /api/appointments/[id]/history
- * Get status change history for an appointment
+ * Fetch the status change history for a specific appointment
+ *
+ * Returns: Array of status history entries with user details
  */
 export async function GET(
   request: NextRequest,
@@ -11,83 +13,147 @@ export async function GET(
 ) {
   try {
     const supabase = await createClient();
-    const { id } = await params;
+    const { id: appointmentId } = await params;
 
-    // Check authentication
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) {
+    // 1. Verify authentication
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+
+    if (!session) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Get user profile for authorization
-    const { data: profile } = await supabase
+    // 2. Get user profile and verify role
+    const { data: profile, error: profileError } = await supabase
       .from('profiles')
-      .select('id, role')
-      .eq('id', user.id)
+      .select('role, assigned_service_id')
+      .eq('id', session.user.id)
       .single();
 
-    if (!profile) {
+    if (profileError || !profile) {
       return NextResponse.json({ error: 'Profile not found' }, { status: 404 });
     }
 
-    // Fetch appointment to verify access
-    const { data: appointment } = await supabase
+    // 3. Only Healthcare Admins, Super Admins, and the patient can view history
+    const allowedRoles = ['super_admin', 'healthcare_admin', 'patient'];
+    if (!allowedRoles.includes(profile.role)) {
+      return NextResponse.json(
+        { error: 'Access denied. Only Healthcare Admins, Super Admins, and Patients can view appointment history.' },
+        { status: 403 }
+      );
+    }
+
+    // 4. Get the appointment to verify access
+    const { data: appointment, error: appointmentError } = await supabase
       .from('appointments')
-      .select('id, patient_id')
-      .eq('id', id)
+      .select('id, service_id, patient_id')
+      .eq('id', appointmentId)
       .single();
 
-    if (!appointment) {
+    if (appointmentError || !appointment) {
       return NextResponse.json({ error: 'Appointment not found' }, { status: 404 });
     }
 
-    // Authorization: Check if user can view this appointment
-    if (profile.role === 'patient') {
-      const { data: patientRecord } = await supabase
-        .from('patients')
-        .select('id')
-        .eq('user_id', user.id)
-        .single();
+    // 5. For Healthcare Admins, verify they have access to this service
+    if (profile.role === 'healthcare_admin') {
+      if (!profile.assigned_service_id) {
+        return NextResponse.json(
+          { error: 'No service assigned to your account' },
+          { status: 403 }
+        );
+      }
 
-      if (appointment.patient_id !== patientRecord?.id) {
-        return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+      if (appointment.service_id !== profile.assigned_service_id) {
+        return NextResponse.json(
+          { error: 'You can only view history for appointments in your assigned service' },
+          { status: 403 }
+        );
       }
     }
 
-    // Fetch status history with user details
-    // Use admin client to bypass RLS for cross-profile lookups
-    // (We've already verified authentication and authorization above)
-    const adminClient = createAdminClient();
-    const { data: history, error: historyError } = await adminClient
+    // 6. For Patients, verify this is their own appointment
+    if (profile.role === 'patient') {
+      const { data: patient, error: patientError } = await supabase
+        .from('patients')
+        .select('id')
+        .eq('user_id', session.user.id)
+        .single();
+
+      if (patientError || !patient) {
+        return NextResponse.json({ error: 'Patient profile not found' }, { status: 404 });
+      }
+
+      if (appointment.patient_id !== patient.id) {
+        return NextResponse.json(
+          { error: 'You can only view history for your own appointments' },
+          { status: 403 }
+        );
+      }
+    }
+
+    // 7. Fetch status history with user details
+    const { data: history, error: historyError } = await supabase
       .from('appointment_status_history')
       .select(`
-        *,
-        changed_by_profile:profiles!changed_by(
+        id,
+        appointment_id,
+        from_status,
+        to_status,
+        changed_at,
+        reason,
+        is_reversion,
+        reverted_from_history_id,
+        change_type,
+        metadata,
+        changed_by_profile:profiles!appointment_status_history_changed_by_fkey (
+          id,
           first_name,
           last_name,
           role
         )
       `)
-      .eq('appointment_id', id)
-      .order('changed_at', { ascending: false }); // Return newest first for correct "last entry" retrieval
+      .eq('appointment_id', appointmentId)
+      .order('changed_at', { ascending: false });
 
     if (historyError) {
-      console.error('Error fetching history:', historyError);
+      console.error('Error fetching appointment history:', historyError);
       return NextResponse.json(
-        { error: 'Failed to fetch status history' },
+        { error: 'Failed to fetch appointment history', details: historyError.message },
         { status: 500 }
       );
     }
 
+    // 8. Transform data for frontend
+    const transformedHistory = (history || []).map((entry: any) => ({
+      id: entry.id,
+      appointment_id: entry.appointment_id,
+      from_status: entry.from_status,
+      to_status: entry.to_status,
+      changed_at: entry.changed_at,
+      reason: entry.reason,
+      is_reversion: entry.is_reversion,
+      reverted_from_history_id: entry.reverted_from_history_id,
+      change_type: entry.change_type,
+      metadata: entry.metadata,
+      changed_by_profile: entry.changed_by_profile ? {
+        id: entry.changed_by_profile.id,
+        first_name: entry.changed_by_profile.first_name,
+        last_name: entry.changed_by_profile.last_name,
+        role: entry.changed_by_profile.role,
+      } : null,
+    }));
+
     return NextResponse.json({
       success: true,
-      data: history || [],
+      data: transformedHistory,
+      total: transformedHistory.length,
     });
 
   } catch (error) {
-    console.error('History fetch error:', error);
+    console.error('Error in appointment history endpoint:', error);
     return NextResponse.json(
-      { error: 'An unexpected error occurred' },
+      { error: 'Internal server error', details: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
     );
   }

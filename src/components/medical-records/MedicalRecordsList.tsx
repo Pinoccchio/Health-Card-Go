@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Search, FileText, Calendar, User, ChevronLeft, ChevronRight, Download, Plus, Eye } from 'lucide-react';
+import { Search, FileText, Calendar, User, ChevronLeft, ChevronRight, Download, Plus, Eye, AlertCircle } from 'lucide-react';
 import { CategoryBadge } from './CategoryBadge';
 import { EncryptionBadge } from './EncryptionBadge';
 import { MedicalRecordDetailsModal } from './MedicalRecordDetailsModal';
@@ -40,6 +40,7 @@ interface MedicalRecordsListProps {
   currentPage: number;
   totalPages: number;
   totalRecords: number;
+  pendingAppointmentsCount: number;
   onPageChange: (page: number) => void;
   onSearch: (query: string) => void;
   onCategoryFilter: (category: string) => void;
@@ -53,6 +54,7 @@ export function MedicalRecordsList({
   currentPage,
   totalPages,
   totalRecords,
+  pendingAppointmentsCount,
   onPageChange,
   onSearch,
   onCategoryFilter,
@@ -146,7 +148,12 @@ export function MedicalRecordsList({
           {onExport && (
             <button
               onClick={onExport}
-              className="flex items-center gap-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
+              disabled={totalRecords === 0}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
+                totalRecords === 0
+                  ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                  : 'bg-gray-600 text-white hover:bg-gray-700'
+              }`}
             >
               <Download className="w-4 h-4" />
               Export
@@ -154,6 +161,16 @@ export function MedicalRecordsList({
           )}
         </div>
       </div>
+
+      {/* Info Note - Only show for new users with pending work */}
+      {!onCreate && pendingAppointmentsCount > 0 && totalRecords === 0 && (
+        <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 flex items-start gap-2">
+          <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+          <p className="text-sm text-amber-800">
+            <span className="font-medium">Note:</span> Medical records are automatically created when you complete appointments. Check the Pending Work section above for appointments ready to complete.
+          </p>
+        </div>
+      )}
 
       {/* Records Count */}
       <div className="text-sm text-gray-600">
@@ -174,7 +191,7 @@ export function MedicalRecordsList({
             <p className="mt-1 text-sm text-gray-500">
               {searchQuery || selectedCategory !== 'all'
                 ? 'Try adjusting your search or filter criteria.'
-                : 'Medical records will appear here once created.'}
+                : 'No medical records yet. Complete appointments from the Pending Work section above to create records.'}
             </p>
           </div>
         ) : (

@@ -46,6 +46,7 @@ export function StatusHistoryModal({
   const fetchHistory = async () => {
     setLoading(true);
     setError('');
+    setHistory([]); // Clear previous data to prevent stale history display
     try {
       const response = await fetch(`/api/appointments/${appointmentId}/history`);
       const data = await response.json();

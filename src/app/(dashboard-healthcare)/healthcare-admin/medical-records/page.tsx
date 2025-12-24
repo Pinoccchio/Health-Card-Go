@@ -4,12 +4,14 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { DashboardLayout } from '@/components/dashboard';
 import { Container } from '@/components/ui';
-import { FileText, AlertTriangle, TrendingUp, Clock, User } from 'lucide-react';
+import { FileText, AlertTriangle, TrendingUp, Clock, User, Lock, Shield, Info } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { canAccessMedicalRecords } from '@/lib/utils/serviceAccessGuard';
 import { useToast } from '@/lib/contexts/ToastContext';
 import { MedicalRecordsList } from '@/components/medical-records/MedicalRecordsList';
 import { CreateMedicalRecordModal } from '@/components/medical-records/CreateMedicalRecordModal';
+import { PendingAppointmentsSection } from '@/components/medical-records/PendingAppointmentsSection';
+import { AppointmentCompletionModal } from '@/components/appointments/AppointmentCompletionModal';
 
 interface MedicalRecord {
   id: string;
@@ -43,6 +45,29 @@ interface Stats {
   thisMonth: number;
   encrypted: number;
   byCategory: Record<string, number>;
+  pendingCompletions: number;
+}
+
+interface PendingAppointment {
+  id: string;
+  appointment_number: number;
+  appointment_date: string;
+  appointment_time: string;
+  time_block: 'AM' | 'PM';
+  status: string;
+  service_id: number;
+  patients: {
+    id: string;
+    patient_number: string;
+    profiles: {
+      first_name: string;
+      last_name: string;
+      email: string;
+    };
+  };
+  services?: {
+    service_name: string;
+  };
 }
 
 export default function HealthcareAdminMedicalRecordsPage() {
@@ -60,8 +85,15 @@ export default function HealthcareAdminMedicalRecordsPage() {
     thisMonth: 0,
     encrypted: 0,
     byCategory: {},
+    pendingCompletions: 0,
   });
   const [showCreateModal, setShowCreateModal] = useState(false);
+
+  // Pending appointments state
+  const [pendingAppointments, setPendingAppointments] = useState<PendingAppointment[]>([]);
+  const [isPendingLoading, setIsPendingLoading] = useState(false);
+  const [showCompletionModal, setShowCompletionModal] = useState(false);
+  const [appointmentToComplete, setAppointmentToComplete] = useState<PendingAppointment | null>(null);
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
@@ -72,6 +104,9 @@ export default function HealthcareAdminMedicalRecordsPage() {
   // Filters
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
+
+  // Refetch trigger (increment to force data refresh)
+  const [refetchTrigger, setRefetchTrigger] = useState(0);
 
   // Check if user has access to medical records
   useEffect(() => {
@@ -107,6 +142,40 @@ export default function HealthcareAdminMedicalRecordsPage() {
 
     checkAccess();
   }, [user?.assigned_service_id, router, toast]);
+
+  // Fetch pending appointments (in-progress status)
+  useEffect(() => {
+    if (!hasAccess) return;
+
+    async function fetchPendingAppointments() {
+      try {
+        setIsPendingLoading(true);
+
+        const response = await fetch('/api/appointments?status=in_progress');
+
+        if (!response.ok) {
+          throw new Error('Failed to fetch pending appointments');
+        }
+
+        const data = await response.json();
+
+        setPendingAppointments(data.data || []);
+
+        // Update stats with pending count
+        setStats((prev) => ({
+          ...prev,
+          pendingCompletions: data.data?.length || 0,
+        }));
+      } catch (error) {
+        console.error('Error fetching pending appointments:', error);
+        // Don't show error toast - this is optional data
+      } finally {
+        setIsPendingLoading(false);
+      }
+    }
+
+    fetchPendingAppointments();
+  }, [hasAccess, refetchTrigger]);
 
   // Fetch medical records
   useEffect(() => {
@@ -162,12 +231,13 @@ export default function HealthcareAdminMedicalRecordsPage() {
           return acc;
         }, {});
 
-        setStats({
+        setStats((prev) => ({
+          ...prev,
           total: data.total || 0,
           thisMonth: thisMonthCount,
           encrypted: encryptedCount,
           byCategory,
-        });
+        }));
 
       } catch (error) {
         console.error('Error fetching medical records:', error);
@@ -178,7 +248,7 @@ export default function HealthcareAdminMedicalRecordsPage() {
     }
 
     fetchRecords();
-  }, [hasAccess, currentPage, searchQuery, categoryFilter, toast]);
+  }, [hasAccess, currentPage, searchQuery, categoryFilter, toast, refetchTrigger]);
 
   const handleSearch = (query: string) => {
     setSearchQuery(query);
@@ -233,6 +303,24 @@ export default function HealthcareAdminMedicalRecordsPage() {
     // The useEffect will automatically refetch when currentPage changes
   };
 
+  const handleCompleteAppointment = (appointment: PendingAppointment) => {
+    setAppointmentToComplete(appointment);
+    setShowCompletionModal(true);
+  };
+
+  const handleCompletionSuccess = () => {
+    setShowCompletionModal(false);
+    setAppointmentToComplete(null);
+
+    // Trigger refetch of both pending appointments and medical records
+    setRefetchTrigger((prev) => prev + 1);
+
+    // Reset to first page to see new record
+    setCurrentPage(1);
+
+    toast.success('Appointment completed successfully');
+  };
+
   // Show loading state while checking access
   if (isCheckingAccess) {
     return (
@@ -272,56 +360,63 @@ export default function HealthcareAdminMedicalRecordsPage() {
       <Container size="full">
         {/* Statistics Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+          <div className="bg-gradient-to-br from-teal-50 to-teal-100 border-l-4 border-teal-500 rounded-lg shadow-sm p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Total Records</p>
-                <p className="text-2xl font-bold text-gray-900 mt-1">{stats.total}</p>
+                <p className="text-sm text-gray-600 mb-1">Total Records</p>
+                <p className="text-3xl font-bold text-gray-900">{stats.total}</p>
               </div>
-              <div className="h-12 w-12 bg-teal-100 rounded-lg flex items-center justify-center">
-                <FileText className="h-6 w-6 text-teal-600" />
+              <div className="w-12 h-12 bg-teal-500 rounded-xl flex items-center justify-center shadow-lg">
+                <FileText className="w-6 h-6 text-white" />
               </div>
             </div>
           </div>
 
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+          <div className="bg-gradient-to-br from-blue-50 to-blue-100 border-l-4 border-blue-500 rounded-lg shadow-sm p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">This Month</p>
-                <p className="text-2xl font-bold text-gray-900 mt-1">{stats.thisMonth}</p>
+                <p className="text-sm text-gray-600 mb-1">This Month</p>
+                <p className="text-3xl font-bold text-gray-900">{stats.thisMonth}</p>
               </div>
-              <div className="h-12 w-12 bg-blue-100 rounded-lg flex items-center justify-center">
-                <TrendingUp className="h-6 w-6 text-blue-600" />
+              <div className="w-12 h-12 bg-blue-500 rounded-xl flex items-center justify-center shadow-lg">
+                <TrendingUp className="w-6 h-6 text-white" />
               </div>
             </div>
           </div>
 
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+          <div className="bg-gradient-to-br from-purple-50 to-purple-100 border-l-4 border-purple-500 rounded-lg shadow-sm p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Encrypted</p>
-                <p className="text-2xl font-bold text-gray-900 mt-1">{stats.encrypted}</p>
+                <p className="text-sm text-gray-600 mb-1">Encrypted</p>
+                <p className="text-3xl font-bold text-gray-900">{stats.encrypted}</p>
               </div>
-              <div className="h-12 w-12 bg-yellow-100 rounded-lg flex items-center justify-center">
-                <AlertTriangle className="h-6 w-6 text-yellow-600" />
+              <div className="w-12 h-12 bg-purple-500 rounded-xl flex items-center justify-center shadow-lg">
+                <Shield className="w-6 h-6 text-white" />
               </div>
             </div>
           </div>
 
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+          <div className="bg-gradient-to-br from-orange-50 to-orange-100 border-l-4 border-orange-500 rounded-lg shadow-sm p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Categories</p>
-                <p className="text-2xl font-bold text-gray-900 mt-1">
-                  {Object.keys(stats.byCategory).length}
+                <p className="text-sm text-gray-600 mb-1">Pending Work</p>
+                <p className="text-3xl font-bold text-gray-900">
+                  {stats.pendingCompletions}
                 </p>
               </div>
-              <div className="h-12 w-12 bg-purple-100 rounded-lg flex items-center justify-center">
-                <User className="h-6 w-6 text-purple-600" />
+              <div className="w-12 h-12 bg-orange-500 rounded-xl flex items-center justify-center shadow-lg">
+                <Clock className="w-6 h-6 text-white" />
               </div>
             </div>
           </div>
         </div>
+
+        {/* Pending Appointments Section - Shows for all services */}
+        <PendingAppointmentsSection
+          appointments={pendingAppointments}
+          isLoading={isPendingLoading}
+          onComplete={handleCompleteAppointment}
+        />
 
         {/* Medical Records List */}
         <MedicalRecordsList
@@ -330,15 +425,12 @@ export default function HealthcareAdminMedicalRecordsPage() {
           currentPage={currentPage}
           totalPages={totalPages}
           totalRecords={totalRecords}
+          pendingAppointmentsCount={stats.pendingCompletions}
           onPageChange={handlePageChange}
           onSearch={handleSearch}
           onCategoryFilter={handleCategoryFilter}
           onExport={handleExport}
-          onCreate={
-            serviceDetails && !serviceDetails.requires_appointment
-              ? () => setShowCreateModal(true)
-              : undefined
-          }
+          onCreate={undefined}  // Medical records created via appointment completion only
         />
 
         {/* Create Medical Record Modal */}
@@ -347,6 +439,19 @@ export default function HealthcareAdminMedicalRecordsPage() {
           onClose={() => setShowCreateModal(false)}
           onSuccess={handleCreateSuccess}
         />
+
+        {/* Appointment Completion Modal */}
+        {appointmentToComplete && (
+          <AppointmentCompletionModal
+            isOpen={showCompletionModal}
+            onClose={() => {
+              setShowCompletionModal(false);
+              setAppointmentToComplete(null);
+            }}
+            appointment={appointmentToComplete}
+            onSuccess={handleCompletionSuccess}
+          />
+        )}
       </Container>
     </DashboardLayout>
   );

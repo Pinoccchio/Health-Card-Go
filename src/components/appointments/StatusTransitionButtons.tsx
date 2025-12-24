@@ -22,6 +22,7 @@ interface StatusTransitionButtonsProps {
   onStatusUpdate?: () => void;
   variant?: 'full' | 'compact';
   className?: string;
+  inProgressCount?: number; // Number of appointments currently in progress
 }
 
 interface ConfirmDialogState {
@@ -38,6 +39,7 @@ export function StatusTransitionButtons({
   onStatusUpdate,
   variant = 'full',
   className = '',
+  inProgressCount = 0,
 }: StatusTransitionButtonsProps) {
   const toast = useToast();
   const [isLoading, setIsLoading] = useState(false);
@@ -239,25 +241,34 @@ export function StatusTransitionButtons({
       case 'checked_in':
         // Only show "Start Consultation" button
         // To undo a check-in mistake, use "Undo Last Action" button instead of marking as no-show
+        const isDisabledDueToInProgress = inProgressCount > 0;
         return (
-          <Button
-            onClick={handleStart}
-            disabled={isLoading}
-            variant="outline"
-            className="bg-green-50 text-green-700 border-green-200 hover:bg-green-100"
-          >
-            {isLoading && loadingAction === 'in_progress' ? (
-              <>
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                Starting...
-              </>
-            ) : (
-              <>
-                <PlayCircle className="w-4 h-4 mr-2" />
-                Start Consultation
-              </>
+          <div className="relative group">
+            <Button
+              onClick={handleStart}
+              disabled={isLoading || isDisabledDueToInProgress}
+              variant="outline"
+              className={`bg-green-50 text-green-700 border-green-200 hover:bg-green-100 ${isDisabledDueToInProgress ? 'opacity-50 cursor-not-allowed' : ''}`}
+              title={isDisabledDueToInProgress ? 'Wait for current consultation to complete' : 'Start consultation'}
+            >
+              {isLoading && loadingAction === 'in_progress' ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Starting...
+                </>
+              ) : (
+                <>
+                  <PlayCircle className="w-4 h-4 mr-2" />
+                  Start Consultation
+                </>
+              )}
+            </Button>
+            {isDisabledDueToInProgress && (
+              <div className="invisible group-hover:visible absolute z-50 min-w-max max-w-xs px-3 py-2 text-xs text-white bg-gray-900 rounded-lg shadow-lg -top-12 right-0 whitespace-normal">
+                Wait for current consultation to complete before starting
+              </div>
             )}
-          </Button>
+          </div>
         );
 
       case 'in_progress':

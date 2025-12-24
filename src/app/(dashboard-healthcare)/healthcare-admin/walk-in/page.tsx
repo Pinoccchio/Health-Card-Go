@@ -3,19 +3,84 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/lib/auth';
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
-import { Button, Container } from '@/components/ui';
-import { UserPlus, Users, CheckCircle, AlertCircle } from 'lucide-react';
+import { Button, Container, ProfessionalCard } from '@/components/ui';
+import { Drawer } from '@/components/ui/Drawer';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
+import { StatusHistoryModal } from '@/components/appointments/StatusHistoryModal';
+import { TimeElapsedBadge } from '@/components/appointments/TimeElapsedBadge';
+import { AppointmentCompletionModal } from '@/components/appointments/AppointmentCompletionModal';
+import { WalkInRegistrationModal } from '@/components/walk-in/WalkInRegistrationModal';
+import { EnhancedTable } from '@/components/ui/EnhancedTable';
+import { APPOINTMENT_STATUS_CONFIG } from '@/lib/constants/colors';
+import { formatTimeBlock, getTimeBlockColor, TIME_BLOCKS, TimeBlock } from '@/types/appointment';
+import {
+  UserPlus,
+  Users,
+  CheckCircle,
+  AlertCircle,
+  Eye,
+  Clock,
+  ClipboardCheck,
+  RotateCcw,
+  History,
+  Mail,
+  Phone,
+  MapPin,
+  Droplet,
+  Heart,
+  FileText,
+  Calendar,
+  User as UserIcon,
+  Download,
+  Search,
+  PlayCircle
+} from 'lucide-react';
 import { useToast } from '@/lib/contexts/ToastContext';
 
 interface WalkInPatient {
   id: string;
+  appointment_id: string; // For API calls to update status
+  queue_number: number;
   first_name: string;
   last_name: string;
+  patient_number: string;
   date_of_birth: string;
+  gender: string;
+  email: string;
   contact_number: string;
+  barangay_id: number;
   barangay_name: string;
+  emergency_contact?: {
+    name: string;
+    phone: string;
+    email?: string;
+  };
+  blood_type?: string;
+  allergies?: string[];
+  current_medications?: string;
+  appointment_time: string;
+  checked_in_at?: string;
+  started_at?: string;
+  completed_at?: string;
   registered_at: string;
   status: 'waiting' | 'in_progress' | 'completed';
+}
+
+interface StatusHistoryEntry {
+  id: string;
+  from_status: string | null;
+  to_status: string;
+  changed_at: string;
+  changed_by_profile: {
+    first_name: string;
+    last_name: string;
+    role: string;
+  } | null;
+  reason?: string | null;
+  is_reversion?: boolean;
+  reverted_from_history_id?: string | null;
+  change_type?: string;
+  metadata?: Record<string, any> | null;
 }
 
 /**
@@ -33,35 +98,49 @@ interface WalkInPatient {
 export default function WalkInQueuePage() {
   const { user } = useAuth();
   const toast = useToast();
-  const [isRegistering, setIsRegistering] = useState(false);
   const [walkInQueue, setWalkInQueue] = useState<WalkInPatient[]>([]);
   const [isLoadingQueue, setIsLoadingQueue] = useState(true);
   const [serviceName, setServiceName] = useState<string>('');
   const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [processingAppointmentId, setProcessingAppointmentId] = useState<string | null>(null);
 
-  // Portal account toggle
-  const [createPortalAccount, setCreatePortalAccount] = useState(false);
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [emailError, setEmailError] = useState('');
+  // Registration modal state
+  const [showRegistrationModal, setShowRegistrationModal] = useState(false);
 
-  // Form state for patient registration
-  const [formData, setFormData] = useState({
-    firstName: '',
-    lastName: '',
-    dateOfBirth: '',
-    gender: '',
-    contactNumber: '',
-    barangayId: '',
-    emergencyContactName: '',
-    emergencyContactPhone: '',
-    emergencyContactEmail: '',
-    bloodType: '',
-    allergies: '',
-    currentMedications: '',
+  // Drawer and modals state
+  const [selectedPatient, setSelectedPatient] = useState<WalkInPatient | null>(null);
+  const [showDrawer, setShowDrawer] = useState(false);
+  const [showStatusHistory, setShowStatusHistory] = useState(false);
+  const [showCompletionModal, setShowCompletionModal] = useState(false);
+  const [appointmentToComplete, setAppointmentToComplete] = useState<any | null>(null);
+  const [lastHistoryEntries, setLastHistoryEntries] = useState<Record<string, { id: string; from_status: string | null } | null>>({});
+  const [hasMedicalRecords, setHasMedicalRecords] = useState<Record<string, boolean | null>>({});
+
+  // Confirmation dialog state
+  const [showRevertDialog, setShowRevertDialog] = useState(false);
+  const [showStartDialog, setShowStartDialog] = useState(false);
+  const [pendingRevert, setPendingRevert] = useState<{
+    historyId: string;
+    targetStatus: string;
+    appointmentId: string;
+    currentStatus: string;
+  } | null>(null);
+  const [actionLoading, setActionLoading] = useState(false);
+
+  // Statistics
+  const [statistics, setStatistics] = useState({
+    total: 0,
+    checked_in: 0,
+    in_progress: 0,
+    completed: 0
   });
 
+  // Search and Filters
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'waiting' | 'in_progress' | 'completed'>('all');
+  const [filteredQueue, setFilteredQueue] = useState<WalkInPatient[]>([]);
+
+  // Barangays for modal
   const [barangays, setBarangays] = useState<Array<{ id: number; name: string }>>([]);
 
   // Fetch service name
@@ -115,7 +194,21 @@ export default function WalkInQueuePage() {
         }
 
         if (data.success) {
-          setWalkInQueue(data.data || []);
+          const patients = data.data || [];
+          setWalkInQueue(patients);
+
+          // Calculate statistics
+          const stats = patients.reduce(
+            (acc: any, patient: WalkInPatient) => {
+              acc.total++;
+              if (patient.status === 'waiting') acc.checked_in++;
+              if (patient.status === 'in_progress') acc.in_progress++;
+              if (patient.status === 'completed') acc.completed++;
+              return acc;
+            },
+            { total: 0, checked_in: 0, in_progress: 0, completed: 0 }
+          );
+          setStatistics(stats);
         }
       } catch (error) {
         console.error('Error fetching walk-in queue:', error);
@@ -128,459 +221,689 @@ export default function WalkInQueuePage() {
     fetchWalkInQueue();
   }, [user?.assigned_service_id, toast, refreshTrigger]);
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
-  };
+  // Fetch last history entries for all appointments (for undo functionality)
+  useEffect(() => {
+    async function fetchAllLastHistoryEntries() {
+      if (walkInQueue.length === 0) return;
 
-  const checkEmailUniqueness = async (emailToCheck: string): Promise<boolean> => {
-    try {
-      const res = await fetch(`/api/auth/check-email?email=${encodeURIComponent(emailToCheck)}`);
-      const data = await res.json();
-      return data.available === true;
-    } catch (error) {
-      console.error('Error checking email uniqueness:', error);
-      return false;
+      const entries: Record<string, { id: string; from_status: string | null } | null> = {};
+
+      for (const patient of walkInQueue) {
+        try {
+          const res = await fetch(`/api/appointments/${patient.appointment_id}/history`);
+          const data = await res.json();
+
+          if (res.ok && data.success && data.data) {
+            // Find the most recent forward status change (not a reversion)
+            const history = data.data as StatusHistoryEntry[];
+            const lastForwardChange = history
+              .filter((entry: StatusHistoryEntry) => entry.from_status !== null)
+              .sort((a: StatusHistoryEntry, b: StatusHistoryEntry) =>
+                new Date(b.changed_at).getTime() - new Date(a.changed_at).getTime()
+              )[0];
+
+            if (lastForwardChange && lastForwardChange.from_status) {
+              entries[patient.appointment_id] = {
+                id: lastForwardChange.id,
+                from_status: lastForwardChange.from_status
+              };
+            } else {
+              entries[patient.appointment_id] = null;
+            }
+          }
+        } catch (error) {
+          console.error(`Error fetching history for appointment ${patient.appointment_id}:`, error);
+          entries[patient.appointment_id] = null;
+        }
+      }
+
+      setLastHistoryEntries(entries);
     }
+
+    fetchAllLastHistoryEntries();
+  }, [walkInQueue]);
+
+  // Check medical records for completed appointments
+  useEffect(() => {
+    async function checkMedicalRecords() {
+      if (walkInQueue.length === 0) return;
+
+      const records: Record<string, boolean | null> = {};
+
+      for (const patient of walkInQueue) {
+        if (patient.status === 'completed') {
+          try {
+            const res = await fetch(`/api/appointments/${patient.appointment_id}/medical-records`);
+            const data = await res.json();
+
+            if (res.ok && data.success) {
+              records[patient.appointment_id] = data.data && data.data.length > 0;
+            } else {
+              records[patient.appointment_id] = null;
+            }
+          } catch (error) {
+            console.error(`Error checking medical records for appointment ${patient.appointment_id}:`, error);
+            records[patient.appointment_id] = null;
+          }
+        }
+      }
+
+      setHasMedicalRecords(records);
+    }
+
+    checkMedicalRecords();
+  }, [walkInQueue]);
+
+  // Apply search and filters
+  useEffect(() => {
+    let filtered = [...walkInQueue];
+
+    // Apply status filter
+    if (statusFilter !== 'all') {
+      filtered = filtered.filter(patient => patient.status === statusFilter);
+    }
+
+    // Apply search filter
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(patient => {
+        const fullName = `${patient.first_name} ${patient.last_name}`.toLowerCase();
+        const queueNumber = patient.queue_number.toString();
+        const patientNumber = patient.patient_number.toLowerCase();
+
+        return (
+          fullName.includes(query) ||
+          queueNumber.includes(query) ||
+          patientNumber.includes(query) ||
+          patient.contact_number.includes(query)
+        );
+      });
+    }
+
+    setFilteredQueue(filtered);
+  }, [walkInQueue, searchQuery, statusFilter]);
+
+  // Handle registration modal success
+  const handleRegistrationSuccess = () => {
+    setShowRegistrationModal(false);
+    setRefreshTrigger(prev => prev + 1); // Refresh queue
   };
 
-  const handleRegisterWalkIn = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsRegistering(true);
+  // Handle viewing patient details
+  const handleViewDetails = async (patient: WalkInPatient) => {
+    setSelectedPatient(patient);
+    setShowDrawer(true);
+  };
+
+  // Handle starting a consultation with confirmation
+  const handleStartConsultation = async (appointmentId: string) => {
+    const patient = walkInQueue.find(p => p.appointment_id === appointmentId);
+    if (!patient) return;
+
+    setSelectedPatient(patient);
+    setShowStartDialog(true);
+  };
+
+  const handleConfirmStart = async () => {
+    if (!selectedPatient) return;
 
     try {
-      // Validate portal account fields if enabled
-      if (createPortalAccount) {
-        if (!email || !password || !confirmPassword) {
-          toast.error('Please fill in all portal account fields');
-          setIsRegistering(false);
-          return;
-        }
-        if (password.length < 8) {
-          toast.error('Password must be at least 8 characters');
-          setIsRegistering(false);
-          return;
-        }
-        if (password !== confirmPassword) {
-          toast.error('Passwords do not match');
-          setIsRegistering(false);
-          return;
-        }
-        if (emailError) {
-          toast.error('Please fix email errors before submitting');
-          setIsRegistering(false);
-          return;
-        }
+      setActionLoading(true);
 
-        // Final email uniqueness check
-        const isEmailUnique = await checkEmailUniqueness(email);
-        if (!isEmailUnique) {
-          setEmailError('This email is already registered');
-          toast.error('Email is already in use');
-          setIsRegistering(false);
-          return;
-        }
-      }
-
-      // Map form data to API expected format (camelCase → snake_case)
-      const requestBody: any = {
-        first_name: formData.firstName,
-        last_name: formData.lastName,
-        date_of_birth: formData.dateOfBirth,
-        gender: formData.gender,
-        barangay_id: parseInt(formData.barangayId),
-        contact_number: formData.contactNumber,
-        emergency_contact_name: formData.emergencyContactName,
-        emergency_contact_phone: formData.emergencyContactPhone,
-        emergency_contact_email: formData.emergencyContactEmail || null,
-        blood_type: formData.bloodType || null,
-        allergies: formData.allergies || null,
-        current_medications: formData.currentMedications || null,
-      };
-
-      // Add portal account fields if enabled
-      if (createPortalAccount) {
-        requestBody.create_user_account = true;
-        requestBody.email = email;
-        requestBody.password = password;
-      }
-
-      const response = await fetch('/api/admin/patients/walk-in', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(requestBody),
+      const response = await fetch(`/api/appointments/${selectedPatient.appointment_id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'in_progress' }),
       });
 
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || 'Failed to register walk-in patient');
+        throw new Error(data.error || 'Failed to start consultation');
       }
 
-      // Success!
-      const successMessage = createPortalAccount
-        ? `Patient registered successfully! Booking Number: ${data.data.booking_number}\nEmail: ${email}`
-        : `Patient registered successfully! Booking Number: ${data.data.booking_number}`;
-
-      toast.success(successMessage);
-
-      // Reset form
-      setFormData({
-        firstName: '',
-        lastName: '',
-        dateOfBirth: '',
-        gender: '',
-        contactNumber: '',
-        barangayId: '',
-        emergencyContactName: '',
-        emergencyContactPhone: '',
-        emergencyContactEmail: '',
-        bloodType: '',
-        allergies: '',
-        currentMedications: '',
-      });
-
-      // Reset portal account fields
-      setCreatePortalAccount(false);
-      setEmail('');
-      setPassword('');
-      setConfirmPassword('');
-      setEmailError('');
-
-      // Refresh the walk-in queue by incrementing the trigger
-      setRefreshTrigger(prev => prev + 1);
+      toast.success('Consultation started');
+      setShowStartDialog(false);
+      setSelectedPatient(null);
+      setRefreshTrigger(prev => prev + 1); // Refresh queue
     } catch (error) {
-      console.error('Error registering walk-in patient:', error);
-      toast.error(error instanceof Error ? error.message : 'An error occurred while registering the patient');
+      console.error('Error starting consultation:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to start consultation');
     } finally {
-      setIsRegistering(false);
+      setActionLoading(false);
     }
   };
+
+  // Handle completing a consultation (open completion modal)
+  const handleCompleteConsultation = (appointmentId: string) => {
+    const patient = walkInQueue.find(p => p.appointment_id === appointmentId);
+    if (!patient) return;
+
+    // Transform WalkInPatient to match AppointmentCompletionModal's expected structure
+    const appointmentData = {
+      id: patient.appointment_id,
+      appointment_number: patient.queue_number,
+      appointment_date: new Date().toISOString().split('T')[0],
+      appointment_time: patient.appointment_time,
+      time_block: (patient.appointment_time.split(':')[0] < '13' ? 'AM' : 'PM') as 'AM' | 'PM',
+      service_id: user?.assigned_service_id || 0,
+      patients: {
+        id: patient.id,
+        patient_number: patient.patient_number,
+        profiles: {
+          first_name: patient.first_name,
+          last_name: patient.last_name,
+          email: patient.email,
+        },
+      },
+    };
+
+    setAppointmentToComplete(appointmentData);
+    setSelectedPatient(patient);
+    setShowCompletionModal(true);
+  };
+
+  // Handle completion success
+  const handleCompletionSuccess = () => {
+    setShowCompletionModal(false);
+    setShowDrawer(false);
+    setSelectedPatient(null);
+    setAppointmentToComplete(null);
+    toast.success('Appointment completed successfully');
+    setRefreshTrigger(prev => prev + 1);
+  };
+
+  // Handle undo last action
+  const handleQuickUndo = (appointmentId: string) => {
+    const lastEntry = lastHistoryEntries[appointmentId];
+    if (!lastEntry || !lastEntry.from_status) return;
+
+    const patient = walkInQueue.find(p => p.appointment_id === appointmentId);
+    if (!patient) return;
+
+    setPendingRevert({
+      historyId: lastEntry.id,
+      targetStatus: lastEntry.from_status,
+      appointmentId: appointmentId,
+      currentStatus: patient.status === 'waiting' ? 'checked_in' : patient.status === 'in_progress' ? 'in_progress' : 'completed'
+    });
+    setShowRevertDialog(true);
+  };
+
+  // Handle confirm revert
+  const handleConfirmRevert = async (reason?: string) => {
+    if (!pendingRevert) return;
+
+    try {
+      setActionLoading(true);
+
+      const response = await fetch(`/api/appointments/${pendingRevert.appointmentId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          revert_to_history_id: pendingRevert.historyId,
+          reason,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to revert status');
+      }
+
+      toast.success('Status reverted successfully');
+      setShowRevertDialog(false);
+      setShowDrawer(false); // Close drawer after revert
+      setPendingRevert(null);
+      setRefreshTrigger(prev => prev + 1);
+    } catch (error) {
+      console.error('Error reverting status:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to revert status');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // Helper to get status badge
+  const getStatusBadge = (status: string) => {
+    const statusMap: Record<string, string> = {
+      'waiting': 'checked_in',
+      'in_progress': 'in_progress',
+      'completed': 'completed'
+    };
+
+    const mappedStatus = statusMap[status] || status;
+    const config = APPOINTMENT_STATUS_CONFIG[mappedStatus];
+    const Icon = config?.icon || AlertCircle;
+
+    return (
+      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${config?.color || 'bg-gray-100 text-gray-800'}`}>
+        <Icon className="w-3 h-3 mr-1" />
+        {status === 'waiting' ? 'Waiting' : config?.label || status}
+      </span>
+    );
+  };
+
+  // Export to CSV
+  const handleExportCSV = () => {
+    if (filteredQueue.length === 0) {
+      toast.error('No data to export');
+      return;
+    }
+
+    try {
+      // CSV Headers
+      const headers = [
+        'Queue Number',
+        'Patient Number',
+        'First Name',
+        'Last Name',
+        'Contact Number',
+        'Barangay',
+        'Status',
+        'Checked In At',
+        'Started At',
+        'Completed At',
+        'Blood Type',
+        'Allergies',
+        'Current Medications'
+      ];
+
+      // CSV Rows
+      const rows = filteredQueue.map(patient => [
+        patient.queue_number,
+        patient.patient_number,
+        patient.first_name,
+        patient.last_name,
+        patient.contact_number,
+        patient.barangay_name,
+        patient.status === 'waiting' ? 'Waiting' : patient.status === 'in_progress' ? 'In Progress' : 'Completed',
+        patient.checked_in_at ? new Date(patient.checked_in_at).toLocaleString() : '',
+        patient.started_at ? new Date(patient.started_at).toLocaleString() : '',
+        patient.completed_at ? new Date(patient.completed_at).toLocaleString() : '',
+        patient.blood_type || '',
+        patient.allergies ? patient.allergies.join(', ') : '',
+        patient.current_medications || ''
+      ]);
+
+      // Combine headers and rows
+      const csvContent = [
+        headers.join(','),
+        ...rows.map(row => row.map(cell => `"${cell}"`).join(','))
+      ].join('\n');
+
+      // Create blob and download
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+
+      link.setAttribute('href', url);
+      link.setAttribute('download', `walk-in-queue-${new Date().toISOString().split('T')[0]}.csv`);
+      link.style.visibility = 'hidden';
+
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      toast.success('Queue exported successfully');
+    } catch (error) {
+      console.error('Error exporting CSV:', error);
+      toast.error('Failed to export queue');
+    }
+  };
+
+  // Define table columns for EnhancedTable
+  const walkInTableColumns = [
+    {
+      header: 'Queue #',
+      accessor: 'queue_number',
+      sortable: true,
+      render: (value: number) => (
+        <span className="font-mono font-semibold text-primary-teal text-xl">
+          #{value}
+        </span>
+      ),
+    },
+    {
+      header: 'Patient',
+      accessor: 'first_name', // For sorting purposes
+      sortable: true,
+      render: (_: any, row: WalkInPatient) => (
+        <div>
+          <p className="text-sm font-medium text-gray-900">
+            {row.first_name} {row.last_name}
+          </p>
+          <p className="text-xs text-gray-500 font-mono">{row.patient_number}</p>
+        </div>
+      ),
+    },
+    {
+      header: 'Date',
+      accessor: 'registered_at',
+      sortable: true,
+      render: () => (
+        <div className="flex items-center gap-1">
+          <Calendar className="w-3 h-3 text-gray-400" />
+          <span className="text-sm text-gray-700">
+            {new Date().toLocaleDateString()}
+          </span>
+        </div>
+      ),
+    },
+    {
+      header: 'Time Block',
+      accessor: 'appointment_time',
+      sortable: false,
+      render: (value: string) => {
+        const hour = parseInt(value.split(':')[0]);
+        const timeBlock: TimeBlock = hour < 13 ? 'AM' : 'PM';
+        return (
+          <div className="flex items-center gap-2">
+            <span className={`px-2 py-1 rounded text-xs font-bold ${getTimeBlockColor(timeBlock)}`}>
+              {timeBlock}
+            </span>
+            <span className="text-xs text-gray-600">
+              {TIME_BLOCKS[timeBlock].timeRange}
+            </span>
+          </div>
+        );
+      },
+    },
+    {
+      header: 'Status',
+      accessor: 'status',
+      sortable: true,
+      render: (value: string, row: WalkInPatient) => {
+        const statusMap: Record<string, string> = {
+          'waiting': 'checked_in',
+          'in_progress': 'in_progress',
+          'completed': 'completed'
+        };
+        const mappedStatus = statusMap[value] || value;
+        const config = APPOINTMENT_STATUS_CONFIG[mappedStatus];
+        const Icon = config?.icon || AlertCircle;
+
+        return (
+          <div className="flex flex-col gap-1">
+            {value === 'in_progress' && row.started_at && (
+              <TimeElapsedBadge
+                timestamp={row.started_at}
+                label="Consulting"
+                type="consulting"
+              />
+            )}
+            {value === 'waiting' && row.checked_in_at && (
+              <TimeElapsedBadge
+                timestamp={row.checked_in_at}
+                label="Waiting"
+                type="waiting"
+              />
+            )}
+            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${config?.color || 'bg-gray-100 text-gray-800'}`}>
+              <Icon className="w-3 h-3 mr-1" />
+              {value === 'waiting' ? 'Waiting' : config?.label || value}
+            </span>
+          </div>
+        );
+      },
+    },
+    {
+      header: 'Barangay',
+      accessor: 'barangay_name',
+      sortable: true,
+      render: (value: string) => (
+        <div className="flex items-center gap-1 text-sm text-gray-700">
+          <MapPin className="w-3 h-3 text-gray-400" />
+          {value}
+        </div>
+      ),
+    },
+    {
+      header: 'Actions',
+      accessor: 'id',
+      sortable: false,
+      render: (_: any, row: WalkInPatient) => (
+        <div className="flex gap-2">
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              handleViewDetails(row);
+            }}
+            className="px-3 py-1.5 text-xs font-medium text-white bg-[#20C997] rounded-md hover:bg-[#1AA179] transition-colors flex items-center gap-1"
+          >
+            <Eye className="w-3.5 h-3.5" />
+            View
+          </button>
+
+          {row.status === 'waiting' && (
+            <div className="relative group">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleStartConsultation(row.appointment_id);
+                }}
+                disabled={statistics.in_progress > 0}
+                className={`inline-flex items-center px-3 py-1.5 bg-blue-50 text-blue-700 border border-blue-200 text-xs font-medium rounded-md hover:bg-blue-100 transition-colors ${statistics.in_progress > 0 ? 'opacity-50 cursor-not-allowed' : ''}`}
+                title={statistics.in_progress > 0 ? 'Wait for current consultation to complete' : 'Start consultation'}
+              >
+                <PlayCircle className="w-3 h-3 mr-1.5" />
+                Start
+              </button>
+              {statistics.in_progress > 0 && (
+                <div className="invisible group-hover:visible absolute z-50 min-w-max max-w-xs px-3 py-2 text-xs text-white bg-gray-900 rounded-lg shadow-lg -top-12 right-0 whitespace-normal">
+                  Wait for current consultation to complete before starting
+                </div>
+              )}
+            </div>
+          )}
+
+          {row.status === 'in_progress' && (
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleCompleteConsultation(row.appointment_id);
+              }}
+              className="flex items-center gap-1 bg-green-600 hover:bg-green-700 text-xs"
+            >
+              <CheckCircle className="w-3.5 h-3.5" />
+              Complete
+            </Button>
+          )}
+        </div>
+      ),
+    },
+  ];
 
   return (
     <DashboardLayout roleId={2} pageTitle="Walk-in Queue" pageDescription={`Manage walk-in patients for ${serviceName}`}>
       <Container size="full">
         <div className="space-y-6">
-          {/* Registration Card */}
+          {/* Header with Register Button */}
           <div className="bg-white rounded-lg shadow p-6">
-            <div className="flex items-center gap-2 mb-4">
-              <UserPlus className="w-5 h-5 text-primary-teal" />
-              <h2 className="text-xl font-bold text-gray-900">Register Walk-in Patient</h2>
-            </div>
-            <p className="text-gray-600 mb-6">
-              Register patients who arrive without prior appointments. No 7-day booking rule applies.
-            </p>
-
-            <form onSubmit={handleRegisterWalkIn} className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label htmlFor="firstName" className="block text-sm font-medium text-gray-700 mb-1">
-                    First Name *
-                  </label>
-                  <input
-                    id="firstName"
-                    name="firstName"
-                    type="text"
-                    value={formData.firstName}
-                    onChange={handleInputChange}
-                    required
-                    placeholder="Juan"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-teal focus:border-transparent"
-                  />
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="flex items-center gap-2 mb-2">
+                  <UserPlus className="w-5 h-5 text-primary-teal" />
+                  <h2 className="text-xl font-bold text-gray-900">Walk-in Queue Management</h2>
                 </div>
-
-                <div>
-                  <label htmlFor="lastName" className="block text-sm font-medium text-gray-700 mb-1">
-                    Last Name *
-                  </label>
-                  <input
-                    id="lastName"
-                    name="lastName"
-                    type="text"
-                    value={formData.lastName}
-                    onChange={handleInputChange}
-                    required
-                    placeholder="Dela Cruz"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-teal focus:border-transparent"
-                  />
-                </div>
-
-                <div>
-                  <label htmlFor="dateOfBirth" className="block text-sm font-medium text-gray-700 mb-1">
-                    Date of Birth *
-                  </label>
-                  <input
-                    id="dateOfBirth"
-                    name="dateOfBirth"
-                    type="date"
-                    value={formData.dateOfBirth}
-                    onChange={handleInputChange}
-                    required
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-teal focus:border-transparent"
-                  />
-                </div>
-
-                <div>
-                  <label htmlFor="gender" className="block text-sm font-medium text-gray-700 mb-1">
-                    Gender *
-                  </label>
-                  <select
-                    id="gender"
-                    name="gender"
-                    value={formData.gender}
-                    onChange={handleInputChange}
-                    required
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-teal focus:border-transparent"
-                  >
-                    <option value="">Select Gender</option>
-                    <option value="male">Male</option>
-                    <option value="female">Female</option>
-                    <option value="other">Other</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label htmlFor="contactNumber" className="block text-sm font-medium text-gray-700 mb-1">
-                    Contact Number *
-                  </label>
-                  <input
-                    id="contactNumber"
-                    name="contactNumber"
-                    type="tel"
-                    value={formData.contactNumber}
-                    onChange={handleInputChange}
-                    required
-                    placeholder="+639123456789"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-teal focus:border-transparent"
-                  />
-                </div>
-
-                <div>
-                  <label htmlFor="barangayId" className="block text-sm font-medium text-gray-700 mb-1">
-                    Barangay *
-                  </label>
-                  <select
-                    id="barangayId"
-                    name="barangayId"
-                    value={formData.barangayId}
-                    onChange={handleInputChange}
-                    required
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-teal focus:border-transparent"
-                  >
-                    <option value="">Select Barangay</option>
-                    {barangays.map((barangay) => (
-                      <option key={barangay.id} value={barangay.id}>
-                        {barangay.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label htmlFor="emergencyContactName" className="block text-sm font-medium text-gray-700 mb-1">
-                    Emergency Contact Name *
-                  </label>
-                  <input
-                    id="emergencyContactName"
-                    name="emergencyContactName"
-                    type="text"
-                    value={formData.emergencyContactName}
-                    onChange={handleInputChange}
-                    required
-                    placeholder="Rosa Dela Cruz"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-teal focus:border-transparent"
-                  />
-                </div>
-
-                <div>
-                  <label htmlFor="emergencyContactPhone" className="block text-sm font-medium text-gray-700 mb-1">
-                    Emergency Contact Phone *
-                  </label>
-                  <input
-                    id="emergencyContactPhone"
-                    name="emergencyContactPhone"
-                    type="tel"
-                    value={formData.emergencyContactPhone}
-                    onChange={handleInputChange}
-                    required
-                    placeholder="+639198765432"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-teal focus:border-transparent"
-                  />
-                </div>
-
-                <div>
-                  <label htmlFor="emergencyContactEmail" className="block text-sm font-medium text-gray-700 mb-1">
-                    Emergency Contact Email
-                  </label>
-                  <input
-                    id="emergencyContactEmail"
-                    name="emergencyContactEmail"
-                    type="email"
-                    value={formData.emergencyContactEmail}
-                    onChange={handleInputChange}
-                    placeholder="juanmiguel.santos@email.com"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-teal focus:border-transparent"
-                  />
-                </div>
-
-                <div>
-                  <label htmlFor="bloodType" className="block text-sm font-medium text-gray-700 mb-1">
-                    Blood Type
-                  </label>
-                  <select
-                    id="bloodType"
-                    name="bloodType"
-                    value={formData.bloodType}
-                    onChange={handleInputChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-teal focus:border-transparent"
-                  >
-                    <option value="">Select Blood Type</option>
-                    <option value="A+">A+</option>
-                    <option value="A-">A-</option>
-                    <option value="B+">B+</option>
-                    <option value="B-">B-</option>
-                    <option value="AB+">AB+</option>
-                    <option value="AB-">AB-</option>
-                    <option value="O+">O+</option>
-                    <option value="O-">O-</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label htmlFor="allergies" className="block text-sm font-medium text-gray-700 mb-1">
-                    Allergies
-                  </label>
-                  <input
-                    id="allergies"
-                    name="allergies"
-                    type="text"
-                    value={formData.allergies}
-                    onChange={handleInputChange}
-                    placeholder="Peanuts"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-teal focus:border-transparent"
-                  />
-                </div>
-
-                <div className="md:col-span-2">
-                  <label htmlFor="currentMedications" className="block text-sm font-medium text-gray-700 mb-1">
-                    Current Medications / Medical Conditions
-                  </label>
-                  <textarea
-                    id="currentMedications"
-                    name="currentMedications"
-                    value={formData.currentMedications}
-                    onChange={handleInputChange}
-                    placeholder="HIV, Hypertension medications, etc."
-                    rows={3}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-teal focus:border-transparent"
-                  />
-                </div>
-              </div>
-
-              {/* Portal Account Section */}
-              <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={createPortalAccount}
-                    onChange={(e) => setCreatePortalAccount(e.target.checked)}
-                    className="w-4 h-4 text-primary-teal focus:ring-primary-teal border-gray-300 rounded"
-                  />
-                  <span className="text-sm font-medium text-gray-900">
-                    Create portal account for patient (optional)
-                  </span>
-                </label>
-                <p className="text-xs text-gray-600 mt-1 ml-6">
-                  Enable this to provide immediate access to the patient portal. Otherwise, patient can claim account later via password reset.
+                <p className="text-gray-600">
+                  Register and manage walk-in patients. No 7-day booking rule applies.
                 </p>
-
-                {createPortalAccount && (
-                  <div className="mt-4 space-y-4">
-                    <div>
-                      <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
-                        Email Address *
-                      </label>
-                      <input
-                        id="email"
-                        name="email"
-                        type="email"
-                        value={email}
-                        onChange={(e) => {
-                          setEmail(e.target.value);
-                          setEmailError('');
-                        }}
-                        onBlur={async () => {
-                          if (email) {
-                            const isUnique = await checkEmailUniqueness(email);
-                            if (!isUnique) {
-                              setEmailError('This email is already registered');
-                            }
-                          }
-                        }}
-                        required={createPortalAccount}
-                        placeholder="patient@email.com"
-                        className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary-teal focus:border-transparent ${
-                          emailError ? 'border-red-500' : 'border-gray-300'
-                        }`}
-                      />
-                      {emailError && (
-                        <p className="text-xs text-red-500 mt-1">{emailError}</p>
-                      )}
-                    </div>
-
-                    <div>
-                      <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
-                        Password *
-                      </label>
-                      <input
-                        id="password"
-                        name="password"
-                        type="password"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        required={createPortalAccount}
-                        placeholder="Minimum 8 characters"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-teal focus:border-transparent"
-                      />
-                      {password && password.length < 8 && (
-                        <p className="text-xs text-red-500 mt-1">Password must be at least 8 characters</p>
-                      )}
-                    </div>
-
-                    <div>
-                      <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-1">
-                        Confirm Password *
-                      </label>
-                      <input
-                        id="confirmPassword"
-                        name="confirmPassword"
-                        type="password"
-                        value={confirmPassword}
-                        onChange={(e) => setConfirmPassword(e.target.value)}
-                        required={createPortalAccount}
-                        placeholder="Re-enter password"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-teal focus:border-transparent"
-                      />
-                      {confirmPassword && password !== confirmPassword && (
-                        <p className="text-xs text-red-500 mt-1">Passwords do not match</p>
-                      )}
-                    </div>
-                  </div>
-                )}
               </div>
-
-              <Button type="submit" disabled={isRegistering} className="w-full md:w-auto">
-                {isRegistering ? 'Registering...' : 'Register Walk-in Patient'}
+              <Button
+                onClick={() => setShowRegistrationModal(true)}
+                className="bg-[#20C997] hover:bg-[#1AA179] flex items-center gap-2"
+              >
+                <UserPlus className="w-4 h-4" />
+                Register Walk-in
               </Button>
-            </form>
+            </div>
           </div>
 
-          {/* Queue Card */}
+
+          {/* Search and Filter Section */}
+          <div className="bg-white rounded-lg shadow p-6">
+            <div className="space-y-4">
+              {/* Search Bar */}
+              <div className="flex flex-col md:flex-row gap-4">
+                <div className="flex-1">
+                  <div className="relative">
+                    <input
+                      type="text"
+                      placeholder="Search by patient name, queue number, or contact..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="w-full px-4 py-2 pl-10 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-teal focus:border-transparent"
+                    />
+                    <Users className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  </div>
+                </div>
+
+                <Button
+                  onClick={handleExportCSV}
+                  disabled={filteredQueue.length === 0}
+                  className="bg-[#20C997] hover:bg-[#1AA179] flex items-center gap-2"
+                >
+                  <FileText className="w-4 h-4" />
+                  Export CSV
+                </Button>
+              </div>
+
+              {/* Status Filters */}
+              <div className="flex flex-wrap gap-2">
+                <button
+                  onClick={() => setStatusFilter('all')}
+                  className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
+                    statusFilter === 'all'
+                      ? 'bg-teal-100 text-teal-800 ring-2 ring-teal-500 shadow-sm'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <Users className="w-4 h-4" />
+                    All
+                    <span className="px-2 py-0.5 bg-white rounded-full text-xs font-semibold">
+                      {statistics.total}
+                    </span>
+                  </div>
+                </button>
+
+                <button
+                  onClick={() => setStatusFilter('waiting')}
+                  className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
+                    statusFilter === 'waiting'
+                      ? 'bg-purple-100 text-purple-800 ring-2 ring-purple-500 shadow-sm'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <Clock className="w-4 h-4" />
+                    Waiting
+                    <span className="px-2 py-0.5 bg-white rounded-full text-xs font-semibold">
+                      {statistics.checked_in}
+                    </span>
+                  </div>
+                </button>
+
+                <button
+                  onClick={() => setStatusFilter('in_progress')}
+                  className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
+                    statusFilter === 'in_progress'
+                      ? 'bg-amber-100 text-amber-800 ring-2 ring-amber-500 shadow-sm'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <AlertCircle className="w-4 h-4" />
+                    In Progress
+                    <span className="px-2 py-0.5 bg-white rounded-full text-xs font-semibold">
+                      {statistics.in_progress}
+                    </span>
+                  </div>
+                </button>
+
+                <button
+                  onClick={() => setStatusFilter('completed')}
+                  className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
+                    statusFilter === 'completed'
+                      ? 'bg-green-100 text-green-800 ring-2 ring-green-500 shadow-sm'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <CheckCircle className="w-4 h-4" />
+                    Completed
+                    <span className="px-2 py-0.5 bg-white rounded-full text-xs font-semibold">
+                      {statistics.completed}
+                    </span>
+                  </div>
+                </button>
+              </div>
+
+              {/* Results count */}
+              {(searchQuery || statusFilter !== 'all') && (
+                <div className="text-sm text-gray-600">
+                  Showing {filteredQueue.length} of {walkInQueue.length} patients
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Statistics Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <ProfessionalCard variant="flat" className="bg-gradient-to-br from-teal-50 to-teal-100 border-l-4 border-l-teal-500">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-600">Total Queue</p>
+                  <p className="text-3xl font-bold text-gray-900">{statistics.total}</p>
+                </div>
+                <div className="w-12 h-12 bg-teal-500 rounded-xl flex items-center justify-center shadow-lg">
+                  <Users className="w-6 h-6 text-white" />
+                </div>
+              </div>
+            </ProfessionalCard>
+
+            <ProfessionalCard variant="flat" className="bg-gradient-to-br from-purple-50 to-purple-100 border-l-4 border-l-purple-500">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-600">Waiting</p>
+                  <p className="text-3xl font-bold text-gray-900">{statistics.checked_in}</p>
+                </div>
+                <div className="w-12 h-12 bg-purple-500 rounded-xl flex items-center justify-center shadow-lg">
+                  <Clock className="w-6 h-6 text-white" />
+                </div>
+              </div>
+            </ProfessionalCard>
+
+            <ProfessionalCard variant="flat" className="bg-gradient-to-br from-amber-50 to-amber-100 border-l-4 border-l-amber-500">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-600">In Progress</p>
+                  <p className="text-3xl font-bold text-gray-900">{statistics.in_progress}</p>
+                </div>
+                <div className="w-12 h-12 bg-amber-500 rounded-xl flex items-center justify-center shadow-lg">
+                  <AlertCircle className="w-6 h-6 text-white" />
+                </div>
+              </div>
+            </ProfessionalCard>
+
+            <ProfessionalCard variant="flat" className="bg-gradient-to-br from-green-50 to-green-100 border-l-4 border-l-green-500">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-600">Completed</p>
+                  <p className="text-3xl font-bold text-gray-900">{statistics.completed}</p>
+                </div>
+                <div className="w-12 h-12 bg-green-500 rounded-xl flex items-center justify-center shadow-lg">
+                  <CheckCircle className="w-6 h-6 text-white" />
+                </div>
+              </div>
+            </ProfessionalCard>
+          </div>
+
+          {/* Queue Table */}
           <div className="bg-white rounded-lg shadow p-6">
             <div className="flex items-center gap-2 mb-4">
               <Users className="w-5 h-5 text-primary-teal" />
@@ -590,46 +913,15 @@ export default function WalkInQueuePage() {
 
             {isLoadingQueue ? (
               <div className="text-center py-8 text-gray-500">Loading queue...</div>
-            ) : walkInQueue.length === 0 ? (
-              <div className="text-center py-8 text-gray-500">
-                <AlertCircle className="w-12 h-12 mx-auto mb-2 text-gray-400" />
-                <p>No walk-in patients yet today</p>
-                <p className="text-sm mt-1">Register patients using the form above</p>
-              </div>
             ) : (
-              <div className="space-y-2">
-                {walkInQueue.map((patient, index) => (
-                  <div
-                    key={patient.id}
-                    className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50 transition-colors"
-                  >
-                    <div className="flex items-center gap-4">
-                      <div className="text-2xl font-bold text-primary-teal">#{index + 1}</div>
-                      <div>
-                        <p className="font-medium">
-                          {patient.first_name} {patient.last_name}
-                        </p>
-                        <p className="text-sm text-gray-500">
-                          {patient.barangay_name} • {patient.contact_number}
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      {patient.status === 'completed' ? (
-                        <span className="flex items-center gap-1 text-green-600">
-                          <CheckCircle className="w-4 h-4" />
-                          Completed
-                        </span>
-                      ) : (
-                        <Button variant="outline" size="sm">
-                          Start Consultation
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
+              <EnhancedTable
+                columns={walkInTableColumns}
+                data={filteredQueue}
+                searchable={false}
+                paginated={filteredQueue.length > 10}
+                pageSize={10}
+                onRowClick={(row: WalkInPatient) => handleViewDetails(row)}
+              />
             )}
           </div>
 
@@ -649,6 +941,342 @@ export default function WalkInQueuePage() {
             </div>
           </div>
         </div>
+
+        {/* Patient Details Drawer */}
+        {selectedPatient && (
+          <Drawer
+            isOpen={showDrawer}
+            onClose={() => {
+              setShowDrawer(false);
+              setSelectedPatient(null);
+            }}
+            title={`Queue #${selectedPatient.queue_number}`}
+            subtitle={`${selectedPatient.first_name} ${selectedPatient.last_name}`}
+            metadata={
+              <div className="flex items-center gap-4 text-sm text-white">
+                <div className="flex items-center gap-1">
+                  <Calendar className="w-4 h-4" />
+                  {new Date().toLocaleDateString()}
+                </div>
+                <div className="flex items-center gap-1">
+                  <Clock className="w-4 h-4" />
+                  {selectedPatient.appointment_time}
+                </div>
+              </div>
+            }
+            size="xl"
+          >
+            <div className="p-6">
+              <div className="space-y-6">
+                {/* Status Badge */}
+                <div>
+                  {getStatusBadge(selectedPatient.status)}
+                </div>
+
+                {/* Appointment Details */}
+                <div>
+                  <h4 className="text-sm font-medium text-gray-700 mb-2 flex items-center">
+                    <Calendar className="w-4 h-4 mr-2" />
+                    Appointment Details
+                  </h4>
+                  <div className="bg-gray-50 rounded-md p-3 space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Queue Number:</span>
+                      <span className="font-mono font-semibold text-gray-900">#{selectedPatient.queue_number}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Date:</span>
+                      <span className="font-medium text-gray-900">{new Date().toLocaleDateString()}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Time Block:</span>
+                      <div className="flex items-center gap-2">
+                        {(() => {
+                          const hour = parseInt(selectedPatient.appointment_time.split(':')[0]);
+                          const timeBlock: TimeBlock = hour < 13 ? 'AM' : 'PM';
+                          return (
+                            <>
+                              <span className={`px-2 py-1 rounded text-xs font-bold ${getTimeBlockColor(timeBlock)}`}>
+                                {timeBlock}
+                              </span>
+                              <span className="text-sm text-gray-600">
+                                {formatTimeBlock(timeBlock)}
+                              </span>
+                            </>
+                          );
+                        })()}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+              {/* Patient Information */}
+              <div>
+                <h4 className="text-sm font-medium text-gray-700 mb-2 flex items-center">
+                  <UserIcon className="w-4 h-4 mr-2" />
+                  Patient Information
+                </h4>
+                <div className="bg-gray-50 rounded-md p-3 space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Full Name:</span>
+                    <span className="font-medium text-gray-900">{selectedPatient.first_name} {selectedPatient.last_name}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Patient Number:</span>
+                    <span className="font-mono font-medium text-gray-900">{selectedPatient.patient_number}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600 flex items-center gap-1">
+                      <Mail className="w-3 h-3" /> Email:
+                    </span>
+                    <span className="font-medium text-gray-900">{selectedPatient.email || 'N/A'}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600 flex items-center gap-1">
+                      <Phone className="w-3 h-3" /> Contact:
+                    </span>
+                    <span className="font-medium text-gray-900">{selectedPatient.contact_number}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Date of Birth:</span>
+                    <span className="font-medium text-gray-900">{selectedPatient.date_of_birth}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Gender:</span>
+                    <span className="font-medium text-gray-900 capitalize">{selectedPatient.gender}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600 flex items-center gap-1">
+                      <MapPin className="w-3 h-3" /> Barangay:
+                    </span>
+                    <span className="font-medium text-gray-900">{selectedPatient.barangay_name}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Emergency Contact */}
+              {selectedPatient.emergency_contact && (
+                <div>
+                  <h4 className="text-sm font-medium text-gray-700 mb-2 flex items-center">
+                    <AlertCircle className="w-4 h-4 mr-2" />
+                    Emergency Contact
+                  </h4>
+                  <div className="bg-gray-50 rounded-md p-3 space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Name:</span>
+                      <span className="font-medium text-gray-900">{selectedPatient.emergency_contact.name}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Phone:</span>
+                      <span className="font-medium text-gray-900">{selectedPatient.emergency_contact.phone}</span>
+                    </div>
+                    {selectedPatient.emergency_contact.email && (
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">Email:</span>
+                        <span className="font-medium text-gray-900">{selectedPatient.emergency_contact.email}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Medical Information */}
+              {(selectedPatient.blood_type || selectedPatient.allergies || selectedPatient.current_medications) && (
+                <div>
+                  <h4 className="text-sm font-medium text-gray-700 mb-2 flex items-center">
+                    <Heart className="w-4 h-4 mr-2" />
+                    Medical Information
+                  </h4>
+                  <div className="bg-gray-50 rounded-md p-3 space-y-2 text-sm">
+                    {selectedPatient.blood_type && (
+                      <div className="flex justify-between">
+                        <span className="text-gray-600 flex items-center gap-1">
+                          <Droplet className="w-3 h-3" /> Blood Type:
+                        </span>
+                        <span className="font-medium text-gray-900">{selectedPatient.blood_type}</span>
+                      </div>
+                    )}
+                    {selectedPatient.allergies && selectedPatient.allergies.length > 0 && (
+                      <div>
+                        <p className="text-gray-600 flex items-center gap-1 mb-1">
+                          <AlertCircle className="w-3 h-3" /> Allergies:
+                        </p>
+                        <ul className="list-disc list-inside text-gray-900 ml-2">
+                          {selectedPatient.allergies.map((allergy, idx) => (
+                            <li key={idx}>{allergy}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                    {selectedPatient.current_medications && (
+                      <div>
+                        <p className="text-gray-600 flex items-center gap-1 mb-1">
+                          <Heart className="w-3 h-3" /> Current Medications / Medical Conditions:
+                        </p>
+                        <p className="text-gray-900 font-medium">{selectedPatient.current_medications}</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Timeline */}
+              {(selectedPatient.checked_in_at || selectedPatient.started_at || selectedPatient.completed_at) && (
+                <div>
+                  <h4 className="text-sm font-medium text-gray-700 mb-2 flex items-center">
+                    <Clock className="w-4 h-4 mr-2" />
+                    Timeline
+                  </h4>
+                  <div className="bg-gray-50 rounded-md p-3 space-y-2 text-sm">
+                    {selectedPatient.checked_in_at && (
+                      <div className="flex justify-between items-center">
+                        <span className="text-gray-600 flex items-center gap-2">
+                          <div className="w-2 h-2 rounded-full bg-purple-500"></div>
+                          Checked In:
+                        </span>
+                        <span className="text-gray-900 font-medium">{new Date(selectedPatient.checked_in_at).toLocaleString()}</span>
+                      </div>
+                    )}
+                    {selectedPatient.started_at && (
+                      <div className="flex justify-between items-center">
+                        <span className="text-gray-600 flex items-center gap-2">
+                          <div className="w-2 h-2 rounded-full bg-yellow-500"></div>
+                          Started:
+                        </span>
+                        <span className="text-gray-900 font-medium">{new Date(selectedPatient.started_at).toLocaleString()}</span>
+                      </div>
+                    )}
+                    {selectedPatient.completed_at && (
+                      <div className="flex justify-between items-center">
+                        <span className="text-gray-600 flex items-center gap-2">
+                          <div className="w-2 h-2 rounded-full bg-green-500"></div>
+                          Completed:
+                        </span>
+                        <span className="text-gray-900 font-medium">{new Date(selectedPatient.completed_at).toLocaleString()}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Action Buttons */}
+              <div className="flex flex-col gap-3 mt-6 pt-6 border-t border-gray-200">
+                {selectedPatient.status === 'in_progress' && (
+                  <Button
+                    onClick={() => {
+                      setShowDrawer(false);
+                      handleCompleteConsultation(selectedPatient.appointment_id);
+                    }}
+                    className="w-full bg-green-600 hover:bg-green-700"
+                  >
+                    <CheckCircle className="w-4 h-4 mr-2" />
+                    Complete Appointment
+                  </Button>
+                )}
+
+                <Button
+                  onClick={() => setShowStatusHistory(true)}
+                  variant="outline"
+                  className="w-full"
+                >
+                  <History className="w-4 h-4 mr-2" />
+                  View Status History
+                </Button>
+
+                {lastHistoryEntries[selectedPatient.appointment_id]?.from_status &&
+                  (selectedPatient.status === 'in_progress' ||
+                   (selectedPatient.status === 'completed' && !hasMedicalRecords[selectedPatient.appointment_id])) && (
+                  <button
+                    onClick={() => handleQuickUndo(selectedPatient.appointment_id)}
+                    className="w-full px-4 py-2 bg-yellow-100 text-yellow-800 hover:bg-yellow-200 border border-yellow-300 rounded-md font-medium transition-colors flex items-center justify-center"
+                  >
+                    <RotateCcw className="w-4 h-4 mr-2" />
+                    Undo Last Action
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+          </Drawer>
+        )}
+
+        {/* Status History Modal */}
+        {selectedPatient && (
+          <StatusHistoryModal
+            isOpen={showStatusHistory}
+            onClose={() => setShowStatusHistory(false)}
+            appointmentId={selectedPatient.appointment_id}
+          />
+        )}
+
+        {/* Appointment Completion Modal */}
+        {appointmentToComplete && (
+          <AppointmentCompletionModal
+            isOpen={showCompletionModal}
+            onClose={() => {
+              setShowCompletionModal(false);
+              setAppointmentToComplete(null);
+            }}
+            appointment={appointmentToComplete}
+            onSuccess={handleCompletionSuccess}
+          />
+        )}
+
+        {/* Confirm Start Consultation Dialog */}
+        <ConfirmDialog
+          isOpen={showStartDialog}
+          onClose={() => {
+            setShowStartDialog(false);
+            setSelectedPatient(null);
+          }}
+          onConfirm={handleConfirmStart}
+          title="Start Consultation"
+          message={
+            selectedPatient
+              ? `Are you ready to start consultation for ${selectedPatient.first_name} ${selectedPatient.last_name}?`
+              : 'Are you ready to start this consultation?'
+          }
+          confirmText="Start Consultation"
+          variant="info"
+          isLoading={actionLoading}
+        />
+
+        {/* Confirm Revert Status Dialog */}
+        <ConfirmDialog
+          isOpen={showRevertDialog}
+          onClose={() => {
+            setShowRevertDialog(false);
+            setPendingRevert(null);
+          }}
+          onConfirm={handleConfirmRevert}
+          title="Revert Appointment Status"
+          message={
+            pendingRevert
+              ? `Are you sure you want to revert this appointment from "${pendingRevert.currentStatus}" back to "${pendingRevert.targetStatus}"?
+
+${pendingRevert.currentStatus === 'in_progress' || pendingRevert.currentStatus === 'checked_in'
+  ? 'Warning: This will erase the timestamp for when the appointment was ' +
+    (pendingRevert.currentStatus === 'in_progress' ? 'started' : 'checked in') + '.'
+  : ''}`
+              : 'Are you sure you want to revert this appointment status?'
+          }
+          confirmText="Revert Status"
+          cancelText="Cancel"
+          variant="warning"
+          showReasonInput={true}
+          reasonLabel="Reason for reversion (required)"
+          reasonPlaceholder="E.g., Patient left before being seen, incorrect status update, etc."
+          isReasonRequired={true}
+          isLoading={actionLoading}
+        />
+
+        {/* Walk-in Registration Modal */}
+        <WalkInRegistrationModal
+          isOpen={showRegistrationModal}
+          onClose={() => setShowRegistrationModal(false)}
+          onSuccess={handleRegistrationSuccess}
+          barangays={barangays}
+        />
       </Container>
     </DashboardLayout>
   );

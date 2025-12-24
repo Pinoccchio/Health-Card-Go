@@ -330,25 +330,32 @@ export async function POST(request: NextRequest) {
       time_block = 'AM';
     }
 
-    // Get appointment count for today to determine appointment number
-    const { data: todayAppointments } = await supabase
-      .from('appointments')
-      .select('id', { count: 'exact', head: true })
-      .eq('appointment_date', appointment_date);
-
-    const appointment_number = ((todayAppointments as any)?.count || 0) + 1;
-
-    // Generate appointment number
-    const { data: appointmentCountData } = await supabase
-      .from('appointments')
-      .select('id', { count: 'exact', head: true });
-
-    const appointmentCount = (appointmentCountData as any)?.count || 0;
-    const year = new Date().getFullYear();
-    const appointment_number_formatted = `A${year}${String(appointmentCount + 1).padStart(6, '0')}`;
-
     // Use the healthcare admin's assigned service
     const service_id = profile.assigned_service_id;
+
+    // Get next queue number for this service on this date (uses RPC function)
+    // This ensures queue numbers are per-service, per-day (1-100 for each service)
+    const { data: nextQueueNumber, error: queueError } = await supabase
+      .rpc('get_next_queue_number', {
+        p_appointment_date: appointment_date,
+        p_service_id: service_id
+      });
+
+    if (queueError || !nextQueueNumber) {
+      console.error('❌ [QUEUE NUMBER ERROR]', {
+        message: queueError?.message,
+        code: queueError?.code,
+        details: queueError?.details,
+        appointment_date,
+        service_id,
+      });
+      return NextResponse.json(
+        { error: 'Failed to generate queue number', details: queueError?.message },
+        { status: 500 }
+      );
+    }
+
+    const appointment_number = nextQueueNumber;
 
     // Use admin client for appointment insert to bypass RLS
     const { data: appointment, error: appointmentError } = await supabaseAdmin
@@ -360,19 +367,48 @@ export async function POST(request: NextRequest) {
         appointment_date,
         appointment_time,
         time_block, // AM or PM block based on current time
-        status: 'completed', // Auto-complete for walk-in
+        status: 'checked_in', // Walk-in patients start as checked-in, not completed
         reason: 'Walk-in patient',
         checked_in_at: new Date().toISOString(),
         started_at: new Date().toISOString(),
-        completed_at: new Date().toISOString(),
-        completed_by_id: session.user.id, // Healthcare Admin who handled the walk-in
+        completed_by_id: session.user.id, // Track healthcare admin who registered the walk-in
+        // completed_at will be set when healthcare admin marks as completed
       })
       .select()
       .single();
 
     if (appointmentError) {
-      console.error('Error creating appointment:', appointmentError);
-      // Don't fail the entire request, but log the error
+      console.error('❌ [APPOINTMENT CREATION ERROR]', {
+        message: appointmentError.message,
+        code: appointmentError.code,
+        details: appointmentError.details,
+        hint: appointmentError.hint,
+        patient_id: patient.id,
+        patient_number,
+        service_id,
+      });
+
+      // CRITICAL FIX: Fail the entire request if appointment creation fails
+      return NextResponse.json({
+        error: 'Failed to create walk-in appointment',
+        details: appointmentError.message,
+        hint: appointmentError.hint,
+        patientCreated: true, // Patient was created successfully
+        patientId: patient.id,
+        patientNumber: patient_number,
+        message: 'Patient record was created, but appointment booking failed. Please try booking manually or contact support.',
+      }, { status: 500 });
+    }
+
+    // Ensure appointment was created
+    if (!appointment) {
+      console.error('❌ [APPOINTMENT NULL] No appointment returned from insert');
+      return NextResponse.json({
+        error: 'Failed to create walk-in appointment - no data returned',
+        patientCreated: true,
+        patientId: patient.id,
+        patientNumber: patient_number,
+      }, { status: 500 });
     }
 
     // 11. If disease data provided, create disease record using admin client

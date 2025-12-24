@@ -34,6 +34,7 @@ import {
   Heart,
   Droplet,
   AlertTriangle,
+  PlayCircle,
 } from 'lucide-react';
 import { getPhilippineTime } from '@/lib/utils/timezone';
 import { APPOINTMENT_STATUS_CONFIG } from '@/lib/constants/colors';
@@ -445,6 +446,32 @@ export default function HealthcareAdminAppointmentsPage() {
     }
   };
 
+  const handleStartConsultation = async (appointmentId: string) => {
+    try {
+      setActionLoading(true);
+
+      const response = await fetch(`/api/appointments/${appointmentId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'in_progress' }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to start consultation');
+      }
+
+      toast.success('Consultation started');
+      fetchAppointments(); // Refresh the appointments list
+    } catch (error) {
+      console.error('Error starting consultation:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to start consultation');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   const handleCompleteAppointment = (appointment: AdminAppointment) => {
     setAppointmentToComplete(appointment);
     setShowCompletionModal(true);
@@ -578,6 +605,8 @@ export default function HealthcareAdminAppointmentsPage() {
       accessor: 'actions',
       render: (_: any, row: AdminAppointment) => {
         const canComplete = row.status === 'in_progress';
+        const canStart = row.status === 'checked_in';
+        const isDisabledDueToInProgress = statistics.in_progress > 0;
 
         return (
           <div className="flex items-center gap-2">
@@ -588,6 +617,26 @@ export default function HealthcareAdminAppointmentsPage() {
               <Eye className="w-3 h-3 mr-1.5" />
               View
             </button>
+
+            {canStart && (
+              <div className="relative group">
+                <button
+                  onClick={() => handleStartConsultation(row.id)}
+                  disabled={isDisabledDueToInProgress || actionLoading}
+                  className={`inline-flex items-center px-3 py-1.5 bg-blue-50 text-blue-700 border border-blue-200 text-xs font-medium rounded-md hover:bg-blue-100 transition-colors ${isDisabledDueToInProgress ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  title={isDisabledDueToInProgress ? 'Wait for current consultation to complete' : 'Start consultation'}
+                >
+                  <PlayCircle className="w-3 h-3 mr-1.5" />
+                  Start
+                </button>
+                {isDisabledDueToInProgress && (
+                  <div className="invisible group-hover:visible absolute z-50 min-w-max max-w-xs px-3 py-2 text-xs text-white bg-gray-900 rounded-lg shadow-lg -top-12 right-0 whitespace-normal">
+                    Wait for current consultation to complete before starting
+                  </div>
+                )}
+              </div>
+            )}
+
             {canComplete && (
               <button
                 onClick={() => handleCompleteAppointment(row)}
@@ -1156,29 +1205,32 @@ export default function HealthcareAdminAppointmentsPage() {
                   </div>
                 )}
 
-                {/* Timestamps */}
+                {/* Timeline */}
                 {(selectedAppointment.checked_in_at || selectedAppointment.started_at || selectedAppointment.completed_at) && (
                   <div>
                     <h4 className="text-sm font-medium text-gray-700 mb-2 flex items-center">
                       <Clock className="w-4 h-4 mr-2" />
                       Timeline
                     </h4>
-                    <div className="bg-gray-50 rounded-md p-3 space-y-1 text-sm">
+                    <div className="space-y-2 text-sm">
                       {selectedAppointment.checked_in_at && (
-                        <div className="flex justify-between">
-                          <span className="text-gray-600">Checked In:</span>
+                        <div className="flex items-center gap-2">
+                          <div className="w-2 h-2 rounded-full bg-purple-500"></div>
+                          <span className="text-gray-500">Checked In:</span>
                           <span className="text-gray-900">{new Date(selectedAppointment.checked_in_at).toLocaleString()}</span>
                         </div>
                       )}
                       {selectedAppointment.started_at && (
-                        <div className="flex justify-between">
-                          <span className="text-gray-600">Started:</span>
+                        <div className="flex items-center gap-2">
+                          <div className="w-2 h-2 rounded-full bg-yellow-500"></div>
+                          <span className="text-gray-500">Started:</span>
                           <span className="text-gray-900">{new Date(selectedAppointment.started_at).toLocaleString()}</span>
                         </div>
                       )}
                       {selectedAppointment.completed_at && (
-                        <div className="flex justify-between">
-                          <span className="text-gray-600">Completed:</span>
+                        <div className="flex items-center gap-2">
+                          <div className="w-2 h-2 rounded-full bg-green-500"></div>
+                          <span className="text-gray-500">Completed:</span>
                           <span className="text-gray-900">{new Date(selectedAppointment.completed_at).toLocaleString()}</span>
                         </div>
                       )}
@@ -1200,6 +1252,7 @@ export default function HealthcareAdminAppointmentsPage() {
                   }}
                   variant="full"
                   className="flex-col"
+                  inProgressCount={statistics.in_progress}
                 />
 
                 {/* Complete Appointment Button */}

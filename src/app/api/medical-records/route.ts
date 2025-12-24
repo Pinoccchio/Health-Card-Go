@@ -503,47 +503,9 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // If appointment provided, mark it as completed
-    if (appointment_id) {
-      // Get current appointment status for history logging
-      const { data: currentAppointment } = await adminClient
-        .from('appointments')
-        .select('status')
-        .eq('id', appointment_id)
-        .single();
-
-      const oldStatus = currentAppointment?.status;
-
-      // Update appointment status to completed
-      await adminClient
-        .from('appointments')
-        .update({
-          status: 'completed',
-          completed_at: new Date().toISOString(),
-        })
-        .eq('id', appointment_id);
-
-      // Log status change to appointment_status_history
-      if (oldStatus && oldStatus !== 'completed') {
-        await adminClient.from('appointment_status_history').insert({
-          appointment_id: appointment_id,
-          change_type: 'status_change',
-          from_status: oldStatus,
-          to_status: 'completed',
-          changed_by: user.id,
-          reason: 'Auto-completed after creating medical record',
-        });
-      }
-
-      // Send notification to patient
-      await adminClient.from('notifications').insert({
-        user_id: patient.user_id,
-        type: 'general',
-        title: 'Appointment Completed',
-        message: 'Your appointment has been completed. You can now submit feedback.',
-        link: '/patient/feedback',
-      });
-    }
+    // Note: Appointment completion should be done via POST /api/appointments/[id]/complete
+    // This endpoint only creates medical records and links them to appointments
+    // The appointment completion flow handles status updates, notifications, and history logging
 
     return NextResponse.json({
       success: true,
