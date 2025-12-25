@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { getPhilippineTime } from '@/lib/utils/timezone';
 
 /**
  * GET /api/walk-in/queue
@@ -46,8 +47,9 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // 4. Get today's date
-    const today = new Date().toISOString().split('T')[0];
+    // 4. Get today's date in Philippine Time
+    const nowPHT = getPhilippineTime();
+    const today = `${nowPHT.getUTCFullYear()}-${String(nowPHT.getUTCMonth() + 1).padStart(2, '0')}-${String(nowPHT.getUTCDate()).padStart(2, '0')}`;
 
     // 5. Fetch today's walk-in patients for this service
     // Only show active appointments (checked_in, in_progress) - not completed ones
@@ -118,6 +120,7 @@ export async function GET(request: NextRequest) {
       blood_type: apt.patients?.blood_type || null,
       allergies: apt.patients?.allergies || null,
       current_medications: apt.patients?.current_medications || null,
+      appointment_date: apt.appointment_date, // Actual appointment date
       appointment_time: apt.appointment_time,
       time_block: apt.time_block,
       checked_in_at: apt.checked_in_at,

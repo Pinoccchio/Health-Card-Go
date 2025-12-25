@@ -691,9 +691,39 @@ export async function GET(request: NextRequest) {
     const totalPages = Math.ceil((totalCount || 0) / limit);
     console.log('✅ [QUERY] Appointments found:', appointments?.length || 0, 'of', totalCount, 'total');
 
+    // Fetch medical_records counts separately to bypass RLS issues with nested selects
+    // The nested select for medical_records returns undefined because RLS policies
+    // use auth.uid() which is NULL in service_role context
+    const appointmentIds = (appointments || []).map(a => a.id);
+    let medicalRecordCounts: Record<string, number> = {};
+
+    if (appointmentIds.length > 0) {
+      console.log('🔍 [MEDICAL RECORDS] Fetching counts for', appointmentIds.length, 'appointments');
+
+      const { data: medicalRecords, error: mrError } = await adminClient
+        .from('medical_records')
+        .select('appointment_id')
+        .in('appointment_id', appointmentIds)
+        .not('appointment_id', 'is', null);
+
+      if (mrError) {
+        console.error('❌ [MEDICAL RECORDS] Error fetching counts:', mrError);
+      } else if (medicalRecords) {
+        // Count records per appointment_id
+        medicalRecords.forEach(mr => {
+          if (mr.appointment_id) {
+            medicalRecordCounts[mr.appointment_id] = (medicalRecordCounts[mr.appointment_id] || 0) + 1;
+          }
+        });
+        console.log('✅ [MEDICAL RECORDS] Counts fetched:', medicalRecordCounts);
+      }
+    }
+
     // Add has_medical_record and has_feedback fields based on joins
     const appointmentsWithRecordStatus = (appointments || []).map(appointment => {
-      const hasMedicalRecord = appointment.medical_records && appointment.medical_records.length > 0;
+      // Use the separately fetched count instead of nested select
+      const hasMedicalRecord = (medicalRecordCounts[appointment.id] || 0) > 0;
+
       // Handle both single object and array responses from Supabase
       // PostgREST returns object for single record, array for multiple, null for none
       const hasFeedback = appointment.feedback
@@ -709,6 +739,8 @@ export async function GET(request: NextRequest) {
       console.log('  feedback is array?', Array.isArray(appointment.feedback));
       console.log('  feedback.length:', appointment.feedback?.length);
       console.log('  CALCULATED has_feedback:', hasFeedback);
+      console.log('  medical_records count from separate query:', medicalRecordCounts[appointment.id] || 0);
+      console.log('  CALCULATED has_medical_record:', hasMedicalRecord);
 
       return {
         ...appointment,
@@ -720,7 +752,7 @@ export async function GET(request: NextRequest) {
     // DEBUG: Log final response data
     console.log('\n📤 [API RESPONSE] Sending response:');
     appointmentsWithRecordStatus.forEach((apt: any) => {
-      console.log(`  ${apt.services?.name}: has_feedback = ${apt.has_feedback} (type: ${typeof apt.has_feedback})`);
+      console.log(`  ${apt.services?.name}: has_feedback = ${apt.has_feedback}, has_medical_record = ${apt.has_medical_record} (Queue #${apt.appointment_number})`);
     });
 
     return NextResponse.json({

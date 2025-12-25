@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { DashboardLayout } from '@/components/dashboard';
 import { Container } from '@/components/ui';
 import { FileText, AlertTriangle, TrendingUp, Clock, User, Lock, Shield, Info } from 'lucide-react';
@@ -37,6 +37,19 @@ interface MedicalRecord {
   created_by?: {
     first_name: string;
     last_name: string;
+  };
+  appointments?: {
+    id: string;
+    appointment_number: number;
+    appointment_date: string;
+    appointment_time: string;
+    status: string;
+    service_id: number;
+    services?: {
+      id: number;
+      name: string;
+      category: string;
+    };
   };
 }
 
@@ -74,6 +87,7 @@ export default function HealthcareAdminMedicalRecordsPage() {
   const { user } = useAuth();
   const router = useRouter();
   const toast = useToast();
+  const searchParams = useSearchParams();
 
   const [isCheckingAccess, setIsCheckingAccess] = useState(true);
   const [hasAccess, setHasAccess] = useState(false);
@@ -107,6 +121,9 @@ export default function HealthcareAdminMedicalRecordsPage() {
 
   // Refetch trigger (increment to force data refresh)
   const [refetchTrigger, setRefetchTrigger] = useState(0);
+
+  // Auto-open modal state
+  const [autoOpenRecord, setAutoOpenRecord] = useState<MedicalRecord | null>(null);
 
   // Check if user has access to medical records
   useEffect(() => {
@@ -250,6 +267,31 @@ export default function HealthcareAdminMedicalRecordsPage() {
     fetchRecords();
   }, [hasAccess, currentPage, searchQuery, categoryFilter, toast, refetchTrigger]);
 
+  // Handle auto-opening modal from appointment_id query parameter
+  useEffect(() => {
+    if (!hasAccess || !records.length) return;
+
+    const appointmentId = searchParams.get('appointment_id');
+    if (!appointmentId) return;
+
+    console.log('🔍 [AUTO-OPEN] Checking for appointment_id:', appointmentId);
+
+    // Find the medical record associated with this appointment
+    const recordToOpen = records.find(record => record.appointment_id === appointmentId);
+
+    if (recordToOpen) {
+      console.log('✅ [AUTO-OPEN] Found medical record for appointment:', recordToOpen);
+      setAutoOpenRecord(recordToOpen);
+
+      // Clean up URL by removing query parameter
+      router.replace('/healthcare-admin/medical-records', { scroll: false });
+    } else {
+      console.log('⚠️ [AUTO-OPEN] No medical record found for appointment_id:', appointmentId);
+      // Still clean up the URL even if record not found
+      router.replace('/healthcare-admin/medical-records', { scroll: false });
+    }
+  }, [hasAccess, records, searchParams, router]);
+
   const handleSearch = (query: string) => {
     setSearchQuery(query);
     setCurrentPage(1); // Reset to first page on new search
@@ -319,6 +361,11 @@ export default function HealthcareAdminMedicalRecordsPage() {
     setCurrentPage(1);
 
     toast.success('Appointment completed successfully');
+  };
+
+  const handleAutoOpenComplete = () => {
+    console.log('✅ [AUTO-OPEN] Modal opened successfully, clearing auto-open state');
+    setAutoOpenRecord(null);
   };
 
   // Show loading state while checking access
@@ -431,6 +478,8 @@ export default function HealthcareAdminMedicalRecordsPage() {
           onCategoryFilter={handleCategoryFilter}
           onExport={handleExport}
           onCreate={undefined}  // Medical records created via appointment completion only
+          autoOpenRecord={autoOpenRecord}
+          onAutoOpenComplete={handleAutoOpenComplete}
         />
 
         {/* Create Medical Record Modal */}

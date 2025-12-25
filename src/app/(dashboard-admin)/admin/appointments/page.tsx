@@ -241,16 +241,16 @@ export default function SuperAdminAppointmentsPage() {
       // Add date filter
       if (dateFilter === 'today') {
         const nowPHT = getPhilippineTime();
-        const year = nowPHT.getFullYear();
-        const month = String(nowPHT.getMonth() + 1).padStart(2, '0');
-        const day = String(nowPHT.getDate()).padStart(2, '0');
+        const year = nowPHT.getUTCFullYear();
+        const month = String(nowPHT.getUTCMonth() + 1).padStart(2, '0');
+        const day = String(nowPHT.getUTCDate()).padStart(2, '0');
         const today = `${year}-${month}-${day}`;
         params.append('date', today);
       } else if (dateFilter === 'week') {
         const nowPHT = getPhilippineTime();
-        const year = nowPHT.getFullYear();
-        const month = String(nowPHT.getMonth() + 1).padStart(2, '0');
-        const day = String(nowPHT.getDate()).padStart(2, '0');
+        const year = nowPHT.getUTCFullYear();
+        const month = String(nowPHT.getUTCMonth() + 1).padStart(2, '0');
+        const day = String(nowPHT.getUTCDate()).padStart(2, '0');
         const today = `${year}-${month}-${day}`;
         params.append('date', today);
       }

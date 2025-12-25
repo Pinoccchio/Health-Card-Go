@@ -23,6 +23,8 @@ interface StatusTransitionButtonsProps {
   variant?: 'full' | 'compact';
   className?: string;
   inProgressCount?: number; // Number of appointments currently in progress
+  queueNumber?: number; // Current appointment's queue number
+  lowerQueueCheckedIn?: number; // Queue number of lower checked-in appointment (if any)
 }
 
 interface ConfirmDialogState {
@@ -40,6 +42,8 @@ export function StatusTransitionButtons({
   variant = 'full',
   className = '',
   inProgressCount = 0,
+  queueNumber,
+  lowerQueueCheckedIn,
 }: StatusTransitionButtonsProps) {
   const toast = useToast();
   const [isLoading, setIsLoading] = useState(false);
@@ -56,7 +60,7 @@ export function StatusTransitionButtons({
   const isToday = () => {
     // Get current date in Philippine Time
     const philippineNow = getPhilippineTime();
-    const todayPHT = philippineNow.toISOString().split('T')[0];
+    const todayPHT = `${philippineNow.getUTCFullYear()}-${String(philippineNow.getUTCMonth() + 1).padStart(2, '0')}-${String(philippineNow.getUTCDate()).padStart(2, '0')}`;
 
     // Appointment date is already in YYYY-MM-DD format from database
     const aptDate = appointmentDate.split('T')[0]; // Handle if it comes with time
@@ -242,14 +246,23 @@ export function StatusTransitionButtons({
         // Only show "Start Consultation" button
         // To undo a check-in mistake, use "Undo Last Action" button instead of marking as no-show
         const isDisabledDueToInProgress = inProgressCount > 0;
+        const isNotNextInQueue = !!lowerQueueCheckedIn;
+        const isStartDisabled = isDisabledDueToInProgress || isNotNextInQueue;
+
         return (
           <div className="relative group">
             <Button
               onClick={handleStart}
-              disabled={isLoading || isDisabledDueToInProgress}
+              disabled={isLoading || isStartDisabled}
               variant="outline"
-              className={`bg-green-50 text-green-700 border-green-200 hover:bg-green-100 ${isDisabledDueToInProgress ? 'opacity-50 cursor-not-allowed' : ''}`}
-              title={isDisabledDueToInProgress ? 'Wait for current consultation to complete' : 'Start consultation'}
+              className={`bg-green-50 text-green-700 border-green-200 hover:bg-green-100 ${isStartDisabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+              title={
+                isDisabledDueToInProgress
+                  ? 'Wait for current consultation to complete'
+                  : isNotNextInQueue
+                  ? `Wait for queue #${lowerQueueCheckedIn} first`
+                  : 'Start consultation'
+              }
             >
               {isLoading && loadingAction === 'in_progress' ? (
                 <>
@@ -263,9 +276,13 @@ export function StatusTransitionButtons({
                 </>
               )}
             </Button>
-            {isDisabledDueToInProgress && (
+            {isStartDisabled && (
               <div className="invisible group-hover:visible absolute z-50 min-w-max max-w-xs px-3 py-2 text-xs text-white bg-gray-900 rounded-lg shadow-lg -top-12 right-0 whitespace-normal">
-                Wait for current consultation to complete before starting
+                {isDisabledDueToInProgress
+                  ? 'Wait for current consultation to complete before starting'
+                  : isNotNextInQueue
+                  ? `Queue #${lowerQueueCheckedIn} must be consulted first (sequential order)`
+                  : 'Start consultation'}
               </div>
             )}
           </div>

@@ -22,6 +22,14 @@ export function TimeElapsedBadge({ timestamp, label, type = 'waiting' }: TimeEla
       const now = getPhilippineTime();
       const start = new Date(timestamp); // UTC timestamp from database
       const diffMs = now.getTime() - start.getTime();
+
+      // Handle future timestamps (scheduled but not yet occurred)
+      if (diffMs < 0) {
+        setElapsed('Scheduled');
+        setColorClass('bg-blue-100 text-blue-800');
+        return;
+      }
+
       const diffMins = Math.floor(diffMs / 60000);
 
       // Format elapsed time

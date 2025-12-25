@@ -9,34 +9,27 @@ export const PHILIPPINE_TIMEZONE = 'Asia/Manila';
 
 /**
  * Get current date and time in Philippine timezone
- * @returns Date object representing current time in PHT
+ * @returns Date object offset to Philippine time (use getUTC* methods to get PHT values)
+ *
+ * IMPORTANT: Use .getUTCFullYear(), .getUTCMonth(), .getUTCDate(), .getUTCHours(), etc.
+ * to extract Philippine time values from the returned Date object.
+ *
+ * Example:
+ *   const nowPHT = getPhilippineTime();
+ *   const phtDate = nowPHT.getUTCDate();  // Philippine day of month
+ *   const phtHour = nowPHT.getUTCHours(); // Philippine hour
  */
 export function getPhilippineTime(): Date {
-  // Create a date in Philippine timezone
   const nowUTC = new Date();
-  const formatter = new Intl.DateTimeFormat('en-US', {
-    timeZone: PHILIPPINE_TIMEZONE,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-    hour12: false,
-  });
 
-  const parts = formatter.formatToParts(nowUTC);
-  const getValue = (type: string) => parts.find(p => p.type === type)?.value || '0';
+  // Philippine timezone is UTC+8 (8 hours ahead of UTC)
+  const PHT_OFFSET_MS = 8 * 60 * 60 * 1000; // 8 hours in milliseconds
 
-  // Construct date from parts (this creates a Date in local timezone but with PHT values)
-  const year = parseInt(getValue('year'));
-  const month = parseInt(getValue('month')) - 1; // Month is 0-indexed
-  const day = parseInt(getValue('day'));
-  const hour = parseInt(getValue('hour'));
-  const minute = parseInt(getValue('minute'));
-  const second = parseInt(getValue('second'));
+  // Create a Date object offset by 8 hours
+  // When you use UTC methods on this Date, you get Philippine time values
+  const nowPHT = new Date(nowUTC.getTime() + PHT_OFFSET_MS);
 
-  return new Date(year, month, day, hour, minute, second);
+  return nowPHT;
 }
 
 /**
@@ -135,11 +128,11 @@ export function parseAppointmentDateTime(appointmentDate: string, appointmentTim
 export function getMinBookingDate(): Date {
   const now = getPhilippineTime();
   let minDate = new Date(now);
-  minDate.setDate(minDate.getDate() + 7);
+  minDate.setUTCDate(minDate.getUTCDate() + 7);
 
   // Skip weekends
-  while (minDate.getDay() === 0 || minDate.getDay() === 6) {
-    minDate.setDate(minDate.getDate() + 1);
+  while (minDate.getUTCDay() === 0 || minDate.getUTCDay() === 6) {
+    minDate.setUTCDate(minDate.getUTCDate() + 1);
   }
 
   return minDate;
@@ -150,9 +143,9 @@ export function getMinBookingDate(): Date {
  */
 export function getMinBookingDateString(): string {
   const minDate = getMinBookingDate();
-  const year = minDate.getFullYear();
-  const month = String(minDate.getMonth() + 1).padStart(2, '0');
-  const day = String(minDate.getDate()).padStart(2, '0');
+  const year = minDate.getUTCFullYear();
+  const month = String(minDate.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(minDate.getUTCDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
 }
 

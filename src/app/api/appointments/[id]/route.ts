@@ -141,12 +141,13 @@ export async function PATCH(
         );
       }
 
-      // Sequential consultation enforcement: Only allow one 'in_progress' at a time per service
+      // Sequential consultation enforcement: Only allow one 'in_progress' at a time per service per date
       if (targetStatus === 'in_progress') {
         const { data: existingInProgress, error: checkError } = await adminClient
           .from('appointments')
           .select('id, appointment_number')
           .eq('service_id', appointment.service_id)
+          .eq('appointment_date', appointment.appointment_date)
           .eq('status', 'in_progress')
           .neq('id', appointmentId)
           .maybeSingle();

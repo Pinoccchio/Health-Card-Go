@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createClient as createSupabaseClient } from '@supabase/supabase-js';
+import { getPhilippineTime } from '@/lib/utils/timezone';
 
 /**
  * Generate a cryptographically secure random password
@@ -269,6 +270,9 @@ export async function POST(request: NextRequest) {
     // 8. Create patient record using admin client to bypass RLS
     // Note: Using supabaseAdmin because RLS policy "Patients can insert own record"
     // requires user_id = auth.uid(), but we're inserting a different user's record
+    const regDatePHT = getPhilippineTime();
+    const registration_date = `${regDatePHT.getUTCFullYear()}-${String(regDatePHT.getUTCMonth() + 1).padStart(2, '0')}-${String(regDatePHT.getUTCDate()).padStart(2, '0')}`;
+
     const { data: patient, error: patientError } = await supabaseAdmin
       .from('patients')
       .insert({
@@ -281,7 +285,7 @@ export async function POST(request: NextRequest) {
         allergies: allergies ? [allergies] : null,
         current_medications: current_medications ? [current_medications] : null,
         accessibility_requirements: null,
-        registration_date: new Date().toISOString().split('T')[0],
+        registration_date: registration_date,
         // booking_count auto-set to 1 by trigger
       })
       .select()
@@ -307,9 +311,9 @@ export async function POST(request: NextRequest) {
     // Appointment completion is handled by Healthcare Admins now
 
     // 10. Auto-create completed appointment with valid operating hours
-    const now = new Date();
-    const appointment_date = now.toISOString().split('T')[0];
-    const currentHour = now.getHours();
+    const nowPHT = getPhilippineTime();
+    const appointment_date = `${nowPHT.getUTCFullYear()}-${String(nowPHT.getUTCMonth() + 1).padStart(2, '0')}-${String(nowPHT.getUTCDate()).padStart(2, '0')}`;
+    const currentHour = nowPHT.getUTCHours();
 
     // Use default times that always pass the CHECK constraint
     // Determine block based on current time, use standard times for each block

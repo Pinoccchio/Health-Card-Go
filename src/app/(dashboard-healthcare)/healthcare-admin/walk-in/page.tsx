@@ -580,13 +580,13 @@ export default function WalkInQueuePage() {
     },
     {
       header: 'Date',
-      accessor: 'registered_at',
+      accessor: 'appointment_date',
       sortable: true,
-      render: () => (
+      render: (value: string) => (
         <div className="flex items-center gap-1">
           <Calendar className="w-3 h-3 text-gray-400" />
           <span className="text-sm text-gray-700">
-            {new Date().toLocaleDateString()}
+            {new Date(value).toLocaleDateString()}
           </span>
         </div>
       ),
@@ -956,7 +956,7 @@ export default function WalkInQueuePage() {
               <div className="flex items-center gap-4 text-sm text-white">
                 <div className="flex items-center gap-1">
                   <Calendar className="w-4 h-4" />
-                  {new Date().toLocaleDateString()}
+                  {new Date(selectedPatient.appointment_date).toLocaleDateString()}
                 </div>
                 <div className="flex items-center gap-1">
                   <Clock className="w-4 h-4" />
@@ -986,7 +986,7 @@ export default function WalkInQueuePage() {
                     </div>
                     <div className="flex justify-between">
                       <span className="text-gray-600">Date:</span>
-                      <span className="font-medium text-gray-900">{new Date().toLocaleDateString()}</span>
+                      <span className="font-medium text-gray-900">{new Date(selectedPatient.appointment_date).toLocaleDateString()}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-gray-600">Time Block:</span>

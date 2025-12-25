@@ -73,6 +73,7 @@ export async function GET(request: NextRequest) {
         ),
         appointments(
           id,
+          appointment_number,
           appointment_date,
           appointment_time,
           status,

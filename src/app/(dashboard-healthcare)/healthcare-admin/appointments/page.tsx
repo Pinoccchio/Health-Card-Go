@@ -35,6 +35,8 @@ import {
   Droplet,
   AlertTriangle,
   PlayCircle,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 import { getPhilippineTime } from '@/lib/utils/timezone';
 import { APPOINTMENT_STATUS_CONFIG } from '@/lib/constants/colors';
@@ -61,6 +63,7 @@ interface AdminAppointment {
   checked_in_at?: string | null;
   started_at?: string | null;
   completed_at?: string | null;
+  has_medical_record?: boolean; // Indicates if medical record exists
   patients: {
     id: string;
     patient_number: string;
@@ -103,6 +106,29 @@ export default function HealthcareAdminAppointmentsPage() {
   const [filter, setFilter] = useState<'all' | 'pending' | 'scheduled' | 'checked_in' | 'in_progress' | 'completed' | 'cancelled' | 'no_show'>('all');
   const [dateFilter, setDateFilter] = useState<string>('all');
   const [successMessage, setSuccessMessage] = useState('');
+
+  // Date-based queue view state
+  const [selectedDate, setSelectedDate] = useState<string>(() => {
+    const nowPHT = getPhilippineTime();
+    return `${nowPHT.getUTCFullYear()}-${String(nowPHT.getUTCMonth() + 1).padStart(2, '0')}-${String(nowPHT.getUTCDate()).padStart(2, '0')}`;
+  });
+
+  // Get unique dates that have appointments (sorted chronologically)
+  const availableDates = useMemo(() => {
+    const dates = new Set<string>();
+    appointments.forEach(apt => {
+      const date = apt.appointment_date.split('T')[0];
+      dates.add(date);
+    });
+    return Array.from(dates).sort();
+  }, [appointments]);
+
+  // Dropdown dates: includes selected date even if it has no appointments
+  // This keeps header and dropdown in sync
+  const dropdownDates = useMemo(() => {
+    const dates = new Set([selectedDate, ...availableDates]);
+    return Array.from(dates).sort();
+  }, [selectedDate, availableDates]);
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
@@ -181,10 +207,13 @@ export default function HealthcareAdminAppointmentsPage() {
     return () => clearTimeout(timeoutId);
   }, [searchQuery]);
 
-  // Fetch appointments when page or filters change
+  // Fetch appointments when page changes or on initial mount
+  // Note: Status and date filtering are now client-side, so we don't refetch on filter changes
   useEffect(() => {
-    fetchAppointments();
-  }, [currentPage, dateFilter, filter]);
+    if (hasAccess) {
+      fetchAppointments();
+    }
+  }, [currentPage, hasAccess]);
 
   // Fetch last history entries when appointments change
   useEffect(() => {
@@ -274,27 +303,9 @@ export default function HealthcareAdminAppointmentsPage() {
         params.append('search', searchQuery.trim());
       }
 
-      // Add status filter
-      if (filter !== 'all') {
-        params.append('status', filter);
-      }
-
-      // Add date filter
-      if (dateFilter === 'today') {
-        const nowPHT = getPhilippineTime();
-        const year = nowPHT.getFullYear();
-        const month = String(nowPHT.getMonth() + 1).padStart(2, '0');
-        const day = String(nowPHT.getDate()).padStart(2, '0');
-        const today = `${year}-${month}-${day}`;
-        params.append('date', today);
-      } else if (dateFilter === 'week') {
-        const nowPHT = getPhilippineTime();
-        const year = nowPHT.getFullYear();
-        const month = String(nowPHT.getMonth() + 1).padStart(2, '0');
-        const day = String(nowPHT.getDate()).padStart(2, '0');
-        const today = `${year}-${month}-${day}`;
-        params.append('date', today);
-      }
+      // Status filtering is now handled client-side (like walk-in page)
+      // Date filtering is now handled client-side to enable navigation even when selected date is empty
+      // This allows the page to show date selector and empty state instead of "No Appointments Found"
 
       const response = await fetch(`/api/appointments?${params.toString()}`);
       const data = await response.json();
@@ -340,12 +351,32 @@ export default function HealthcareAdminAppointmentsPage() {
     }
   };
 
-  // Calculate statistics
-  // Note: With pagination, statistics show counts for current page only
-  // Calculate statistics from current page appointments using shared utility
+  // Filter appointments by selected date ONLY (for statistics calculation)
+  // This ensures filter button counts remain constant regardless of active filter
+  const dateOnlyFilteredAppointments = useMemo(() => {
+    return appointments.filter(apt => {
+      const aptDate = apt.appointment_date.split('T')[0]; // Get YYYY-MM-DD part
+      return aptDate === selectedDate;
+    });
+  }, [appointments, selectedDate]);
+
+  // Filter by BOTH date AND status (for table display)
+  const dateFilteredAppointments = useMemo(() => {
+    let filtered = dateOnlyFilteredAppointments;
+
+    // Apply status filter client-side (like walk-in page)
+    if (filter !== 'all') {
+      filtered = filtered.filter(apt => apt.status === filter);
+    }
+
+    return filtered;
+  }, [dateOnlyFilteredAppointments, filter]);
+
+  // Calculate statistics from DATE-ONLY filtered appointments (not status-filtered)
+  // This ensures filter button counts remain constant regardless of active filter
   const statistics = useMemo(
-    () => calculateAppointmentStatistics(appointments),
-    [appointments]
+    () => calculateAppointmentStatistics(dateOnlyFilteredAppointments),
+    [dateOnlyFilteredAppointments]
   );
 
   const formatDate = (dateString: string) => {
@@ -491,8 +522,42 @@ export default function HealthcareAdminAppointmentsPage() {
     setAppointmentToComplete(null);
   };
 
+  // Date navigation - jumps to previous/next date in dropdown
+  const handlePreviousDate = () => {
+    const currentIndex = dropdownDates.indexOf(selectedDate);
+    if (currentIndex > 0) {
+      setSelectedDate(dropdownDates[currentIndex - 1]);
+    }
+  };
+
+  const handleNextDate = () => {
+    const currentIndex = dropdownDates.indexOf(selectedDate);
+    if (currentIndex < dropdownDates.length - 1) {
+      setSelectedDate(dropdownDates[currentIndex + 1]);
+    }
+  };
+
+  const handleTodayClick = () => {
+    const nowPHT = getPhilippineTime();
+    const today = `${nowPHT.getUTCFullYear()}-${String(nowPHT.getUTCMonth() + 1).padStart(2, '0')}-${String(nowPHT.getUTCDate()).padStart(2, '0')}`;
+
+    // Always show today's date, even if there are no appointments
+    // This allows users to see the current date with empty state instead of redirecting to another date
+    setSelectedDate(today);
+  };
+
+  const handleTomorrowClick = () => {
+    const nowPHT = getPhilippineTime();
+    nowPHT.setUTCDate(nowPHT.getUTCDate() + 1);
+    const tomorrow = `${nowPHT.getUTCFullYear()}-${String(nowPHT.getUTCMonth() + 1).padStart(2, '0')}-${String(nowPHT.getUTCDate()).padStart(2, '0')}`;
+
+    // Always show tomorrow's date, even if there are no appointments
+    // This allows users to see the next day with empty state instead of jumping to another date
+    setSelectedDate(tomorrow);
+  };
+
   const exportToCSV = () => {
-    const filteredData = appointments;
+    const filteredData = dateFilteredAppointments;
     const headers = ['Queue #', 'Patient Name', 'Patient #', 'Date', 'Time', 'Status', 'Reason'];
     const rows = filteredData.map(apt => [
       apt.appointment_number,
@@ -513,7 +578,7 @@ export default function HealthcareAdminAppointmentsPage() {
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `appointments_${dateFilter}_${new Date().toISOString().split('T')[0]}.csv`;
+    a.download = `appointments_${selectedDate}.csv`;
     a.click();
   };
 
@@ -587,6 +652,12 @@ export default function HealthcareAdminAppointmentsPage() {
               type="consulting"
             />
           )}
+          {row.status === 'completed' && row.has_medical_record && (
+            <span className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-green-100 text-green-800">
+              <FileText className="w-3 h-3 mr-1" />
+              Medical Record Created
+            </span>
+          )}
         </div>
       ),
     },
@@ -606,7 +677,26 @@ export default function HealthcareAdminAppointmentsPage() {
       render: (_: any, row: AdminAppointment) => {
         const canComplete = row.status === 'in_progress';
         const canStart = row.status === 'checked_in';
-        const isDisabledDueToInProgress = statistics.in_progress > 0;
+
+        // Check if there's another appointment in progress for the SAME service on the SAME date
+        const isDisabledDueToInProgress = dateFilteredAppointments.some(apt =>
+          apt.id !== row.id &&
+          apt.service_id === row.service_id &&
+          apt.appointment_date === row.appointment_date &&
+          apt.status === 'in_progress'
+        );
+
+        // Check if there's a lower queue number that's checked_in (not next in queue)
+        const lowerQueueCheckedIn = dateFilteredAppointments.find(apt =>
+          apt.id !== row.id &&
+          apt.service_id === row.service_id &&
+          apt.appointment_date === row.appointment_date &&
+          apt.status === 'checked_in' &&
+          apt.appointment_number < row.appointment_number
+        );
+
+        const isNotNextInQueue = !!lowerQueueCheckedIn;
+        const isStartDisabled = isDisabledDueToInProgress || isNotNextInQueue;
 
         return (
           <div className="flex items-center gap-2">
@@ -622,16 +712,26 @@ export default function HealthcareAdminAppointmentsPage() {
               <div className="relative group">
                 <button
                   onClick={() => handleStartConsultation(row.id)}
-                  disabled={isDisabledDueToInProgress || actionLoading}
-                  className={`inline-flex items-center px-3 py-1.5 bg-blue-50 text-blue-700 border border-blue-200 text-xs font-medium rounded-md hover:bg-blue-100 transition-colors ${isDisabledDueToInProgress ? 'opacity-50 cursor-not-allowed' : ''}`}
-                  title={isDisabledDueToInProgress ? 'Wait for current consultation to complete' : 'Start consultation'}
+                  disabled={isStartDisabled || actionLoading}
+                  className={`inline-flex items-center px-3 py-1.5 bg-blue-50 text-blue-700 border border-blue-200 text-xs font-medium rounded-md hover:bg-blue-100 transition-colors ${isStartDisabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  title={
+                    isDisabledDueToInProgress
+                      ? 'Wait for current consultation to complete'
+                      : isNotNextInQueue
+                      ? `Wait for queue #${lowerQueueCheckedIn?.appointment_number} first`
+                      : 'Start consultation'
+                  }
                 >
                   <PlayCircle className="w-3 h-3 mr-1.5" />
                   Start
                 </button>
-                {isDisabledDueToInProgress && (
+                {isStartDisabled && (
                   <div className="invisible group-hover:visible absolute z-50 min-w-max max-w-xs px-3 py-2 text-xs text-white bg-gray-900 rounded-lg shadow-lg -top-12 right-0 whitespace-normal">
-                    Wait for current consultation to complete before starting
+                    {isDisabledDueToInProgress
+                      ? 'Wait for current consultation to complete before starting'
+                      : isNotNextInQueue
+                      ? `Queue #${lowerQueueCheckedIn?.appointment_number} must be consulted first (sequential order)`
+                      : 'Start consultation'}
                   </div>
                 )}
               </div>
@@ -644,6 +744,17 @@ export default function HealthcareAdminAppointmentsPage() {
               >
                 <CheckCircle className="w-3 h-3 mr-1.5" />
                 Complete
+              </button>
+            )}
+
+            {row.status === 'completed' && row.has_medical_record && (
+              <button
+                onClick={() => router.push(`/healthcare-admin/medical-records?appointment_id=${row.id}`)}
+                className="inline-flex items-center px-3 py-1.5 bg-purple-50 text-purple-700 border border-purple-200 text-xs font-medium rounded-md hover:bg-purple-100 transition-colors"
+                title="View associated medical record"
+              >
+                <FileText className="w-3 h-3 mr-1.5" />
+                Medical Record
               </button>
             )}
           </div>
@@ -711,8 +822,100 @@ export default function HealthcareAdminAppointmentsPage() {
             <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary-teal"></div>
             <p className="mt-2 text-sm text-gray-500">Loading appointments...</p>
           </div>
+        ) : availableDates.length === 0 ? (
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-8 text-center">
+            <Calendar className="w-16 h-16 text-blue-600 mx-auto mb-4" />
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">No Appointments Found</h2>
+            <p className="text-gray-600 mb-4">
+              There are currently no appointments scheduled for your service.
+            </p>
+            <p className="text-sm text-gray-500">
+              Appointments will appear here once patients book or when you create them.
+            </p>
+          </div>
         ) : (
           <>
+            {/* Date Selector - Compact & Professional */}
+            <div className="bg-white rounded-lg shadow p-6 mb-6">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                {/* Date Info */}
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 bg-primary-teal/10 rounded-lg flex items-center justify-center">
+                    <Calendar className="w-6 h-6 text-primary-teal" />
+                  </div>
+                  <div>
+                    <h2 className="text-lg font-bold text-gray-900">
+                      {new Date(selectedDate).toLocaleDateString('en-US', {
+                        weekday: 'long',
+                        month: 'long',
+                        day: 'numeric',
+                        year: 'numeric'
+                      })}
+                    </h2>
+                    <p className="text-xs text-gray-600">
+                      {dateFilteredAppointments.length} {dateFilteredAppointments.length === 1 ? 'appointment' : 'appointments'} in queue
+                    </p>
+                  </div>
+                </div>
+
+                {/* Date Navigation */}
+                <div className="flex items-center gap-2">
+                  {/* Previous */}
+                  <button
+                    onClick={handlePreviousDate}
+                    disabled={dropdownDates.indexOf(selectedDate) === 0}
+                    className="px-3 py-2 bg-gray-100 hover:bg-gray-200 disabled:opacity-30 disabled:cursor-not-allowed rounded-md transition-colors"
+                    title="Previous date"
+                  >
+                    <ChevronLeft className="w-4 h-4 text-gray-700" />
+                  </button>
+
+                  {/* Quick Filters */}
+                  <button
+                    onClick={handleTodayClick}
+                    className="px-3 py-2 bg-gray-100 hover:bg-gray-200 rounded-md text-xs font-medium text-gray-700 transition-colors"
+                  >
+                    Today
+                  </button>
+
+                  <button
+                    onClick={handleTomorrowClick}
+                    className="px-3 py-2 bg-gray-100 hover:bg-gray-200 rounded-md text-xs font-medium text-gray-700 transition-colors"
+                  >
+                    Tomorrow
+                  </button>
+
+                  {/* Date Dropdown - Shows selected date and all dates with appointments */}
+                  <select
+                    value={selectedDate}
+                    onChange={(e) => setSelectedDate(e.target.value)}
+                    className="px-3 py-2 bg-gray-100 hover:bg-gray-200 border border-gray-300 rounded-md text-xs font-medium text-gray-900 focus:outline-none focus:ring-2 focus:ring-primary-teal/50 transition-colors"
+                  >
+                    {dropdownDates.map((date) => (
+                      <option key={date} value={date} className="text-gray-900">
+                        {new Date(date).toLocaleDateString('en-US', {
+                          month: 'short',
+                          day: 'numeric',
+                          year: 'numeric',
+                          weekday: 'short'
+                        })} ({appointments.filter(apt => apt.appointment_date.split('T')[0] === date).length})
+                      </option>
+                    ))}
+                  </select>
+
+                  {/* Next */}
+                  <button
+                    onClick={handleNextDate}
+                    disabled={dropdownDates.indexOf(selectedDate) === dropdownDates.length - 1}
+                    className="px-3 py-2 bg-gray-100 hover:bg-gray-200 disabled:opacity-30 disabled:cursor-not-allowed rounded-md transition-colors"
+                    title="Next date"
+                  >
+                    <ChevronRight className="w-4 h-4 text-gray-700" />
+                  </button>
+                </div>
+              </div>
+            </div>
+
             {/* Statistics Cards */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-4 gap-4 mb-6">
               <ProfessionalCard variant="flat" className="bg-gradient-to-br from-teal-50 to-teal-100 border-l-4 border-teal-500">
@@ -863,7 +1066,7 @@ export default function HealthcareAdminAppointmentsPage() {
             <div className="flex justify-end mb-4">
               <button
                 onClick={exportToCSV}
-                disabled={appointments.length === 0}
+                disabled={dateFilteredAppointments.length === 0}
                 className="flex items-center gap-2 px-4 py-2 bg-primary-teal text-white rounded-md hover:bg-primary-teal/90 text-sm font-medium disabled:opacity-50"
               >
                 <Download className="w-4 h-4" />
@@ -875,7 +1078,7 @@ export default function HealthcareAdminAppointmentsPage() {
             <div className="mt-6">
               <EnhancedTable
                 columns={tableColumns}
-                data={appointments}
+                data={dateFilteredAppointments}
                 searchable
                 searchPlaceholder="Search by patient name, queue number..."
                 searchValue={searchQuery}
@@ -1253,6 +1456,16 @@ export default function HealthcareAdminAppointmentsPage() {
                   variant="full"
                   className="flex-col"
                   inProgressCount={statistics.in_progress}
+                  queueNumber={selectedAppointment.appointment_number}
+                  lowerQueueCheckedIn={
+                    dateFilteredAppointments.find(apt =>
+                      apt.id !== selectedAppointment.id &&
+                      apt.service_id === selectedAppointment.service_id &&
+                      apt.appointment_date === selectedAppointment.appointment_date &&
+                      apt.status === 'checked_in' &&
+                      apt.appointment_number < selectedAppointment.appointment_number
+                    )?.appointment_number
+                  }
                 />
 
                 {/* Complete Appointment Button */}

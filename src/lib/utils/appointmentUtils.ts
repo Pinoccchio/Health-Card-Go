@@ -47,7 +47,7 @@ export async function markNoShowsAndSuspend(): Promise<NoShowStats> {
 
     // Calculate cutoff time (24 hours ago)
     const cutoffTime = new Date(now);
-    cutoffTime.setHours(cutoffTime.getHours() - 24);
+    cutoffTime.setUTCHours(cutoffTime.getUTCHours() - 24);
 
     console.log('[markNoShowsAndSuspend] Starting no-show detection...', {
       currentTime: now.toISOString(),

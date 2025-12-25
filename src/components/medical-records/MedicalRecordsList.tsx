@@ -1,10 +1,11 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Search, FileText, Calendar, User, ChevronLeft, ChevronRight, Download, Plus, Eye, AlertCircle } from 'lucide-react';
 import { CategoryBadge } from './CategoryBadge';
 import { EncryptionBadge } from './EncryptionBadge';
 import { MedicalRecordDetailsModal } from './MedicalRecordDetailsModal';
+import { formatPhilippineDate } from '@/lib/utils/timezone';
 
 interface MedicalRecord {
   id: string;
@@ -32,6 +33,19 @@ interface MedicalRecord {
     last_name: string;
     email: string;
   };
+  appointments?: {
+    id: string;
+    appointment_number: number;
+    appointment_date: string;
+    appointment_time: string;
+    status: string;
+    service_id: number;
+    services?: {
+      id: number;
+      name: string;
+      category: string;
+    };
+  };
 }
 
 interface MedicalRecordsListProps {
@@ -46,6 +60,8 @@ interface MedicalRecordsListProps {
   onCategoryFilter: (category: string) => void;
   onExport?: () => void;
   onCreate?: () => void;
+  autoOpenRecord?: MedicalRecord | null;
+  onAutoOpenComplete?: () => void;
 }
 
 export function MedicalRecordsList({
@@ -60,11 +76,27 @@ export function MedicalRecordsList({
   onCategoryFilter,
   onExport,
   onCreate,
+  autoOpenRecord,
+  onAutoOpenComplete,
 }: MedicalRecordsListProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [selectedRecord, setSelectedRecord] = useState<MedicalRecord | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+
+  // Handle auto-opening modal when autoOpenRecord prop is provided
+  useEffect(() => {
+    if (autoOpenRecord) {
+      console.log('🎯 [AUTO-OPEN] Opening modal for record:', autoOpenRecord);
+      setSelectedRecord(autoOpenRecord);
+      setIsModalOpen(true);
+
+      // Notify parent that auto-open completed
+      if (onAutoOpenComplete) {
+        onAutoOpenComplete();
+      }
+    }
+  }, [autoOpenRecord, onAutoOpenComplete]);
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const query = e.target.value;
@@ -248,9 +280,29 @@ export function MedicalRecordsList({
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center text-sm text-gray-900">
-                          <Calendar className="w-4 h-4 mr-2 text-gray-400" />
-                          {formatDate(record.created_at)}
+                        <div className="flex flex-col gap-1">
+                          <div className="flex items-center text-sm text-gray-900">
+                            <Calendar className="w-4 h-4 mr-2 text-gray-400" />
+                            {record.appointments?.appointment_date
+                              ? new Date(record.appointments.appointment_date).toLocaleDateString('en-US', {
+                                  year: 'numeric',
+                                  month: 'short',
+                                  day: 'numeric'
+                                })
+                              : formatPhilippineDate(record.created_at, {
+                                  year: 'numeric',
+                                  month: 'short',
+                                  day: 'numeric'
+                                })
+                            }
+                          </div>
+                          {record.appointments && (
+                            <div className="flex items-center gap-1 text-xs text-gray-500">
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 font-medium">
+                                Queue #{record.appointments.appointment_number}
+                              </span>
+                            </div>
+                          )}
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
