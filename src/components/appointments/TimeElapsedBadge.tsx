@@ -18,8 +18,8 @@ export function TimeElapsedBadge({ timestamp, label, type = 'waiting' }: TimeEla
     if (!timestamp) return;
 
     const updateElapsed = () => {
-      // Use Philippine time for elapsed calculation
-      const now = getPhilippineTime();
+      // Calculate elapsed time using UTC timestamps (database stores in UTC)
+      const now = new Date(); // Current UTC time
       const start = new Date(timestamp); // UTC timestamp from database
       const diffMs = now.getTime() - start.getTime();
 

@@ -11,7 +11,6 @@ import { Drawer } from '@/components/ui/Drawer';
 import { StatusHistoryModal } from '@/components/appointments/StatusHistoryModal';
 import { AppointmentCompletionModal } from '@/components/appointments/AppointmentCompletionModal';
 import { TimeElapsedBadge } from '@/components/appointments/TimeElapsedBadge';
-import { StatusTransitionButtons } from '@/components/appointments/StatusTransitionButtons';
 import {
   Calendar,
   Clock,
@@ -163,6 +162,14 @@ export default function HealthcareAdminAppointmentsPage() {
   const [showCompletionModal, setShowCompletionModal] = useState(false);
   const [appointmentToComplete, setAppointmentToComplete] = useState<AdminAppointment | null>(null);
 
+  // Start consultation confirmation dialog state
+  const [showStartDialog, setShowStartDialog] = useState(false);
+  const [appointmentToStart, setAppointmentToStart] = useState<string | null>(null);
+
+  // Check-in confirmation dialog state
+  const [showCheckInDialog, setShowCheckInDialog] = useState(false);
+  const [appointmentToCheckIn, setAppointmentToCheckIn] = useState<string | null>(null);
+
   // Check if user has access to appointments (not walk-in only service)
   useEffect(() => {
     async function checkAccess() {
@@ -232,14 +239,11 @@ export default function HealthcareAdminAppointmentsPage() {
           const data = await response.json();
 
           if (data.success && data.data.length > 0) {
-            // Find the most recent forward status change that led to the current status
-            // Filter out reversions to get the actual last forward status change
-            const lastEntry = data.data.find((entry: any) =>
-              entry.change_type === 'status_change' &&
-              entry.to_status === appointment.status &&  // Must match current status
-              !entry.is_reversion &&  // Must not be a previous reversion
-              entry.from_status !== null
-            );
+            // Get the most recent forward status change (simplified filter matching walk-in pattern)
+            const lastEntry = data.data
+              .filter((entry: any) => entry.from_status !== null && !entry.is_reversion)
+              .sort((a: any, b: any) => new Date(b.changed_at).getTime() - new Date(a.changed_at).getTime())[0];
+
             if (lastEntry) {
               entries[appointment.id] = {
                 id: lastEntry.id,
@@ -477,11 +481,60 @@ export default function HealthcareAdminAppointmentsPage() {
     }
   };
 
-  const handleStartConsultation = async (appointmentId: string) => {
+  const handleCheckIn = (appointmentId: string) => {
+    // Show confirmation dialog before checking in
+    setAppointmentToCheckIn(appointmentId);
+    setShowCheckInDialog(true);
+  };
+
+  const handleConfirmCheckIn = async () => {
+    if (!appointmentToCheckIn) return;
+
     try {
       setActionLoading(true);
+      setShowCheckInDialog(false);
 
-      const response = await fetch(`/api/appointments/${appointmentId}`, {
+      const response = await fetch(`/api/appointments/${appointmentToCheckIn}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'checked_in' }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to check in patient');
+      }
+
+      toast.success('Patient checked in successfully');
+      setIsDrawerOpen(false);
+      setSelectedAppointment(null);
+      fetchAppointments(); // Refresh the appointments list
+      // Refetch history to update undo button availability
+      setTimeout(() => fetchAllLastHistoryEntries(), 500);
+    } catch (error) {
+      console.error('Error checking in patient:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to check in patient');
+    } finally {
+      setActionLoading(false);
+      setAppointmentToCheckIn(null);
+    }
+  };
+
+  const handleStartConsultation = (appointmentId: string) => {
+    // Show confirmation dialog before starting consultation
+    setAppointmentToStart(appointmentId);
+    setShowStartDialog(true);
+  };
+
+  const handleConfirmStart = async () => {
+    if (!appointmentToStart) return;
+
+    try {
+      setActionLoading(true);
+      setShowStartDialog(false);
+
+      const response = await fetch(`/api/appointments/${appointmentToStart}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: 'in_progress' }),
@@ -494,12 +547,17 @@ export default function HealthcareAdminAppointmentsPage() {
       }
 
       toast.success('Consultation started');
+      setIsDrawerOpen(false);
+      setSelectedAppointment(null);
       fetchAppointments(); // Refresh the appointments list
+      // Refetch history to update undo button availability
+      setTimeout(() => fetchAllLastHistoryEntries(), 500);
     } catch (error) {
       console.error('Error starting consultation:', error);
       toast.error(error instanceof Error ? error.message : 'Failed to start consultation');
     } finally {
       setActionLoading(false);
+      setAppointmentToStart(null);
     }
   };
 
@@ -677,6 +735,7 @@ export default function HealthcareAdminAppointmentsPage() {
       render: (_: any, row: AdminAppointment) => {
         const canComplete = row.status === 'in_progress';
         const canStart = row.status === 'checked_in';
+        const canCheckIn = row.status === 'scheduled';
 
         // Check if there's another appointment in progress for the SAME service on the SAME date
         const isDisabledDueToInProgress = dateFilteredAppointments.some(apt =>
@@ -707,6 +766,18 @@ export default function HealthcareAdminAppointmentsPage() {
               <Eye className="w-3 h-3 mr-1.5" />
               View
             </button>
+
+            {canCheckIn && (
+              <button
+                onClick={() => handleCheckIn(row.id)}
+                disabled={actionLoading}
+                className="inline-flex items-center px-3 py-1.5 bg-purple-50 text-purple-700 border border-purple-200 text-xs font-medium rounded-md hover:bg-purple-100 transition-colors"
+                title="Check in patient"
+              >
+                <UserCheck className="w-3 h-3 mr-1.5" />
+                Check In
+              </button>
+            )}
 
             {canStart && (
               <div className="relative group">
@@ -1177,6 +1248,23 @@ export default function HealthcareAdminAppointmentsPage() {
               <div className="mb-6">
                 <div className="flex items-center gap-2 mb-2">
                   {getStatusBadge(selectedAppointment.status)}
+
+                  {/* Elapsed Time Badges */}
+                  {selectedAppointment.status === 'checked_in' && selectedAppointment.checked_in_at && (
+                    <TimeElapsedBadge
+                      timestamp={selectedAppointment.checked_in_at}
+                      label="Waiting"
+                      type="waiting"
+                    />
+                  )}
+
+                  {selectedAppointment.status === 'in_progress' && selectedAppointment.started_at && (
+                    <TimeElapsedBadge
+                      timestamp={selectedAppointment.started_at}
+                      label="Consulting"
+                      type="consulting"
+                    />
+                  )}
                 </div>
               </div>
 
@@ -1443,36 +1531,37 @@ export default function HealthcareAdminAppointmentsPage() {
               </div>
 
               {/* Action Buttons */}
-              <div className="mt-6 pt-6 border-t border-gray-200 space-y-3">
-                {/* Status Transition Buttons */}
-                <StatusTransitionButtons
-                  appointmentId={selectedAppointment.id}
-                  currentStatus={selectedAppointment.status as any}
-                  appointmentDate={selectedAppointment.appointment_date}
-                  onStatusUpdate={() => {
-                    fetchAppointments();
-                    setSelectedAppointment(null);
-                  }}
-                  variant="full"
-                  className="flex-col"
-                  inProgressCount={statistics.in_progress}
-                  queueNumber={selectedAppointment.appointment_number}
-                  lowerQueueCheckedIn={
-                    dateFilteredAppointments.find(apt =>
-                      apt.id !== selectedAppointment.id &&
-                      apt.service_id === selectedAppointment.service_id &&
-                      apt.appointment_date === selectedAppointment.appointment_date &&
-                      apt.status === 'checked_in' &&
-                      apt.appointment_number < selectedAppointment.appointment_number
-                    )?.appointment_number
-                  }
-                />
+              <div className="mt-6 pt-6 border-t border-gray-200 flex flex-col gap-3">
+                {/* Check In Button */}
+                {selectedAppointment.status === 'scheduled' && (
+                  <button
+                    onClick={() => handleCheckIn(selectedAppointment.id)}
+                    disabled={actionLoading}
+                    className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-purple-50 text-purple-700 border border-purple-200 rounded-md hover:bg-purple-100 font-medium text-sm transition-colors disabled:opacity-50"
+                  >
+                    <UserCheck className="w-4 h-4" />
+                    Check In Patient
+                  </button>
+                )}
+
+                {/* Start Consultation Button */}
+                {selectedAppointment.status === 'checked_in' && (
+                  <button
+                    onClick={() => handleStartConsultation(selectedAppointment.id)}
+                    disabled={actionLoading}
+                    className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-blue-50 text-blue-700 border border-blue-200 rounded-md hover:bg-blue-100 font-medium text-sm transition-colors disabled:opacity-50"
+                  >
+                    <PlayCircle className="w-4 h-4" />
+                    Start Consultation
+                  </button>
+                )}
 
                 {/* Complete Appointment Button */}
                 {selectedAppointment.status === 'in_progress' && (
                   <button
                     onClick={() => handleCompleteAppointment(selectedAppointment)}
-                    className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-green-600 text-white rounded-md hover:bg-green-700 font-medium text-sm shadow-sm transition-colors"
+                    disabled={actionLoading}
+                    className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-green-600 text-white rounded-md hover:bg-green-700 font-medium text-sm shadow-sm transition-colors disabled:opacity-50"
                   >
                     <CheckCircle className="w-5 h-5" />
                     Complete Appointment
@@ -1488,33 +1577,20 @@ export default function HealthcareAdminAppointmentsPage() {
                   View Status History
                 </button>
 
-                {/* Undo Button - Hidden for pending status (no previous state to undo to) */}
-                {lastHistoryEntries[selectedAppointment.id] &&
-                 lastHistoryEntries[selectedAppointment.id].from_status &&
-                 selectedAppointment.status !== lastHistoryEntries[selectedAppointment.id].from_status &&
-                 selectedAppointment.status !== 'pending' &&
-                 selectedAppointment.status !== 'cancelled' && (
-                  selectedAppointment.status === 'completed' ? (
-                    hasMedicalRecords[selectedAppointment.id] === false ? (
-                      <button
-                        onClick={() => handleQuickUndo(selectedAppointment.id)}
-                        disabled={actionLoading}
-                        className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-yellow-100 text-yellow-800 rounded-md hover:bg-yellow-200 font-medium text-sm border border-yellow-300 disabled:opacity-50"
-                      >
-                        <RotateCcw className="w-4 h-4" />
-                        Undo Last Action
-                      </button>
-                    ) : null
-                  ) : (
-                    <button
-                      onClick={() => handleQuickUndo(selectedAppointment.id)}
-                      disabled={actionLoading}
-                      className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-yellow-100 text-yellow-800 rounded-md hover:bg-yellow-200 font-medium text-sm border border-yellow-300 disabled:opacity-50"
-                    >
-                      <RotateCcw className="w-4 h-4" />
-                      Undo Last Action
-                    </button>
-                  )
+                {/* Undo Button - Simplified conditions matching walk-in pattern */}
+                {lastHistoryEntries[selectedAppointment.id]?.from_status &&
+                 (selectedAppointment.status === 'checked_in' ||
+                  selectedAppointment.status === 'in_progress' ||
+                  (selectedAppointment.status === 'completed' &&
+                   hasMedicalRecords[selectedAppointment.id] === false)) && (
+                  <button
+                    onClick={() => handleQuickUndo(selectedAppointment.id)}
+                    disabled={actionLoading}
+                    className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-yellow-100 text-yellow-800 rounded-md hover:bg-yellow-200 font-medium text-sm border border-yellow-300 disabled:opacity-50 transition-colors"
+                  >
+                    <RotateCcw className="w-4 h-4" />
+                    Undo Last Action
+                  </button>
                 )}
               </div>
             </div>
@@ -1526,6 +1602,38 @@ export default function HealthcareAdminAppointmentsPage() {
           appointmentId={selectedHistoryAppointmentId || ''}
           isOpen={showHistoryModal}
           onClose={() => setShowHistoryModal(false)}
+        />
+
+        {/* Check In Confirmation Dialog */}
+        <ConfirmDialog
+          isOpen={showCheckInDialog}
+          onClose={() => {
+            setShowCheckInDialog(false);
+            setAppointmentToCheckIn(null);
+          }}
+          onConfirm={handleConfirmCheckIn}
+          title="Check In Patient"
+          message="Confirm that the patient has arrived and is ready for service. This will mark the appointment as checked in and record the arrival time."
+          confirmText="Check In Patient"
+          cancelText="Cancel"
+          variant="info"
+          isLoading={actionLoading}
+        />
+
+        {/* Start Consultation Confirmation Dialog */}
+        <ConfirmDialog
+          isOpen={showStartDialog}
+          onClose={() => {
+            setShowStartDialog(false);
+            setAppointmentToStart(null);
+          }}
+          onConfirm={handleConfirmStart}
+          title="Start Consultation"
+          message="Begin the consultation with this patient? This will mark the appointment as in progress and record the start time."
+          confirmText="Start Consultation"
+          cancelText="Cancel"
+          variant="info"
+          isLoading={actionLoading}
         />
 
         {/* Status Reversion Confirmation Dialog */}

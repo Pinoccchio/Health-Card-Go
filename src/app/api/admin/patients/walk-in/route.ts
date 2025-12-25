@@ -374,7 +374,7 @@ export async function POST(request: NextRequest) {
         status: 'checked_in', // Walk-in patients start as checked-in, not completed
         reason: 'Walk-in patient',
         checked_in_at: new Date().toISOString(),
-        started_at: new Date().toISOString(),
+        // started_at will be set when healthcare admin clicks "Start Consultation"
         completed_by_id: session.user.id, // Track healthcare admin who registered the walk-in
         // completed_at will be set when healthcare admin marks as completed
       })

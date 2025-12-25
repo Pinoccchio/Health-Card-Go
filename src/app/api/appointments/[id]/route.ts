@@ -198,7 +198,30 @@ export async function PATCH(
       _reversion_metadata: reversionMetadata,
     };
 
+    // Clear timestamps when reverting to earlier status
+    if (isRevertOperation && revert_to_history_id) {
+      if (targetStatus === 'scheduled') {
+        updateData.checked_in_at = null;
+        updateData.started_at = null;
+        updateData.completed_at = null;
+        updateData.completed_by_id = null;
+      }
+      else if (targetStatus === 'checked_in') {
+        updateData.started_at = null;
+        updateData.completed_at = null;
+        updateData.completed_by_id = null;
+      }
+      else if (targetStatus === 'in_progress') {
+        updateData.completed_at = null;
+        updateData.completed_by_id = null;
+      }
+    }
+
     // Set timestamp based on new status
+    if (targetStatus === 'checked_in' && !appointment.checked_in_at) {
+      updateData.checked_in_at = now;
+    }
+
     if (targetStatus === 'in_progress' && !appointment.started_at) {
       updateData.started_at = now;
     }

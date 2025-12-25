@@ -143,6 +143,44 @@ export default function WalkInQueuePage() {
   // Barangays for modal
   const [barangays, setBarangays] = useState<Array<{ id: number; name: string }>>([]);
 
+  // Fetch last history entries for all appointments (for undo functionality)
+  const fetchAllLastHistoryEntries = async () => {
+    if (walkInQueue.length === 0) return;
+
+    const entries: Record<string, { id: string; from_status: string | null } | null> = {};
+
+    for (const patient of walkInQueue) {
+      try {
+        const res = await fetch(`/api/appointments/${patient.appointment_id}/history`);
+        const data = await res.json();
+
+        if (res.ok && data.success && data.data) {
+          // Find the most recent forward status change (not a reversion)
+          const history = data.data as StatusHistoryEntry[];
+          const lastForwardChange = history
+            .filter((entry: StatusHistoryEntry) => entry.from_status !== null && !entry.is_reversion)
+            .sort((a: StatusHistoryEntry, b: StatusHistoryEntry) =>
+              new Date(b.changed_at).getTime() - new Date(a.changed_at).getTime()
+            )[0];
+
+          if (lastForwardChange && lastForwardChange.from_status) {
+            entries[patient.appointment_id] = {
+              id: lastForwardChange.id,
+              from_status: lastForwardChange.from_status
+            };
+          } else {
+            entries[patient.appointment_id] = null;
+          }
+        }
+      } catch (error) {
+        console.error(`Error fetching history for appointment ${patient.appointment_id}:`, error);
+        entries[patient.appointment_id] = null;
+      }
+    }
+
+    setLastHistoryEntries(entries);
+  };
+
   // Fetch service name
   useEffect(() => {
     async function fetchServiceName() {
@@ -221,46 +259,11 @@ export default function WalkInQueuePage() {
     fetchWalkInQueue();
   }, [user?.assigned_service_id, toast, refreshTrigger]);
 
-  // Fetch last history entries for all appointments (for undo functionality)
+  // Call fetchAllLastHistoryEntries when queue changes
   useEffect(() => {
-    async function fetchAllLastHistoryEntries() {
-      if (walkInQueue.length === 0) return;
-
-      const entries: Record<string, { id: string; from_status: string | null } | null> = {};
-
-      for (const patient of walkInQueue) {
-        try {
-          const res = await fetch(`/api/appointments/${patient.appointment_id}/history`);
-          const data = await res.json();
-
-          if (res.ok && data.success && data.data) {
-            // Find the most recent forward status change (not a reversion)
-            const history = data.data as StatusHistoryEntry[];
-            const lastForwardChange = history
-              .filter((entry: StatusHistoryEntry) => entry.from_status !== null)
-              .sort((a: StatusHistoryEntry, b: StatusHistoryEntry) =>
-                new Date(b.changed_at).getTime() - new Date(a.changed_at).getTime()
-              )[0];
-
-            if (lastForwardChange && lastForwardChange.from_status) {
-              entries[patient.appointment_id] = {
-                id: lastForwardChange.id,
-                from_status: lastForwardChange.from_status
-              };
-            } else {
-              entries[patient.appointment_id] = null;
-            }
-          }
-        } catch (error) {
-          console.error(`Error fetching history for appointment ${patient.appointment_id}:`, error);
-          entries[patient.appointment_id] = null;
-        }
-      }
-
-      setLastHistoryEntries(entries);
+    if (walkInQueue.length > 0) {
+      fetchAllLastHistoryEntries();
     }
-
-    fetchAllLastHistoryEntries();
   }, [walkInQueue]);
 
   // Check medical records for completed appointments
@@ -366,6 +369,8 @@ export default function WalkInQueuePage() {
       setShowStartDialog(false);
       setSelectedPatient(null);
       setRefreshTrigger(prev => prev + 1); // Refresh queue
+      // Refetch history to update undo button availability
+      setTimeout(() => fetchAllLastHistoryEntries(), 500);
     } catch (error) {
       console.error('Error starting consultation:', error);
       toast.error(error instanceof Error ? error.message : 'Failed to start consultation');
@@ -411,6 +416,8 @@ export default function WalkInQueuePage() {
     setAppointmentToComplete(null);
     toast.success('Appointment completed successfully');
     setRefreshTrigger(prev => prev + 1);
+    // Refetch history to update undo button availability
+    setTimeout(() => fetchAllLastHistoryEntries(), 500);
   };
 
   // Handle undo last action
@@ -457,6 +464,8 @@ export default function WalkInQueuePage() {
       setShowDrawer(false); // Close drawer after revert
       setPendingRevert(null);
       setRefreshTrigger(prev => prev + 1);
+      // Refetch history to update undo button availability
+      setTimeout(() => fetchAllLastHistoryEntries(), 500);
     } catch (error) {
       console.error('Error reverting status:', error);
       toast.error(error instanceof Error ? error.message : 'Failed to revert status');
@@ -676,27 +685,47 @@ export default function WalkInQueuePage() {
             View
           </button>
 
-          {row.status === 'waiting' && (
-            <div className="relative group">
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleStartConsultation(row.appointment_id);
-                }}
-                disabled={statistics.in_progress > 0}
-                className={`inline-flex items-center px-3 py-1.5 bg-blue-50 text-blue-700 border border-blue-200 text-xs font-medium rounded-md hover:bg-blue-100 transition-colors ${statistics.in_progress > 0 ? 'opacity-50 cursor-not-allowed' : ''}`}
-                title={statistics.in_progress > 0 ? 'Wait for current consultation to complete' : 'Start consultation'}
-              >
-                <PlayCircle className="w-3 h-3 mr-1.5" />
-                Start
-              </button>
-              {statistics.in_progress > 0 && (
-                <div className="invisible group-hover:visible absolute z-50 min-w-max max-w-xs px-3 py-2 text-xs text-white bg-gray-900 rounded-lg shadow-lg -top-12 right-0 whitespace-normal">
-                  Wait for current consultation to complete before starting
-                </div>
-              )}
-            </div>
-          )}
+          {row.status === 'waiting' && (() => {
+            // Check if there are lower queue numbers still waiting (queue order enforcement)
+            const lowerQueueCheckedIn = filteredQueue.find(
+              item => item.queue_number < row.queue_number &&
+              item.status === 'waiting'
+            );
+
+            const isDisabledDueToInProgress = statistics.in_progress > 0;
+            const isNotNextInQueue = !!lowerQueueCheckedIn;
+            const isDisabled = isDisabledDueToInProgress || isNotNextInQueue;
+
+            // Determine tooltip message
+            let tooltipMessage = 'Start consultation';
+            if (isDisabledDueToInProgress) {
+              tooltipMessage = 'Wait for current consultation to complete';
+            } else if (isNotNextInQueue) {
+              tooltipMessage = `Wait for Queue #${lowerQueueCheckedIn.appointment_number} first`;
+            }
+
+            return (
+              <div className="relative group">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleStartConsultation(row.appointment_id);
+                  }}
+                  disabled={isDisabled}
+                  className={`inline-flex items-center px-3 py-1.5 bg-blue-50 text-blue-700 border border-blue-200 text-xs font-medium rounded-md hover:bg-blue-100 transition-colors ${isDisabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  title={tooltipMessage}
+                >
+                  <PlayCircle className="w-3 h-3 mr-1.5" />
+                  Start
+                </button>
+                {isDisabled && (
+                  <div className="invisible group-hover:visible absolute z-50 min-w-max max-w-xs px-3 py-2 text-xs text-white bg-gray-900 rounded-lg shadow-lg -top-12 right-0 whitespace-normal">
+                    {tooltipMessage}
+                  </div>
+                )}
+              </div>
+            );
+          })()}
 
           {row.status === 'in_progress' && (
             <Button
@@ -920,7 +949,6 @@ export default function WalkInQueuePage() {
                 searchable={false}
                 paginated={filteredQueue.length > 10}
                 pageSize={10}
-                onRowClick={(row: WalkInPatient) => handleViewDetails(row)}
               />
             )}
           </div>
@@ -969,8 +997,25 @@ export default function WalkInQueuePage() {
             <div className="p-6">
               <div className="space-y-6">
                 {/* Status Badge */}
-                <div>
+                <div className="flex flex-wrap items-center gap-2">
                   {getStatusBadge(selectedPatient.status)}
+
+                  {/* Elapsed Time Badges */}
+                  {selectedPatient.status === 'waiting' && selectedPatient.checked_in_at && (
+                    <TimeElapsedBadge
+                      timestamp={selectedPatient.checked_in_at}
+                      label="Waiting"
+                      type="waiting"
+                    />
+                  )}
+
+                  {selectedPatient.status === 'in_progress' && selectedPatient.started_at && (
+                    <TimeElapsedBadge
+                      timestamp={selectedPatient.started_at}
+                      label="Consulting"
+                      type="consulting"
+                    />
+                  )}
                 </div>
 
                 {/* Appointment Details */}
