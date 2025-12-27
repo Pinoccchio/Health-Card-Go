@@ -1,359 +1,555 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { DashboardLayout } from '@/components/dashboard';
 import { Container } from '@/components/ui';
-import { ProfessionalCard } from '@/components/ui/ProfessionalCard';
+import { IndividualCasesReportGenerator } from '@/components/staff/IndividualCasesReportGenerator';
+import { HistoricalStatisticsReportGenerator } from '@/components/staff/HistoricalStatisticsReportGenerator';
+import { DiseaseChartsSection } from '@/components/staff/DiseaseChartsSection';
+import { HistoricalChartsSection } from '@/components/staff/HistoricalChartsSection';
 import {
   FileText,
-  Download,
+  Activity,
   Calendar,
-  Filter,
-  CheckCircle,
-  AlertCircle,
-  TrendingUp,
+  AlertTriangle,
   BarChart3,
+  TrendingUp,
+  Database,
 } from 'lucide-react';
-import { format } from 'date-fns';
 
-interface ReportFilters {
-  disease_type: string;
-  start_date: string;
-  end_date: string;
-  barangay_id: string;
-  report_type: 'summary' | 'detailed' | 'trend_analysis';
+interface SummaryStats {
+  individualCases: {
+    total: number;
+    thisMonth: number;
+    active: number;
+  };
+  historicalStats: {
+    totalRecords: number;
+    totalCases: number;
+    dateRange: string;
+  };
 }
 
-const DISEASE_TYPES = [
-  { value: 'all', label: 'All Diseases' },
-  { value: 'dengue', label: 'Dengue' },
-  { value: 'hiv_aids', label: 'HIV/AIDS' },
-  { value: 'pregnancy_complications', label: 'Pregnancy Complications' },
-  { value: 'malaria', label: 'Malaria' },
-  { value: 'measles', label: 'Measles' },
-  { value: 'rabies', label: 'Rabies' },
-];
-
-const REPORT_TYPES = [
-  {
-    value: 'summary',
-    label: 'Summary Report',
-    description: 'High-level overview of disease cases by type and location',
-    icon: BarChart3,
-  },
-  {
-    value: 'detailed',
-    label: 'Detailed Report',
-    description: 'Comprehensive case-by-case report with full details',
-    icon: FileText,
-  },
-  {
-    value: 'trend_analysis',
-    label: 'Trend Analysis',
-    description: 'Time-series analysis showing disease patterns and trends',
-    icon: TrendingUp,
-  },
-];
+interface Barangay {
+  id: number;
+  name: string;
+  code: string;
+}
 
 export default function StaffReportsPage() {
-  const [filters, setFilters] = useState<ReportFilters>({
-    disease_type: 'all',
-    start_date: format(new Date(new Date().getFullYear(), new Date().getMonth(), 1), 'yyyy-MM-dd'),
-    end_date: format(new Date(), 'yyyy-MM-dd'),
-    barangay_id: 'all',
-    report_type: 'summary',
+  const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState<SummaryStats>({
+    individualCases: { total: 0, thisMonth: 0, active: 0 },
+    historicalStats: { totalRecords: 0, totalCases: 0, dateRange: '-' },
   });
-  const [generating, setGenerating] = useState(false);
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
-  const [barangays, setBarangays] = useState<any[]>([]);
+  const [barangays, setBarangays] = useState<Barangay[]>([]);
+  const [diseases, setDiseases] = useState<any[]>([]);
+  const [historicalData, setHistoricalData] = useState<any[]>([]); // Historical statistics for charts
+  const [isIndividualCasesReportOpen, setIsIndividualCasesReportOpen] = useState(false);
+  const [isHistoricalStatsReportOpen, setIsHistoricalStatsReportOpen] = useState(false);
 
-  // Fetch barangays on component mount
-  useState(() => {
-    const fetchBarangays = async () => {
+  // Tab state
+  const [activeTab, setActiveTab] = useState<'individual-cases' | 'historical-statistics'>('individual-cases');
+
+  // Time range state
+  const [timeRange, setTimeRange] = useState<6 | 12 | 24 | 'all'>(24);
+
+  // Fetch summary statistics and barangays
+  useEffect(() => {
+    const fetchData = async () => {
       try {
-        const response = await fetch('/api/barangays');
-        const data = await response.json();
-        if (data.success) {
-          setBarangays(data.data || []);
+        setLoading(true);
+
+        // Fetch barangays
+        const barangaysRes = await fetch('/api/barangays');
+        const barangaysData = await barangaysRes.json();
+        if (barangaysData.success) {
+          setBarangays(barangaysData.data || []);
         }
-      } catch (err) {
-        console.error('Error fetching barangays:', err);
+
+        // Fetch individual cases statistics
+        const diseasesRes = await fetch('/api/diseases');
+        const diseasesData = await diseasesRes.json();
+        const diseases = diseasesData.data || [];
+
+        const now = new Date();
+        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+        const thisMonthCases = diseases.filter((d: any) => {
+          const diagnosisDate = new Date(d.diagnosis_date);
+          return diagnosisDate >= startOfMonth;
+        }).length;
+
+        const activeCases = diseases.filter((d: any) =>
+          d.status === 'active' || d.status === 'ongoing_treatment'
+        ).length;
+
+        // Fetch historical statistics
+        const historicalRes = await fetch('/api/diseases/historical');
+        const historicalData = await historicalRes.json();
+        const historical = historicalData.data || [];
+        const summary = historicalData.summary || {};
+
+        // Store diseases for charts
+        setDiseases(diseases);
+        // Store historical data for charts
+        setHistoricalData(historical);
+
+        setStats({
+          individualCases: {
+            total: diseases.length,
+            thisMonth: thisMonthCases,
+            active: activeCases,
+          },
+          historicalStats: {
+            totalRecords: historical.length,
+            totalCases: summary.totalCases || 0,
+            dateRange: summary.earliestDate && summary.latestDate
+              ? `${new Date(summary.earliestDate).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })} - ${new Date(summary.latestDate).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}`
+              : '-',
+          },
+        });
+      } catch (error) {
+        console.error('Error fetching data:', error);
+      } finally {
+        setLoading(false);
       }
     };
-    fetchBarangays();
-  });
 
-  const handleGenerateReport = async () => {
-    setGenerating(true);
-    setError('');
-    setSuccess('');
-
-    try {
-      // Build query parameters
-      const params = new URLSearchParams({
-        report_type: filters.report_type,
-        start_date: filters.start_date,
-        end_date: filters.end_date,
-      });
-
-      if (filters.disease_type !== 'all') {
-        params.append('disease_type', filters.disease_type);
-      }
-
-      if (filters.barangay_id !== 'all') {
-        params.append('barangay_id', filters.barangay_id);
-      }
-
-      const response = await fetch(`/api/reports/generate?${params.toString()}`);
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to generate report');
-      }
-
-      // Get the blob and create download link
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `disease-report-${filters.report_type}-${format(new Date(), 'yyyy-MM-dd')}.csv`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
-
-      setSuccess('Report generated and downloaded successfully!');
-      setTimeout(() => setSuccess(''), 3000);
-    } catch (err) {
-      console.error('Error generating report:', err);
-      setError(err instanceof Error ? err.message : 'An unexpected error occurred');
-    } finally {
-      setGenerating(false);
-    }
-  };
+    fetchData();
+  }, []);
 
   return (
     <DashboardLayout
       roleId={5}
       pageTitle="Disease Surveillance Reports"
-      pageDescription="Generate and export disease surveillance reports"
+      pageDescription="Generate and export comprehensive disease surveillance reports with professional formatting"
     >
       <Container size="full">
-        {/* Success/Error Messages */}
-        {success && (
-          <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-md flex items-start">
-            <CheckCircle className="w-5 h-5 text-green-600 mt-0.5 mr-3 flex-shrink-0" />
-            <p className="text-sm font-medium text-green-800">{success}</p>
-          </div>
-        )}
-
-        {error && (
-          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-md flex items-start">
-            <AlertCircle className="w-5 h-5 text-red-600 mt-0.5 mr-3 flex-shrink-0" />
-            <p className="text-sm font-medium text-red-800">{error}</p>
-          </div>
-        )}
-
-        {/* Report Type Selection */}
-        <div className="mb-8">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-            <FileText className="w-5 h-5 text-primary-teal" />
-            Select Report Type
-          </h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {REPORT_TYPES.map((type) => {
-              const Icon = type.icon;
-              return (
-                <button
-                  key={type.value}
-                  onClick={() => setFilters({ ...filters, report_type: type.value as any })}
-                  className={`p-6 border-2 rounded-lg text-left transition-all ${
-                    filters.report_type === type.value
-                      ? 'border-primary-teal bg-primary-teal/5 ring-2 ring-primary-teal ring-offset-2'
-                      : 'border-gray-200 hover:border-primary-teal/50 hover:bg-gray-50'
-                  }`}
-                >
-                  <div className="flex items-start gap-3">
-                    <div
-                      className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-                        filters.report_type === type.value
-                          ? 'bg-primary-teal text-white'
-                          : 'bg-gray-100 text-gray-600'
-                      }`}
-                    >
-                      <Icon className="w-5 h-5" />
-                    </div>
-                    <div className="flex-1">
-                      <h4 className="font-medium text-gray-900 mb-1">{type.label}</h4>
-                      <p className="text-sm text-gray-600">{type.description}</p>
-                    </div>
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Report Filters */}
-        <div className="bg-white rounded-lg shadow p-6 mb-8">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-            <Filter className="w-5 h-5 text-primary-teal" />
-            Report Filters
-          </h3>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {/* Disease Type */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Disease Type
-              </label>
-              <select
-                value={filters.disease_type}
-                onChange={(e) => setFilters({ ...filters, disease_type: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-teal"
-              >
-                {DISEASE_TYPES.map((type) => (
-                  <option key={type.value} value={type.value}>
-                    {type.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Start Date */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Start Date
-              </label>
-              <input
-                type="date"
-                value={filters.start_date}
-                onChange={(e) => setFilters({ ...filters, start_date: e.target.value })}
-                max={filters.end_date}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-teal"
-              />
-            </div>
-
-            {/* End Date */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                End Date
-              </label>
-              <input
-                type="date"
-                value={filters.end_date}
-                onChange={(e) => setFilters({ ...filters, end_date: e.target.value })}
-                min={filters.start_date}
-                max={format(new Date(), 'yyyy-MM-dd')}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-teal"
-              />
-            </div>
-
-            {/* Barangay */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Barangay
-              </label>
-              <select
-                value={filters.barangay_id}
-                onChange={(e) => setFilters({ ...filters, barangay_id: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-teal"
-              >
-                <option value="all">All Barangays</option>
-                {barangays.map((barangay) => (
-                  <option key={barangay.id} value={barangay.id}>
-                    {barangay.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-        </div>
-
-        {/* Report Preview/Summary */}
-        <div className="bg-white rounded-lg shadow p-6 mb-8">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Report Summary</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-            <ProfessionalCard variant="flat" className="bg-gray-50">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs text-gray-600 mb-1">Report Type</p>
-                  <p className="text-sm font-medium text-gray-900">
-                    {REPORT_TYPES.find(t => t.value === filters.report_type)?.label}
-                  </p>
-                </div>
-                <FileText className="w-8 h-8 text-gray-400" />
-              </div>
-            </ProfessionalCard>
-
-            <ProfessionalCard variant="flat" className="bg-gray-50">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs text-gray-600 mb-1">Disease</p>
-                  <p className="text-sm font-medium text-gray-900">
-                    {DISEASE_TYPES.find(t => t.value === filters.disease_type)?.label}
-                  </p>
-                </div>
-                <BarChart3 className="w-8 h-8 text-gray-400" />
-              </div>
-            </ProfessionalCard>
-
-            <ProfessionalCard variant="flat" className="bg-gray-50">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs text-gray-600 mb-1">Date Range</p>
-                  <p className="text-sm font-medium text-gray-900">
-                    {format(new Date(filters.start_date), 'MMM d')} - {format(new Date(filters.end_date), 'MMM d, yyyy')}
-                  </p>
-                </div>
-                <Calendar className="w-8 h-8 text-gray-400" />
-              </div>
-            </ProfessionalCard>
-
-            <ProfessionalCard variant="flat" className="bg-gray-50">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs text-gray-600 mb-1">Location</p>
-                  <p className="text-sm font-medium text-gray-900">
-                    {filters.barangay_id === 'all'
-                      ? 'All Barangays'
-                      : barangays.find(b => b.id.toString() === filters.barangay_id)?.name || 'Unknown'}
-                  </p>
-                </div>
-                <Filter className="w-8 h-8 text-gray-400" />
-              </div>
-            </ProfessionalCard>
-          </div>
-
-          {/* Generate Button */}
-          <div className="flex justify-center">
+        {/* Tab Navigation */}
+        <div className="mb-6 border-b border-gray-200">
+          <nav className="-mb-px flex space-x-8" aria-label="Tabs">
             <button
-              onClick={handleGenerateReport}
-              disabled={generating}
-              className="px-8 py-3 bg-primary-teal text-white rounded-md hover:bg-primary-teal-dark transition-colors disabled:opacity-50 flex items-center gap-3 shadow-lg hover:shadow-xl"
+              onClick={() => setActiveTab('individual-cases')}
+              className={`
+                whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors
+                ${
+                  activeTab === 'individual-cases'
+                    ? 'border-primary-teal text-primary-teal'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }
+              `}
             >
-              <Download className="w-5 h-5" />
-              {generating ? 'Generating Report...' : 'Generate & Download Report'}
+              <div className="flex items-center gap-2">
+                <Activity className="w-4 h-4" />
+                Individual Cases
+              </div>
             </button>
-          </div>
+            <button
+              onClick={() => setActiveTab('historical-statistics')}
+              className={`
+                whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors
+                ${
+                  activeTab === 'historical-statistics'
+                    ? 'border-primary-teal text-primary-teal'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }
+              `}
+            >
+              <div className="flex items-center gap-2">
+                <Database className="w-4 h-4" />
+                Historical Statistics
+              </div>
+            </button>
+          </nav>
         </div>
 
-        {/* Report Format Information */}
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
-          <div className="flex items-start gap-3">
-            <CheckCircle className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
+        {/* Tab Content */}
+        {activeTab === 'individual-cases' ? (
+          <div className="space-y-8">
+            {/* Individual Cases Statistics */}
             <div>
-              <h4 className="text-sm font-medium text-blue-900 mb-2">Report Format</h4>
-              <ul className="text-sm text-blue-800 space-y-1">
-                <li>• Reports are exported in CSV format for easy analysis in Excel or other tools</li>
-                <li>• Summary reports include aggregated statistics by disease type and location</li>
-                <li>• Detailed reports contain individual case records with all available information</li>
-                <li>• Trend analysis reports include time-series data for pattern identification</li>
+              <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                <BarChart3 className="w-5 h-5 text-primary-teal" />
+                Overview
+              </h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Individual Cases Stats */}
+            <div className="bg-white rounded-lg shadow border border-gray-200 p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-sm font-medium text-gray-600">Individual Disease Cases</h3>
+                <Activity className="w-5 h-5 text-primary-teal" />
+              </div>
+              <div className="space-y-3">
+                <div className="flex justify-between items-center">
+                  <span className="text-xs text-gray-500">Total Cases:</span>
+                  <span className="text-lg font-bold text-gray-900">
+                    {loading ? '...' : stats.individualCases.total.toLocaleString()}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-xs text-gray-500">This Month:</span>
+                  <span className="text-sm font-semibold text-green-600">
+                    {loading ? '...' : stats.individualCases.thisMonth.toLocaleString()}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-xs text-gray-500">Active Cases:</span>
+                  <span className="text-sm font-semibold text-orange-600">
+                    {loading ? '...' : stats.individualCases.active.toLocaleString()}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Geographic Coverage */}
+            <div className="bg-white rounded-lg shadow border border-gray-200 p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-sm font-medium text-gray-600">Geographic Coverage</h3>
+                <TrendingUp className="w-5 h-5 text-teal-600" />
+              </div>
+              <div className="space-y-3">
+                <div className="flex justify-between items-center">
+                  <span className="text-xs text-gray-500">Total Barangays:</span>
+                  <span className="text-lg font-bold text-gray-900">
+                    {loading ? '...' : barangays.length}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-xs text-gray-500">City:</span>
+                  <span className="text-sm font-semibold text-teal-600">
+                    Panabo City
+                  </span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-xs text-gray-500">Province:</span>
+                  <span className="text-xs font-medium text-gray-700">
+                    Davao del Norte
+                  </span>
+                </div>
+              </div>
+            </div>
+              </div>
+            </div>
+
+            {/* Individual Cases Report Generator */}
+            <div>
+              <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                <FileText className="w-5 h-5 text-primary-teal" />
+                Generate Report
+              </h2>
+              {/* Individual Cases Report Card */}
+              <div className="bg-gradient-to-br from-teal-50 to-teal-100 rounded-lg shadow-md border border-teal-200 p-6 hover:shadow-lg transition-shadow">
+              <div className="flex items-start gap-4 mb-4">
+                <div className="w-12 h-12 bg-primary-teal rounded-lg flex items-center justify-center flex-shrink-0">
+                  <Activity className="w-6 h-6 text-white" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                    Individual Cases Report
+                  </h3>
+                  <p className="text-sm text-gray-700 mb-4">
+                    Generate detailed reports for individual disease cases with patient information,
+                    severity levels, and treatment status. Includes filtering by disease type,
+                    barangay, and date range.
+                  </p>
+                  <ul className="text-xs text-gray-600 space-y-1 mb-4">
+                    <li className="flex items-center gap-2">
+                      <div className="w-1 h-1 bg-primary-teal rounded-full"></div>
+                      Patient-level case data with severity and status
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <div className="w-1 h-1 bg-primary-teal rounded-full"></div>
+                      Advanced filtering by disease, barangay, date
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <div className="w-1 h-1 bg-primary-teal rounded-full"></div>
+                      Professional PDF format with summary statistics
+                    </li>
+                  </ul>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsIndividualCasesReportOpen(true)}
+                className="w-full px-4 py-3 bg-primary-teal text-white rounded-md hover:bg-teal-700 transition-colors flex items-center justify-center gap-2 font-medium shadow-sm"
+              >
+                <FileText className="w-4 h-4" />
+                Generate Individual Cases Report
+              </button>
+              </div>
+            </div>
+
+            {/* Trend Analysis Charts */}
+            <div>
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-xl font-semibold text-gray-900 flex items-center gap-2">
+                  <TrendingUp className="w-5 h-5 text-primary-teal" />
+                  Trend Analysis
+                </h2>
+                <div className="flex items-center gap-3">
+                  <label className="text-sm font-medium text-gray-700">Time Range:</label>
+                  <select
+                    value={timeRange}
+                    onChange={(e) => setTimeRange(e.target.value === 'all' ? 'all' : Number(e.target.value) as 6 | 12 | 24)}
+                    className="px-4 py-2 border border-teal-300 rounded-md bg-white text-sm focus:outline-none focus:ring-2 focus:ring-primary-teal focus:border-transparent"
+                  >
+                    <option value={6}>Last 6 Months</option>
+                    <option value={12}>Last 12 Months</option>
+                    <option value={24}>Last 24 Months</option>
+                    <option value="all">All Time</option>
+                  </select>
+                </div>
+              </div>
+          <DiseaseChartsSection
+            individualCases={diseases}
+            barangays={barangays}
+            isLoading={loading}
+            onRefresh={() => {
+              // Trigger refetch of data
+              setLoading(true);
+              // The useEffect will handle the actual fetching
+              window.location.reload();
+            }}
+            timeRangeMonths={timeRange}
+          />
+            </div>
+
+            {/* Quick Links */}
+            <div className="bg-teal-50 border border-teal-200 rounded-lg p-6">
+          <div className="flex items-start gap-3">
+            <AlertTriangle className="w-5 h-5 text-primary-teal mt-0.5 flex-shrink-0" />
+            <div>
+              <h4 className="text-sm font-medium text-teal-900 mb-2">Quick Access</h4>
+              <ul className="text-sm text-teal-800 space-y-2">
+                <li className="flex items-center gap-2">
+                  <Calendar className="w-4 h-4" />
+                  <span>
+                    To enter new disease cases, visit the{' '}
+                    <a
+                      href="/staff/disease-surveillance"
+                      className="font-semibold underline hover:text-teal-900"
+                    >
+                      Disease Surveillance
+                    </a>{' '}
+                    page
+                  </span>
+                </li>
+                <li className="flex items-center gap-2">
+                  <FileText className="w-4 h-4" />
+                  <span>
+                    Reports support PDF export and direct printing with professional formatting
+                  </span>
+                </li>
+                <li className="flex items-center gap-2">
+                  <BarChart3 className="w-4 h-4" />
+                  <span>
+                    Use filters to generate focused reports for specific diseases, time periods, or barangays
+                  </span>
+                </li>
               </ul>
             </div>
           </div>
-        </div>
+            </div>
+          </div>
+        ) : (
+          /* Historical Statistics Tab */
+          <div className="space-y-8">
+            {/* Historical Statistics Overview */}
+            <div>
+              <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                <BarChart3 className="w-5 h-5 text-primary-teal" />
+                Overview
+              </h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Historical Statistics */}
+                <div className="bg-white rounded-lg shadow border border-gray-200 p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-sm font-medium text-gray-600">Historical Statistics</h3>
+                    <Database className="w-5 h-5 text-primary-teal" />
+                  </div>
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center">
+                      <span className="text-xs text-gray-500">Total Records:</span>
+                      <span className="text-lg font-bold text-gray-900">
+                        {loading ? '...' : stats.historicalStats.totalRecords.toLocaleString()}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-xs text-gray-500">Aggregate Cases:</span>
+                      <span className="text-sm font-semibold text-primary-teal">
+                        {loading ? '...' : stats.historicalStats.totalCases.toLocaleString()}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-xs text-gray-500">Date Range:</span>
+                      <span className="text-xs font-medium text-gray-700">
+                        {loading ? '...' : stats.historicalStats.dateRange}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Data Coverage */}
+                <div className="bg-white rounded-lg shadow border border-gray-200 p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-sm font-medium text-gray-600">Data Coverage</h3>
+                    <TrendingUp className="w-5 h-5 text-teal-600" />
+                  </div>
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center">
+                      <span className="text-xs text-gray-500">Barangays with Data:</span>
+                      <span className="text-lg font-bold text-gray-900">
+                        {loading ? '...' : new Set(historicalData.filter(h => h.barangay_id).map(h => h.barangay_id)).size}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-xs text-gray-500">Coverage Period:</span>
+                      <span className="text-sm font-semibold text-teal-600">
+                        {loading ? '...' : stats.historicalStats.dateRange}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-xs text-gray-500">Total Records:</span>
+                      <span className="text-xs font-medium text-gray-700">
+                        {loading ? '...' : stats.historicalStats.totalRecords.toLocaleString()}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Historical Statistics Report Generator */}
+            <div>
+              <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                <FileText className="w-5 h-5 text-primary-teal" />
+                Generate Report
+              </h2>
+              {/* Historical Statistics Report Card */}
+              <div className="bg-gradient-to-br from-teal-50 to-teal-100 rounded-lg shadow-md border border-teal-200 p-6 hover:shadow-lg transition-shadow">
+                <div className="flex items-start gap-4 mb-4">
+                  <div className="w-12 h-12 bg-primary-teal rounded-lg flex items-center justify-center flex-shrink-0">
+                    <Database className="w-6 h-6 text-white" />
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                      Historical Statistics Report
+                    </h3>
+                    <p className="text-sm text-gray-700 mb-4">
+                      Generate aggregate historical disease statistics from DOH bulletins, CHO records,
+                      and imported data. Perfect for trend analysis and long-term disease surveillance.
+                    </p>
+                    <ul className="text-xs text-gray-600 space-y-1 mb-4">
+                      <li className="flex items-center gap-2">
+                        <div className="w-1 h-1 bg-primary-teal rounded-full"></div>
+                        Aggregate case counts by disease and barangay
+                      </li>
+                      <li className="flex items-center gap-2">
+                        <div className="w-1 h-1 bg-primary-teal rounded-full"></div>
+                        Historical data from multiple sources (DOH, CHO)
+                      </li>
+                      <li className="flex items-center gap-2">
+                        <div className="w-1 h-1 bg-primary-teal rounded-full"></div>
+                        Time-series analysis for pattern identification
+                      </li>
+                    </ul>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setIsHistoricalStatsReportOpen(true)}
+                  className="w-full px-4 py-3 bg-primary-teal text-white rounded-md hover:bg-teal-700 transition-colors flex items-center justify-center gap-2 font-medium shadow-sm"
+                >
+                  <FileText className="w-4 h-4" />
+                  Generate Historical Statistics Report
+                </button>
+              </div>
+            </div>
+
+            {/* Trend Analysis Charts */}
+            <div>
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-xl font-semibold text-gray-900 flex items-center gap-2">
+                  <TrendingUp className="w-5 h-5 text-primary-teal" />
+                  Trend Analysis
+                </h2>
+                <div className="flex items-center gap-3">
+                  <label className="text-sm font-medium text-gray-700">Time Range:</label>
+                  <select
+                    value={timeRange}
+                    onChange={(e) => setTimeRange(e.target.value === 'all' ? 'all' : Number(e.target.value) as 6 | 12 | 24)}
+                    className="px-4 py-2 border border-teal-300 rounded-md bg-white text-sm focus:outline-none focus:ring-2 focus:ring-primary-teal focus:border-transparent"
+                  >
+                    <option value={6}>Last 6 Months</option>
+                    <option value={12}>Last 12 Months</option>
+                    <option value={24}>Last 24 Months</option>
+                    <option value="all">All Time</option>
+                  </select>
+                </div>
+              </div>
+              <HistoricalChartsSection
+                historicalStatistics={historicalData}
+                barangays={barangays}
+                isLoading={loading}
+                onRefresh={() => {
+                  // Trigger refetch of data
+                  setLoading(true);
+                  // The useEffect will handle the actual fetching
+                  window.location.reload();
+                }}
+                timeRangeMonths={timeRange}
+              />
+            </div>
+
+            {/* Quick Links */}
+            <div className="bg-teal-50 border border-teal-200 rounded-lg p-6">
+              <div className="flex items-start gap-3">
+                <AlertTriangle className="w-5 h-5 text-primary-teal mt-0.5 flex-shrink-0" />
+                <div>
+                  <h4 className="text-sm font-medium text-teal-900 mb-2">Quick Access</h4>
+                  <ul className="text-sm text-teal-800 space-y-2">
+                    <li className="flex items-center gap-2">
+                      <Calendar className="w-4 h-4" />
+                      <span>
+                        To enter new disease cases, visit the{' '}
+                        <a
+                          href="/staff/disease-surveillance"
+                          className="font-semibold underline hover:text-teal-900"
+                        >
+                          Disease Surveillance
+                        </a>{' '}
+                        page
+                      </span>
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <FileText className="w-4 h-4" />
+                      <span>
+                        Reports support PDF export and direct printing with professional formatting
+                      </span>
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <BarChart3 className="w-4 h-4" />
+                      <span>
+                        Use filters to generate focused reports for specific diseases, time periods, or barangays
+                      </span>
+                    </li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Report Generator Modals */}
+        <IndividualCasesReportGenerator
+          isOpen={isIndividualCasesReportOpen}
+          onClose={() => setIsIndividualCasesReportOpen(false)}
+          barangays={barangays}
+        />
+
+        <HistoricalStatisticsReportGenerator
+          isOpen={isHistoricalStatsReportOpen}
+          onClose={() => setIsHistoricalStatsReportOpen(false)}
+          barangays={barangays}
+        />
       </Container>
     </DashboardLayout>
   );
