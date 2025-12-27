@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { X, Search, User, MapPin, Calendar, AlertCircle, Clock, Check } from 'lucide-react';
 
 interface Patient {
@@ -40,6 +41,7 @@ interface PatientSearchModalProps {
 }
 
 export function PatientSearchModal({ isOpen, onClose, onSelectPatient }: PatientSearchModalProps) {
+  const [mounted, setMounted] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [patients, setPatients] = useState<Patient[]>([]);
   const [loading, setLoading] = useState(false);
@@ -53,7 +55,20 @@ export function PatientSearchModal({ isOpen, onClose, onSelectPatient }: Patient
   const [loadingAppointments, setLoadingAppointments] = useState(false);
   const [showAppointmentSelector, setShowAppointmentSelector] = useState(false);
 
-  // Fetch patients on search term change or page change
+  // Handle mounting for SSR
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  // Fetch patients immediately when modal opens (no debounce)
+  useEffect(() => {
+    if (isOpen) {
+      setPage(1); // Reset to first page when modal opens
+      fetchPatients();
+    }
+  }, [isOpen]);
+
+  // Fetch patients on search term change or page change (with debounce)
   useEffect(() => {
     if (!isOpen) return;
 
@@ -62,7 +77,7 @@ export function PatientSearchModal({ isOpen, onClose, onSelectPatient }: Patient
     }, 300); // Debounce search
 
     return () => clearTimeout(delayDebounce);
-  }, [searchTerm, page, isOpen]);
+  }, [searchTerm, page]);
 
   const fetchPatients = async () => {
     setLoading(true);
@@ -190,9 +205,11 @@ export function PatientSearchModal({ isOpen, onClose, onSelectPatient }: Patient
     };
   }, [isOpen, showAppointmentSelector]);
 
-  if (!isOpen) return null;
+  // Prevent SSR mismatch - only render portal on client
+  if (!mounted || !isOpen) return null;
 
-  return (
+  // Render modal using portal to escape stacking context issues
+  return createPortal(
     <div className="fixed inset-0 z-[1002] overflow-y-auto">
       {/* Backdrop */}
       <div
@@ -511,6 +528,7 @@ export function PatientSearchModal({ isOpen, onClose, onSelectPatient }: Patient
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

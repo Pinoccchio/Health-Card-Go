@@ -90,9 +90,24 @@ export async function GET(
       );
     }
 
+    // Calculate age from date_of_birth
+    let age = 0;
+    if (patient.profiles.date_of_birth) {
+      const birthDate = new Date(patient.profiles.date_of_birth);
+      const today = new Date();
+      age = today.getFullYear() - birthDate.getFullYear();
+      const monthDiff = today.getMonth() - birthDate.getMonth();
+      if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+        age--;
+      }
+    }
+
     return NextResponse.json({
       success: true,
-      data: patient,
+      data: {
+        ...patient,
+        age,
+      },
     });
 
   } catch (error) {

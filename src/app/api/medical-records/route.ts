@@ -137,6 +137,19 @@ export async function GET(request: NextRequest) {
           has_records: false,
         });
       }
+    } else if (profile.role === 'staff') {
+      // Staff can view medical records when filtering by patient_id or appointment_id (for disease surveillance)
+      // This allows them to check if patients have existing records
+      if (!patient_id && !appointment_id) {
+        return NextResponse.json({
+          success: true,
+          records: [],
+          total: 0,
+          count: 0,
+          has_records: false,
+          message: 'Please specify patient_id or appointment_id to view medical records.'
+        });
+      }
     }
     // Super admins can see all records (no filter)
 

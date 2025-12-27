@@ -453,6 +453,26 @@ export async function GET(request: NextRequest) {
       if (patientId) {
         query = query.eq('patient_id', patientId);
       }
+    } else if (profile.role === 'staff') {
+      // Staff can view appointments when filtering by patient_id (for disease surveillance)
+      if (patientId) {
+        query = query.eq('patient_id', patientId);
+      } else {
+        // Staff must provide patient_id to view appointments
+        return NextResponse.json({
+          success: true,
+          data: [],
+          pagination: {
+            page,
+            limit,
+            total: 0,
+            totalPages: 0,
+            hasNextPage: false,
+            hasPreviousPage: false,
+          },
+          message: 'Please specify a patient_id to view appointments.'
+        });
+      }
     }
 
     // Apply common filters

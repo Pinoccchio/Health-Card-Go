@@ -1,0 +1,275 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { createClient } from '@/lib/supabase/server';
+
+/**
+ * GET /api/diseases/historical
+ * Fetch historical disease statistics records with optional filtering
+ * (Staff and Super Admin only)
+ */
+export async function GET(request: NextRequest) {
+  const supabase = await createClient();
+
+  // Check authentication
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+
+  if (authError || !user) {
+    return NextResponse.json(
+      { success: false, error: 'Unauthorized' },
+      { status: 401 }
+    );
+  }
+
+  try {
+    // Get user profile and check role
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('id, role')
+      .eq('id', user.id)
+      .single();
+
+    if (profileError || !profile) {
+      return NextResponse.json(
+        { success: false, error: 'Profile not found' },
+        { status: 404 }
+      );
+    }
+
+    // Only Staff and Super Admin can view historical disease statistics
+    if (profile.role !== 'staff' && profile.role !== 'super_admin') {
+      return NextResponse.json(
+        { success: false, error: 'Only Staff and Super Admins can view historical disease statistics' },
+        { status: 403 }
+      );
+    }
+
+    // Get query parameters for filtering
+    const searchParams = request.nextUrl.searchParams;
+    const diseaseType = searchParams.get('disease_type');
+    const barangayId = searchParams.get('barangay_id');
+    const startDate = searchParams.get('start_date');
+    const endDate = searchParams.get('end_date');
+
+    // Build query
+    let query = supabase
+      .from('disease_statistics')
+      .select(`
+        *,
+        barangays(id, name, code),
+        created_by:profiles!disease_statistics_created_by_id_fkey(
+          id,
+          first_name,
+          last_name,
+          email
+        )
+      `)
+      .order('record_date', { ascending: false });
+
+    // Apply filters
+    if (diseaseType && diseaseType !== 'all') {
+      query = query.eq('disease_type', diseaseType);
+    }
+    if (barangayId && barangayId !== 'all') {
+      query = query.eq('barangay_id', parseInt(barangayId));
+    }
+    if (startDate) {
+      query = query.gte('record_date', startDate);
+    }
+    if (endDate) {
+      query = query.lte('record_date', endDate);
+    }
+
+    const { data: statistics, error } = await query;
+
+    if (error) {
+      console.error('Error fetching historical disease statistics:', error);
+      return NextResponse.json(
+        { success: false, error: 'Failed to fetch historical disease statistics' },
+        { status: 500 }
+      );
+    }
+
+    // Calculate summary statistics
+    const totalRecords = statistics?.length || 0;
+    const totalCases = statistics?.reduce((sum, stat) => sum + (stat.case_count || 0), 0) || 0;
+
+    // Find date range
+    let earliestDate = null;
+    let latestDate = null;
+    if (statistics && statistics.length > 0) {
+      const dates = statistics.map(s => s.record_date).sort();
+      earliestDate = dates[0];
+      latestDate = dates[dates.length - 1];
+    }
+
+    // Count by disease type
+    const diseaseTypeCounts: Record<string, number> = {};
+    statistics?.forEach(stat => {
+      const type = stat.disease_type;
+      diseaseTypeCounts[type] = (diseaseTypeCounts[type] || 0) + 1;
+    });
+
+    const mostCommonDisease = Object.entries(diseaseTypeCounts)
+      .sort(([, a], [, b]) => b - a)[0]?.[0] || null;
+
+    return NextResponse.json({
+      success: true,
+      data: statistics,
+      count: totalRecords,
+      summary: {
+        totalRecords,
+        totalCases,
+        earliestDate,
+        latestDate,
+        mostCommonDisease,
+        diseaseTypeCounts,
+      },
+    });
+
+  } catch (error: any) {
+    console.error('Error in GET historical diseases API:', error);
+    return NextResponse.json(
+      { success: false, error: error.message },
+      { status: 500 }
+    );
+  }
+}
+
+/**
+ * POST /api/diseases/historical
+ * Create a new historical disease statistics record (Staff and Super Admin only)
+ * Used for importing aggregate historical data (e.g., "150 dengue cases in Jan 2020")
+ */
+export async function POST(request: NextRequest) {
+  const supabase = await createClient();
+
+  // Check authentication
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+
+  if (authError || !user) {
+    return NextResponse.json(
+      { success: false, error: 'Unauthorized' },
+      { status: 401 }
+    );
+  }
+
+  try {
+    // Get user profile and check role
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('id, role')
+      .eq('id', user.id)
+      .single();
+
+    if (profileError || !profile) {
+      return NextResponse.json(
+        { success: false, error: 'Profile not found' },
+        { status: 404 }
+      );
+    }
+
+    // Only Staff and Super Admin can create historical disease statistics
+    if (profile.role !== 'staff' && profile.role !== 'super_admin') {
+      return NextResponse.json(
+        { success: false, error: 'Only Staff and Super Admins can create historical disease statistics' },
+        { status: 403 }
+      );
+    }
+
+    // Get request body
+    const body = await request.json();
+    const {
+      disease_type,
+      custom_disease_name,
+      record_date,
+      case_count,
+      barangay_id,
+      source,
+      notes,
+    } = body;
+
+    // Validate required fields
+    if (!disease_type || !record_date || !case_count) {
+      return NextResponse.json(
+        { success: false, error: 'Missing required fields: disease_type, record_date, case_count' },
+        { status: 400 }
+      );
+    }
+
+    // Validate case_count is positive
+    if (case_count <= 0) {
+      return NextResponse.json(
+        { success: false, error: 'Case count must be greater than 0' },
+        { status: 400 }
+      );
+    }
+
+    // Validate custom_disease_name is provided when disease_type is 'other'
+    if (disease_type === 'other') {
+      if (!custom_disease_name || custom_disease_name.trim() === '') {
+        return NextResponse.json(
+          { success: false, error: 'Custom disease name is required when disease type is "Other"' },
+          { status: 400 }
+        );
+      }
+    } else {
+      // Ensure custom_disease_name is null for non-other disease types
+      if (custom_disease_name) {
+        return NextResponse.json(
+          { success: false, error: 'Custom disease name should only be provided when disease type is "Other"' },
+          { status: 400 }
+        );
+      }
+    }
+
+    // Validate record_date is not in the future
+    // Use server's local timezone to compare dates
+    const today = new Date();
+    const todayString = today.getFullYear() + '-' +
+      String(today.getMonth() + 1).padStart(2, '0') + '-' +
+      String(today.getDate()).padStart(2, '0');
+
+    if (record_date > todayString) {
+      return NextResponse.json(
+        { success: false, error: 'Record date cannot be in the future' },
+        { status: 400 }
+      );
+    }
+
+    // Create historical disease statistics record
+    const { data: statistic, error: createError } = await supabase
+      .from('disease_statistics')
+      .insert({
+        disease_type,
+        custom_disease_name: disease_type === 'other' ? custom_disease_name.trim() : null,
+        record_date,
+        case_count: parseInt(case_count),
+        barangay_id: barangay_id ? parseInt(barangay_id) : null,
+        source: source || null,
+        notes: notes || null,
+        created_by_id: profile.id,
+      })
+      .select()
+      .single();
+
+    if (createError) {
+      console.error('Error creating historical disease statistics:', createError);
+      return NextResponse.json(
+        { success: false, error: 'Failed to create historical disease statistics', details: createError.message },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json({
+      success: true,
+      data: statistic,
+      message: 'Historical disease statistics created successfully',
+    });
+
+  } catch (error: any) {
+    console.error('Error in POST historical diseases API:', error);
+    return NextResponse.json(
+      { success: false, error: error.message },
+      { status: 500 }
+    );
+  }
+}
