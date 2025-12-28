@@ -199,6 +199,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Fetch appointment data for notification context
+    const { data: appointmentData } = await supabase
+      .from('appointments')
+      .select('appointment_number, services(name)')
+      .eq('id', appointment_id)
+      .single();
+
     // Create notification for super admin
     // Get all super admins
     const { data: superAdmins } = await supabase
@@ -207,13 +214,14 @@ export async function POST(request: NextRequest) {
       .eq('role', 'super_admin');
 
     if (superAdmins && superAdmins.length > 0) {
-      // Create notifications for all super admins
+      // Create notifications for all super admins with appointment context
       const notifications = superAdmins.map(admin => ({
         user_id: admin.id,
         type: 'general',
-        title: 'New Feedback Received',
-        message: `A patient has submitted feedback with an overall rating of ${rating}/5 stars.`,
+        title: 'New Patient Feedback',
+        message: `Patient submitted feedback for appointment #${appointmentData?.appointment_number || 'N/A'} (${appointmentData?.services?.name || 'Unknown Service'}) with an overall rating of ${rating}/5 stars.`,
         link: '/admin/feedback',
+        data: `appointment_number=${appointmentData?.appointment_number}|service_name=${appointmentData?.services?.name}|rating=${rating}`
       }));
 
       await supabase.from('notifications').insert(notifications);

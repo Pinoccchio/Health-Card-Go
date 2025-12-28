@@ -170,6 +170,10 @@ export default function HealthcareAdminAppointmentsPage() {
   const [showCheckInDialog, setShowCheckInDialog] = useState(false);
   const [appointmentToCheckIn, setAppointmentToCheckIn] = useState<string | null>(null);
 
+  // No-show confirmation dialog state
+  const [showNoShowDialog, setShowNoShowDialog] = useState(false);
+  const [appointmentToNoShow, setAppointmentToNoShow] = useState<AdminAppointment | null>(null);
+
   // Check if user has access to appointments (not walk-in only service)
   useEffect(() => {
     async function checkAccess() {
@@ -222,12 +226,13 @@ export default function HealthcareAdminAppointmentsPage() {
     }
   }, [currentPage, hasAccess]);
 
-  // Fetch last history entries when appointments change
+  // Fetch last history entries when appointments data changes
+  // Dependencies on full appointments array (not just length) to trigger when status updates
   useEffect(() => {
     if (appointments.length > 0) {
       fetchAllLastHistoryEntries();
     }
-  }, [appointments.length]);
+  }, [appointments]);
 
   const fetchAllLastHistoryEntries = async () => {
     const entries: Record<string, { id: string; from_status: string | null }> = {};
@@ -235,13 +240,20 @@ export default function HealthcareAdminAppointmentsPage() {
     await Promise.all(
       appointments.map(async (appointment) => {
         try {
+          // Fetch history for this appointment
           const response = await fetch(`/api/appointments/${appointment.id}/history`);
           const data = await response.json();
 
           if (data.success && data.data.length > 0) {
-            // Get the most recent forward status change (simplified filter matching walk-in pattern)
+            // Get the most recent forward (non-reversion) status change that led to current status
+            // The from_status of that entry tells us where to revert back to
+            // Use appointment.status from the appointments array (which should be fresh after fetchAppointments)
             const lastEntry = data.data
-              .filter((entry: any) => entry.from_status !== null && !entry.is_reversion)
+              .filter((entry: any) =>
+                entry.from_status !== null &&
+                !entry.is_reversion &&
+                entry.to_status === appointment.status
+              )
               .sort((a: any, b: any) => new Date(b.changed_at).getTime() - new Date(a.changed_at).getTime())[0];
 
             if (lastEntry) {
@@ -259,6 +271,18 @@ export default function HealthcareAdminAppointmentsPage() {
 
     setLastHistoryEntries(entries);
   };
+
+  // Auto-sync selectedAppointment with fresh data when appointments update
+  // This prevents stale data in drawer/modals after status changes
+  useEffect(() => {
+    if (isDrawerOpen && selectedAppointment) {
+      const freshAppointment = appointments.find(apt => apt.id === selectedAppointment.id);
+      if (freshAppointment && freshAppointment.status !== selectedAppointment.status) {
+        console.log(`🔄 [STATE SYNC] Auto-updating selectedAppointment: ${selectedAppointment.status} → ${freshAppointment.status}`);
+        setSelectedAppointment(freshAppointment);
+      }
+    }
+  }, [appointments, isDrawerOpen, selectedAppointment?.id, selectedAppointment?.status]);
 
   // Check medical records for completed appointments
   useEffect(() => {
@@ -427,6 +451,9 @@ export default function HealthcareAdminAppointmentsPage() {
   };
 
   const handleQuickUndo = (appointmentId: string) => {
+    // Prevent rapid clicks during data refresh
+    if (actionLoading) return;
+
     const lastEntry = lastHistoryEntries[appointmentId];
     if (!lastEntry) return;
 
@@ -459,17 +486,16 @@ export default function HealthcareAdminAppointmentsPage() {
       const data = await response.json();
 
       if (data.success) {
-        // Close dialog and show success immediately
+        // Close UI
         setShowRevertDialog(false);
-        toast.success('Appointment status reverted successfully');
-        setPendingRevert(null);
-
-        // Close drawer immediately (don't wait for data refresh)
         setIsDrawerOpen(false);
         setSelectedAppointment(null);
+        setPendingRevert(null);
+        toast.success('Appointment status reverted successfully');
 
-        // Refresh appointments list in background (not awaited for instant UI response)
-        fetchAppointments();
+        // Refetch appointments and history to get latest data
+        await fetchAppointments();
+        await fetchAllLastHistoryEntries();
         setActionLoading(false);
       } else {
         toast.error(data.error || 'Failed to revert status');
@@ -492,7 +518,6 @@ export default function HealthcareAdminAppointmentsPage() {
 
     try {
       setActionLoading(true);
-      setShowCheckInDialog(false);
 
       const response = await fetch(`/api/appointments/${appointmentToCheckIn}`, {
         method: 'PATCH',
@@ -506,18 +531,67 @@ export default function HealthcareAdminAppointmentsPage() {
         throw new Error(data.error || 'Failed to check in patient');
       }
 
-      toast.success('Patient checked in successfully');
+      // Close UI
+      setShowCheckInDialog(false);
       setIsDrawerOpen(false);
       setSelectedAppointment(null);
-      fetchAppointments(); // Refresh the appointments list
-      // Refetch history to update undo button availability
-      setTimeout(() => fetchAllLastHistoryEntries(), 500);
+      toast.success('Patient checked in successfully');
+
+      // Refetch appointments and history to get latest data
+      await fetchAppointments();
+      await fetchAllLastHistoryEntries();
     } catch (error) {
       console.error('Error checking in patient:', error);
       toast.error(error instanceof Error ? error.message : 'Failed to check in patient');
     } finally {
       setActionLoading(false);
       setAppointmentToCheckIn(null);
+    }
+  };
+
+  const handleMarkNoShow = (appointment: AdminAppointment) => {
+    // Show confirmation dialog before marking as no-show
+    setAppointmentToNoShow(appointment);
+    setShowNoShowDialog(true);
+  };
+
+  const handleConfirmNoShow = async (reason?: string) => {
+    if (!appointmentToNoShow) return;
+
+    try {
+      setActionLoading(true);
+
+      const response = await fetch(`/api/appointments/${appointmentToNoShow.id}/mark-no-show`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason: reason || 'Manually marked as no-show by healthcare admin' }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to mark appointment as no-show');
+      }
+
+      // Close UI and show success message
+      setShowNoShowDialog(false);
+      setIsDrawerOpen(false);
+      setSelectedAppointment(null);
+
+      const suspensionWarning = data.data?.suspension_applied
+        ? ' Patient account has been suspended due to reaching 2 no-shows.'
+        : '';
+      toast.success(`Appointment marked as no-show successfully. No-show count: ${data.data?.no_show_count || 'N/A'}.${suspensionWarning}`);
+
+      // Refetch appointments and history to get latest data
+      await fetchAppointments();
+      await fetchAllLastHistoryEntries();
+    } catch (error) {
+      console.error('Error marking appointment as no-show:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to mark appointment as no-show');
+    } finally {
+      setActionLoading(false);
+      setAppointmentToNoShow(null);
     }
   };
 
@@ -532,7 +606,6 @@ export default function HealthcareAdminAppointmentsPage() {
 
     try {
       setActionLoading(true);
-      setShowStartDialog(false);
 
       const response = await fetch(`/api/appointments/${appointmentToStart}`, {
         method: 'PATCH',
@@ -546,12 +619,15 @@ export default function HealthcareAdminAppointmentsPage() {
         throw new Error(data.error || 'Failed to start consultation');
       }
 
-      toast.success('Consultation started');
+      // Close UI
+      setShowStartDialog(false);
       setIsDrawerOpen(false);
       setSelectedAppointment(null);
-      fetchAppointments(); // Refresh the appointments list
-      // Refetch history to update undo button availability
-      setTimeout(() => fetchAllLastHistoryEntries(), 500);
+      toast.success('Consultation started');
+
+      // Refetch appointments and history to get latest data
+      await fetchAppointments();
+      await fetchAllLastHistoryEntries();
     } catch (error) {
       console.error('Error starting consultation:', error);
       toast.error(error instanceof Error ? error.message : 'Failed to start consultation');
@@ -566,13 +642,17 @@ export default function HealthcareAdminAppointmentsPage() {
     setShowCompletionModal(true);
   };
 
-  const handleCompletionSuccess = () => {
+  const handleCompletionSuccess = async () => {
+    // Close UI
     setShowCompletionModal(false);
     setAppointmentToComplete(null);
     setIsDrawerOpen(false);
     setSuccessMessage('Appointment completed successfully');
     setTimeout(() => setSuccessMessage(''), 3000);
-    fetchAppointments();
+
+    // Refetch appointments and history to get latest data
+    await fetchAppointments();
+    await fetchAllLastHistoryEntries();
   };
 
   const handleCompletionCancel = () => {
@@ -1568,6 +1648,20 @@ export default function HealthcareAdminAppointmentsPage() {
                   </button>
                 )}
 
+                {/* Mark as No Show Button */}
+                {(selectedAppointment.status === 'scheduled' ||
+                  selectedAppointment.status === 'checked_in' ||
+                  selectedAppointment.status === 'in_progress') && (
+                  <button
+                    onClick={() => handleMarkNoShow(selectedAppointment)}
+                    disabled={actionLoading}
+                    className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-red-50 text-red-700 border border-red-200 rounded-md hover:bg-red-100 font-medium text-sm transition-colors disabled:opacity-50"
+                  >
+                    <XCircle className="w-4 h-4" />
+                    Mark as No Show
+                  </button>
+                )}
+
                 {/* View Status History */}
                 <button
                   onClick={() => handleViewHistory(selectedAppointment.id)}
@@ -1586,10 +1680,10 @@ export default function HealthcareAdminAppointmentsPage() {
                   <button
                     onClick={() => handleQuickUndo(selectedAppointment.id)}
                     disabled={actionLoading}
-                    className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-yellow-100 text-yellow-800 rounded-md hover:bg-yellow-200 font-medium text-sm border border-yellow-300 disabled:opacity-50 transition-colors"
+                    className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-yellow-100 text-yellow-800 rounded-md hover:bg-yellow-200 font-medium text-sm border border-yellow-300 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                   >
                     <RotateCcw className="w-4 h-4" />
-                    Undo Last Action
+                    {actionLoading ? 'Processing...' : 'Undo Last Action'}
                   </button>
                 )}
               </div>
@@ -1633,6 +1727,29 @@ export default function HealthcareAdminAppointmentsPage() {
           confirmText="Start Consultation"
           cancelText="Cancel"
           variant="info"
+          isLoading={actionLoading}
+        />
+
+        {/* No-Show Confirmation Dialog */}
+        <ConfirmDialog
+          isOpen={showNoShowDialog}
+          onClose={() => {
+            setShowNoShowDialog(false);
+            setAppointmentToNoShow(null);
+          }}
+          onConfirm={handleConfirmNoShow}
+          title="Mark Appointment as No Show"
+          message={
+            appointmentToNoShow
+              ? `Are you sure you want to mark appointment #${appointmentToNoShow.appointment_number} (${appointmentToNoShow.patients.profiles.first_name} ${appointmentToNoShow.patients.profiles.last_name}) as no-show?\n\n⚠️ Important:\n• This will increment the patient's no-show count\n• If the patient reaches 2 no-shows, their account will be automatically suspended for 1 month\n• The patient will receive a notification about this action\n• This action will be logged in the status history\n\nOnly proceed if the patient did not arrive for their scheduled appointment.`
+              : 'Are you sure you want to mark this appointment as no-show?'
+          }
+          confirmText="Mark as No Show"
+          cancelText="Cancel"
+          variant="danger"
+          showReasonInput={true}
+          reasonLabel="Reason for marking as no-show (optional)"
+          reasonPlaceholder="E.g., Patient did not arrive, No response to calls, Confirmed absence"
           isLoading={actionLoading}
         />
 

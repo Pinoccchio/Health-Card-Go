@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createClient, createAdminClient } from '@/lib/supabase/server';
 
 /**
  * GET /api/diseases/outbreak-detection
@@ -37,19 +37,31 @@ export async function GET(request: NextRequest) {
     );
   }
 
+  // Use admin client for outbreak detection (system-level feature, bypasses RLS)
+  // This ensures consistent outbreak detection regardless of user permissions
+  const adminClient = createAdminClient();
+
+  console.log('[Outbreak Detection] Starting outbreak detection scan...');
+
   try {
     const searchParams = request.nextUrl.searchParams;
     const autoNotify = searchParams.get('auto_notify') === 'true';
 
     const outbreaks = [];
+    let totalThresholdsChecked = 0;
+    let totalDiseasesScanned = 0;
 
     // Check each threshold
     for (const threshold of OUTBREAK_THRESHOLDS) {
+      totalThresholdsChecked++;
       const startDate = new Date();
       startDate.setDate(startDate.getDate() - threshold.days_window);
 
+      console.log(`[Outbreak Detection] Checking ${threshold.disease_type}: threshold=${threshold.cases_threshold} cases in ${threshold.days_window} days`);
+      console.log(`[Outbreak Detection] Date range: ${startDate.toISOString().split('T')[0]} to ${new Date().toISOString().split('T')[0]}`);
+
       // Get diseases matching criteria
-      const { data: diseases, error } = await supabase
+      const { data: diseases, error } = await adminClient
         .from('diseases')
         .select('id, barangay_id, diagnosis_date, severity, barangays(name)')
         .eq('disease_type', threshold.disease_type)
@@ -57,8 +69,18 @@ export async function GET(request: NextRequest) {
         .eq('status', 'active');
 
       if (error) {
-        console.error('Error fetching diseases for outbreak detection:', error);
+        console.error(`[Outbreak Detection] Error fetching diseases for ${threshold.disease_type}:`, error);
         continue;
+      }
+
+      const diseaseCount = diseases?.length || 0;
+      totalDiseasesScanned += diseaseCount;
+      console.log(`[Outbreak Detection] Found ${diseaseCount} active ${threshold.disease_type} cases in date range`);
+
+      if (diseaseCount >= threshold.cases_threshold) {
+        console.log(`[Outbreak Detection] ✅ THRESHOLD MET for ${threshold.disease_type}: ${diseaseCount} >= ${threshold.cases_threshold}`);
+      } else {
+        console.log(`[Outbreak Detection] ❌ Threshold NOT met for ${threshold.disease_type}: ${diseaseCount} < ${threshold.cases_threshold}`);
       }
 
       // Group by barangay
@@ -98,17 +120,19 @@ export async function GET(request: NextRequest) {
             )[0].diagnosis_date,
           };
 
+          console.log(`[Outbreak Detection] 🚨 OUTBREAK DETECTED in ${barangayName}: ${barangayDiseases.length} cases (${criticalCount} critical, ${severeCount} severe) - Risk: ${outbreak.risk_level.toUpperCase()}`);
           outbreaks.push(outbreak);
 
           // Auto-create notification for Super Admins if enabled
           if (autoNotify) {
-            await createOutbreakNotification(supabase, outbreak);
+            await createOutbreakNotification(adminClient, outbreak);
           }
         }
       }
 
       // Also check city-wide outbreak (all barangays combined)
       if (diseases && diseases.length >= threshold.cases_threshold * 3) {
+        console.log(`[Outbreak Detection] Checking city-wide ${threshold.disease_type}: ${diseases.length} cases >= ${threshold.cases_threshold * 3} threshold`);
         const criticalCount = diseases.filter(d => d.severity === 'critical').length;
         const severeCount = diseases.filter(d => d.severity === 'severe').length;
 
@@ -133,29 +157,46 @@ export async function GET(request: NextRequest) {
           )[0].diagnosis_date,
         };
 
+        console.log(`[Outbreak Detection] 🚨 CITY-WIDE OUTBREAK DETECTED for ${threshold.disease_type}: ${diseases.length} cases (${criticalCount} critical, ${severeCount} severe) - Risk: ${cityOutbreak.risk_level.toUpperCase()}`);
         outbreaks.push(cityOutbreak);
 
         if (autoNotify) {
-          await createOutbreakNotification(supabase, cityOutbreak);
+          await createOutbreakNotification(adminClient, cityOutbreak);
         }
       }
     }
 
+    // Consolidate outbreaks by disease_type + barangay combination
+    const consolidatedOutbreaks = consolidateOutbreaks(outbreaks);
+
     // Sort by risk level and case count
-    outbreaks.sort((a, b) => {
+    consolidatedOutbreaks.sort((a, b) => {
       const riskOrder = { critical: 3, high: 2, medium: 1, low: 0 };
       const riskDiff = riskOrder[b.risk_level as keyof typeof riskOrder] - riskOrder[a.risk_level as keyof typeof riskOrder];
       if (riskDiff !== 0) return riskDiff;
       return b.case_count - a.case_count;
     });
 
+    const criticalCount = consolidatedOutbreaks.filter(o => o.risk_level === 'critical').length;
+    const highRiskCount = consolidatedOutbreaks.filter(o => o.risk_level === 'high').length;
+    const mediumRiskCount = consolidatedOutbreaks.filter(o => o.risk_level === 'medium').length;
+
+    console.log(`[Outbreak Detection] ========== SCAN COMPLETE ==========`);
+    console.log(`[Outbreak Detection] Thresholds checked: ${totalThresholdsChecked}`);
+    console.log(`[Outbreak Detection] Total active diseases scanned: ${totalDiseasesScanned}`);
+    console.log(`[Outbreak Detection] Outbreaks detected (before consolidation): ${outbreaks.length}`);
+    console.log(`[Outbreak Detection] Consolidated outbreaks: ${consolidatedOutbreaks.length}`);
+    console.log(`[Outbreak Detection] Critical: ${criticalCount} | High Risk: ${highRiskCount} | Medium: ${mediumRiskCount} | Total: ${consolidatedOutbreaks.length}`);
+    console.log(`[Outbreak Detection] ====================================`);
+
     return NextResponse.json({
       success: true,
-      data: outbreaks,
+      data: consolidatedOutbreaks,
       metadata: {
-        total_outbreaks: outbreaks.length,
-        critical_outbreaks: outbreaks.filter(o => o.risk_level === 'critical').length,
-        high_risk_outbreaks: outbreaks.filter(o => o.risk_level === 'high').length,
+        total_outbreaks: consolidatedOutbreaks.length,
+        critical_outbreaks: criticalCount,
+        high_risk_outbreaks: highRiskCount,
+        medium_risk_outbreaks: mediumRiskCount,
         auto_notify_enabled: autoNotify,
         checked_at: new Date().toISOString(),
       },
@@ -168,6 +209,71 @@ export async function GET(request: NextRequest) {
       { status: 500 }
     );
   }
+}
+
+/**
+ * Consolidate multiple outbreak alerts for the same disease+barangay combination
+ * Groups by disease_type + barangay_id, includes all exceeded thresholds
+ */
+function consolidateOutbreaks(outbreaks: any[]) {
+  const grouped = new Map<string, any[]>();
+
+  // Group outbreaks by disease_type + barangay_id
+  outbreaks.forEach(outbreak => {
+    const key = `${outbreak.disease_type}_${outbreak.barangay_id || 'citywide'}`;
+    if (!grouped.has(key)) {
+      grouped.set(key, []);
+    }
+    grouped.get(key)!.push(outbreak);
+  });
+
+  // Consolidate each group
+  const consolidated: any[] = [];
+
+  grouped.forEach((group, key) => {
+    if (group.length === 1) {
+      // Single outbreak - add thresholds_exceeded array with one item
+      consolidated.push({
+        ...group[0],
+        thresholds_exceeded: [{
+          threshold: group[0].threshold,
+          days_window: group[0].days_window,
+          description: group[0].threshold_description,
+          case_count: group[0].case_count,
+        }],
+      });
+    } else {
+      // Multiple outbreaks - consolidate
+      const riskOrder = { critical: 3, high: 2, medium: 1, low: 0 };
+
+      // Sort by risk level and case count to get the primary outbreak
+      group.sort((a, b) => {
+        const riskDiff = riskOrder[b.risk_level as keyof typeof riskOrder] - riskOrder[a.risk_level as keyof typeof riskOrder];
+        if (riskDiff !== 0) return riskDiff;
+        return b.case_count - a.case_count;
+      });
+
+      const primary = group[0];
+
+      // Collect all threshold information
+      const thresholds_exceeded = group.map(outbreak => ({
+        threshold: outbreak.threshold,
+        days_window: outbreak.days_window,
+        description: outbreak.threshold_description,
+        case_count: outbreak.case_count,
+      }));
+
+      // Sort thresholds by days_window (shortest first - most urgent)
+      thresholds_exceeded.sort((a, b) => a.days_window - b.days_window);
+
+      consolidated.push({
+        ...primary,
+        thresholds_exceeded,
+      });
+    }
+  });
+
+  return consolidated;
 }
 
 async function createOutbreakNotification(supabase: any, outbreak: any) {

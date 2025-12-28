@@ -1,5 +1,6 @@
 import { createClient, createAdminClient } from '@/lib/supabase/server';
 import { NextRequest, NextResponse } from 'next/server';
+import { revalidatePath } from 'next/cache';
 
 /**
  * POST /api/appointments/[id]/complete
@@ -206,9 +207,12 @@ export async function POST(
       user_id: appointment.patients.user_id,
       type: 'general',
       title: 'Appointment Completed',
-      message: 'Your appointment has been completed. You can now submit feedback.',
+      message: `Your appointment #${appointment.appointment_number} has been completed. You can now submit feedback.`,
       link: '/patient/feedback',
     });
+
+    // Revalidate the appointments page cache
+    revalidatePath('/healthcare-admin/appointments');
 
     return NextResponse.json({
       success: true,

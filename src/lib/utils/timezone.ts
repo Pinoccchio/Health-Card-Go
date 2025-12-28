@@ -183,11 +183,23 @@ export function canCancelAppointment(appointmentDate: string, appointmentTime: s
  * @returns true if date is valid for booking
  */
 export function isValidBookingDate(dateString: string): boolean {
-  const selectedDate = new Date(dateString + 'T00:00:00');
-  const minDate = getMinBookingDate();
-  minDate.setHours(0, 0, 0, 0);
+  // Parse selected date (YYYY-MM-DD format)
+  const [year, month, day] = dateString.split('-').map(Number);
 
-  return selectedDate >= minDate;
+  // Get minimum booking date in PHT
+  const minDate = getMinBookingDate();
+  const minYear = minDate.getUTCFullYear();
+  const minMonth = minDate.getUTCMonth() + 1; // getUTCMonth() is 0-indexed
+  const minDay = minDate.getUTCDate();
+
+  // Compare dates numerically (year, month, day)
+  if (year > minYear) return true;
+  if (year < minYear) return false;
+
+  if (month > minMonth) return true;
+  if (month < minMonth) return false;
+
+  return day >= minDay;
 }
 
 /**

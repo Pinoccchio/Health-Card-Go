@@ -14,6 +14,15 @@ import {
   ChartOptions,
 } from 'chart.js';
 import { Line } from 'react-chartjs-2';
+import {
+  generateMetricsReport,
+  getMetricColor,
+  getMetricBackgroundColor,
+  formatMetric,
+  validatePredictionData,
+  type MetricsReport,
+} from '@/lib/utils/sarimaMetrics';
+import { AlertTriangle, CheckCircle2, Info } from 'lucide-react';
 
 // Register Chart.js components
 ChartJS.register(
@@ -37,6 +46,7 @@ export default function SARIMAChart({ diseaseType, barangayId }: SARIMAChartProp
   const [error, setError] = useState<string | null>(null);
   const [chartData, setChartData] = useState<any>(null);
   const [metadata, setMetadata] = useState<any>(null);
+  const [metricsReport, setMetricsReport] = useState<MetricsReport | null>(null);
 
   useEffect(() => {
     loadPredictions();
@@ -136,6 +146,50 @@ export default function SARIMAChart({ diseaseType, barangayId }: SARIMAChartProp
 
         setChartData({ labels, datasets });
         setMetadata(result.metadata);
+
+        // Calculate error metrics ONLY if we have actual predicted_cases data in historical records
+        // This ensures we don't compare actual cases to themselves (which gives 100% accuracy)
+        if (historical.length >= 2) {
+          try {
+            // Check if any historical data has real predicted_cases (not null/undefined)
+            const hasRealPredictions = historical.some((d: any) =>
+              d.predicted_cases !== null && d.predicted_cases !== undefined
+            );
+
+            if (hasRealPredictions) {
+              // Extract only records that have both actual and predicted values
+              const validRecords = historical.filter((d: any) =>
+                d.predicted_cases !== null && d.predicted_cases !== undefined
+              );
+
+              if (validRecords.length >= 2) {
+                const actualValues = validRecords.map((d: any) => d.actual_cases);
+                const predictedValues = validRecords.map((d: any) => d.predicted_cases);
+
+                // Validate data before calculating metrics
+                const validation = validatePredictionData(actualValues, predictedValues);
+
+                if (validation.valid) {
+                  const report = generateMetricsReport(actualValues, predictedValues);
+                  setMetricsReport(report);
+                } else {
+                  console.warn('Invalid prediction data for metrics:', validation.error);
+                  setMetricsReport(null);
+                }
+              } else {
+                console.info('Not enough historical predictions for metrics calculation');
+                setMetricsReport(null);
+              }
+            } else {
+              // No real predictions in historical data - using mock/demo data
+              console.info('Using demo prediction data - metrics not shown');
+              setMetricsReport(null);
+            }
+          } catch (metricsError) {
+            console.error('Error calculating metrics:', metricsError);
+            setMetricsReport(null);
+          }
+        }
       } else {
         setError(result.error || 'Failed to load predictions');
       }
@@ -314,6 +368,132 @@ export default function SARIMAChart({ diseaseType, barangayId }: SARIMAChartProp
           The shaded area represents the 95% confidence interval, indicating the range where actual values are likely to fall.
         </p>
       </div>
+
+      {/* Demo Data Disclaimer - shown when metrics are not available */}
+      {!metricsReport && metadata && (
+        <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-lg flex items-start gap-2">
+          <Info className="w-4 h-4 text-amber-600 mt-0.5 flex-shrink-0" />
+          <p className="text-xs text-amber-800">
+            <span className="font-semibold">Demo Data:</span> The predictions shown are sample data for demonstration and testing purposes.
+            Model accuracy metrics will be displayed once the system has historical predictions to validate against actual outcomes.
+          </p>
+        </div>
+      )}
+
+      {/* Model Accuracy Panel */}
+      {metricsReport && (
+        <div className={`mt-4 p-4 rounded-lg border ${getMetricBackgroundColor(metricsReport.rSquared)}`}>
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              {metricsReport.interpretation === 'Excellent' && (
+                <CheckCircle2 className="w-5 h-5 text-green-600" />
+              )}
+              {metricsReport.interpretation === 'Good' && (
+                <CheckCircle2 className="w-5 h-5 text-blue-600" />
+              )}
+              {(metricsReport.interpretation === 'Fair' || metricsReport.interpretation === 'Poor') && (
+                <AlertTriangle className="w-5 h-5 text-yellow-600" />
+              )}
+              <h4 className="text-sm font-semibold text-gray-900">Model Accuracy Metrics</h4>
+            </div>
+            <span className={`text-xs font-bold px-2 py-1 rounded ${getMetricColor(metricsReport.rSquared)}`}>
+              {metricsReport.interpretation}
+            </span>
+          </div>
+
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            {/* R-squared */}
+            <div className="bg-white/50 p-3 rounded">
+              <div className="flex items-center gap-1 mb-1">
+                <p className="text-xs text-gray-600">R² (Accuracy)</p>
+                <div className="relative group">
+                  <Info className="w-3 h-3 text-gray-400 cursor-help" />
+                  <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 hidden group-hover:block z-10">
+                    <div className="bg-gray-900 text-white text-xs rounded py-1 px-2 whitespace-nowrap">
+                      Proportion of variance explained (0-1)
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <p className="text-lg font-bold text-gray-900">
+                {formatMetric(metricsReport.rSquared, 3)}
+              </p>
+              <p className="text-xs text-gray-600 mt-0.5">
+                {formatMetric(metricsReport.accuracy, 1)}% accurate
+              </p>
+            </div>
+
+            {/* RMSE */}
+            <div className="bg-white/50 p-3 rounded">
+              <div className="flex items-center gap-1 mb-1">
+                <p className="text-xs text-gray-600">RMSE</p>
+                <div className="relative group">
+                  <Info className="w-3 h-3 text-gray-400 cursor-help" />
+                  <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 hidden group-hover:block z-10">
+                    <div className="bg-gray-900 text-white text-xs rounded py-1 px-2 whitespace-nowrap">
+                      Root Mean Squared Error (lower is better)
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <p className="text-lg font-bold text-gray-900">
+                {formatMetric(metricsReport.rmse, 2)}
+              </p>
+              <p className="text-xs text-gray-600 mt-0.5">cases</p>
+            </div>
+
+            {/* MSE */}
+            <div className="bg-white/50 p-3 rounded">
+              <div className="flex items-center gap-1 mb-1">
+                <p className="text-xs text-gray-600">MSE</p>
+                <div className="relative group">
+                  <Info className="w-3 h-3 text-gray-400 cursor-help" />
+                  <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 hidden group-hover:block z-10">
+                    <div className="bg-gray-900 text-white text-xs rounded py-1 px-2 whitespace-nowrap">
+                      Mean Squared Error (lower is better)
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <p className="text-lg font-bold text-gray-900">
+                {formatMetric(metricsReport.mse, 2)}
+              </p>
+              <p className="text-xs text-gray-600 mt-0.5">squared cases</p>
+            </div>
+
+            {/* MAE */}
+            <div className="bg-white/50 p-3 rounded">
+              <div className="flex items-center gap-1 mb-1">
+                <p className="text-xs text-gray-600">MAE</p>
+                <div className="relative group">
+                  <Info className="w-3 h-3 text-gray-400 cursor-help" />
+                  <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 hidden group-hover:block z-10">
+                    <div className="bg-gray-900 text-white text-xs rounded py-1 px-2 whitespace-nowrap">
+                      Mean Absolute Error (lower is better)
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <p className="text-lg font-bold text-gray-900">
+                {formatMetric(metricsReport.mae, 2)}
+              </p>
+              <p className="text-xs text-gray-600 mt-0.5">cases</p>
+            </div>
+          </div>
+
+          {/* Interpretation Guide */}
+          <div className="mt-3 pt-3 border-t border-gray-200">
+            <p className="text-xs text-gray-700">
+              <span className="font-semibold">Interpretation:</span> This {metricsReport.interpretation.toLowerCase()} model
+              explains {formatMetric(metricsReport.accuracy, 1)}% of the variance in disease cases.
+              {metricsReport.interpretation === 'Excellent' && ' The predictions are highly reliable.'}
+              {metricsReport.interpretation === 'Good' && ' The predictions are generally reliable.'}
+              {metricsReport.interpretation === 'Fair' && ' The predictions have moderate reliability. Consider gathering more data.'}
+              {metricsReport.interpretation === 'Poor' && ' The predictions have low reliability. More data or model refinement needed.'}
+            </p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

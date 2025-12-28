@@ -103,6 +103,17 @@ export async function GET(request: NextRequest) {
     // Sort by total cases descending
     heatmapData.sort((a, b) => b.statistics.total_cases - a.statistics.total_cases);
 
+    // Calculate additional metadata
+    const mostAffectedBarangay = heatmapData.length > 0 ? heatmapData[0] : null;
+    const latestCaseDate = diseases && diseases.length > 0
+      ? diseases.reduce((latest, d) =>
+          new Date(d.diagnosis_date) > new Date(latest)
+            ? d.diagnosis_date
+            : latest,
+          diseases[0].diagnosis_date
+        )
+      : null;
+
     return NextResponse.json({
       success: true,
       data: heatmapData,
@@ -113,6 +124,9 @@ export async function GET(request: NextRequest) {
         critical_barangays: heatmapData.filter(b => b.risk_level === 'critical').length,
         high_risk_barangays: heatmapData.filter(b => b.risk_level === 'high').length,
         disease_type: diseaseType || 'all',
+        most_affected_barangay: mostAffectedBarangay?.barangay_name || null,
+        highest_case_count: mostAffectedBarangay?.statistics.total_cases || 0,
+        latest_case_date: latestCaseDate,
       },
     });
 

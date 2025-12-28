@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { createClient as createSupabaseClient } from '@supabase/supabase-js';
 
@@ -123,6 +124,17 @@ export async function PATCH(
 
     // Validate status transition (skip for revert operations)
     if (!isRevertOperation) {
+      // Prevent circular transitions (transitioning to the same status)
+      if (appointment.status === targetStatus) {
+        return NextResponse.json(
+          {
+            error: `Cannot transition to the same status. Appointment is already '${appointment.status}'.`,
+            current: appointment.status,
+          },
+          { status: 400 }
+        );
+      }
+
       const validTransitions: Record<string, string[]> = {
         'checked_in': ['in_progress', 'cancelled'],
         'in_progress': ['completed', 'cancelled'],
@@ -245,6 +257,88 @@ export async function PATCH(
         { status: 500 }
       );
     }
+
+    // Get patient data for notifications
+    const { data: appointmentWithPatient } = await adminClient
+      .from('appointments')
+      .select('appointment_number, appointment_date, appointment_time, patients!inner(user_id)')
+      .eq('id', appointmentId)
+      .single();
+
+    // Send notifications based on status change
+    if (appointmentWithPatient) {
+      const queueNumber = appointmentWithPatient.appointment_number;
+      const patientUserId = appointmentWithPatient.patients.user_id;
+
+      try {
+        // Check-in notification
+        if (targetStatus === 'checked_in' && !isRevertOperation) {
+          await adminClient.from('notifications').insert({
+            user_id: patientUserId,
+            type: 'general',
+            title: 'Checked In Successfully',
+            message: `You have been checked in for appointment #${queueNumber}. Your queue number is ${queueNumber}. Please wait for your name to be called.`,
+            link: '/patient/appointments',
+          });
+          console.log(`✅ [NOTIFICATION] Check-in notification sent for appointment #${queueNumber}`);
+        }
+
+        // Consultation started notification
+        if (targetStatus === 'in_progress' && !isRevertOperation) {
+          await adminClient.from('notifications').insert({
+            user_id: patientUserId,
+            type: 'general',
+            title: 'Consultation Started',
+            message: `Your consultation for appointment #${queueNumber} has started. Your healthcare provider is ready to see you.`,
+            link: '/patient/appointments',
+          });
+          console.log(`✅ [NOTIFICATION] Consultation started notification sent for appointment #${queueNumber}`);
+        }
+
+        // Cancellation notification
+        if (targetStatus === 'cancelled' && !isRevertOperation) {
+          await adminClient.from('notifications').insert({
+            user_id: patientUserId,
+            type: 'cancellation',
+            title: 'Appointment Cancelled',
+            message: `Your appointment #${queueNumber} on ${appointmentWithPatient.appointment_date} at ${appointmentWithPatient.appointment_time} has been cancelled.${reason ? ' Reason: ' + reason : ''}`,
+            link: '/patient/appointments',
+            data: `appointment_number=${queueNumber}|date=${appointmentWithPatient.appointment_date}|time=${appointmentWithPatient.appointment_time}`
+          });
+          console.log(`✅ [NOTIFICATION] Cancellation notification sent for appointment #${queueNumber}`);
+        }
+
+        // Status revert notification
+        if (isRevertOperation && historyEntry) {
+          const statusNames: Record<string, string> = {
+            'scheduled': 'Scheduled',
+            'checked_in': 'Checked In',
+            'in_progress': 'In Progress',
+            'completed': 'Completed',
+            'cancelled': 'Cancelled',
+            'no_show': 'No Show'
+          };
+
+          await adminClient.from('notifications').insert({
+            user_id: patientUserId,
+            type: 'general',
+            title: 'Appointment Status Updated',
+            message: `Your appointment #${queueNumber} status was reverted to "${statusNames[targetStatus] || targetStatus}". ${reason ? 'Reason: ' + reason : ''}`,
+            link: '/patient/appointments',
+          });
+          console.log(`✅ [NOTIFICATION] Revert notification sent for appointment #${queueNumber}: ${appointment.status} → ${targetStatus}`);
+        }
+      } catch (notificationError) {
+        // Log error but don't fail the status update
+        console.error('❌ [NOTIFICATION ERROR] Failed to send notification:', notificationError);
+      }
+    }
+
+    // Enhanced server logging for status changes
+    console.log(`✅ [APPOINTMENT STATUS UPDATE] ID: ${appointmentId}, ${appointment.status} → ${targetStatus}, Queue #${appointment.appointment_number}, Date: ${appointment.appointment_date}, Time: ${appointment.appointment_time}${isRevertOperation ? ' (REVERT)' : ''}`);
+
+    // Revalidate the appointments page cache
+    revalidatePath('/healthcare-admin/appointments');
 
     return NextResponse.json({
       success: true,

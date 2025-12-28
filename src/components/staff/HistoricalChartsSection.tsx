@@ -27,6 +27,56 @@ export function HistoricalChartsSection({
 
   const hasData = chartData && chartData.length > 0;
 
+  // Show loading skeleton while data is being fetched
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        {/* Full-width line chart skeleton */}
+        <div className="bg-white rounded-lg shadow p-6 border border-gray-200">
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-2">
+              <div className="w-5 h-5 bg-gray-200 rounded animate-pulse"></div>
+              <div className="h-6 w-56 bg-gray-200 rounded animate-pulse"></div>
+            </div>
+            <div className="w-8 h-8 bg-gray-200 rounded animate-pulse"></div>
+          </div>
+          <div className="h-[400px] bg-gray-100 rounded animate-pulse"></div>
+          <div className="mt-4 pt-4 border-t border-gray-200">
+            <div className="h-3 w-96 bg-gray-200 rounded mx-auto animate-pulse"></div>
+          </div>
+        </div>
+
+        {/* Two-column layout skeleton */}
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+          {/* Barangay distribution skeleton - 60% */}
+          <div className="lg:col-span-3">
+            <div className="bg-white rounded-lg shadow p-6 border border-gray-200">
+              <div className="flex items-center gap-2 mb-6">
+                <div className="w-5 h-5 bg-gray-200 rounded animate-pulse"></div>
+                <div className="h-6 w-64 bg-gray-200 rounded animate-pulse"></div>
+              </div>
+              <div className="h-[400px] bg-gray-100 rounded animate-pulse"></div>
+              <div className="mt-4 pt-4 border-t border-gray-200">
+                <div className="h-3 w-80 bg-gray-200 rounded mx-auto animate-pulse"></div>
+              </div>
+            </div>
+          </div>
+
+          {/* Disease type distribution skeleton - 40% */}
+          <div className="lg:col-span-2">
+            <div className="bg-white rounded-lg shadow p-6 border border-gray-200">
+              <div className="flex items-center gap-2 mb-6">
+                <div className="w-5 h-5 bg-gray-200 rounded animate-pulse"></div>
+                <div className="h-6 w-56 bg-gray-200 rounded animate-pulse"></div>
+              </div>
+              <div className="h-[400px] bg-gray-100 rounded animate-pulse"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (!hasData && !isLoading) {
     return (
       <div className="bg-blue-50 border border-blue-200 rounded-lg p-8 text-center">

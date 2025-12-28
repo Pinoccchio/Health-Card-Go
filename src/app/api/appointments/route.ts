@@ -1,7 +1,6 @@
 import { createClient, createAdminClient } from '@/lib/supabase/server';
 import { NextRequest, NextResponse } from 'next/server';
 import { isValidBookingDate, isWeekday } from '@/lib/utils/timezone';
-import { checkAndUnsuspendPatient } from '@/lib/utils/appointmentUtils';
 import {
   TimeBlock,
   TIME_BLOCKS,
@@ -95,32 +94,27 @@ export async function POST(request: NextRequest) {
 
     // Check if patient is suspended
     if (profile.status === 'suspended') {
-      // Try to auto-unsuspend if suspension period has expired
-      const wasUnsuspended = await checkAndUnsuspendPatient(patient.id, user.id);
+      // Account is suspended - block booking
+      // Admin must manually unsuspend the account
+      if (patient.suspended_until) {
+        const suspendedUntil = new Date(patient.suspended_until);
+        const daysRemaining = Math.ceil((suspendedUntil.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
 
-      if (!wasUnsuspended) {
-        // Still suspended - block booking
-        if (patient.suspended_until) {
-          const suspendedUntil = new Date(patient.suspended_until);
-          const daysRemaining = Math.ceil((suspendedUntil.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
-
-          return NextResponse.json(
-            {
-              error: 'Your account is suspended due to multiple no-shows',
-              suspended_until: patient.suspended_until,
-              days_remaining: daysRemaining,
-              message: `Your account will be automatically reinstated on ${suspendedUntil.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}. If you believe this is an error, please contact the City Health Office.`,
-            },
-            { status: 403 }
-          );
-        } else {
-          return NextResponse.json(
-            { error: 'Your account is suspended. Please contact the City Health Office.' },
-            { status: 403 }
-          );
-        }
+        return NextResponse.json(
+          {
+            error: 'Your account is suspended due to multiple no-shows',
+            suspended_until: patient.suspended_until,
+            days_remaining: daysRemaining > 0 ? daysRemaining : 0,
+            message: `Your account is suspended. Please contact the City Health Office to request reinstatement.`,
+          },
+          { status: 403 }
+        );
+      } else {
+        return NextResponse.json(
+          { error: 'Your account is suspended. Please contact the City Health Office.' },
+          { status: 403 }
+        );
       }
-      // If successfully unsuspended, continue with booking
     }
 
     // Validate service exists and requires appointment
@@ -234,7 +228,7 @@ export async function POST(request: NextRequest) {
     // Security: User is authenticated patient, creating their own appointment
     const adminClient = createAdminClient();
 
-    // Create appointment with 'pending' status (awaiting admin confirmation)
+    // Create appointment with 'scheduled' status (immediately confirmed)
     const { data: appointment, error: insertError } = await adminClient
       .from('appointments')
       .insert({
@@ -244,7 +238,7 @@ export async function POST(request: NextRequest) {
         appointment_time, // Default time for the block (08:00 or 13:00)
         time_block, // User-selected time block (AM or PM)
         appointment_number: nextQueueNumber,
-        status: 'pending', // Start as pending until confirmed by admin
+        status: 'scheduled', // Automatically scheduled when booked
         reason,
       })
       .select(`
@@ -276,9 +270,9 @@ export async function POST(request: NextRequest) {
         appointment_id: appointment.id,
         change_type: 'status_change',
         from_status: null,
-        to_status: 'pending',
+        to_status: 'scheduled',
         changed_by: user.id,
-        reason: 'Patient booked appointment',
+        reason: 'Appointment created and scheduled',
       });
 
     if (historyError) {
@@ -291,8 +285,8 @@ export async function POST(request: NextRequest) {
     await supabase.from('notifications').insert({
       user_id: user.id,
       type: 'general',
-      title: 'Booking Received',
-      message: `Your appointment request for ${service.name} on ${appointment_date} in the ${blockInfo} has been received and is pending admin review. You'll be notified once it's confirmed.`,
+      title: 'Appointment Confirmed',
+      message: `Your appointment for ${service.name} on ${appointment_date} in the ${blockInfo} has been confirmed. Queue number: #${nextQueueNumber}.`,
       link: '/patient/appointments',
     });
 
