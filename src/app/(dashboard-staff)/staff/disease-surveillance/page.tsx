@@ -1051,7 +1051,7 @@ export default function StaffDiseaseSurveillancePage() {
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-teal text-sm"
                   >
                     <option value="all">All Diseases</option>
-                    {DISEASE_TYPES.filter(t => t.value !== 'other').map(type => (
+                    {DISEASE_TYPES.map(type => (
                       <option key={type.value} value={type.value}>
                         {type.label}
                       </option>

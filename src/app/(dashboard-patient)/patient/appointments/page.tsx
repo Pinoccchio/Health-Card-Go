@@ -89,6 +89,18 @@ export default function PatientAppointmentsPage() {
     fetchAppointments();
   }, []);
 
+  // Auto-sync selectedAppointment with fresh data when appointments update
+  // This prevents stale data in drawer/modals after status changes
+  useEffect(() => {
+    if (isDrawerOpen && selectedAppointment) {
+      const freshAppointment = appointments.find(apt => apt.id === selectedAppointment.id);
+      if (freshAppointment && freshAppointment.status !== selectedAppointment.status) {
+        console.log(`🔄 [STATE SYNC] Auto-updating selectedAppointment: ${selectedAppointment.status} → ${freshAppointment.status}`);
+        setSelectedAppointment(freshAppointment);
+      }
+    }
+  }, [appointments, isDrawerOpen, selectedAppointment?.id, selectedAppointment?.status]);
+
   const fetchAppointments = async () => {
     setLoading(true);
     try {

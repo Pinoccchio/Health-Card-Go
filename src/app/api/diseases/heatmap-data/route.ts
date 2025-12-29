@@ -35,7 +35,7 @@ export async function GET(request: NextRequest) {
     // Fetch diseases with filters
     let diseaseQuery = supabase
       .from('diseases')
-      .select('barangay_id, disease_type, severity, status, diagnosis_date');
+      .select('barangay_id, disease_type, custom_disease_name, severity, status, diagnosis_date');
 
     if (diseaseType) {
       diseaseQuery = diseaseQuery.eq('disease_type', diseaseType);
@@ -78,6 +78,38 @@ export async function GET(request: NextRequest) {
         riskLevel = 'medium';
       }
 
+      // Group diseases by type and custom name for breakdown
+      const diseaseBreakdownMap = new Map<string, {
+        disease_type: string;
+        custom_disease_name: string | null;
+        total_count: number;
+        active_count: number;
+        critical_count: number;
+      }>();
+
+      barangayDiseases.forEach(disease => {
+        // Create unique key for grouping (disease_type + custom_disease_name)
+        const key = `${disease.disease_type}|${disease.custom_disease_name || ''}`;
+
+        const existing = diseaseBreakdownMap.get(key) || {
+          disease_type: disease.disease_type,
+          custom_disease_name: disease.custom_disease_name || null,
+          total_count: 0,
+          active_count: 0,
+          critical_count: 0,
+        };
+
+        existing.total_count++;
+        if (disease.status === 'active') existing.active_count++;
+        if (disease.severity === 'critical') existing.critical_count++;
+
+        diseaseBreakdownMap.set(key, existing);
+      });
+
+      // Convert map to sorted array (highest count first)
+      const diseaseBreakdown = Array.from(diseaseBreakdownMap.values())
+        .sort((a, b) => b.total_count - a.total_count);
+
       return {
         barangay_id: barangay.id,
         barangay_name: barangay.name,
@@ -89,6 +121,7 @@ export async function GET(request: NextRequest) {
           severe_cases: severeCases,
           recovered_cases: barangayDiseases.filter(d => d.status === 'recovered').length,
         },
+        diseases: diseaseBreakdown, // NEW: Disease breakdown by type
         intensity, // For heatmap color gradient
         risk_level: riskLevel,
         last_updated: diseases && diseases.length > 0

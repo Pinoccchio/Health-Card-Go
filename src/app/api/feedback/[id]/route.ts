@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server';
 import { NextRequest, NextResponse } from 'next/server';
+import { revalidatePath } from 'next/cache';
 
 /**
  * PATCH /api/feedback/[id]
@@ -117,6 +118,9 @@ export async function PATCH(
       message: 'An administrator has responded to your feedback. Click to view the response.',
       link: '/patient/feedback',
     });
+
+    // Revalidate the feedback page cache
+    revalidatePath('/admin/feedback');
 
     return NextResponse.json({
       success: true,

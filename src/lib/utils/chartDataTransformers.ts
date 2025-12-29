@@ -177,6 +177,7 @@ export function aggregateByBarangay(
 /**
  * Aggregate disease cases by disease type
  * Returns counts and percentages for each disease type for specified time range
+ * Handles custom diseases by grouping them separately by custom_disease_name
  */
 export function aggregateByDiseaseType(
   diseases: any[],
@@ -192,21 +193,36 @@ export function aggregateByDiseaseType(
     return new Date(d.diagnosis_date) >= cutoffDate;
   });
 
-  const diseaseMap: Record<string, number> = {};
+  const diseaseMap: Record<string, { count: number; customName?: string; rawType: string }> = {};
 
   filteredDiseases.forEach((disease) => {
     const type = disease.disease_type || 'unknown';
-    diseaseMap[type] = (diseaseMap[type] || 0) + 1;
+
+    // For custom diseases, use custom_disease_name as the key to group them separately
+    let key: string;
+    let customName: string | undefined;
+
+    if (type === 'other' && disease.custom_disease_name) {
+      key = `custom_${disease.custom_disease_name}`;
+      customName = disease.custom_disease_name;
+    } else {
+      key = type;
+    }
+
+    if (!diseaseMap[key]) {
+      diseaseMap[key] = { count: 0, customName, rawType: type };
+    }
+    diseaseMap[key].count++;
   });
 
-  const total = Object.values(diseaseMap).reduce((a, b) => a + b, 0);
+  const total = Object.values(diseaseMap).reduce((a, b) => a + b.count, 0);
 
   return Object.entries(diseaseMap)
-    .map(([type, count]) => ({
-      type: formatDiseaseType(type),
-      count,
-      percentage: total > 0 ? (count / total) * 100 : 0,
-      color: DISEASE_COLORS[type] || DISEASE_COLORS.other,
+    .map(([key, data]) => ({
+      type: formatDiseaseType(data.rawType, data.customName),
+      count: data.count,
+      percentage: total > 0 ? (data.count / total) * 100 : 0,
+      color: DISEASE_COLORS[data.rawType] || DISEASE_COLORS.other,
     }))
     .sort((a, b) => b.count - a.count);
 }
@@ -214,8 +230,14 @@ export function aggregateByDiseaseType(
 /**
  * Format disease type for display
  * Converts database format to human-readable format
+ * For custom diseases (type='other'), uses custom_disease_name if provided
  */
-export function formatDiseaseType(type: string): string {
+export function formatDiseaseType(type: string, customDiseaseName?: string): string {
+  // If it's a custom disease with a name, use that name
+  if (type === 'other' && customDiseaseName) {
+    return customDiseaseName;
+  }
+
   const formatMap: Record<string, string> = {
     hiv_aids: 'HIV/AIDS',
     dengue: 'Dengue',

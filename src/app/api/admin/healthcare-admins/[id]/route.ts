@@ -1,5 +1,6 @@
 import { createClient, createAdminClient } from '@/lib/supabase/server';
 import { NextResponse } from 'next/server';
+import { revalidatePath } from 'next/cache';
 
 /**
  * GET /api/admin/healthcare-admins/[id]
@@ -276,6 +277,9 @@ export async function PATCH(
 
     console.log(`✅ Healthcare Admin updated: ${updatedAdmin.email}`);
 
+    // Revalidate the users page cache
+    revalidatePath('/admin/users');
+
     return NextResponse.json({
       success: true,
       message: 'Healthcare Admin updated successfully',
@@ -343,6 +347,9 @@ export async function DELETE(
     await supabase.from('profiles').delete().eq('id', id);
 
     console.log(`✅ Healthcare Admin deleted: ${existingAdmin.email}`);
+
+    // Revalidate the users page cache
+    revalidatePath('/admin/users');
 
     return NextResponse.json({
       success: true,

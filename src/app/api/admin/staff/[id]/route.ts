@@ -1,5 +1,6 @@
 import { createClient, createAdminClient } from '@/lib/supabase/server';
 import { NextResponse } from 'next/server';
+import { revalidatePath } from 'next/cache';
 
 /**
  * GET /api/admin/staff/[id]
@@ -286,6 +287,9 @@ export async function PATCH(
 
     console.log(`✅ Staff member updated: ${updatedStaff.email}`);
 
+    // Revalidate the users page cache
+    revalidatePath('/admin/users');
+
     return NextResponse.json({
       success: true,
       message: 'Staff member updated successfully',
@@ -388,6 +392,9 @@ export async function DELETE(
     await supabase.from('profiles').delete().eq('id', id);
 
     console.log(`✅ Staff member deleted: ${existingStaff.email}`);
+
+    // Revalidate the users page cache
+    revalidatePath('/admin/users');
 
     return NextResponse.json({
       success: true,

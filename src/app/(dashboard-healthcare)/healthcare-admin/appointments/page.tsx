@@ -275,14 +275,17 @@ export default function HealthcareAdminAppointmentsPage() {
   // Auto-sync selectedAppointment with fresh data when appointments update
   // This prevents stale data in drawer/modals after status changes
   useEffect(() => {
-    if (isDrawerOpen && selectedAppointment) {
-      const freshAppointment = appointments.find(apt => apt.id === selectedAppointment.id);
-      if (freshAppointment && freshAppointment.status !== selectedAppointment.status) {
-        console.log(`🔄 [STATE SYNC] Auto-updating selectedAppointment: ${selectedAppointment.status} → ${freshAppointment.status}`);
-        setSelectedAppointment(freshAppointment);
-      }
+    if (!isDrawerOpen || !selectedAppointment) return;
+
+    const freshAppointment = appointments.find(apt => apt.id === selectedAppointment.id);
+
+    // Only update if appointment exists and status actually changed
+    if (freshAppointment && freshAppointment.status !== selectedAppointment.status) {
+      console.log(`🔄 [STATE SYNC] Auto-updating selectedAppointment: ${selectedAppointment.status} → ${freshAppointment.status}`);
+      setSelectedAppointment(freshAppointment);
     }
-  }, [appointments, isDrawerOpen, selectedAppointment?.id, selectedAppointment?.status]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [appointments, isDrawerOpen]);
 
   // Check medical records for completed appointments
   useEffect(() => {
@@ -597,12 +600,51 @@ export default function HealthcareAdminAppointmentsPage() {
 
   const handleStartConsultation = (appointmentId: string) => {
     // Show confirmation dialog before starting consultation
+    console.log(`🔘 [START BUTTON] Clicked for appointment ID: ${appointmentId}`);
+
+    // Verify appointment exists in current data
+    const appointment = appointments.find(apt => apt.id === appointmentId);
+    if (appointment) {
+      console.log(`✅ [START BUTTON] Appointment found:`, {
+        id: appointment.id,
+        number: appointment.appointment_number,
+        status: appointment.status,
+        patient: `${appointment.patients.profiles.first_name} ${appointment.patients.profiles.last_name}`,
+        time: appointment.appointment_time,
+      });
+    } else {
+      console.warn(`⚠️ [START BUTTON] Appointment ${appointmentId} not found in current data!`);
+    }
+
     setAppointmentToStart(appointmentId);
     setShowStartDialog(true);
   };
 
   const handleConfirmStart = async () => {
     if (!appointmentToStart) return;
+
+    console.log(`✅ [START CONFIRM] Starting consultation for appointment ID: ${appointmentToStart}`);
+
+    // Verify the appointment still exists and is in correct state
+    const appointmentToUpdate = appointments.find(apt => apt.id === appointmentToStart);
+    if (!appointmentToUpdate) {
+      console.error(`❌ [START CONFIRM] Appointment ${appointmentToStart} not found!`);
+      toast.error('Appointment not found. Please refresh the page.');
+      setShowStartDialog(false);
+      setAppointmentToStart(null);
+      return;
+    }
+
+    if (appointmentToUpdate.status !== 'checked_in') {
+      console.error(`❌ [START CONFIRM] Invalid status. Expected 'checked_in', got '${appointmentToUpdate.status}'`);
+      toast.error(`Cannot start appointment. Current status: ${appointmentToUpdate.status}`);
+      setShowStartDialog(false);
+      setAppointmentToStart(null);
+      await fetchAppointments();  // Refresh data
+      return;
+    }
+
+    console.log(`✅ [START CONFIRM] Validation passed. Starting appointment #${appointmentToUpdate.appointment_number}`);
 
     try {
       setActionLoading(true);
@@ -619,6 +661,8 @@ export default function HealthcareAdminAppointmentsPage() {
         throw new Error(data.error || 'Failed to start consultation');
       }
 
+      console.log(`✅ [START CONFIRM] API response successful:`, data);
+
       // Close UI
       setShowStartDialog(false);
       setIsDrawerOpen(false);
@@ -629,7 +673,7 @@ export default function HealthcareAdminAppointmentsPage() {
       await fetchAppointments();
       await fetchAllLastHistoryEntries();
     } catch (error) {
-      console.error('Error starting consultation:', error);
+      console.error('❌ [START CONFIRM] Error starting consultation:', error);
       toast.error(error instanceof Error ? error.message : 'Failed to start consultation');
     } finally {
       setActionLoading(false);

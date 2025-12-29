@@ -103,9 +103,7 @@ export default function PatientFeedbackPage() {
 
     try {
       // Load completed appointments eligible for feedback (within 7 days)
-      const appointmentsRes = await fetch('/api/appointments?status=completed&_t=' + Date.now(), {
-        cache: 'no-store'
-      });
+      const appointmentsRes = await fetch('/api/appointments?status=completed&_t=' + Date.now());
       const appointmentsData = await appointmentsRes.json();
 
       if (appointmentsData.success && appointmentsData.data) {

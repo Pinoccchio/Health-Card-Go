@@ -1,6 +1,6 @@
 import { createClient, createAdminClient } from '@/lib/supabase/server';
 import { NextRequest, NextResponse } from 'next/server';
-import { requiresEncryption, getTemplate } from '@/lib/config/medicalRecordTemplates';
+import { requiresEncryption, getTemplate, getAllTemplateTypes, type TemplateType } from '@/lib/config/medicalRecordTemplates';
 import { CreateMedicalRecordData } from '@/types/medical-records';
 import { encryptMedicalRecordData, decryptMedicalRecordData } from '@/lib/utils/encryption';
 
@@ -284,6 +284,19 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Validate template_type is valid
+    const validTemplateTypes = getAllTemplateTypes();
+    if (!validTemplateTypes.includes(template_type as TemplateType)) {
+      return NextResponse.json(
+        {
+          error: `Invalid template_type. Must be one of: ${validTemplateTypes.join(', ')}`,
+          provided: template_type,
+          valid_types: validTemplateTypes
+        },
+        { status: 400 }
+      );
+    }
+
     // Use admin client to bypass RLS for nested joins
     const adminClient = createAdminClient();
 
@@ -440,7 +453,13 @@ export async function POST(request: NextRequest) {
     }
 
     // Get template to check encryption requirement
-    const template = getTemplate(template_type);
+    const template = getTemplate(template_type as TemplateType);
+    if (!template) {
+      return NextResponse.json(
+        { error: 'Invalid template type' },
+        { status: 400 }
+      );
+    }
     const shouldEncrypt = template.requiresEncryption;
 
     // Encrypt sensitive data (HIV and Pregnancy records)

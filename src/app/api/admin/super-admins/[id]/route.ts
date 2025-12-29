@@ -1,5 +1,6 @@
 import { createClient, createAdminClient } from '@/lib/supabase/server';
 import { NextResponse } from 'next/server';
+import { revalidatePath } from 'next/cache';
 
 /**
  * GET /api/admin/super-admins/[id]
@@ -224,6 +225,9 @@ export async function PATCH(
 
     console.log(`✅ Super Admin updated: ${updatedAdmin.email}`);
 
+    // Revalidate the users page cache
+    revalidatePath('/admin/users');
+
     return NextResponse.json({
       success: true,
       message: 'Super Admin updated successfully',
@@ -299,6 +303,9 @@ export async function DELETE(
     await supabase.from('profiles').delete().eq('id', id);
 
     console.log(`✅ Super Admin deleted: ${existingAdmin.email}`);
+
+    // Revalidate the users page cache
+    revalidatePath('/admin/users');
 
     return NextResponse.json({
       success: true,

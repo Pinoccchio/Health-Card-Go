@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server';
 import { NextRequest, NextResponse } from 'next/server';
+import { revalidatePath } from 'next/cache';
 import { parseRequirements } from '@/types/service';
 
 /**
@@ -232,6 +233,9 @@ export async function POST(request: NextRequest) {
         { status: 500 }
       );
     }
+
+    // Revalidate the services page cache
+    revalidatePath('/admin/services');
 
     return NextResponse.json({
       success: true,

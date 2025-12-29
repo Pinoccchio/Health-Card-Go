@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server';
 import { NextResponse } from 'next/server';
+import { revalidatePath } from 'next/cache';
 import { updateBarangaySchema, type CreateBarangayData } from '@/types/barangay';
 
 /**
@@ -140,6 +141,9 @@ export async function PUT(
       );
     }
 
+    // Revalidate the barangays page cache
+    revalidatePath('/admin/barangays');
+
     return NextResponse.json({
       success: true,
       message: 'Barangay updated successfully',
@@ -278,6 +282,9 @@ export async function DELETE(
         { status: 500 }
       );
     }
+
+    // Revalidate the barangays page cache
+    revalidatePath('/admin/barangays');
 
     return NextResponse.json({
       success: true,

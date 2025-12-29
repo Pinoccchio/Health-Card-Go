@@ -152,14 +152,22 @@ export function IndividualCasesReportGenerator({
         doc.setFont('helvetica', 'normal');
 
         const diseaseBreakdown = records.reduce((acc: any, record: any) => {
-          const disease = record.disease_type;
-          acc[disease] = (acc[disease] || 0) + 1;
+          // For custom diseases, use custom_disease_name as the key to count them separately
+          let key: string;
+          if (record.disease_type === 'other' && record.custom_disease_name) {
+            key = record.custom_disease_name;
+          } else {
+            key = record.disease_type;
+          }
+          acc[key] = (acc[key] || 0) + 1;
           return acc;
         }, {});
 
         let xPos = 14;
-        Object.entries(diseaseBreakdown).forEach(([disease, count]) => {
-          const label = DISEASE_TYPES.find(d => d.value === disease)?.label || disease;
+        Object.entries(diseaseBreakdown).forEach(([diseaseKey, count]) => {
+          // Check if this is a custom disease or standard disease
+          const standardDisease = DISEASE_TYPES.find(d => d.value === diseaseKey);
+          const label = standardDisease ? standardDisease.label : diseaseKey;
           doc.text(`${label}: ${count}`, xPos, yPosition);
           xPos += 60;
           if (xPos > 170) {
@@ -195,9 +203,14 @@ export function IndividualCasesReportGenerator({
           patientGender = record.anonymous_patient_data.gender || '-';
         }
 
+        // Format disease type - use custom_disease_name if it's a custom disease
+        const diseaseLabel = record.disease_type === 'other' && record.custom_disease_name
+          ? record.custom_disease_name
+          : (DISEASE_TYPES.find(d => d.value === record.disease_type)?.label || record.disease_type);
+
         return [
           format(new Date(record.diagnosis_date), 'MMM d, yyyy'),
-          DISEASE_TYPES.find(d => d.value === record.disease_type)?.label || record.disease_type,
+          diseaseLabel,
           record.custom_disease_name || '-',
           patientName,
           patientAge,

@@ -144,8 +144,10 @@ export function HistoricalStatisticsReportGenerator({
         doc.setFont('helvetica', 'normal');
 
         let xPos = 14;
-        Object.entries(summary.diseaseTypeCounts).forEach(([disease, count]) => {
-          const label = DISEASE_TYPES.find(d => d.value === disease)?.label || disease;
+        Object.entries(summary.diseaseTypeCounts).forEach(([diseaseKey, count]) => {
+          // Check if this is a custom disease or standard disease
+          const standardDisease = DISEASE_TYPES.find(d => d.value === diseaseKey);
+          const label = standardDisease ? standardDisease.label : diseaseKey;
           doc.text(`${label}: ${count}`, xPos, yPosition);
           xPos += 60;
           if (xPos > 170) {

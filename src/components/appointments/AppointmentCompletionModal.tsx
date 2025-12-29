@@ -49,6 +49,7 @@ export function AppointmentCompletionModal({
   const [serviceDetails, setServiceDetails] = useState<ServiceDetails | null>(null);
   const [medicalRecordData, setMedicalRecordData] = useState<MedicalRecordFormData>({
     category: 'general',
+    template_type: 'general_checkup',
     diagnosis: '',
     prescription: '',
     notes: '',
@@ -106,6 +107,7 @@ export function AppointmentCompletionModal({
       if (serviceDetails?.requires_medical_record || medicalRecordData.diagnosis.trim()) {
         payload.medical_record = {
           category: medicalRecordData.category,
+          template_type: medicalRecordData.template_type,
           diagnosis: medicalRecordData.diagnosis.trim() || null,
           prescription: medicalRecordData.prescription.trim() || null,
           notes: medicalRecordData.notes.trim() || null,
@@ -140,6 +142,7 @@ export function AppointmentCompletionModal({
   const resetForm = () => {
     setMedicalRecordData({
       category: 'general',
+      template_type: 'general_checkup',
       diagnosis: '',
       prescription: '',
       notes: '',

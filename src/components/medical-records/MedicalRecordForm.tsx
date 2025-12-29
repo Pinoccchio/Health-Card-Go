@@ -5,6 +5,7 @@ import { AlertCircle, FileText } from 'lucide-react';
 
 export interface MedicalRecordFormData {
   category: 'general' | 'healthcard' | 'hiv' | 'pregnancy' | 'immunization' | 'laboratory';
+  template_type: 'general_checkup' | 'immunization' | 'prenatal' | 'hiv' | 'laboratory';
   diagnosis: string;
   prescription: string;
   notes: string;
@@ -49,6 +50,7 @@ export function MedicalRecordForm({
 }: MedicalRecordFormProps) {
   const [formData, setFormData] = useState<MedicalRecordFormData>({
     category: initialData?.category || 'general',
+    template_type: initialData?.template_type || 'general_checkup',
     diagnosis: initialData?.diagnosis || '',
     prescription: initialData?.prescription || '',
     notes: initialData?.notes || '',
@@ -70,6 +72,23 @@ export function MedicalRecordForm({
       setFormData(prev => ({ ...prev, category: derivedCategory }));
     }
   }, [serviceCategory, initialData]);
+
+  // Auto-derive template_type from category
+  useEffect(() => {
+    const templateTypeMap: Record<MedicalRecordFormData['category'], MedicalRecordFormData['template_type']> = {
+      'general': 'general_checkup',
+      'healthcard': 'general_checkup', // HealthCard uses general checkup template
+      'hiv': 'hiv',
+      'pregnancy': 'prenatal',
+      'immunization': 'immunization',
+      'laboratory': 'laboratory',
+    };
+
+    const derivedTemplateType = templateTypeMap[formData.category];
+    if (derivedTemplateType && formData.template_type !== derivedTemplateType) {
+      setFormData(prev => ({ ...prev, template_type: derivedTemplateType }));
+    }
+  }, [formData.category]);
 
   // Notify parent of changes
   useEffect(() => {

@@ -12,6 +12,7 @@ interface ThresholdExceeded {
 
 interface Outbreak {
   disease_type: string;
+  custom_disease_name?: string; // For disease_type='other'
   barangay_id: number | null;
   barangay_name: string;
   case_count: number;
@@ -111,6 +112,7 @@ export default function OutbreakAlerts({ autoNotify = true, refreshInterval = 30
           { disease_type: 'measles', threshold: 2, days_window: 7, description: '2+ cases in 7 days' },
           { disease_type: 'rabies', threshold: 1, days_window: 7, description: 'Any rabies case triggers alert' },
           { disease_type: 'pregnancy_complications', threshold: 5, days_window: 30, description: '5+ cases in 30 days' },
+          { disease_type: 'other', threshold: 3, days_window: 14, description: '3+ cases in 14 days (custom)' },
         ];
 
         const stats = thresholds.map(t => {
@@ -365,7 +367,9 @@ export default function OutbreakAlerts({ autoNotify = true, refreshInterval = 30
                     <AlertTriangle className={`w-5 h-5 mt-1 ${getRiskIconColor(outbreak.risk_level)}`} />
                     <div>
                       <h4 className="font-semibold text-gray-900">
-                        {outbreak.disease_type.replace('_', ' ').toUpperCase()}
+                        {outbreak.disease_type === 'other' && outbreak.custom_disease_name
+                          ? outbreak.custom_disease_name
+                          : outbreak.disease_type.replace('_', ' ').toUpperCase()}
                       </h4>
                       <div className="flex items-center gap-2 mt-1">
                         <MapPin className="w-3 h-3 text-gray-500" />

@@ -144,7 +144,7 @@ export default function HealthcareAdminPatientsPage() {
         params.append('status', filter);
       }
 
-      const response = await fetch(`/api/admin/patients?${params.toString()}`);
+      const response = await fetch(`/api/healthcare-admin/patients?${params.toString()}`);
       const result = await response.json();
 
       if (!response.ok) {

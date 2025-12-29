@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server';
 import { NextRequest, NextResponse } from 'next/server';
+import { revalidatePath } from 'next/cache';
 import { parseRequirements } from '@/types/service';
 
 type RouteContext = {
@@ -217,6 +218,9 @@ export async function PUT(
       );
     }
 
+    // Revalidate the services page cache
+    revalidatePath('/admin/services');
+
     return NextResponse.json({
       success: true,
       data: updatedService,
@@ -359,6 +363,9 @@ export async function DELETE(
         { status: 500 }
       );
     }
+
+    // Revalidate the services page cache
+    revalidatePath('/admin/services');
 
     return NextResponse.json({
       success: true,

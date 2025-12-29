@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server';
 import { NextResponse } from 'next/server';
+import { revalidatePath } from 'next/cache';
 
 /**
  * PUT /api/admin/patients/[id]/status
@@ -108,6 +109,9 @@ export async function PUT(
     }
 
     console.log('[SUPER ADMIN PATIENTS] Patient status updated successfully:', patientId, 'New status:', status);
+
+    // Revalidate the patients page cache
+    revalidatePath('/admin/patients');
 
     return NextResponse.json({
       success: true,

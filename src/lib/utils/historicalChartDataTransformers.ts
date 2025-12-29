@@ -215,6 +215,7 @@ export function aggregateHistoricalByBarangay(
 /**
  * Aggregate historical disease statistics by disease type
  * Sums case_count values for each disease type for specified time range
+ * Handles custom diseases by grouping them separately by custom_disease_name
  *
  * Key difference from individual cases: We SUM case_count instead of counting records
  */
@@ -232,24 +233,39 @@ export function aggregateHistoricalByDiseaseType(
     return new Date(s.record_date) >= cutoffDate;
   });
 
-  const diseaseMap: Record<string, number> = {};
+  const diseaseMap: Record<string, { totalCases: number; customName?: string; rawType: string }> = {};
 
-  // Sum case_count by disease type
+  // Sum case_count by disease type (separate custom diseases by name)
   filteredStats.forEach((stat) => {
     if (!stat.disease_type || !stat.case_count) return;
 
     const type = stat.disease_type;
-    diseaseMap[type] = (diseaseMap[type] || 0) + stat.case_count;
+
+    // For custom diseases, use custom_disease_name as the key to group them separately
+    let key: string;
+    let customName: string | undefined;
+
+    if (type === 'other' && stat.custom_disease_name) {
+      key = `custom_${stat.custom_disease_name}`;
+      customName = stat.custom_disease_name;
+    } else {
+      key = type;
+    }
+
+    if (!diseaseMap[key]) {
+      diseaseMap[key] = { totalCases: 0, customName, rawType: type };
+    }
+    diseaseMap[key].totalCases += stat.case_count;
   });
 
-  const total = Object.values(diseaseMap).reduce((a, b) => a + b, 0);
+  const total = Object.values(diseaseMap).reduce((a, b) => a + b.totalCases, 0);
 
   return Object.entries(diseaseMap)
-    .map(([type, casesForType]) => ({
-      type: formatDiseaseType(type),
-      totalCases: casesForType,
-      percentage: total > 0 ? (casesForType / total) * 100 : 0,
-      color: DISEASE_COLORS[type] || DISEASE_COLORS.other,
+    .map(([key, data]) => ({
+      type: formatDiseaseType(data.rawType, data.customName),
+      totalCases: data.totalCases,
+      percentage: total > 0 ? (data.totalCases / total) * 100 : 0,
+      color: DISEASE_COLORS[data.rawType] || DISEASE_COLORS.other,
     }))
     .sort((a, b) => b.totalCases - a.totalCases);
 }
@@ -257,8 +273,14 @@ export function aggregateHistoricalByDiseaseType(
 /**
  * Format disease type for display
  * Converts database format to human-readable format
+ * For custom diseases (type='other'), uses custom_disease_name if provided
  */
-export function formatDiseaseType(type: string): string {
+export function formatDiseaseType(type: string, customDiseaseName?: string): string {
+  // If it's a custom disease with a name, use that name
+  if (type === 'other' && customDiseaseName) {
+    return customDiseaseName;
+  }
+
   const formatMap: Record<string, string> = {
     hiv_aids: 'HIV/AIDS',
     dengue: 'Dengue',

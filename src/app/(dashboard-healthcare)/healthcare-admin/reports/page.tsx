@@ -1,106 +1,293 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import { DashboardLayout } from '@/components/dashboard';
 import { Container } from '@/components/ui';
-import { FileText, BarChart3, PieChart, TrendingUp, Download } from 'lucide-react';
+import { createClient } from '@/lib/supabase/client';
+import ReportsCharts from '@/components/healthcare-admin/ReportsCharts';
+import ReportsFilters from '@/components/healthcare-admin/ReportsFilters';
+import AppointmentListTable from '@/components/healthcare-admin/AppointmentListTable';
+import PatientListTable from '@/components/healthcare-admin/PatientListTable';
+import ExportButtons from '@/components/healthcare-admin/ExportButtons';
+
+interface ServiceData {
+  id: number;
+  name: string;
+  requires_appointment: boolean;
+  requires_medical_record: boolean;
+}
 
 export default function HealthcareAdminReportsPage() {
+  const [service, setService] = useState<ServiceData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Date filters - default to last 30 days
+  const [startDate, setStartDate] = useState(() => {
+    const date = new Date();
+    date.setDate(date.getDate() - 30);
+    return date.toISOString().split('T')[0];
+  });
+  const [endDate, setEndDate] = useState(() => {
+    return new Date().toISOString().split('T')[0];
+  });
+  const [barangayId, setBarangayId] = useState<number | undefined>(undefined);
+  const [activeTab, setActiveTab] = useState<'overview' | 'appointments' | 'patients'>('overview');
+
+  // Track if filters have changed (to trigger re-fetch)
+  const [filtersKey, setFiltersKey] = useState(0);
+
+  useEffect(() => {
+    const fetchServiceInfo = async () => {
+      setLoading(true);
+      setError(null);
+
+      try {
+        const supabase = createClient();
+
+        // Get current user
+        const { data: { user }, error: authError } = await supabase.auth.getUser();
+        if (authError || !user) {
+          setError('Authentication required. Please log in.');
+          return;
+        }
+
+        // Get user's profile with assigned service
+        const { data: profile, error: profileError } = await supabase
+          .from('profiles')
+          .select(`
+            id,
+            role,
+            assigned_service_id,
+            services:assigned_service_id (
+              id,
+              name,
+              requires_appointment,
+              requires_medical_record
+            )
+          `)
+          .eq('id', user.id)
+          .single();
+
+        if (profileError || !profile) {
+          setError('Failed to load your profile. Please try again.');
+          return;
+        }
+
+        // Verify role
+        if (profile.role !== 'healthcare_admin') {
+          setError('Access denied. This page is for Healthcare Admins only.');
+          return;
+        }
+
+        // Verify assigned service
+        if (!profile.assigned_service_id) {
+          setError('No service assigned to your account. Please contact the administrator.');
+          return;
+        }
+
+        const serviceData = profile.services as any;
+        if (!serviceData) {
+          setError('Service information not found. Please contact the administrator.');
+          return;
+        }
+
+        setService({
+          id: serviceData.id,
+          name: serviceData.name,
+          requires_appointment: serviceData.requires_appointment,
+          requires_medical_record: serviceData.requires_medical_record,
+        });
+
+      } catch (err) {
+        console.error('Error fetching service info:', err);
+        setError('An unexpected error occurred. Please refresh the page.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchServiceInfo();
+  }, []);
+
+  const handleApplyFilters = () => {
+    // Increment key to trigger re-render of child components
+    setFiltersKey((prev) => prev + 1);
+  };
+
+  if (loading) {
+    return (
+      <DashboardLayout
+        roleId={2}
+        pageTitle="Reports & Analytics"
+        pageDescription="View detailed reports and analytics for your assigned service"
+      >
+        <Container size="full">
+          <div className="flex items-center justify-center min-h-[400px]">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+              <p className="text-gray-600">Loading reports...</p>
+            </div>
+          </div>
+        </Container>
+      </DashboardLayout>
+    );
+  }
+
+  if (error) {
+    return (
+      <DashboardLayout
+        roleId={2}
+        pageTitle="Reports & Analytics"
+        pageDescription="View detailed reports and analytics for your assigned service"
+      >
+        <Container size="full">
+          <div className="bg-red-50 border border-red-200 text-red-800 rounded-lg p-6">
+            <h3 className="font-semibold text-lg mb-2">Error Loading Reports</h3>
+            <p>{error}</p>
+          </div>
+        </Container>
+      </DashboardLayout>
+    );
+  }
+
+  if (!service) {
+    return null;
+  }
+
   return (
     <DashboardLayout
       roleId={2}
       pageTitle="Reports & Analytics"
-      pageDescription="View detailed reports and analytics for your assigned service"
+      pageDescription={`Reports for ${service.name}`}
     >
       <Container size="full">
-        {/* Coming Soon Banner */}
-        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-8 mb-6">
-          <div className="flex items-center justify-center mb-4">
-            <FileText className="w-16 h-16 text-blue-600" />
+        <div className="space-y-6">
+          {/* Header with Service Info */}
+          <div className="bg-white rounded-lg shadow p-6">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div>
+                <h1 className="text-2xl font-bold text-gray-900">{service.name}</h1>
+                <p className="text-sm text-gray-600 mt-1">
+                  Service Type:{' '}
+                  {service.requires_appointment && service.requires_medical_record && 'Appointment + Medical Records'}
+                  {service.requires_appointment && !service.requires_medical_record && 'Appointment Only'}
+                  {!service.requires_appointment && service.requires_medical_record && 'Walk-in + Medical Records'}
+                  {!service.requires_appointment && !service.requires_medical_record && 'Walk-in Only'}
+                </p>
+              </div>
+              <div>
+                <ExportButtons
+                  reportType={activeTab === 'appointments' ? 'appointments' : 'patients'}
+                  serviceName={service.name}
+                  startDate={startDate}
+                  endDate={endDate}
+                  barangayId={barangayId}
+                  requiresAppointment={service.requires_appointment}
+                  requiresMedicalRecord={service.requires_medical_record}
+                />
+              </div>
+            </div>
           </div>
-          <h2 className="text-2xl font-bold text-center text-gray-900 mb-2">
-            Reports & Analytics Coming Soon
-          </h2>
-          <p className="text-center text-gray-600 max-w-2xl mx-auto">
-            This page will provide comprehensive reports and analytics for your assigned service,
-            including appointment trends, patient statistics, and service utilization metrics.
-          </p>
-        </div>
 
-        {/* Planned Features */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <div className="bg-white rounded-lg shadow p-6 border-l-4 border-blue-500">
-            <BarChart3 className="w-10 h-10 text-blue-600 mb-3" />
-            <h3 className="font-semibold text-gray-900 mb-2">Appointments by Service</h3>
-            <p className="text-sm text-gray-600">
-              Bar chart showing appointment distribution across different services
+          {/* Filters */}
+          <ReportsFilters
+            startDate={startDate}
+            endDate={endDate}
+            barangayId={barangayId}
+            onStartDateChange={setStartDate}
+            onEndDateChange={setEndDate}
+            onBarangayChange={setBarangayId}
+            onApplyFilters={handleApplyFilters}
+          />
+
+          {/* Tab Navigation */}
+          <div className="bg-white rounded-lg shadow">
+            <div className="border-b border-gray-200">
+              <nav className="flex -mb-px">
+                <button
+                  onClick={() => setActiveTab('overview')}
+                  className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${
+                    activeTab === 'overview'
+                      ? 'border-blue-600 text-blue-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
+                >
+                  Overview
+                </button>
+                {service.requires_appointment && (
+                  <button
+                    onClick={() => setActiveTab('appointments')}
+                    className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${
+                      activeTab === 'appointments'
+                        ? 'border-blue-600 text-blue-600'
+                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                    }`}
+                  >
+                    Appointments
+                  </button>
+                )}
+                <button
+                  onClick={() => setActiveTab('patients')}
+                  className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${
+                    activeTab === 'patients'
+                      ? 'border-blue-600 text-blue-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
+                >
+                  Patients
+                </button>
+              </nav>
+            </div>
+
+            <div className="p-6">
+              {/* Overview Tab - Charts */}
+              {activeTab === 'overview' && (
+                <ReportsCharts
+                  key={filtersKey} // Re-render when filters change
+                  serviceId={service.id}
+                  serviceName={service.name}
+                  requiresAppointment={service.requires_appointment}
+                  requiresMedicalRecord={service.requires_medical_record}
+                  startDate={startDate}
+                  endDate={endDate}
+                  barangayId={barangayId}
+                />
+              )}
+
+              {/* Appointments Tab - Table */}
+              {activeTab === 'appointments' && service.requires_appointment && (
+                <AppointmentListTable
+                  key={filtersKey}
+                  serviceId={service.id}
+                  startDate={startDate}
+                  endDate={endDate}
+                  barangayId={barangayId}
+                />
+              )}
+
+              {/* Patients Tab - Table */}
+              {activeTab === 'patients' && (
+                <PatientListTable
+                  key={filtersKey}
+                  serviceId={service.id}
+                  requiresAppointment={service.requires_appointment}
+                  requiresMedicalRecord={service.requires_medical_record}
+                  startDate={startDate}
+                  endDate={endDate}
+                  barangayId={barangayId}
+                />
+              )}
+            </div>
+          </div>
+
+          {/* Footer Note */}
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <p className="text-sm text-blue-800">
+              <strong>Note:</strong> All reports are filtered to show data specific to your assigned service ({service.name}).
+              {service.requires_medical_record && ' Disease case reports are based on medical records you have created.'}
             </p>
           </div>
-
-          <div className="bg-white rounded-lg shadow p-6 border-l-4 border-green-500">
-            <PieChart className="w-10 h-10 text-green-600 mb-3" />
-            <h3 className="font-semibold text-gray-900 mb-2">Patients by Status</h3>
-            <p className="text-sm text-gray-600">
-              Pie chart displaying patient distribution by status (active, pending, etc.)
-            </p>
-          </div>
-
-          <div className="bg-white rounded-lg shadow p-6 border-l-4 border-purple-500">
-            <TrendingUp className="w-10 h-10 text-purple-600 mb-3" />
-            <h3 className="font-semibold text-gray-900 mb-2">Appointment Trends</h3>
-            <p className="text-sm text-gray-600">
-              Line chart showing appointment trends over time with forecasting
-            </p>
-          </div>
-
-          <div className="bg-white rounded-lg shadow p-6 border-l-4 border-orange-500">
-            <Download className="w-10 h-10 text-orange-600 mb-3" />
-            <h3 className="font-semibold text-gray-900 mb-2">Export Functionality</h3>
-            <p className="text-sm text-gray-600">
-              Download reports in CSV or PDF format for offline analysis
-            </p>
-          </div>
-        </div>
-
-        {/* Additional Features */}
-        <div className="bg-white rounded-lg shadow p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Upcoming Features</h3>
-          <ul className="space-y-3">
-            <li className="flex items-start">
-              <span className="inline-block w-2 h-2 bg-blue-600 rounded-full mt-2 mr-3"></span>
-              <div>
-                <strong className="text-gray-900">Service-Specific Filtering:</strong>
-                <span className="text-gray-600"> Reports filtered by your assigned service</span>
-              </div>
-            </li>
-            <li className="flex items-start">
-              <span className="inline-block w-2 h-2 bg-blue-600 rounded-full mt-2 mr-3"></span>
-              <div>
-                <strong className="text-gray-900">Date Range Selection:</strong>
-                <span className="text-gray-600"> Customize reports by selecting specific date ranges</span>
-              </div>
-            </li>
-            <li className="flex items-start">
-              <span className="inline-block w-2 h-2 bg-blue-600 rounded-full mt-2 mr-3"></span>
-              <div>
-                <strong className="text-gray-900">SARIMA Analytics:</strong>
-                <span className="text-gray-600"> Advanced forecasting with confidence intervals and error metrics</span>
-              </div>
-            </li>
-            <li className="flex items-start">
-              <span className="inline-block w-2 h-2 bg-blue-600 rounded-full mt-2 mr-3"></span>
-              <div>
-                <strong className="text-gray-900">Historical Data Entry:</strong>
-                <span className="text-gray-600"> Import and manage historical data for better predictions</span>
-              </div>
-            </li>
-            <li className="flex items-start">
-              <span className="inline-block w-2 h-2 bg-blue-600 rounded-full mt-2 mr-3"></span>
-              <div>
-                <strong className="text-gray-900">Tabular Data View:</strong>
-                <span className="text-gray-600"> Detailed tables with search, sort, and filter capabilities</span>
-              </div>
-            </li>
-          </ul>
         </div>
       </Container>
     </DashboardLayout>

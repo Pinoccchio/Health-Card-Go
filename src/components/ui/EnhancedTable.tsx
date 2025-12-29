@@ -185,9 +185,11 @@ export const EnhancedTable: React.FC<EnhancedTableProps> = ({
               paginatedData.map((row, rowIndex) => {
                 const customClassName = getRowClassName ? getRowClassName(row) : '';
                 const rowColor = getRowColor ? getRowColor(row) : '';
+                // Use unique row ID as key to prevent React reconciliation bugs when sorting/filtering
+                const rowKey = row.id || row.uuid || `row-${rowIndex}`;
                 return (
                   <tr
-                    key={rowIndex}
+                    key={rowKey}
                     className={cn(
                       'border-b border-gray-200 transition-all duration-150',
                       rowColor || 'hover:bg-gray-50',

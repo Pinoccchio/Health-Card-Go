@@ -1,5 +1,6 @@
 import { createClient, createAdminClient } from '@/lib/supabase/server';
 import { NextResponse } from 'next/server';
+import { revalidatePath } from 'next/cache';
 import { createBarangaySchema, type CreateBarangayData } from '@/types/barangay';
 
 /**
@@ -189,6 +190,9 @@ export async function POST(request: Request) {
         { status: 500 }
       );
     }
+
+    // Revalidate the barangays page cache
+    revalidatePath('/admin/barangays');
 
     return NextResponse.json(
       {
