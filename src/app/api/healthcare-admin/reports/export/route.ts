@@ -255,6 +255,23 @@ export async function POST(request: NextRequest) {
 
         const { data: medRecords } = await medRecordsQuery;
         patientIds = [...new Set(medRecords?.map(m => m.patient_id) || [])];
+      } else {
+        // Pattern 4: Walk-in seminars/events (e.g., Health Education Seminar)
+        // Track attendance via appointments - only count completed seminars
+        let appointmentsQuery = supabase
+          .from('appointments')
+          .select('patient_id')
+          .eq('service_id', profile.assigned_service_id)
+          .eq('status', 'completed'); // Only completed seminars count as attendance
+
+        if (start_date && end_date) {
+          appointmentsQuery = appointmentsQuery
+            .gte('appointment_date', start_date)
+            .lte('appointment_date', end_date);
+        }
+
+        const { data: appointments } = await appointmentsQuery;
+        patientIds = [...new Set(appointments?.map(a => a.patient_id) || [])];
       }
 
       if (patientIds.length > 0) {
@@ -487,6 +504,17 @@ export async function POST(request: NextRequest) {
           .gte('created_at', start_date)
           .lte('created_at', `${end_date}T23:59:59`);
         patientIdsForExport = [...new Set(medRecords?.map(m => m.patient_id) || [])];
+      } else if (!service.requires_appointment && !service.requires_medical_record && start_date && end_date) {
+        // Pattern 4: Walk-in seminars/events (e.g., Health Education Seminar)
+        // Track attendance via completed appointments
+        const { data: appointments } = await supabase
+          .from('appointments')
+          .select('patient_id')
+          .eq('service_id', profile.assigned_service_id)
+          .eq('status', 'completed')
+          .gte('appointment_date', start_date)
+          .lte('appointment_date', end_date);
+        patientIdsForExport = [...new Set(appointments?.map(a => a.patient_id) || [])];
       }
 
       if (patientIdsForExport.length > 0) {

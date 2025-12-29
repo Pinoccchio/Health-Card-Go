@@ -132,10 +132,25 @@ export async function GET(request: NextRequest) {
       patientIds = [...new Set(medRecords?.map(m => m.patient_id) || [])];
       console.log(`[HEALTHCARE ADMIN PATIENTS] Found ${patientIds.length} unique patients from medical records`);
     } else {
-      // Pattern 4: Walk-in only (e.g., Health Education Seminar)
-      // Return empty array (no patient tracking for walk-in-only services)
-      console.log('[HEALTHCARE ADMIN PATIENTS] Walk-in only service - no patient tracking');
-      patientIds = [];
+      // Pattern 4: Walk-in seminars/events (e.g., Health Education Seminar)
+      // Track attendance via appointments (same as Pattern 1, but walk-in registration)
+      // Only show patients who have completed the seminar/event
+      const { data: appointments, error: apptError } = await supabase
+        .from('appointments')
+        .select('patient_id')
+        .eq('service_id', profile.assigned_service_id)
+        .eq('status', 'completed'); // Only completed seminars count as attendance
+
+      if (apptError) {
+        console.error('[HEALTHCARE ADMIN PATIENTS] Error fetching appointments:', apptError);
+        return NextResponse.json(
+          { error: 'Failed to fetch patients' },
+          { status: 500 }
+        );
+      }
+
+      patientIds = [...new Set(appointments?.map(a => a.patient_id) || [])];
+      console.log(`[HEALTHCARE ADMIN PATIENTS] Found ${patientIds.length} unique patients from completed seminars/events`);
     }
 
     // If no patients found, return empty result

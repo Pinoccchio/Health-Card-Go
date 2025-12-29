@@ -148,24 +148,32 @@ export async function GET(request: NextRequest) {
 
         patientIds = [...new Set(medRecords?.map(m => m.patient_id) || [])];
       } else {
-        // Pattern 4: Education seminar (no appointments, no medical records)
-        // For now, return all active patients or a subset
-        // This can be adjusted based on actual business logic
-        const { data: allPatients, error: patientsError } = await supabase
-          .from('profiles')
-          .select('id')
-          .eq('role', 'patient')
-          .eq('status', 'active');
+        // Pattern 4: Walk-in seminars/events (e.g., Health Education Seminar)
+        // Track attendance via appointments (same as Pattern 1, but walk-in registration)
+        // Apply date filtering if provided
+        let appointmentsQuery = supabase
+          .from('appointments')
+          .select('patient_id, appointment_date')
+          .eq('service_id', profile.assigned_service_id)
+          .eq('status', 'completed'); // Only completed seminars count as attendance
 
-        if (patientsError) {
-          console.error('[HEALTHCARE ADMIN REPORTS] Error fetching patients:', patientsError);
+        if (startDate && endDate) {
+          appointmentsQuery = appointmentsQuery
+            .gte('appointment_date', startDate)
+            .lte('appointment_date', endDate);
+        }
+
+        const { data: appointments, error: apptError } = await appointmentsQuery;
+
+        if (apptError) {
+          console.error('[HEALTHCARE ADMIN REPORTS] Error fetching appointments:', apptError);
           return NextResponse.json(
             { error: 'Failed to fetch patient statistics' },
             { status: 500 }
           );
         }
 
-        patientIds = allPatients?.map(p => p.id) || [];
+        patientIds = [...new Set(appointments?.map(a => a.patient_id) || [])];
       }
     }
 
