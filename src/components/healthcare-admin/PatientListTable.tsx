@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { createClient } from '@/lib/supabase/client';
 
 interface Patient {
   id: string;
@@ -12,12 +11,14 @@ interface Patient {
   status: string;
   date_of_birth: string;
   gender: string;
-  patients: {
+  patients: Array<{
     patient_number: string;
-  };
+  }>;
   barangays: {
+    id: number;
     name: string;
-  };
+    code: string;
+  } | null;
 }
 
 interface PatientListTableProps {
@@ -50,99 +51,31 @@ export default function PatientListTable({
     const fetchPatients = async () => {
       setLoading(true);
       try {
-        const supabase = createClient();
+        // Call the API route instead of direct Supabase queries
+        // This ensures we bypass RLS policies for Pattern 3 services
+        const params = new URLSearchParams({
+          page: '1',
+          limit: '1000', // Get all patients for the table
+        });
 
-        // Get patient IDs based on service type
-        let patientIds: string[] = [];
-
-        if (requiresAppointment) {
-          // Pattern 1 & 2: Get from appointments
-          let appointmentsQuery = supabase
-            .from('appointments')
-            .select('patient_id')
-            .eq('service_id', serviceId)
-            .gte('appointment_date', startDate)
-            .lte('appointment_date', endDate);
-
-          const { data: appointments } = await appointmentsQuery;
-          patientIds = [...new Set(appointments?.map(a => a.patient_id) || [])];
-        } else if (requiresMedicalRecord) {
-          // Pattern 3: Get from medical records
-          const { data: { user } } = await supabase.auth.getUser();
-          if (!user) return;
-
-          let medRecordsQuery = supabase
-            .from('medical_records')
-            .select('patient_id')
-            .eq('created_by_id', user.id)
-            .gte('created_at', startDate)
-            .lte('created_at', `${endDate}T23:59:59`);
-
-          const { data: medRecords } = await medRecordsQuery;
-          patientIds = [...new Set(medRecords?.map(m => m.patient_id) || [])];
-        } else {
-          // Pattern 4: All active patients (education seminar)
-          const { data: allPatients } = await supabase
-            .from('profiles')
-            .select('id')
-            .eq('role', 'patient')
-            .eq('status', 'active');
-
-          patientIds = allPatients?.map(p => p.id) || [];
+        if (barangayId) {
+          params.append('barangay_id', barangayId.toString());
         }
 
-        if (patientIds.length > 0) {
-          // For Patterns 1, 2, 3: patientIds are from patients table (patients.id)
-          // For Pattern 4: patientIds are from profiles table (profiles.id/user_id)
-          // We need to convert patient_ids → user_ids for Patterns 1, 2, 3
-          let userIds = patientIds;
+        console.log('📊 [PatientListTable] Fetching patients from API');
+        const response = await fetch(`/api/healthcare-admin/patients?${params}`);
 
-          if (requiresAppointment || requiresMedicalRecord) {
-            // Convert patient_id → user_id
-            const { data: patientRecords } = await supabase
-              .from('patients')
-              .select('id, user_id')
-              .in('id', patientIds);
-
-            userIds = patientRecords?.map(p => p.user_id) || [];
-          }
-
-          let patientsQuery = supabase
-            .from('profiles')
-            .select(`
-              id,
-              first_name,
-              last_name,
-              email,
-              contact_number,
-              status,
-              date_of_birth,
-              gender,
-              patients!inner (
-                patient_number
-              ),
-              barangays (
-                name
-              )
-            `)
-            .in('id', userIds)
-            .eq('role', 'patient');
-
-          if (barangayId) {
-            patientsQuery = patientsQuery.eq('barangay_id', barangayId);
-          }
-
-          const { data, error } = await patientsQuery;
-
-          if (error) {
-            console.error('Error fetching patients:', error);
-          } else {
-            setPatients(data as Patient[]);
-            setFilteredPatients(data as Patient[]);
-          }
+        if (!response.ok) {
+          throw new Error(`API error: ${response.status}`);
         }
+
+        const result = await response.json();
+        console.log('📊 [PatientListTable] API response:', result.data?.length, 'patients');
+
+        setPatients(result.data || []);
+        setFilteredPatients(result.data || []);
       } catch (error) {
-        console.error('Error:', error);
+        console.error('📊 [PatientListTable ERROR]:', error);
       } finally {
         setLoading(false);
       }
@@ -158,8 +91,8 @@ export default function PatientListTable({
     // Apply search
     if (searchTerm) {
       filtered = filtered.filter((patient) => {
-        const patientData = patient.patients as any;
-        const barangay = patient.barangays as any;
+        const patientData = Array.isArray(patient.patients) ? patient.patients[0] : patient.patients;
+        const barangay = patient.barangays;
         const fullName = `${patient.first_name} ${patient.last_name}`.toLowerCase();
         const patientNumber = patientData?.patient_number?.toLowerCase() || '';
         const email = patient.email.toLowerCase();
@@ -182,8 +115,10 @@ export default function PatientListTable({
 
       switch (sortField) {
         case 'patient_number':
-          aValue = (a.patients as any)?.patient_number || '';
-          bValue = (b.patients as any)?.patient_number || '';
+          const aPatientData = Array.isArray(a.patients) ? a.patients[0] : a.patients;
+          const bPatientData = Array.isArray(b.patients) ? b.patients[0] : b.patients;
+          aValue = aPatientData?.patient_number || '';
+          bValue = bPatientData?.patient_number || '';
           break;
         case 'name':
           aValue = `${a.first_name} ${a.last_name}`;
@@ -194,8 +129,10 @@ export default function PatientListTable({
           bValue = b.status;
           break;
         default:
-          aValue = (a.patients as any)?.patient_number || '';
-          bValue = (b.patients as any)?.patient_number || '';
+          const aPatientDefault = Array.isArray(a.patients) ? a.patients[0] : a.patients;
+          const bPatientDefault = Array.isArray(b.patients) ? b.patients[0] : b.patients;
+          aValue = aPatientDefault?.patient_number || '';
+          bValue = bPatientDefault?.patient_number || '';
       }
 
       if (aValue < bValue) return sortDirection === 'asc' ? -1 : 1;
@@ -330,8 +267,9 @@ export default function PatientListTable({
               </tr>
             ) : (
               currentPatients.map((patient) => {
-                const patientData = patient.patients as any;
-                const barangay = patient.barangays as any;
+                // Handle both array and object format for patients field
+                const patientData = Array.isArray(patient.patients) ? patient.patients[0] : patient.patients;
+                const barangay = patient.barangays;
 
                 return (
                   <tr key={patient.id} className="hover:bg-gray-50">

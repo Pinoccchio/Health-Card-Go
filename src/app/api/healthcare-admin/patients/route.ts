@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server';
+import { createClient, createAdminClient } from '@/lib/supabase/server';
 import { NextRequest, NextResponse } from 'next/server';
 
 /**
@@ -111,7 +111,12 @@ export async function GET(request: NextRequest) {
       console.log(`[HEALTHCARE ADMIN PATIENTS] Found ${patientIds.length} unique patients from appointments`);
     } else if (service.requires_medical_record) {
       // Pattern 3: Walk-in with medical records
-      const { data: medRecords, error: medError } = await supabase
+      // Use admin client to bypass RLS policies that require appointments
+      // RLS policy "Healthcare admins view service records" requires appointment link
+      // But Pattern 3 services are walk-in only (no appointments), so we bypass RLS
+      const adminClient = createAdminClient();
+
+      const { data: medRecords, error: medError } = await adminClient
         .from('medical_records')
         .select('patient_id')
         .eq('created_by_id', user.id);

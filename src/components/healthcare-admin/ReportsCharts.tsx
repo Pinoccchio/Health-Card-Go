@@ -15,6 +15,7 @@ import {
   ChartOptions,
 } from 'chart.js';
 import { Bar, Line, Pie } from 'react-chartjs-2';
+import { getDiseaseDisplayName } from '@/lib/constants/diseaseConstants';
 
 // Register Chart.js components
 ChartJS.register(
@@ -87,6 +88,10 @@ export default function ReportsCharts({
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    // Create AbortController to cancel in-flight requests when component unmounts or dependencies change
+    const abortController = new AbortController();
+    const signal = abortController.signal;
+
     const fetchReportData = async () => {
       setLoading(true);
       setError(null);
@@ -103,37 +108,58 @@ export default function ReportsCharts({
 
         // Fetch appointments data (Pattern 1 & 2)
         if (requiresAppointment) {
-          const apptResponse = await fetch(`/api/healthcare-admin/reports/appointments?${params}`);
+          const apptResponse = await fetch(`/api/healthcare-admin/reports/appointments?${params}`, { signal });
           if (apptResponse.ok) {
             const apptData = await apptResponse.json();
-            setAppointmentStats(apptData.data);
+            // Only update state if request wasn't aborted
+            if (!signal.aborted) {
+              setAppointmentStats(apptData.data);
+            }
           }
         }
 
         // Fetch patients data (ALL patterns)
-        const patientResponse = await fetch(`/api/healthcare-admin/reports/patients?${params}`);
+        const patientResponse = await fetch(`/api/healthcare-admin/reports/patients?${params}`, { signal });
         if (patientResponse.ok) {
           const patientData = await patientResponse.json();
-          setPatientStats(patientData.data);
+          if (!signal.aborted) {
+            setPatientStats(patientData.data);
+          }
         }
 
         // Fetch disease data (Pattern 2 & 3)
         if (requiresMedicalRecord) {
-          const diseaseResponse = await fetch(`/api/healthcare-admin/reports/diseases?${params}`);
+          const diseaseResponse = await fetch(`/api/healthcare-admin/reports/diseases?${params}`, { signal });
           if (diseaseResponse.ok) {
             const diseaseData = await diseaseResponse.json();
-            setDiseaseStats(diseaseData.data);
+            if (!signal.aborted) {
+              setDiseaseStats(diseaseData.data);
+            }
           }
         }
-      } catch (err) {
+      } catch (err: any) {
+        // Ignore AbortError - it's expected when component unmounts or filters change
+        if (err.name === 'AbortError') {
+          console.log('Fetch aborted - filters changed or component unmounted');
+          return;
+        }
         console.error('Error fetching report data:', err);
-        setError('Failed to load report data. Please try again.');
+        if (!signal.aborted) {
+          setError('Failed to load report data. Please try again.');
+        }
       } finally {
-        setLoading(false);
+        if (!signal.aborted) {
+          setLoading(false);
+        }
       }
     };
 
     fetchReportData();
+
+    // Cleanup: abort any in-flight requests when dependencies change or component unmounts
+    return () => {
+      abortController.abort();
+    };
   }, [serviceId, startDate, endDate, barangayId, requiresAppointment, requiresMedicalRecord]);
 
   if (loading) {
@@ -368,7 +394,15 @@ export default function ReportsCharts({
             <div className="h-64">
               <Bar
                 data={{
-                  labels: diseaseStats.disease_breakdown.map(item => item.disease_type),
+                  labels: diseaseStats.disease_breakdown.map(item => {
+                    // Format disease names: handle both standard types (hiv_aids) and custom names (Leptospirosis)
+                    // If the disease_type contains underscores, it's a standard type that needs formatting
+                    // If it doesn't, it's already a custom disease name from the API
+                    if (item.disease_type.includes('_')) {
+                      return getDiseaseDisplayName(item.disease_type, null);
+                    }
+                    return item.disease_type; // Already formatted custom disease name
+                  }),
                   datasets: [
                     {
                       label: 'Cases',

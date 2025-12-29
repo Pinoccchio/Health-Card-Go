@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server';
+import { createClient, createAdminClient } from '@/lib/supabase/server';
 import { NextRequest, NextResponse } from 'next/server';
 
 /**
@@ -113,7 +113,14 @@ export async function GET(request: NextRequest) {
     // Get medical records created by this healthcare admin
     // Disease cases are linked to medical records, so we need to find diseases
     // that were diagnosed through this admin's medical records
-    let medRecordsQuery = supabase
+    //
+    // IMPORTANT: We use the admin client here to bypass RLS policies.
+    // This is safe because we've already verified the user's role and service assignment above.
+    // RLS policies on medical_records may filter by service_id, but healthcare admins
+    // should see ALL medical records they created, regardless of the linked appointment's service.
+    const adminClient = createAdminClient();
+
+    let medRecordsQuery = adminClient
       .from('medical_records')
       .select('id, patient_id, diagnosis, created_at')
       .eq('created_by_id', user.id)
@@ -164,11 +171,14 @@ export async function GET(request: NextRequest) {
     const medRecordIds = medicalRecords.map(mr => mr.id);
 
     // Fetch diseases linked to these medical records
-    let diseasesQuery = supabase
+    // Note: Diseases inherit date range from medical records (already filtered by created_at above)
+    // Using admin client to bypass RLS (same reasoning as medical_records query above)
+    let diseasesQuery = adminClient
       .from('diseases')
       .select(`
         id,
         disease_type,
+        custom_disease_name,
         diagnosis_date,
         severity,
         status,
@@ -176,9 +186,7 @@ export async function GET(request: NextRequest) {
         barangay_id,
         medical_record_id
       `)
-      .in('medical_record_id', medRecordIds)
-      .gte('diagnosis_date', startDate)
-      .lte('diagnosis_date', endDate);
+      .in('medical_record_id', medRecordIds);
 
     // Add barangay filter if provided
     if (barangayId) {
@@ -209,18 +217,25 @@ export async function GET(request: NextRequest) {
     };
 
     // Calculate disease type breakdown for bar chart
-    const diseaseTypeMap: { [key: string]: number } = {};
+    // Use custom disease names when available (disease_type='other')
+    const diseaseMap: Map<string, number> = new Map();
+
     diseases?.forEach(disease => {
-      const type = disease.disease_type || 'Unknown';
-      diseaseTypeMap[type] = (diseaseTypeMap[type] || 0) + 1;
+      // Use custom_disease_name if available (for "other" type), otherwise use disease_type
+      const displayName = disease.disease_type === 'other' && disease.custom_disease_name
+        ? disease.custom_disease_name
+        : disease.disease_type || 'Unknown';
+
+      diseaseMap.set(displayName, (diseaseMap.get(displayName) || 0) + 1);
     });
 
-    const diseaseBreakdown = Object.entries(diseaseTypeMap)
+    // Convert map to array and sort by count descending
+    const diseaseBreakdown = Array.from(diseaseMap.entries())
       .map(([type, count]) => ({
-        disease_type: type,
+        disease_type: type,  // Will be custom name for "other" types
         count,
       }))
-      .sort((a, b) => b.count - a.count); // Sort by count descending
+      .sort((a, b) => b.count - a.count);
 
     // Calculate severity breakdown
     const severityMap: { [key: string]: number } = {};
@@ -250,6 +265,16 @@ export async function GET(request: NextRequest) {
     const trendData = Object.entries(dailyTrend)
       .map(([date, count]) => ({ date, count }))
       .sort((a, b) => a.date.localeCompare(b.date));
+
+    // DEBUG: Log what we're about to send
+    console.log('[DISEASES API DEBUG] ==================== START ====================');
+    console.log('[DISEASES API DEBUG] Date range:', startDate, 'to', endDate);
+    console.log('[DISEASES API DEBUG] Medical records found:', medicalRecords?.length || 0);
+    console.log('[DISEASES API DEBUG] Diseases found:', diseases?.length || 0);
+    console.log('[DISEASES API DEBUG] Disease breakdown count:', diseaseBreakdown.length);
+    console.log('[DISEASES API DEBUG] Disease breakdown:', JSON.stringify(diseaseBreakdown, null, 2));
+    console.log('[DISEASES API DEBUG] Summary stats:', JSON.stringify(summaryStats, null, 2));
+    console.log('[DISEASES API DEBUG] ==================== END ====================');
 
     console.log('[HEALTHCARE ADMIN REPORTS - DISEASES] Sending response:', {
       summary_stats: summaryStats,

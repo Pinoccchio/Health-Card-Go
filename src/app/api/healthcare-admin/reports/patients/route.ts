@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server';
+import { createClient, createAdminClient } from '@/lib/supabase/server';
 import { NextRequest, NextResponse } from 'next/server';
 
 /**
@@ -120,7 +120,12 @@ export async function GET(request: NextRequest) {
       // Pattern 3 & 4: Walk-in services
       if (service.requires_medical_record) {
         // Pattern 3: Get patients from medical records
-        let medRecordsQuery = supabase
+        // Use admin client to bypass RLS policies that require appointments
+        // RLS policy "Healthcare admins view service records" requires appointment link
+        // But Pattern 3 services are walk-in only (no appointments), so we bypass RLS
+        const adminClient = createAdminClient();
+
+        let medRecordsQuery = adminClient
           .from('medical_records')
           .select('patient_id, created_at')
           .eq('created_by_id', user.id); // Records created by this admin
@@ -128,7 +133,7 @@ export async function GET(request: NextRequest) {
         if (startDate && endDate) {
           medRecordsQuery = medRecordsQuery
             .gte('created_at', startDate)
-            .lte('created_at', endDate);
+            .lte('created_at', `${endDate}T23:59:59`); // Include records created throughout the end date
         }
 
         const { data: medRecords, error: medError } = await medRecordsQuery;

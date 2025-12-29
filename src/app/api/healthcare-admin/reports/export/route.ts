@@ -1,5 +1,6 @@
-import { createClient } from '@/lib/supabase/server';
+import { createClient, createAdminClient } from '@/lib/supabase/server';
 import { NextRequest, NextResponse } from 'next/server';
+import { getDiseaseDisplayName } from '@/lib/constants/diseaseConstants';
 
 /**
  * POST /api/healthcare-admin/reports/export
@@ -107,6 +108,10 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
+
+    // Create admin client to bypass RLS for data fetching
+    // This is safe because we've already verified user role and service assignment above
+    const adminClient = createAdminClient();
 
     // Check permissions based on type
     if (type === 'appointments' && !service.requires_appointment) {
@@ -235,8 +240,9 @@ export async function POST(request: NextRequest) {
         const { data: appointments } = await appointmentsQuery;
         patientIds = [...new Set(appointments?.map(a => a.patient_id) || [])];
       } else if (service.requires_medical_record) {
-        // Get from medical records
-        let medRecordsQuery = supabase
+        // Get from medical records (Pattern 3: Walk-in + Medical Records)
+        // Use admin client to bypass RLS policies
+        let medRecordsQuery = adminClient
           .from('medical_records')
           .select('patient_id')
           .eq('created_by_id', user.id);
@@ -323,8 +329,8 @@ export async function POST(request: NextRequest) {
       filename = `patients_${service.name.replace(/\s+/g, '_')}_${start_date || 'all'}_to_${end_date || 'all'}`;
 
     } else if (type === 'diseases') {
-      // Fetch disease cases
-      let medRecordsQuery = supabase
+      // Fetch disease cases - use admin client to bypass RLS
+      let medRecordsQuery = adminClient
         .from('medical_records')
         .select('id')
         .eq('created_by_id', user.id);
@@ -339,28 +345,27 @@ export async function POST(request: NextRequest) {
       const medRecordIds = medicalRecords?.map(mr => mr.id) || [];
 
       if (medRecordIds.length > 0) {
-        let diseasesQuery = supabase
+        let diseasesQuery = adminClient
           .from('diseases')
           .select(`
             id,
             disease_type,
+            custom_disease_name,
             diagnosis_date,
             severity,
             status,
-            profiles!inner (
-              first_name,
-              last_name,
-              patients!inner (
-                patient_number
+            patients:patient_id (
+              patient_number,
+              profiles:user_id (
+                first_name,
+                last_name
               )
             ),
             barangays (
               name
             )
           `)
-          .in('medical_record_id', medRecordIds)
-          .gte('diagnosis_date', start_date)
-          .lte('diagnosis_date', end_date);
+          .in('medical_record_id', medRecordIds);
 
         if (barangay_id) {
           diseasesQuery = diseasesQuery.eq('barangay_id', parseInt(barangay_id));
@@ -377,17 +382,17 @@ export async function POST(request: NextRequest) {
         }
 
         data = diseases?.map(disease => {
-          const patient = disease.profiles as any;
-          const patientData = patient?.patients as any;
+          const patientData = disease.patients as any;
+          const profileData = patientData?.profiles as any;
           const barangay = disease.barangays as any;
 
           return {
-            'Disease Type': disease.disease_type,
+            'Disease Type': getDiseaseDisplayName(disease.disease_type, disease.custom_disease_name),
             'Diagnosis Date': disease.diagnosis_date,
             'Severity': disease.severity || 'N/A',
             'Status': disease.status,
             'Patient Number': patientData?.patient_number || 'N/A',
-            'Patient Name': `${patient?.first_name || ''} ${patient?.last_name || ''}`.trim(),
+            'Patient Name': `${profileData?.first_name || ''} ${profileData?.last_name || ''}`.trim(),
             'Barangay': barangay?.name || 'N/A',
           };
         }) || [];
@@ -465,6 +470,7 @@ export async function POST(request: NextRequest) {
       let patientIdsForExport: string[] = [];
 
       if (service.requires_appointment && start_date && end_date) {
+        // Pattern 1 & 2: Get patients from appointments
         const { data: appointments } = await supabase
           .from('appointments')
           .select('patient_id')
@@ -472,6 +478,15 @@ export async function POST(request: NextRequest) {
           .gte('appointment_date', start_date)
           .lte('appointment_date', end_date);
         patientIdsForExport = [...new Set(appointments?.map(a => a.patient_id) || [])];
+      } else if (service.requires_medical_record && start_date && end_date) {
+        // Pattern 3: Walk-in + Medical Records - Get patients from medical records
+        const { data: medRecords } = await adminClient
+          .from('medical_records')
+          .select('patient_id')
+          .eq('created_by_id', user.id)
+          .gte('created_at', start_date)
+          .lte('created_at', `${end_date}T23:59:59`);
+        patientIdsForExport = [...new Set(medRecords?.map(m => m.patient_id) || [])];
       }
 
       if (patientIdsForExport.length > 0) {
@@ -510,9 +525,9 @@ export async function POST(request: NextRequest) {
         comprehensiveData.summary.active_patients = patients?.filter(p => p.status === 'active').length || 0;
       }
 
-      // Fetch disease data (if service has medical records)
-      if (service.requires_medical_record && start_date && end_date) {
-        const { data: medicalRecords } = await supabase
+      // Fetch disease data (comprehensive export includes all available data)
+      if (start_date && end_date) {
+        const { data: medicalRecords } = await adminClient
           .from('medical_records')
           .select('id')
           .eq('created_by_id', user.id)
@@ -522,40 +537,43 @@ export async function POST(request: NextRequest) {
         const medRecordIds = medicalRecords?.map(mr => mr.id) || [];
 
         if (medRecordIds.length > 0) {
-          const { data: diseases } = await supabase
+          const { data: diseases, error: diseasesFetchError } = await adminClient
             .from('diseases')
             .select(`
               disease_type,
+              custom_disease_name,
               diagnosis_date,
               severity,
               status,
-              profiles!inner (
-                first_name,
-                last_name,
-                patients!inner (
-                  patient_number
+              patients:patient_id (
+                patient_number,
+                profiles:user_id (
+                  first_name,
+                  last_name
                 )
               ),
               barangays (
                 name
               )
             `)
-            .in('medical_record_id', medRecordIds)
-            .gte('diagnosis_date', start_date)
-            .lte('diagnosis_date', end_date);
+            .in('medical_record_id', medRecordIds);
+
+          if (diseasesFetchError) {
+            console.error('[EXPORT - COMPREHENSIVE] Error fetching diseases:', diseasesFetchError);
+          }
 
           comprehensiveData.diseases = diseases?.map(disease => {
-            const patient = disease.profiles as any;
-            const patientData = patient?.patients as any;
+            const patientData = disease.patients as any;
+            const profileData = patientData?.profiles as any;
             const barangay = disease.barangays as any;
 
             return {
-              'Disease Type': disease.disease_type,
+              'Disease Type': getDiseaseDisplayName(disease.disease_type, disease.custom_disease_name),
               'Diagnosis Date': disease.diagnosis_date,
               'Severity': disease.severity || 'N/A',
               'Status': disease.status,
               'Patient Number': patientData?.patient_number || 'N/A',
-              'Patient Name': `${patient?.first_name || ''} ${patient?.last_name || ''}`.trim(),
+              'Patient Name': `${profileData?.first_name || ''} ${profileData?.last_name || ''}`.trim(),
               'Barangay': barangay?.name || 'N/A',
             };
           }) || [];

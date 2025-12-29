@@ -50,7 +50,7 @@ export default function ReportsFilters({
   }, []);
 
   // Quick preset handlers
-  const handlePresetClick = (preset: 'last7days' | 'last30days' | 'thisMonth' | 'lastMonth') => {
+  const handlePresetClick = (preset: 'last7days' | 'last30days' | 'thisMonth' | 'lastMonth' | 'allTime') => {
     const today = new Date();
     let newStartDate = '';
     let newEndDate = today.toISOString().split('T')[0];
@@ -69,6 +69,11 @@ export default function ReportsFilters({
       case 'lastMonth':
         newStartDate = new Date(today.getFullYear(), today.getMonth() - 1, 1).toISOString().split('T')[0];
         newEndDate = new Date(today.getFullYear(), today.getMonth(), 0).toISOString().split('T')[0];
+        break;
+      case 'allTime':
+        // Wide date range to include all historical data
+        newStartDate = '2000-01-01';
+        newEndDate = '2099-12-31';
         break;
     }
 
@@ -116,6 +121,12 @@ export default function ReportsFilters({
             className="px-3 py-1.5 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors"
           >
             Last Month
+          </button>
+          <button
+            onClick={() => handlePresetClick('allTime')}
+            className="px-3 py-1.5 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors"
+          >
+            All Time
           </button>
         </div>
 
