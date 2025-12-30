@@ -18,6 +18,10 @@ import {
   BarChart3,
   Database,
   LineChart,
+  Sparkles,
+  RefreshCw,
+  CheckCircle2,
+  XCircle,
 } from 'lucide-react';
 
 type DiseaseType = 'all' | 'dengue' | 'hiv_aids' | 'pregnancy_complications' | 'malaria' | 'measles' | 'rabies' | 'other';
@@ -58,6 +62,16 @@ export default function StaffAnalyticsPage() {
   const [loading, setLoading] = useState(true);
   const [chartsLoading, setChartsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Prediction generation states
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [generationStatus, setGenerationStatus] = useState<{
+    type: 'idle' | 'success' | 'error';
+    message?: string;
+    details?: any; // Full API response for detailed display
+  }>({ type: 'idle' });
+  const [selectedBarangay, setSelectedBarangay] = useState<number | null>(null);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   // Load all data on mount
   useEffect(() => {
@@ -197,6 +211,56 @@ export default function StaffAnalyticsPage() {
       const itemDate = new Date(item[dateField]);
       return itemDate >= cutoffDate;
     });
+  };
+
+  const handleGeneratePredictions = async () => {
+    setIsGenerating(true);
+    setGenerationStatus({ type: 'idle' });
+    setError(null);
+
+    try {
+      const response = await fetch('/api/diseases/generate-predictions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          diseaseType: selectedDisease,
+          barangayId: selectedBarangay,
+          daysForecast: 30,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        setGenerationStatus({
+          type: 'success',
+          message: data.message || 'Predictions generated successfully',
+          details: data, // Store full response for detailed display
+        });
+        // Force SARIMAChart to reload by changing key
+        setRefreshKey((prev) => prev + 1);
+        // Don't auto-hide - let user dismiss manually
+      } else {
+        // Check if error is quota-related
+        const isQuotaError = data.error?.includes('quota') || data.error?.includes('429') || data.error?.includes('Too Many Requests');
+        const errorMessage = isQuotaError
+          ? 'Gemini API quota exceeded. Displaying cached predictions. Please wait ~40 seconds and try again, or try generating predictions for a single disease instead of "All Diseases".'
+          : data.error || 'Failed to generate predictions';
+
+        setGenerationStatus({
+          type: 'error',
+          message: errorMessage,
+        });
+      }
+    } catch (err) {
+      console.error('Error generating predictions:', err);
+      setGenerationStatus({
+        type: 'error',
+        message: 'An unexpected error occurred while generating predictions',
+      });
+    } finally {
+      setIsGenerating(false);
+    }
   };
 
   const diseaseOptions = [
@@ -568,7 +632,8 @@ export default function StaffAnalyticsPage() {
 
             {/* SARIMA Prediction Chart */}
             <div className="bg-white rounded-lg shadow p-6 mb-6">
-              <div className="flex items-center justify-between mb-4">
+              {/* Header with Generate Button */}
+              <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-4">
                 <div>
                   <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
                     <TrendingUp className="w-5 h-5 text-primary-teal" />
@@ -578,15 +643,153 @@ export default function StaffAnalyticsPage() {
                     Seasonal Auto-Regressive Integrated Moving Average predictions for {diseaseOptions.find(d => d.id === selectedDisease)?.label || 'disease'}
                   </p>
                 </div>
+                <button
+                  onClick={handleGeneratePredictions}
+                  disabled={isGenerating}
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-primary-teal to-teal-600 text-white rounded-lg hover:from-primary-teal/90 hover:to-teal-600/90 transition-all shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isGenerating ? (
+                    <>
+                      <RefreshCw className="w-4 h-4 animate-spin" />
+                      Generating...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="w-4 h-4" />
+                      Generate Predictions
+                    </>
+                  )}
+                </button>
               </div>
 
+              {/* Barangay Filter */}
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Filter by Barangay (Optional)
+                </label>
+                <select
+                  value={selectedBarangay || ''}
+                  onChange={(e) => setSelectedBarangay(e.target.value ? parseInt(e.target.value) : null)}
+                  className="w-full lg:w-64 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-teal focus:border-transparent"
+                  disabled={isGenerating}
+                >
+                  <option value="">All Barangays (System-Wide)</option>
+                  {barangays.map((barangay) => (
+                    <option key={barangay.id} value={barangay.id}>
+                      {barangay.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Generation Status Messages */}
+
+              {/* Progress Indicator (Option C) */}
+              {isGenerating && (
+                <div className="mb-4 bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <div className="flex items-start gap-3">
+                    <RefreshCw className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0 animate-spin" />
+                    <div className="flex-1">
+                      <h4 className="text-sm font-semibold text-blue-900">Generating Predictions...</h4>
+                      <p className="text-sm text-blue-800 mt-1">
+                        This may take up to 60 seconds for all diseases. Using Gemini AI (gemini-2.5-flash-lite).
+                      </p>
+                      <div className="mt-2">
+                        <div className="h-2 bg-blue-200 rounded-full overflow-hidden">
+                          <div className="h-full bg-blue-600 rounded-full animate-pulse" style={{ width: '100%' }}></div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Enhanced Success Message (Option A) */}
+              {generationStatus.type === 'success' && generationStatus.details && (
+                <div className="mb-4 bg-green-50 border border-green-200 rounded-lg p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-start gap-3 flex-1">
+                      <CheckCircle2 className="w-5 h-5 text-green-600 mt-0.5 flex-shrink-0" />
+                      <div className="flex-1">
+                        <h4 className="text-sm font-semibold text-green-900">Prediction Generation Complete</h4>
+                        <p className="text-sm text-green-800 mt-1">
+                          Successfully generated predictions for {generationStatus.details.summary.successful}/{generationStatus.details.summary.total_diseases} disease(s)
+                        </p>
+
+                        {/* Disease Results List */}
+                        {generationStatus.details.results && generationStatus.details.results.length > 0 && (
+                          <div className="mt-3 space-y-1.5">
+                            {generationStatus.details.results.map((result: any, index: number) => (
+                              <div key={index} className={`flex items-center justify-between text-xs ${result.success ? 'text-green-700' : 'text-red-700'}`}>
+                                <div className="flex items-center gap-2">
+                                  {result.success ? (
+                                    <CheckCircle2 className="w-3.5 h-3.5" />
+                                  ) : (
+                                    <XCircle className="w-3.5 h-3.5" />
+                                  )}
+                                  <span className="font-medium capitalize">
+                                    {result.disease_type.replace(/_/g, ' ')}
+                                  </span>
+                                </div>
+                                {result.success && (
+                                  <div className="flex items-center gap-3 text-xs">
+                                    <span>{result.predictions_count} predictions</span>
+                                    <span className="text-gray-500">•</span>
+                                    <span>R²: {result.accuracy_r_squared?.toFixed(2) || 'N/A'}</span>
+                                    <span className="text-gray-500">•</span>
+                                    <span className="capitalize">{result.data_quality} Quality</span>
+                                    {result.cached && result.cache_age_hours !== undefined && (
+                                      <>
+                                        <span className="text-gray-500">•</span>
+                                        <span className="text-blue-600 font-medium">
+                                          Cached ({result.cache_age_hours}h ago)
+                                        </span>
+                                      </>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* Summary Stats */}
+                        <div className="mt-3 pt-3 border-t border-green-200 text-xs text-green-700 flex items-center gap-4">
+                          <span className="font-semibold">Total: {generationStatus.details.summary.total_predictions} predictions</span>
+                        </div>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => setGenerationStatus({ type: 'idle' })}
+                      className="text-green-600 hover:text-green-800 transition-colors"
+                      title="Dismiss"
+                    >
+                      <XCircle className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {generationStatus.type === 'error' && (
+                <div className="mb-4 bg-red-50 border border-red-200 rounded-lg p-4">
+                  <div className="flex items-start gap-3">
+                    <XCircle className="w-5 h-5 text-red-600 mt-0.5 flex-shrink-0" />
+                    <div>
+                      <h4 className="text-sm font-semibold text-red-900">Error</h4>
+                      <p className="text-sm text-red-800 mt-1">{generationStatus.message}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Chart */}
               {loading ? (
                 <div className="py-12 text-center">
                   <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary-teal"></div>
                   <p className="mt-2 text-sm text-gray-500">Loading predictions...</p>
                 </div>
               ) : (
-                <SARIMAChart diseaseType={selectedDisease} />
+                <SARIMAChart key={refreshKey} diseaseType={selectedDisease} />
               )}
             </div>
 

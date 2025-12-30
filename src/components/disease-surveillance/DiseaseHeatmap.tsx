@@ -43,7 +43,7 @@ interface DiseaseHeatmapProps {
 export default function DiseaseHeatmap({ data, diseaseType }: DiseaseHeatmapProps) {
   const mapRef = useRef<L.Map | null>(null);
   const mapContainerRef = useRef<HTMLDivElement>(null);
-  const layersRef = useRef<L.Layer[]>([]);
+  const layerGroupRef = useRef<L.LayerGroup | null>(null);
 
   // Effect 1: Initialize map ONCE (runs only on mount)
   useEffect(() => {
@@ -59,12 +59,19 @@ export default function DiseaseHeatmap({ data, diseaseType }: DiseaseHeatmapProp
         attribution: '© OpenStreetMap contributors',
         maxZoom: 18,
       }).addTo(mapRef.current);
+
+      // Create a layer group for markers
+      layerGroupRef.current = L.layerGroup().addTo(mapRef.current);
     } catch (error) {
       console.error('Error initializing map:', error);
     }
 
     // Cleanup only on unmount
     return () => {
+      if (layerGroupRef.current) {
+        layerGroupRef.current.clearLayers();
+        layerGroupRef.current = null;
+      }
       if (mapRef.current) {
         mapRef.current.remove();
         mapRef.current = null;
@@ -74,16 +81,11 @@ export default function DiseaseHeatmap({ data, diseaseType }: DiseaseHeatmapProp
 
   // Effect 2: Update data layers when data or diseaseType changes
   useEffect(() => {
-    if (!mapRef.current || !data || data.length === 0) return;
+    if (!mapRef.current || !layerGroupRef.current || !data || data.length === 0) return;
 
     try {
-      // Clear previous data layers safely
-      layersRef.current.forEach(layer => {
-        if (mapRef.current && mapRef.current.hasLayer(layer)) {
-          mapRef.current.removeLayer(layer);
-        }
-      });
-      layersRef.current = [];
+      // Clear previous markers safely using LayerGroup
+      layerGroupRef.current.clearLayers();
 
       const bounds = L.latLngBounds([]);
 
@@ -162,8 +164,9 @@ export default function DiseaseHeatmap({ data, diseaseType }: DiseaseHeatmapProp
           fillOpacity: 0.4 + (barangay.intensity * 0.4), // Intensity affects opacity
         });
 
-        if (mapRef.current) {
-          circle.addTo(mapRef.current);
+        // Add to layer group instead of directly to map
+        if (layerGroupRef.current) {
+          circle.addTo(layerGroupRef.current);
         }
 
         // Create disease breakdown HTML
@@ -225,7 +228,6 @@ export default function DiseaseHeatmap({ data, diseaseType }: DiseaseHeatmapProp
           </div>
         `);
 
-        layersRef.current.push(circle);
         bounds.extend([lat, lng]);
       });
 

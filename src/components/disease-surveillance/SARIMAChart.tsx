@@ -467,16 +467,81 @@ export default function SARIMAChart({ diseaseType, barangayId }: SARIMAChartProp
         </div>
       </div>
 
-      {/* Demo Data Disclaimer - shown when metrics are not available */}
-      {!metricsReport && metadata && (
-        <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-lg flex items-start gap-2">
-          <Info className="w-4 h-4 text-amber-600 mt-0.5 flex-shrink-0" />
-          <p className="text-xs text-amber-800">
-            <span className="font-semibold">Demo Data:</span> The predictions shown are sample data for demonstration and testing purposes.
-            Model accuracy metrics will be displayed once the system has historical predictions to validate against actual outcomes.
-          </p>
+      {/* Data Quality & Generation Info */}
+      {metadata && metadata.data_quality && (
+        <div className="mt-3 p-3 bg-gray-50 border border-gray-200 rounded-lg">
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-gray-600 font-medium">Prediction Quality:</span>
+              {metadata.data_quality === 'high' && (
+                <span className="inline-flex items-center gap-1 px-2 py-1 bg-green-100 text-green-800 text-xs font-semibold rounded">
+                  <CheckCircle2 className="w-3 h-3" />
+                  High Quality
+                </span>
+              )}
+              {metadata.data_quality === 'moderate' && (
+                <span className="inline-flex items-center gap-1 px-2 py-1 bg-yellow-100 text-yellow-800 text-xs font-semibold rounded">
+                  <AlertTriangle className="w-3 h-3" />
+                  Moderate Quality
+                </span>
+              )}
+              {metadata.data_quality === 'insufficient' && (
+                <span className="inline-flex items-center gap-1 px-2 py-1 bg-red-100 text-red-800 text-xs font-semibold rounded">
+                  <AlertTriangle className="w-3 h-3" />
+                  Insufficient Data
+                </span>
+              )}
+              <span className="text-xs text-gray-500">
+                ({metadata.data_points_count || 0} data points)
+              </span>
+            </div>
+            {metadata.generated_at && (() => {
+              const generatedDate = new Date(metadata.generated_at);
+              const now = new Date();
+              const diffMs = now.getTime() - generatedDate.getTime();
+              const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+              const diffMinutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+
+              return (
+                <div className="flex items-center gap-2 text-xs text-gray-600">
+                  <Info className="w-3 h-3" />
+                  <span>
+                    Generated: {diffHours > 0
+                      ? `${diffHours}h ${diffMinutes}m ago`
+                      : `${diffMinutes}m ago`}
+                  </span>
+                </div>
+              );
+            })()}
+          </div>
         </div>
       )}
+
+      {/* Staleness Warning */}
+      {metadata && metadata.generated_at && (() => {
+        const generatedDate = new Date(metadata.generated_at);
+        const now = new Date();
+        const daysSinceGeneration = Math.floor((now.getTime() - generatedDate.getTime()) / (1000 * 60 * 60 * 24));
+        const isStale = daysSinceGeneration > 7;
+
+        if (isStale) {
+          return (
+            <div className="mt-3 p-3 bg-yellow-50 border border-yellow-300 rounded-lg">
+              <div className="flex items-start gap-3">
+                <AlertTriangle className="w-5 h-5 text-yellow-600 mt-0.5 flex-shrink-0" />
+                <div>
+                  <h4 className="text-sm font-semibold text-yellow-900">Predictions May Be Outdated</h4>
+                  <p className="text-xs text-yellow-800 mt-1">
+                    These predictions were generated {daysSinceGeneration} day{daysSinceGeneration !== 1 ? 's' : ''} ago.
+                    Click "Generate Predictions" to refresh with the latest data.
+                  </p>
+                </div>
+              </div>
+            </div>
+          );
+        }
+        return null;
+      })()}
 
       {/* Model Accuracy Panel */}
       {metricsReport && (

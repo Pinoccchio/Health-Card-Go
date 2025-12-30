@@ -13,6 +13,7 @@ import {
   UserCircle,
   Briefcase,
   UserPlus,
+  Map,
 } from 'lucide-react';
 import { MenuItem } from '@/components/dashboard';
 import { RoleId } from '@/types/auth';
@@ -93,6 +94,11 @@ export const HEALTHCARE_ADMIN_MENU_ITEMS: MenuItem[] = [
     label: 'Medical Records',
     href: '/healthcare-admin/medical-records',
     icon: Heart,
+  },
+  {
+    label: 'Disease Map',
+    href: '/healthcare-admin/disease-map',
+    icon: Map,
   },
   {
     label: 'Reports',
@@ -268,6 +274,13 @@ export async function getHealthcareAdminMenuItems(
         icon: Heart,
       });
     }
+
+    // Always show Disease Map
+    menuItems.push({
+      label: 'Disease Map',
+      href: '/healthcare-admin/disease-map',
+      icon: Map,
+    });
 
     // Always show Reports and Announcements
     menuItems.push(

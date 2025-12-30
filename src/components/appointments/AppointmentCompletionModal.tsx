@@ -5,7 +5,7 @@ import { X, CheckCircle, Loader2, Calendar, Clock, FileText } from 'lucide-react
 import { Button } from '@/components/ui';
 import { useToast } from '@/lib/contexts/ToastContext';
 import { formatTimeBlock, TimeBlock, TIME_BLOCKS } from '@/types/appointment';
-import { MedicalRecordForm, MedicalRecordFormData } from '@/components/medical-records/MedicalRecordForm';
+import { EnhancedMedicalRecordForm, EnhancedMedicalRecordFormData } from '@/components/medical-records/EnhancedMedicalRecordForm';
 
 interface AppointmentCompletionModalProps {
   isOpen: boolean;
@@ -47,12 +47,14 @@ export function AppointmentCompletionModal({
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingService, setIsLoadingService] = useState(true);
   const [serviceDetails, setServiceDetails] = useState<ServiceDetails | null>(null);
-  const [medicalRecordData, setMedicalRecordData] = useState<MedicalRecordFormData>({
+  const [medicalRecordData, setMedicalRecordData] = useState<EnhancedMedicalRecordFormData>({
     category: 'general',
     template_type: 'general_checkup',
     diagnosis: '',
     prescription: '',
     notes: '',
+    track_disease: false,
+    disease_data: undefined,
   });
   const [isMedicalRecordValid, setIsMedicalRecordValid] = useState(false);
 
@@ -82,7 +84,7 @@ export function AppointmentCompletionModal({
     }
   };
 
-  const handleMedicalRecordChange = (data: MedicalRecordFormData, isValid: boolean) => {
+  const handleMedicalRecordChange = (data: EnhancedMedicalRecordFormData, isValid: boolean) => {
     setMedicalRecordData(data);
     setIsMedicalRecordValid(isValid);
   };
@@ -112,6 +114,12 @@ export function AppointmentCompletionModal({
           prescription: medicalRecordData.prescription.trim() || null,
           notes: medicalRecordData.notes.trim() || null,
         };
+
+        // Include disease tracking data if enabled
+        if (medicalRecordData.track_disease && medicalRecordData.disease_data) {
+          payload.medical_record.track_disease = true;
+          payload.medical_record.disease_data = medicalRecordData.disease_data;
+        }
       }
 
       const response = await fetch(`/api/appointments/${appointment.id}/complete`, {
@@ -146,6 +154,8 @@ export function AppointmentCompletionModal({
       diagnosis: '',
       prescription: '',
       notes: '',
+      track_disease: false,
+      disease_data: undefined,
     });
   };
 
@@ -253,7 +263,7 @@ export function AppointmentCompletionModal({
                       <span className="text-red-500">*</span>
                     </h4>
 
-                    <MedicalRecordForm
+                    <EnhancedMedicalRecordForm
                       patientId={appointment.patients.id}
                       appointmentId={appointment.id}
                       serviceId={appointment.service_id}
@@ -261,6 +271,7 @@ export function AppointmentCompletionModal({
                       isRequired={true}
                       onChange={handleMedicalRecordChange}
                       showLabels={true}
+                      enableDiseaseTracking={true} // ✅ Enable disease tracking in production
                     />
                   </div>
                 ) : (

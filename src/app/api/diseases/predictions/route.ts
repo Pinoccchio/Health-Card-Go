@@ -4,7 +4,12 @@ import { createClient } from '@/lib/supabase/server';
 /**
  * GET /api/diseases/predictions
  * SARIMA predictions with historical data for visualization
+ *
+ * IMPORTANT: This endpoint is force-dynamic to prevent caching and ensure
+ * the chart always shows the latest generated predictions in real-time.
  */
+export const dynamic = 'force-dynamic';
+
 export async function GET(request: NextRequest) {
   const supabase = await createClient();
 
@@ -84,6 +89,9 @@ export async function GET(request: NextRequest) {
     }
     if (barangayId) {
       predictionsQuery = predictionsQuery.eq('barangay_id', parseInt(barangayId));
+    } else {
+      // System-Wide: Only fetch predictions where barangay_id IS NULL
+      predictionsQuery = predictionsQuery.is('barangay_id', null);
     }
 
     const { data: predictionsData, error: predictionsError } = await predictionsQuery;
@@ -142,8 +150,44 @@ export async function GET(request: NextRequest) {
       ? predictionsData.reduce((sum, p) => sum + p.confidence_level, 0) / predictionsData.length
       : 0;
 
-    return NextResponse.json({
+    // Get generation metadata from the MOST RECENTLY GENERATED prediction (not oldest by prediction_date)
+    // Build a separate query to get the latest generated prediction
+    let metadataQuery = supabase
+      .from('disease_predictions')
+      .select('generated_at, model_version, data_quality, data_points_count, accuracy_r_squared, accuracy_rmse, trend, seasonality_detected')
+      .order('generated_at', { ascending: false })
+      .limit(1);
+
+    if (diseaseType) {
+      metadataQuery = metadataQuery.eq('disease_type', diseaseType);
+    }
+    if (barangayId) {
+      metadataQuery = metadataQuery.eq('barangay_id', parseInt(barangayId));
+    } else {
+      metadataQuery = metadataQuery.is('barangay_id', null);
+    }
+
+    const { data: latestPrediction } = await metadataQuery;
+
+    const generationMetadata = latestPrediction && latestPrediction.length > 0
+      ? {
+          generated_at: latestPrediction[0].generated_at,
+          model_version: latestPrediction[0].model_version || 'Gemini-Disease-SARIMA-v1.0',
+          data_quality: latestPrediction[0].data_quality || 'unknown',
+          data_points_count: latestPrediction[0].data_points_count || 0,
+          accuracy_r_squared: latestPrediction[0].accuracy_r_squared || null,
+          accuracy_rmse: latestPrediction[0].accuracy_rmse || null,
+          trend: latestPrediction[0].trend || 'unknown',
+          seasonality_detected: latestPrediction[0].seasonality_detected || false,
+        }
+      : null;
+
+    // Determine if predictions exist
+    const hasPredictions = predictionsData && predictionsData.length > 0;
+
+    const response = NextResponse.json({
       success: true,
+      has_predictions: hasPredictions,
       data: {
         historical,
         predictions,
@@ -155,10 +199,17 @@ export async function GET(request: NextRequest) {
         days_forecast: daysForecast,
         total_actual_cases: totalActual,
         total_predicted_cases: totalPredicted,
-        average_confidence: Math.round(avgConfidence * 100) / 100,
-        model_version: 'SARIMA_v1.0',
+        average_confidence: hasPredictions ? Math.round(avgConfidence * 100) / 100 : 0,
+        ...generationMetadata,
       },
     });
+
+    // Prevent all caching to ensure real-time updates
+    response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
+    response.headers.set('Pragma', 'no-cache');
+    response.headers.set('Expires', '0');
+
+    return response;
 
   } catch (error: any) {
     console.error('Error in predictions API:', error);

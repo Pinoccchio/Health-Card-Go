@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
 
   try {
     const searchParams = request.nextUrl.searchParams;
-    const diseaseType = searchParams.get('type');
+    const diseaseType = searchParams.get('disease_type');
     const startDate = searchParams.get('start_date');
     const endDate = searchParams.get('end_date');
 

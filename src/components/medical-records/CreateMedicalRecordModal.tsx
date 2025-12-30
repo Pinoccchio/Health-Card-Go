@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { X, FileText, Loader2, Search, User } from 'lucide-react';
 import { Button } from '@/components/ui';
 import { useToast } from '@/lib/contexts/ToastContext';
-import { MedicalRecordForm, MedicalRecordFormData } from './MedicalRecordForm';
+import { EnhancedMedicalRecordForm, EnhancedMedicalRecordFormData } from './EnhancedMedicalRecordForm';
 
 interface Patient {
   id: string;
@@ -45,11 +45,13 @@ export function CreateMedicalRecordModal({
   const [patients, setPatients] = useState<Patient[]>([]);
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
   const [showPatientDropdown, setShowPatientDropdown] = useState(false);
-  const [medicalRecordData, setMedicalRecordData] = useState<MedicalRecordFormData>({
+  const [medicalRecordData, setMedicalRecordData] = useState<EnhancedMedicalRecordFormData>({
     category: 'general',
     diagnosis: '',
     prescription: '',
     notes: '',
+    track_disease: false, // Enable disease tracking by default for general category
+    disease_data: undefined,
   });
   const [isMedicalRecordValid, setIsMedicalRecordValid] = useState(false);
 
@@ -89,7 +91,7 @@ export function CreateMedicalRecordModal({
     setShowPatientDropdown(false);
   };
 
-  const handleMedicalRecordChange = (data: MedicalRecordFormData, isValid: boolean) => {
+  const handleMedicalRecordChange = (data: EnhancedMedicalRecordFormData, isValid: boolean) => {
     setMedicalRecordData(data);
     setIsMedicalRecordValid(isValid);
   };
@@ -122,21 +124,29 @@ export function CreateMedicalRecordModal({
 
       const template_type = categoryToTemplateMap[medicalRecordData.category] || 'general_checkup';
 
+      const payload: any = {
+        patient_id: selectedPatient.id,
+        category: medicalRecordData.category,
+        template_type,
+        record_data: {
+          diagnosis: medicalRecordData.diagnosis,
+          prescription: medicalRecordData.prescription,
+          notes: medicalRecordData.notes,
+        },
+      };
+
+      // Include disease tracking data if enabled
+      if (medicalRecordData.track_disease && medicalRecordData.disease_data) {
+        payload.track_disease = true;
+        payload.disease_data = medicalRecordData.disease_data;
+      }
+
       const response = await fetch('/api/medical-records', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          patient_id: selectedPatient.id,
-          category: medicalRecordData.category,
-          template_type,
-          record_data: {
-            diagnosis: medicalRecordData.diagnosis,
-            prescription: medicalRecordData.prescription,
-            notes: medicalRecordData.notes,
-          },
-        }),
+        body: JSON.stringify(payload),
       });
 
       const data = await response.json();
@@ -164,6 +174,8 @@ export function CreateMedicalRecordModal({
       diagnosis: '',
       prescription: '',
       notes: '',
+      track_disease: false,
+      disease_data: undefined,
     });
     setIsMedicalRecordValid(false);
   };
@@ -286,7 +298,7 @@ export function CreateMedicalRecordModal({
             {/* Medical Record Form */}
             {selectedPatient && (
               <div className="border-t border-gray-200 pt-6">
-                <MedicalRecordForm
+                <EnhancedMedicalRecordForm
                   patientId={selectedPatient.id}
                   appointmentId={undefined} // No appointment for standalone records
                   serviceId={undefined}
@@ -295,6 +307,7 @@ export function CreateMedicalRecordModal({
                   initialData={medicalRecordData}
                   onChange={handleMedicalRecordChange}
                   showLabels={true}
+                  enableDiseaseTracking={true} // ✅ Enable disease tracking in production
                 />
               </div>
             )}

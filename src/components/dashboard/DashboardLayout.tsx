@@ -76,6 +76,39 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
     loadMenuItems();
   }, [roleId, user?.assigned_service_id]);
 
+  // ✨ VISITOR-TRIGGERED AUTOMATIC NO-SHOW DETECTION ✨
+  // When Healthcare Admin visits dashboard → automatically check for overdue appointments
+  // ⚡ REAL-TIME MODE: Runs EVERY time Healthcare Admin visits any dashboard page
+  useEffect(() => {
+    // Only trigger for Healthcare Admins (role_id: 2)
+    if (roleId !== 2 || !user) return;
+
+    // Trigger automatic no-show detection (background, non-blocking)
+    console.log('🔍 [AUTO NO-SHOW] Healthcare Admin visited - triggering real-time check...');
+
+    fetch('/api/appointments/check-overdue', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+    })
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) {
+          if (data.processed_count > 0) {
+            console.log(`✅ [AUTO NO-SHOW] Processed ${data.processed_count} overdue appointment(s)`);
+          } else {
+            console.log('✅ [AUTO NO-SHOW] No overdue appointments found');
+          }
+        } else {
+          console.error('❌ [AUTO NO-SHOW] Check failed:', data.error);
+        }
+      })
+      .catch(err => {
+        // Silent failure - don't interrupt admin's workflow
+        console.error('❌ [AUTO NO-SHOW] Request failed (silent):', err);
+      });
+
+  }, [roleId, user]); // Runs EVERY time Healthcare Admin loads any dashboard page
+
   // Show loading skeleton while menu loads
   if (isLoadingMenu) {
     return (
