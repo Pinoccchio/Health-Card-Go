@@ -48,6 +48,11 @@ export interface MedicalRecord {
     appointment_date: string;
     appointment_time: string;
     status: string;
+    services?: {
+      id: number;
+      name: string;
+      category: string;
+    };
   };
 }
 

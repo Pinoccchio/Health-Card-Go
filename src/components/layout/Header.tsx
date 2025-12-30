@@ -148,38 +148,40 @@ export function Header() {
 
           {/* Desktop Actions */}
           <div className="hidden lg:flex items-center space-x-4">
-            {/* Language Switcher */}
-            <div className="relative language-menu">
-              <button
-                onClick={() => setIsLanguageMenuOpen(!isLanguageMenuOpen)}
-                className="flex items-center space-x-2 px-3 py-2 rounded-lg text-sm font-medium text-white hover:bg-white/10 transition-all"
-              >
-                <Globe className="h-4 w-4" />
-                <span>{t(`languages.${selectedLanguage.code}`)}</span>
-                <ChevronDown className="h-4 w-4" />
-              </button>
+            {/* Language Switcher - Only show for patients (role_id: 4) or unauthenticated users */}
+            {(!isAuthenticated || user?.role_id === 4) && (
+              <div className="relative language-menu">
+                <button
+                  onClick={() => setIsLanguageMenuOpen(!isLanguageMenuOpen)}
+                  className="flex items-center space-x-2 px-3 py-2 rounded-lg text-sm font-medium text-white hover:bg-white/10 transition-all"
+                >
+                  <Globe className="h-4 w-4" />
+                  <span>{t(`languages.${selectedLanguage.code}`)}</span>
+                  <ChevronDown className="h-4 w-4" />
+                </button>
 
-              {/* Language Dropdown */}
-              {isLanguageMenuOpen && (
-                <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-xl border border-primary-teal/20 py-2 z-[9999]">
-                  {LANGUAGES.map((language) => (
-                    <button
-                      key={language.code}
-                      onClick={() => handleLanguageChange(language.code)}
-                      className={cn(
-                        'w-full flex items-center gap-3 px-4 py-2 text-sm transition-colors',
-                        selectedLanguage.code === language.code
-                          ? 'bg-primary-teal/10 text-primary-teal font-medium'
-                          : 'text-gray-700 hover:bg-primary-teal/10 hover:text-primary-teal'
-                      )}
-                    >
-                      <Globe className="h-4 w-4" />
-                      {t(`languages.${language.code}`)}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
+                {/* Language Dropdown */}
+                {isLanguageMenuOpen && (
+                  <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-xl border border-primary-teal/20 py-2 z-[9999]">
+                    {LANGUAGES.map((language) => (
+                      <button
+                        key={language.code}
+                        onClick={() => handleLanguageChange(language.code)}
+                        className={cn(
+                          'w-full flex items-center gap-3 px-4 py-2 text-sm transition-colors',
+                          selectedLanguage.code === language.code
+                            ? 'bg-primary-teal/10 text-primary-teal font-medium'
+                            : 'text-gray-700 hover:bg-primary-teal/10 hover:text-primary-teal'
+                        )}
+                      >
+                        <Globe className="h-4 w-4" />
+                        {t(`languages.${language.code}`)}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Auth Actions */}
             {isAuthenticated && user ? (
@@ -285,27 +287,29 @@ export function Header() {
                 </a>
               ))}
 
-              {/* Mobile Language Switcher */}
-              <div className="pt-4 border-t border-white/20">
-                <p className="text-xs text-white/70 mb-2 px-2">{t('common.language', { defaultValue: 'Language' })}</p>
-                <div className="space-y-2">
-                  {LANGUAGES.map((language) => (
-                    <button
-                      key={language.code}
-                      onClick={() => handleLanguageChange(language.code)}
-                      className={cn(
-                        'w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all',
-                        selectedLanguage.code === language.code
-                          ? 'bg-white/20 text-white'
-                          : 'text-white/90 hover:bg-white/10'
-                      )}
-                    >
-                      <Globe className="h-5 w-5" />
-                      {t(`languages.${language.code}`)}
-                    </button>
-                  ))}
+              {/* Mobile Language Switcher - Only show for patients (role_id: 4) or unauthenticated users */}
+              {(!isAuthenticated || user?.role_id === 4) && (
+                <div className="pt-4 border-t border-white/20">
+                  <p className="text-xs text-white/70 mb-2 px-2">{t('common.language', { defaultValue: 'Language' })}</p>
+                  <div className="space-y-2">
+                    {LANGUAGES.map((language) => (
+                      <button
+                        key={language.code}
+                        onClick={() => handleLanguageChange(language.code)}
+                        className={cn(
+                          'w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all',
+                          selectedLanguage.code === language.code
+                            ? 'bg-white/20 text-white'
+                            : 'text-white/90 hover:bg-white/10'
+                        )}
+                      >
+                        <Globe className="h-5 w-5" />
+                        {t(`languages.${language.code}`)}
+                      </button>
+                    ))}
+                  </div>
                 </div>
-              </div>
+              )}
 
               <div className="pt-4 border-t border-white/20">
                 {isAuthenticated && user ? (

@@ -17,6 +17,7 @@ import {
   ArrowRight,
 } from 'lucide-react';
 import Link from 'next/link';
+import { useTranslations } from 'next-intl';
 
 interface DashboardStats {
   upcomingCount: number;
@@ -38,6 +39,7 @@ interface UpcomingAppointment {
 
 export default function PatientDashboard() {
   const { user } = useAuth();
+  const t = useTranslations('dashboard');
   const [stats, setStats] = useState<DashboardStats>({
     upcomingCount: 0,
     medicalRecordsCount: 0,
@@ -137,19 +139,19 @@ export default function PatientDashboard() {
   return (
     <DashboardLayout
       roleId={4}
-      pageTitle="Home"
-      pageDescription="Your Personal Health Portal"
+      pageTitle={t('page_title')}
+      pageDescription={t('page_description')}
     >
       <Container size="full">
         {/* Welcome Section */}
         <div className="mb-8 flex items-center justify-between">
           <div>
             <h2 className="text-2xl font-bold text-gray-900 mb-2">
-              Welcome, {user?.first_name}!
+              {t('welcome', { name: user?.first_name })}
             </h2>
             <p className="text-gray-600 flex items-center gap-2">
               <Heart className="w-4 h-4 text-primary-teal" />
-              Your health, our priority
+              {t('tagline')}
             </p>
           </div>
           <button
@@ -158,7 +160,7 @@ export default function PatientDashboard() {
             className="flex items-center gap-2 px-4 py-2 text-sm text-gray-600 hover:text-primary-teal transition-colors disabled:opacity-50"
           >
             <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-            Refresh
+            {t('refresh')}
           </button>
         </div>
 
@@ -167,7 +169,7 @@ export default function PatientDashboard() {
           <div className="mb-6 bg-red-50 border border-red-200 rounded-lg p-4 flex items-start gap-3">
             <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
             <div>
-              <p className="text-red-800 font-medium">Error loading dashboard</p>
+              <p className="text-red-800 font-medium">{t('error_loading')}</p>
               <p className="text-red-700 text-sm mt-1">{error}</p>
             </div>
           </div>
@@ -178,11 +180,10 @@ export default function PatientDashboard() {
           <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6 mb-8">
             <h3 className="text-lg font-semibold text-yellow-900 mb-2 flex items-center gap-2">
               <Activity className="w-5 h-5" />
-              Account Pending Approval
+              {t('pending_approval.title')}
             </h3>
             <p className="text-yellow-800 text-sm">
-              Your account is currently pending approval. Once approved by an admin,
-              you'll be able to book appointments and access all features.
+              {t('pending_approval.message')}
             </p>
           </div>
         )}
@@ -194,22 +195,22 @@ export default function PatientDashboard() {
               <div className="flex-1">
                 <div className="flex items-center gap-2 mb-2">
                   <Calendar className="w-5 h-5" />
-                  <h3 className="text-lg font-semibold">Upcoming Appointment</h3>
+                  <h3 className="text-lg font-semibold">{t('upcoming_appointment')}</h3>
                 </div>
                 <p className="text-teal-50 text-sm mb-4">
                   {formatDate(upcomingAppointment.appointment_date)} at {formatTime(upcomingAppointment.appointment_time)}
                 </p>
                 <div className="bg-white/20 backdrop-blur-sm rounded-lg p-4">
-                  <p className="text-sm text-teal-50 mb-1">Service</p>
+                  <p className="text-sm text-teal-50 mb-1">{t('service')}</p>
                   <p className="font-semibold text-lg">{upcomingAppointment.services.name}</p>
-                  <p className="text-sm text-teal-100 mt-2">Queue Number: #{upcomingAppointment.appointment_number}</p>
+                  <p className="text-sm text-teal-100 mt-2">{t('queue_number', { number: upcomingAppointment.appointment_number })}</p>
                 </div>
               </div>
               <Link
                 href="/patient/appointments"
                 className="ml-4 bg-white text-primary-teal px-4 py-2 rounded-lg hover:bg-teal-50 transition-colors font-medium text-sm flex items-center gap-2"
               >
-                View Details
+                {t('view_details')}
                 <ArrowRight className="w-4 h-4" />
               </Link>
             </div>
@@ -222,7 +223,7 @@ export default function PatientDashboard() {
             <div className="flex flex-col">
               <div className="flex items-center justify-between mb-2">
                 <p className="text-sm font-medium text-gray-600">
-                  Upcoming
+                  {t('stats.upcoming')}
                 </p>
                 <Calendar className="w-8 h-8 text-primary-teal" />
               </div>
@@ -231,7 +232,7 @@ export default function PatientDashboard() {
               ) : (
                 <>
                   <p className="text-2xl font-bold text-gray-900">{stats.upcomingCount}</p>
-                  <p className="text-xs text-gray-500 mt-1">Appointments</p>
+                  <p className="text-xs text-gray-500 mt-1">{t('stats.appointments')}</p>
                 </>
               )}
             </div>
@@ -241,7 +242,7 @@ export default function PatientDashboard() {
             <div className="flex flex-col">
               <div className="flex items-center justify-between mb-2">
                 <p className="text-sm font-medium text-gray-600">
-                  Medical Records
+                  {t('stats.medical_records')}
                 </p>
                 <FileText className="w-8 h-8 text-cta-orange" />
               </div>
@@ -250,7 +251,7 @@ export default function PatientDashboard() {
               ) : (
                 <>
                   <p className="text-2xl font-bold text-gray-900">{stats.medicalRecordsCount}</p>
-                  <p className="text-xs text-gray-500 mt-1">Total records</p>
+                  <p className="text-xs text-gray-500 mt-1">{t('stats.total_records')}</p>
                 </>
               )}
             </div>
@@ -260,7 +261,7 @@ export default function PatientDashboard() {
             <div className="flex flex-col">
               <div className="flex items-center justify-between mb-2">
                 <p className="text-sm font-medium text-gray-600">
-                  Notifications
+                  {t('stats.notifications')}
                 </p>
                 <Bell className="w-8 h-8 text-warning" />
               </div>
@@ -269,7 +270,7 @@ export default function PatientDashboard() {
               ) : (
                 <>
                   <p className="text-2xl font-bold text-gray-900">{stats.unreadNotifications}</p>
-                  <p className="text-xs text-gray-500 mt-1">Unread</p>
+                  <p className="text-xs text-gray-500 mt-1">{t('stats.unread')}</p>
                 </>
               )}
             </div>
@@ -279,7 +280,7 @@ export default function PatientDashboard() {
             <div className="flex flex-col">
               <div className="flex items-center justify-between mb-2">
                 <p className="text-sm font-medium text-gray-600">
-                  Completed
+                  {t('stats.completed')}
                 </p>
                 <ClipboardList className="w-8 h-8 text-success" />
               </div>
@@ -288,7 +289,7 @@ export default function PatientDashboard() {
               ) : (
                 <>
                   <p className="text-2xl font-bold text-gray-900">{stats.completedVisits}</p>
-                  <p className="text-xs text-gray-500 mt-1">Appointments</p>
+                  <p className="text-xs text-gray-500 mt-1">{t('stats.appointments')}</p>
                 </>
               )}
             </div>
@@ -302,31 +303,31 @@ export default function PatientDashboard() {
 
         {/* Quick Actions */}
         <div className="bg-gray-50 rounded-lg p-8">
-          <h3 className="text-xl font-bold text-gray-900 mb-4">Quick Actions</h3>
+          <h3 className="text-xl font-bold text-gray-900 mb-4">{t('quick_actions.title')}</h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <Link
               href="/patient/book-appointment"
               className="bg-white hover:bg-primary-teal/10 transition-colors rounded-lg p-4 text-left shadow hover:shadow-md block"
             >
               <Calendar className="w-6 h-6 mb-2 text-primary-teal" />
-              <p className="font-semibold text-gray-900">Book Appointment</p>
-              <p className="text-sm text-gray-600 mt-1">Schedule your visit</p>
+              <p className="font-semibold text-gray-900">{t('quick_actions.book_appointment.title')}</p>
+              <p className="text-sm text-gray-600 mt-1">{t('quick_actions.book_appointment.description')}</p>
             </Link>
             <Link
               href="/patient/health-card"
               className="bg-white hover:bg-primary-teal/10 transition-colors rounded-lg p-4 text-left shadow hover:shadow-md block"
             >
               <Heart className="w-6 h-6 mb-2 text-primary-teal" />
-              <p className="font-semibold text-gray-900">My Health Card</p>
-              <p className="text-sm text-gray-600 mt-1">View digital card</p>
+              <p className="font-semibold text-gray-900">{t('quick_actions.health_card.title')}</p>
+              <p className="text-sm text-gray-600 mt-1">{t('quick_actions.health_card.description')}</p>
             </Link>
             <Link
               href="/patient/medical-records"
               className="bg-white hover:bg-primary-teal/10 transition-colors rounded-lg p-4 text-left shadow hover:shadow-md block"
             >
               <FileText className="w-6 h-6 mb-2 text-primary-teal" />
-              <p className="font-semibold text-gray-900">Medical Records</p>
-              <p className="text-sm text-gray-600 mt-1">View your history</p>
+              <p className="font-semibold text-gray-900">{t('quick_actions.medical_records.title')}</p>
+              <p className="text-sm text-gray-600 mt-1">{t('quick_actions.medical_records.description')}</p>
             </Link>
           </div>
         </div>

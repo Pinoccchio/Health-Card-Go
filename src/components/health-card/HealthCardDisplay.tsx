@@ -7,6 +7,7 @@ import jsPDF from 'jspdf';
 import { useState, useRef } from 'react';
 import { useToast } from '@/lib/contexts/ToastContext';
 import { Html5Qrcode } from 'html5-qrcode';
+import { useTranslations } from 'next-intl';
 
 interface HealthCardData {
   id: string;
@@ -40,6 +41,7 @@ interface HealthCardDisplayProps {
 }
 
 export default function HealthCardDisplay({ healthCard }: HealthCardDisplayProps) {
+  const t = useTranslations('health_card');
   const [downloading, setDownloading] = useState<'pdf' | 'png' | null>(null);
   const [testingQR, setTestingQR] = useState(false);
   const [qrTestResult, setQrTestResult] = useState<{ success: boolean; message: string } | null>(null);
@@ -58,9 +60,9 @@ export default function HealthCardDisplay({ healthCard }: HealthCardDisplayProps
     : 'active';
 
   const statusConfig = {
-    active: { label: 'Active', color: 'bg-green-100 text-green-800 border-green-200' },
-    expired: { label: 'Expired', color: 'bg-red-100 text-red-800 border-red-200' },
-    inactive: { label: 'Inactive', color: 'bg-gray-100 text-gray-800 border-gray-200' },
+    active: { label: t('status.active'), color: 'bg-green-100 text-green-800 border-green-200' },
+    expired: { label: t('status.expired'), color: 'bg-red-100 text-red-800 border-red-200' },
+    inactive: { label: t('status.inactive'), color: 'bg-gray-100 text-gray-800 border-gray-200' },
   };
 
   const handleDownloadPDF = async () => {
@@ -105,10 +107,10 @@ export default function HealthCardDisplay({ healthCard }: HealthCardDisplayProps
       pdf.addImage(dataUrl, 'PNG', imgX, imgY, imgWidth * ratio, imgHeight * ratio);
       pdf.save(`health-card-${healthCard.card_number}.pdf`);
 
-      toast.success('Health card PDF downloaded successfully!');
+      toast.success(t('download.pdf_success'));
     } catch (error) {
       console.error('Error generating PDF:', error);
-      toast.error('Failed to generate PDF. Please try again.');
+      toast.error(t('download.pdf_error'));
     } finally {
       setDownloading(null);
     }
@@ -143,10 +145,10 @@ export default function HealthCardDisplay({ healthCard }: HealthCardDisplayProps
       link.click();
       URL.revokeObjectURL(url);
 
-      toast.success('Health card image downloaded successfully!');
+      toast.success(t('download.png_success'));
     } catch (error) {
       console.error('Error generating PNG:', error);
-      toast.error('Failed to generate PNG. Please try again.');
+      toast.error(t('download.png_error'));
     } finally {
       setDownloading(null);
     }
@@ -193,22 +195,22 @@ export default function HealthCardDisplay({ healthCard }: HealthCardDisplayProps
           if (isValid) {
             setQrTestResult({
               success: true,
-              message: 'QR code is valid and matches your health card! Healthcare staff will be able to scan this successfully.'
+              message: t('qr_test.valid_message')
             });
-            toast.success('QR code verified successfully!');
+            toast.success(t('qr_test.verified_success'));
           } else {
             setQrTestResult({
               success: false,
-              message: 'QR code does not match your current health card. Please download a fresh copy.'
+              message: t('qr_test.invalid_message')
             });
-            toast.error('QR code mismatch detected');
+            toast.error(t('qr_test.mismatch_detected'));
           }
         } catch (parseError) {
           setQrTestResult({
             success: false,
-            message: 'QR code format is invalid. Please ensure you uploaded the correct health card QR code.'
+            message: t('qr_test.invalid_format')
           });
-          toast.error('Invalid QR code format');
+          toast.error(t('qr_test.invalid_format_toast'));
         }
       } finally {
         // Always clean up the temporary element
@@ -220,9 +222,9 @@ export default function HealthCardDisplay({ healthCard }: HealthCardDisplayProps
       console.error('Error scanning uploaded file:', err);
       setQrTestResult({
         success: false,
-        message: 'Failed to decode QR code from image. Please ensure the image contains a clear, readable QR code.'
+        message: t('qr_test.decode_failed')
       });
-      toast.error('Failed to scan QR code');
+      toast.error(t('qr_test.scan_failed'));
     } finally {
       setTestingQR(false);
       // Reset file input
@@ -247,14 +249,14 @@ export default function HealthCardDisplay({ healthCard }: HealthCardDisplayProps
               <h3 className={`font-semibold ${
                 status === 'expired' ? 'text-red-900' : 'text-gray-900'
               }`}>
-                {status === 'expired' ? 'Health Card Expired' : 'Health Card Inactive'}
+                {status === 'expired' ? t('status.expired_title') : t('status.inactive_title')}
               </h3>
               <p className={`text-sm mt-1 ${
                 status === 'expired' ? 'text-red-700' : 'text-gray-700'
               }`}>
                 {status === 'expired'
-                  ? 'Your health card has expired. Please contact the health office for renewal.'
-                  : 'This health card is currently inactive. Please contact the health office for assistance.'}
+                  ? t('status.expired_message')
+                  : t('status.inactive_message')}
               </p>
             </div>
           </div>
@@ -282,26 +284,26 @@ export default function HealthCardDisplay({ healthCard }: HealthCardDisplayProps
           {/* Column 1: Patient Info */}
           <div className="text-white space-y-4">
             <div>
-              <h3 className="text-xs uppercase tracking-wider opacity-75 mb-1">Card Number</h3>
+              <h3 className="text-xs uppercase tracking-wider opacity-75 mb-1">{t('labels.card_number')}</h3>
               <p className="text-lg font-bold">{healthCard.card_number}</p>
             </div>
 
             <div>
-              <h3 className="text-xs uppercase tracking-wider opacity-75 mb-1">Patient Name</h3>
+              <h3 className="text-xs uppercase tracking-wider opacity-75 mb-1">{t('labels.patient_name')}</h3>
               <p className="text-xl font-bold">
                 {healthCard.patient.first_name} {healthCard.patient.last_name}
               </p>
             </div>
 
             <div>
-              <h3 className="text-xs uppercase tracking-wider opacity-75 mb-1">Patient Number</h3>
+              <h3 className="text-xs uppercase tracking-wider opacity-75 mb-1">{t('labels.patient_number')}</h3>
               <p className="text-sm font-semibold">{healthCard.patient.patient_number}</p>
             </div>
 
             <div className="flex items-center gap-2">
               <Calendar className="w-4 h-4" />
               <div>
-                <p className="text-xs opacity-75">Date of Birth</p>
+                <p className="text-xs opacity-75">{t('labels.date_of_birth')}</p>
                 <p className="text-sm font-semibold">
                   {new Date(healthCard.patient.date_of_birth).toLocaleDateString()}
                 </p>
@@ -311,7 +313,7 @@ export default function HealthCardDisplay({ healthCard }: HealthCardDisplayProps
             <div className="flex items-center gap-2">
               <MapPin className="w-4 h-4" />
               <div>
-                <p className="text-xs opacity-75">Barangay</p>
+                <p className="text-xs opacity-75">{t('labels.barangay')}</p>
                 <p className="text-sm font-semibold">{healthCard.patient.barangay}</p>
               </div>
             </div>
@@ -320,14 +322,14 @@ export default function HealthCardDisplay({ healthCard }: HealthCardDisplayProps
           {/* Column 2: Medical Info */}
           <div className="text-white space-y-4">
             <div>
-              <h3 className="text-xs uppercase tracking-wider opacity-75 mb-3">Medical Information</h3>
+              <h3 className="text-xs uppercase tracking-wider opacity-75 mb-3">{t('labels.medical_information')}</h3>
             </div>
 
             {healthCard.patient.blood_type && (
               <div className="flex items-center gap-2">
                 <Droplet className="w-4 h-4" />
                 <div>
-                  <p className="text-xs opacity-75">Blood Type</p>
+                  <p className="text-xs opacity-75">{t('labels.blood_type')}</p>
                   <p className="text-lg font-bold">{healthCard.patient.blood_type}</p>
                 </div>
               </div>
@@ -335,14 +337,14 @@ export default function HealthCardDisplay({ healthCard }: HealthCardDisplayProps
 
             {healthCard.patient.allergies && (
               <div>
-                <p className="text-xs opacity-75">Allergies</p>
+                <p className="text-xs opacity-75">{t('labels.allergies')}</p>
                 <p className="text-sm font-semibold">{healthCard.patient.allergies}</p>
               </div>
             )}
 
             {healthCard.patient.current_medications && (
               <div>
-                <p className="text-xs opacity-75">Current Medications</p>
+                <p className="text-xs opacity-75">{t('labels.current_medications')}</p>
                 <p className="text-sm font-semibold">{healthCard.patient.current_medications}</p>
               </div>
             )}
@@ -350,7 +352,7 @@ export default function HealthCardDisplay({ healthCard }: HealthCardDisplayProps
             <div className="flex items-start gap-2">
               <Phone className="w-4 h-4 flex-shrink-0 mt-0.5" />
               <div className="flex-1 min-w-0">
-                <p className="text-xs opacity-75">Emergency Contact</p>
+                <p className="text-xs opacity-75">{t('labels.emergency_contact')}</p>
                 <p className="text-sm font-semibold break-words">{healthCard.patient.emergency_contact.name}</p>
                 <p className="text-sm break-all">{healthCard.patient.emergency_contact.phone}</p>
               </div>
@@ -358,14 +360,14 @@ export default function HealthCardDisplay({ healthCard }: HealthCardDisplayProps
             <div className="pt-2 border-t border-white/20">
               <div className="flex items-center justify-between text-xs">
                 <div>
-                  <p className="opacity-75">Issued</p>
+                  <p className="opacity-75">{t('labels.issued')}</p>
                   <p className="font-semibold">
                     {new Date(healthCard.issue_date).toLocaleDateString()}
                   </p>
                 </div>
                 {healthCard.expiry_date && (
                   <div className="text-right">
-                    <p className="opacity-75">Expires</p>
+                    <p className="opacity-75">{t('labels.expires')}</p>
                     <p className="font-semibold">
                       {new Date(healthCard.expiry_date).toLocaleDateString()}
                     </p>
@@ -388,9 +390,9 @@ export default function HealthCardDisplay({ healthCard }: HealthCardDisplayProps
 
             <div className="text-center text-white">
               <Heart className="w-6 h-6 mx-auto mb-2 opacity-75" />
-              <p className="text-xs text-white opacity-90">Scan for quick access</p>
-              <p className="text-xs text-white opacity-75">City Health Office</p>
-              <p className="text-xs text-white font-semibold">Panabo City, Davao del Norte</p>
+              <p className="text-xs text-white opacity-90">{t('footer.scan_for_quick_access')}</p>
+              <p className="text-xs text-white opacity-75">{t('footer.city_health_office')}</p>
+              <p className="text-xs text-white font-semibold">{t('footer.panabo_city')}</p>
             </div>
           </div>
         </div>
@@ -404,7 +406,7 @@ export default function HealthCardDisplay({ healthCard }: HealthCardDisplayProps
           className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
         >
           <Download className="w-5 h-5" />
-          {downloading === 'pdf' ? 'Generating PDF...' : 'Download PDF'}
+          {downloading === 'pdf' ? t('download.generating_pdf') : t('download.pdf')}
         </button>
 
         <button
@@ -413,33 +415,33 @@ export default function HealthCardDisplay({ healthCard }: HealthCardDisplayProps
           className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
         >
           <Download className="w-5 h-5" />
-          {downloading === 'png' ? 'Generating PNG...' : 'Download PNG'}
+          {downloading === 'png' ? t('download.generating_png') : t('download.png')}
         </button>
       </div>
 
       {/* Usage Instructions */}
       <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
-        <h3 className="font-semibold text-blue-900 mb-3">How to Use Your Digital Health Card</h3>
+        <h3 className="font-semibold text-blue-900 mb-3">{t('how_to_use.title')}</h3>
         <ul className="space-y-2 text-sm text-blue-800">
           <li className="flex items-start">
             <span className="mr-2">•</span>
-            <span>Present this health card at any City Health Office facility in Panabo City</span>
+            <span>{t('how_to_use.step1')}</span>
           </li>
           <li className="flex items-start">
             <span className="mr-2">•</span>
-            <span>Healthcare staff can scan the QR code for quick access to your information</span>
+            <span>{t('how_to_use.step2')}</span>
           </li>
           <li className="flex items-start">
             <span className="mr-2">•</span>
-            <span>Download and print the PDF version for physical use</span>
+            <span>{t('how_to_use.step3')}</span>
           </li>
           <li className="flex items-start">
             <span className="mr-2">•</span>
-            <span>Keep your digital copy on your phone for easy access</span>
+            <span>{t('how_to_use.step4')}</span>
           </li>
           <li className="flex items-start">
             <span className="mr-2">•</span>
-            <span>Update your personal information if any details change</span>
+            <span>{t('how_to_use.step5')}</span>
           </li>
         </ul>
       </div>
@@ -449,9 +451,9 @@ export default function HealthCardDisplay({ healthCard }: HealthCardDisplayProps
         <div className="flex items-start gap-3 mb-4">
           <QrCode className="w-6 h-6 text-purple-600 flex-shrink-0 mt-0.5" />
           <div className="flex-1">
-            <h3 className="font-semibold text-purple-900 mb-1">Test Your QR Code</h3>
+            <h3 className="font-semibold text-purple-900 mb-1">{t('qr_test.title')}</h3>
             <p className="text-sm text-purple-700">
-              Upload your downloaded health card image to verify that the QR code is readable and valid.
+              {t('qr_test.description')}
             </p>
           </div>
         </div>
@@ -476,7 +478,7 @@ export default function HealthCardDisplay({ healthCard }: HealthCardDisplayProps
             }`}
           >
             <Upload className="w-5 h-5" />
-            {testingQR ? 'Testing QR Code...' : 'Upload QR Code Image'}
+            {testingQR ? t('qr_test.testing') : t('qr_test.upload_button')}
           </label>
 
           {/* Test Result */}
@@ -489,7 +491,7 @@ export default function HealthCardDisplay({ healthCard }: HealthCardDisplayProps
               <p className={`text-sm font-medium ${
                 qrTestResult.success ? 'text-green-900' : 'text-red-900'
               }`}>
-                {qrTestResult.success ? '✓ Valid QR Code' : '✗ Invalid QR Code'}
+                {qrTestResult.success ? t('qr_test.valid_badge') : t('qr_test.invalid_badge')}
               </p>
               <p className={`text-sm mt-1 ${
                 qrTestResult.success ? 'text-green-700' : 'text-red-700'

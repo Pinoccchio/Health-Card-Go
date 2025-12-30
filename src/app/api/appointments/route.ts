@@ -262,28 +262,13 @@ export async function POST(request: NextRequest) {
         { status: 500 }
       );
     }
-
-    // Create initial status history entry
-    const { error: historyError } = await adminClient
-      .from('appointment_status_history')
-      .insert({
-        appointment_id: appointment.id,
-        change_type: 'status_change',
-        from_status: null,
-        to_status: 'scheduled',
-        changed_by: user.id,
-        reason: 'Appointment created and scheduled',
-      });
-
-    if (historyError) {
-      console.error('Error creating appointment history:', historyError);
-      // Don't fail the request if history creation fails
-    }
+    // Note: Status history is automatically created by the log_appointment_status_on_insert trigger
+    // No manual insert needed here
 
     // Create notification for patient
     const blockInfo = formatTimeBlock(time_block);
     await supabase.from('notifications').insert({
-      user_id: user.id,
+      user_id: profile.id,
       type: 'general',
       title: 'Appointment Confirmed',
       message: `Your appointment for ${service.name} on ${appointment_date} in the ${blockInfo} has been confirmed. Queue number: #${nextQueueNumber}.`,

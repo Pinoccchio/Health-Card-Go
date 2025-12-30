@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from 'react';
 import QRCode from 'qrcode';
+import { useTranslations } from 'next-intl';
 
 interface QRCodeGeneratorProps {
   data: string;
@@ -10,6 +11,7 @@ interface QRCodeGeneratorProps {
 }
 
 export default function QRCodeGenerator({ data, size = 200, className = '' }: QRCodeGeneratorProps) {
+  const t = useTranslations('health_card');
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
@@ -42,7 +44,7 @@ export default function QRCodeGenerator({ data, size = 200, className = '' }: QR
         style={{ maxWidth: '100%', height: 'auto' }}
       />
       <p className="text-xs text-gray-500 mt-2 text-center">
-        Scan for quick access
+        {t('footer.scan_for_quick_access')}
       </p>
     </div>
   );

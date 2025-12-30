@@ -15,6 +15,30 @@ export async function POST(request: Request) {
       );
     }
 
+    // Check user role - only patients can change language
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (user) {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('role_id')
+        .eq('id', user.id)
+        .single();
+
+      // Only patients (role_id: 4) can change language
+      // Admins/Staff (1, 2, 5) must use English
+      if (profile && profile.role_id !== 4) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: 'Only patients can change language. Administrators and staff must use English.'
+          },
+          { status: 403 }
+        );
+      }
+    }
+
     // Set locale cookie
     const cookieStore = await cookies();
     cookieStore.set('NEXT_LOCALE', locale, {
@@ -24,9 +48,6 @@ export async function POST(request: Request) {
     });
 
     // Update user's locale in database if authenticated
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-
     if (user) {
       const { error: updateError } = await supabase
         .from('profiles')

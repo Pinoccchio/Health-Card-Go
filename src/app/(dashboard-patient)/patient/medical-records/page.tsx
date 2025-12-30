@@ -7,6 +7,7 @@ import { ProfessionalCard } from '@/components/ui/ProfessionalCard';
 import { QuickFilters } from '@/components/ui/QuickFilters';
 import { EnhancedTable } from '@/components/ui/EnhancedTable';
 import { Drawer } from '@/components/ui/Drawer';
+import { EmptyState } from '@/components/ui/EmptyState';
 import MedicalRecordViewer from '@/components/medical-records/MedicalRecordViewer';
 import { MedicalRecord } from '@/types/medical-records';
 import { getTemplate } from '@/lib/config/medicalRecordTemplates';
@@ -21,6 +22,9 @@ import {
   Eye,
   Briefcase,
   ListChecks,
+  RefreshCw,
+  ShieldAlert,
+  FileSearch,
 } from 'lucide-react';
 
 export default function PatientMedicalRecordsPage() {
@@ -34,25 +38,27 @@ export default function PatientMedicalRecordsPage() {
   const [quickFilter, setQuickFilter] = useState<string>('all');
 
   // Fetch medical records
-  useEffect(() => {
-    const fetchRecords = async () => {
-      try {
-        const response = await fetch('/api/medical-records');
-        const data = await response.json();
+  const fetchRecords = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const response = await fetch('/api/medical-records');
+      const data = await response.json();
 
-        if (!response.ok) {
-          throw new Error(data.error || 'Failed to fetch medical records');
-        }
-
-        setRecords(data.records || []);
-      } catch (err: any) {
-        console.error('Error fetching records:', err);
-        setError(err.message);
-      } finally {
-        setLoading(false);
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to fetch medical records');
       }
-    };
 
+      setRecords(data.records || []);
+    } catch (err: any) {
+      console.error('Error fetching records:', err);
+      setError(err.message || 'Failed to load medical records. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
     fetchRecords();
   }, []);
 
@@ -216,6 +222,13 @@ export default function PatientMedicalRecordsPage() {
       sortable: true,
       render: (value: string, row: MedicalRecord) => {
         const template = getTemplate(value as any);
+        if (!template) {
+          return (
+            <div className="text-sm text-gray-500">
+              {value || 'Unknown'}
+            </div>
+          );
+        }
         return (
           <div className="flex items-center gap-2 text-sm">
             {template.requiresEncryption && <Lock className="w-4 h-4 text-yellow-600 flex-shrink-0" />}
@@ -236,15 +249,33 @@ export default function PatientMedicalRecordsPage() {
     {
       header: 'Actions',
       accessor: 'actions',
-      render: (_: any, row: MedicalRecord) => (
-        <button
-          onClick={() => handleViewDetails(row)}
-          className="inline-flex items-center px-3 py-1.5 bg-[#20C997] text-white text-xs font-medium rounded-md hover:bg-[#1AA179] transition-colors"
-        >
-          <Eye className="w-3 h-3 mr-1.5" />
-          View Details
-        </button>
-      ),
+      render: (_: any, row: MedicalRecord) => {
+        const hasDecryptionError = (row as any).decryption_failed;
+
+        return (
+          <div className="flex items-center gap-2">
+            {hasDecryptionError && (
+              <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-yellow-100 text-yellow-800" title="Unable to decrypt this record">
+                <ShieldAlert className="w-3 h-3 mr-1" />
+                Encrypted
+              </span>
+            )}
+            <button
+              onClick={() => handleViewDetails(row)}
+              disabled={hasDecryptionError}
+              className={`inline-flex items-center px-3 py-1.5 text-white text-xs font-medium rounded-md transition-colors ${
+                hasDecryptionError
+                  ? 'bg-gray-400 cursor-not-allowed'
+                  : 'bg-[#20C997] hover:bg-[#1AA179]'
+              }`}
+              aria-label={hasDecryptionError ? 'Record cannot be decrypted' : 'View record details'}
+            >
+              <Eye className="w-3 h-3 mr-1.5" />
+              View Details
+            </button>
+          </div>
+        );
+      },
     },
   ];
 
@@ -257,24 +288,57 @@ export default function PatientMedicalRecordsPage() {
       <Container size="full">
         {error && (
           <div className="mb-6 bg-red-50 border border-red-200 rounded-lg p-4">
-            <div className="flex items-center">
-              <AlertCircle className="w-5 h-5 text-red-600 mr-3 flex-shrink-0" />
-              <p className="text-sm text-red-800">{error}</p>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center">
+                <AlertCircle className="w-5 h-5 text-red-600 mr-3 flex-shrink-0" />
+                <p className="text-sm text-red-800">{error}</p>
+              </div>
+              <button
+                onClick={fetchRecords}
+                className="inline-flex items-center px-3 py-1.5 bg-red-600 text-white text-xs font-medium rounded-md hover:bg-red-700 transition-colors"
+                aria-label="Retry loading records"
+              >
+                <RefreshCw className="w-3 h-3 mr-1.5" />
+                Retry
+              </button>
             </div>
           </div>
         )}
 
         {loading ? (
-          <div className="flex items-center justify-center py-24">
-            <div className="text-center">
-              <div className="w-12 h-12 border-4 border-primary-teal border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-              <p className="text-gray-600">Loading your medical records...</p>
+          <div className="space-y-6">
+            {/* Skeleton Loading for Statistics Cards */}
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-4">
+              {[...Array(7)].map((_, i) => (
+                <div key={i} className="bg-gray-100 rounded-lg p-4 animate-pulse">
+                  <div className="h-4 bg-gray-200 rounded w-20 mb-3"></div>
+                  <div className="h-8 bg-gray-200 rounded w-12"></div>
+                </div>
+              ))}
+            </div>
+
+            {/* Skeleton Loading for Filters */}
+            <div className="h-12 bg-gray-100 rounded-lg animate-pulse"></div>
+
+            {/* Skeleton Loading for Table */}
+            <div className="bg-white border border-gray-200 rounded-lg p-4 space-y-3">
+              {[...Array(5)].map((_, i) => (
+                <div key={i} className="h-16 bg-gray-100 rounded animate-pulse"></div>
+              ))}
             </div>
           </div>
+        ) : records.length === 0 ? (
+          <EmptyState
+            icon={FileSearch}
+            title="No Medical Records Yet"
+            description="You don't have any medical records in our system yet. Medical records are created when you complete a healthcare appointment."
+            actionLabel="Book an Appointment"
+            actionHref="/patient/book-appointment"
+          />
         ) : (
           <>
             {/* Statistics Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4 mb-6">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-4 mb-6">
               {/* Total Records */}
               <ProfessionalCard variant="flat" padding="none" className="bg-gradient-to-br from-teal-50 to-teal-100 border-l-4 border-teal-500">
                 <div className="p-4">
@@ -364,6 +428,21 @@ export default function PatientMedicalRecordsPage() {
                   </div>
                 </div>
               </ProfessionalCard>
+
+              {/* Laboratory */}
+              <ProfessionalCard variant="flat" padding="none" className="bg-gradient-to-br from-indigo-50 to-indigo-100 border-l-4 border-indigo-500">
+                <div className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-gray-600 mb-1">Laboratory</p>
+                      <p className="text-3xl font-bold text-gray-900">{statistics.byCategory.laboratory}</p>
+                    </div>
+                    <div className="w-12 h-12 bg-indigo-500 rounded-xl flex items-center justify-center shadow-lg">
+                      <Briefcase className="w-6 h-6 text-white" />
+                    </div>
+                  </div>
+                </div>
+              </ProfessionalCard>
             </div>
 
             {/* Quick Filters */}
@@ -377,6 +456,7 @@ export default function PatientMedicalRecordsPage() {
                 hiv: statistics.byCategory.hiv,
                 pregnancy: statistics.byCategory.pregnancy,
                 immunization: statistics.byCategory.immunization,
+                laboratory: statistics.byCategory.laboratory,
               }}
             />
 
@@ -395,20 +475,23 @@ export default function PatientMedicalRecordsPage() {
         )}
 
         {/* Drawer for Record Details */}
-        {selectedRecord && (
-          <Drawer
-            isOpen={isDetailModalOpen}
-            onClose={handleCloseModal}
-            size="xl"
-            title={getTemplate(selectedRecord.template_type as any).name}
-            subtitle={getTemplate(selectedRecord.template_type as any).description}
-            metadata={{
-              createdOn: `${formatDate(selectedRecord.created_at)}`,
-            }}
-          >
-            <MedicalRecordViewer record={selectedRecord} />
-          </Drawer>
-        )}
+        {selectedRecord && (() => {
+          const template = getTemplate(selectedRecord.template_type as any);
+          return (
+            <Drawer
+              isOpen={isDetailModalOpen}
+              onClose={handleCloseModal}
+              size="xl"
+              title={template?.name || selectedRecord.template_type || 'Medical Record'}
+              subtitle={template?.description || 'Medical record details'}
+              metadata={{
+                createdOn: `${formatDate(selectedRecord.created_at)}`,
+              }}
+            >
+              <MedicalRecordViewer record={selectedRecord} />
+            </Drawer>
+          );
+        })()}
       </Container>
     </DashboardLayout>
   );

@@ -1,8 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { NextIntlClientProvider } from 'next-intl';
 import { useAuth } from '@/lib/auth';
 import { getDashboardPath } from '@/lib/utils/roleHelpers';
 
@@ -10,6 +9,7 @@ import { getDashboardPath } from '@/lib/utils/roleHelpers';
  * Layout for Healthcare Admin dashboard routes
  * Protects all routes under /healthcare-admin from unauthorized access
  * Provides client-side redirect with visual feedback
+ * NOTE: No multi-language support - healthcare admins use English only
  */
 export default function HealthcareAdminDashboardLayout({
   children,
@@ -18,28 +18,6 @@ export default function HealthcareAdminDashboardLayout({
 }) {
   const { isAuthenticated, loading, user } = useAuth();
   const router = useRouter();
-  const [locale, setLocale] = useState('en');
-  const [messages, setMessages] = useState<any>(null);
-
-  // Load locale and messages
-  useEffect(() => {
-    const loadLocaleAndMessages = async () => {
-      try {
-        const response = await fetch('/api/locale');
-        if (response.ok) {
-          const data = await response.json();
-          setLocale(data.locale);
-          const messagesModule = await import(`../../../messages/${data.locale}.json`);
-          setMessages(messagesModule.default);
-        }
-      } catch (error) {
-        console.error('Failed to load locale/messages:', error);
-        const messagesModule = await import(`../../../messages/en.json`);
-        setMessages(messagesModule.default);
-      }
-    };
-    loadLocaleAndMessages();
-  }, []);
 
   // JOBSYNC PATTERN: Redirect unauthorized users to login or their correct dashboard
   // Uses router.push() for soft navigation (no full page reload)
@@ -69,8 +47,8 @@ export default function HealthcareAdminDashboardLayout({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loading, isAuthenticated, user]); // router excluded per JobSync pattern
 
-  // Show loading spinner while checking auth or loading messages
-  if (loading || !messages) {
+  // Show loading spinner while checking auth
+  if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gray-50">
         <div className="text-center">
@@ -86,9 +64,5 @@ export default function HealthcareAdminDashboardLayout({
     return null;
   }
 
-  return (
-    <NextIntlClientProvider locale={locale} messages={messages}>
-      {children}
-    </NextIntlClientProvider>
-  );
+  return <>{children}</>;
 }

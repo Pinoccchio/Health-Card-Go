@@ -3,12 +3,13 @@ import { NextRequest, NextResponse } from 'next/server';
 
 /**
  * GET /api/services
- * Get all available services
+ * Get all available services with localization support
  *
  * Query params:
  * - requires_appointment: filter by appointment requirement (true/false)
  * - category: filter by category
  * - is_active: filter by active status (default: true)
+ * - locale: language code (en, fil, ceb) - default: en
  */
 export async function GET(request: NextRequest) {
   try {
@@ -20,25 +21,11 @@ export async function GET(request: NextRequest) {
     const requiresAppointment = searchParams.get('requires_appointment');
     const category = searchParams.get('category');
     const isActive = searchParams.get('is_active') !== 'false'; // Default to true
+    const locale = searchParams.get('locale') || 'en'; // Default to English
 
-    // Build query for services
+    // Use the database function to get localized services
     let query = supabase
-      .from('services')
-      .select('id, name, category, requires_appointment, requires_medical_record, is_active, description, duration_minutes, requirements')
-      .order('id', { ascending: true });
-
-    // Apply filters
-    if (isActive) {
-      query = query.eq('is_active', true);
-    }
-
-    if (requiresAppointment !== null) {
-      query = query.eq('requires_appointment', requiresAppointment === 'true');
-    }
-
-    if (category) {
-      query = query.eq('category', category);
-    }
+      .rpc('get_all_localized_services', { p_locale: locale });
 
     const { data: services, error: fetchError } = await query;
 
@@ -48,6 +35,19 @@ export async function GET(request: NextRequest) {
         { error: 'Failed to fetch services' },
         { status: 500 }
       );
+    }
+
+    // Apply client-side filters (function returns all active services)
+    let filteredServices = services || [];
+
+    if (requiresAppointment !== null) {
+      filteredServices = filteredServices.filter(s =>
+        s.requires_appointment === (requiresAppointment === 'true')
+      );
+    }
+
+    if (category) {
+      filteredServices = filteredServices.filter(s => s.category === category);
     }
 
     // Fetch assigned healthcare admins for all services
@@ -63,7 +63,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Map admins to their assigned services
-    const servicesWithAdmins = services?.map(service => {
+    const servicesWithAdmins = filteredServices.map(service => {
       const assignedAdmins = healthcareAdmins?.filter(
         admin => admin.assigned_service_id === service.id
       ) || [];
@@ -81,7 +81,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      data: servicesWithAdmins || [],
+      data: servicesWithAdmins,
     });
 
   } catch (error) {

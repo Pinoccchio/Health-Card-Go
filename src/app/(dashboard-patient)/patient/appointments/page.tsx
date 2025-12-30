@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
+import { useTranslations } from 'next-intl';
 import { DashboardLayout } from '@/components/dashboard';
 import { Container, ConfirmDialog } from '@/components/ui';
 import { ProfessionalCard } from '@/components/ui/ProfessionalCard';
@@ -65,6 +66,7 @@ interface Appointment {
 const statusConfig = APPOINTMENT_STATUS_CONFIG;
 
 export default function PatientAppointmentsPage() {
+  const t = useTranslations('appointments_page');
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
   const [loading, setLoading] = useState(true);
@@ -238,7 +240,7 @@ export default function PatientAppointmentsPage() {
   // Define table columns
   const tableColumns = [
     {
-      header: 'Queue #',
+      header: t('table.queue_hash'),
       accessor: 'appointment_number',
       sortable: true,
       render: (value: number) => (
@@ -246,7 +248,7 @@ export default function PatientAppointmentsPage() {
       ),
     },
     {
-      header: 'Service',
+      header: t('table.service'),
       accessor: 'service',
       sortable: false,
       render: (_: any, row: Appointment) => (
@@ -257,13 +259,13 @@ export default function PatientAppointmentsPage() {
               <div className="text-xs text-gray-500 capitalize">{row.services.category}</div>
             </>
           ) : (
-            <span className="text-gray-400 italic">Not specified</span>
+            <span className="text-gray-400 italic">{t('table.not_specified')}</span>
           )}
         </div>
       ),
     },
     {
-      header: 'Date',
+      header: t('table.date'),
       accessor: 'appointment_date',
       sortable: true,
       render: (value: string) => (
@@ -274,7 +276,7 @@ export default function PatientAppointmentsPage() {
       ),
     },
     {
-      header: 'Time Block',
+      header: t('table.time_block'),
       accessor: 'time_block',
       sortable: true,
       render: (value: TimeBlock, row: Appointment) => (
@@ -289,13 +291,13 @@ export default function PatientAppointmentsPage() {
       ),
     },
     {
-      header: 'Status',
+      header: t('table.status'),
       accessor: 'status',
       sortable: true,
       render: (value: Appointment['status']) => getStatusBadge(value),
     },
     {
-      header: 'Actions',
+      header: t('table.actions'),
       accessor: 'actions',
       render: (_: any, row: Appointment) => (
         <button
@@ -303,7 +305,7 @@ export default function PatientAppointmentsPage() {
           className="inline-flex items-center px-3 py-1.5 bg-[#20C997] text-white text-xs font-medium rounded-md hover:bg-[#1AA179] transition-colors"
         >
           <Eye className="w-3 h-3 mr-1.5" />
-          View Details
+          {t('table.view_details')}
         </button>
       ),
     },
@@ -324,8 +326,8 @@ export default function PatientAppointmentsPage() {
   return (
     <DashboardLayout
       roleId={4}
-      pageTitle="My Appointments"
-      pageDescription="View and manage your appointments"
+      pageTitle={t('page_title')}
+      pageDescription={t('page_description')}
     >
       <Container size="full">
         {error && (
@@ -340,7 +342,7 @@ export default function PatientAppointmentsPage() {
         {loading ? (
           <div className="text-center py-12">
             <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary-teal"></div>
-            <p className="mt-2 text-sm text-gray-500">Loading appointments...</p>
+            <p className="mt-2 text-sm text-gray-500">{t('loading')}</p>
           </div>
         ) : (
           <>
@@ -496,7 +498,7 @@ export default function PatientAppointmentsPage() {
                 href="/patient/book-appointment"
                 className="px-4 py-2 bg-primary-teal text-white rounded-md hover:bg-primary-teal/90 text-sm font-medium"
               >
-                Book New Appointment
+                {t('book_new_appointment')}
               </a>
             </div>
 
@@ -506,7 +508,7 @@ export default function PatientAppointmentsPage() {
                 columns={tableColumns}
                 data={filteredAppointments}
                 searchable
-                searchPlaceholder="Search by queue number or date..."
+                searchPlaceholder={t('search_placeholder')}
                 paginated
                 pageSize={15}
               />
@@ -520,8 +522,8 @@ export default function PatientAppointmentsPage() {
             isOpen={isDrawerOpen}
             onClose={handleCloseDrawer}
             size="xl"
-            title={`Appointment #${selectedAppointment.appointment_number}`}
-            subtitle={`My Appointment`}
+            title={`${t('drawer.title')} #${selectedAppointment.appointment_number}`}
+            subtitle={t('drawer.subtitle')}
             metadata={{
               createdOn: `${formatDate(selectedAppointment.appointment_date)} - ${formatTimeBlock(selectedAppointment.time_block)}`,
               status: selectedAppointment.status,
@@ -539,16 +541,16 @@ export default function PatientAppointmentsPage() {
                 <div>
                   <h4 className="text-sm font-medium text-gray-700 mb-2 flex items-center">
                     <Calendar className="w-4 h-4 mr-2" />
-                    Appointment Details
+                    {t('drawer.appointment_details')}
                   </h4>
                   <div className="bg-gray-50 rounded-md p-3 space-y-2 text-sm">
                     <div className="flex justify-between">
-                      <span className="text-gray-600">Queue Number:</span>
+                      <span className="text-gray-600">{t('drawer.queue_number')}:</span>
                       <span className="font-mono font-semibold text-gray-900">#{selectedAppointment.appointment_number}</span>
                     </div>
                     {selectedAppointment.services && (
                       <div className="flex justify-between">
-                        <span className="text-gray-600">Service:</span>
+                        <span className="text-gray-600">{t('drawer.service')}:</span>
                         <div className="text-right">
                           <div className="font-medium text-gray-900">{selectedAppointment.services.name}</div>
                           <div className="text-xs text-gray-500 capitalize">{selectedAppointment.services.category}</div>
@@ -556,11 +558,11 @@ export default function PatientAppointmentsPage() {
                       </div>
                     )}
                     <div className="flex justify-between">
-                      <span className="text-gray-600">Date:</span>
+                      <span className="text-gray-600">{t('drawer.date')}:</span>
                       <span className="font-medium text-gray-900">{formatDate(selectedAppointment.appointment_date)}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-gray-600">Time Block:</span>
+                      <span className="text-gray-600">{t('drawer.time_block')}:</span>
                       <div className="flex items-center gap-2">
                         <span className={`px-2 py-1 rounded text-xs font-bold ${getTimeBlockColor(selectedAppointment.time_block)}`}>
                           {selectedAppointment.time_block}
@@ -578,7 +580,7 @@ export default function PatientAppointmentsPage() {
                   <div>
                     <h4 className="text-sm font-medium text-gray-700 mb-2 flex items-center">
                       <FileText className="w-4 h-4 mr-2" />
-                      Reason for Visit
+                      {t('drawer.reason_for_visit')}
                     </h4>
                     <div className="bg-gray-50 rounded-md p-3 text-sm text-gray-700">
                       {selectedAppointment.reason}
@@ -591,7 +593,7 @@ export default function PatientAppointmentsPage() {
                   <div>
                     <h4 className="text-sm font-medium text-red-700 mb-2 flex items-center">
                       <XCircle className="w-4 h-4 mr-2" />
-                      Cancellation Reason
+                      {t('drawer.cancellation_reason')}
                     </h4>
                     <div className="bg-red-50 rounded-md p-3 text-sm text-red-700">
                       {selectedAppointment.cancellation_reason}
@@ -604,24 +606,24 @@ export default function PatientAppointmentsPage() {
                   <div>
                     <h4 className="text-sm font-medium text-gray-700 mb-2 flex items-center">
                       <Clock className="w-4 h-4 mr-2" />
-                      Timeline
+                      {t('drawer.timeline')}
                     </h4>
                     <div className="bg-gray-50 rounded-md p-3 space-y-1 text-sm">
                       {selectedAppointment.checked_in_at && (
                         <div className="flex justify-between">
-                          <span className="text-gray-600">Checked In:</span>
+                          <span className="text-gray-600">{t('drawer.checked_in')}:</span>
                           <span className="text-gray-900">{new Date(selectedAppointment.checked_in_at).toLocaleString()}</span>
                         </div>
                       )}
                       {selectedAppointment.started_at && (
                         <div className="flex justify-between">
-                          <span className="text-gray-600">Started:</span>
+                          <span className="text-gray-600">{t('drawer.started')}:</span>
                           <span className="text-gray-900">{new Date(selectedAppointment.started_at).toLocaleString()}</span>
                         </div>
                       )}
                       {selectedAppointment.completed_at && (
                         <div className="flex justify-between">
-                          <span className="text-gray-600">Completed:</span>
+                          <span className="text-gray-600">{t('drawer.completed')}:</span>
                           <span className="text-gray-900">{new Date(selectedAppointment.completed_at).toLocaleString()}</span>
                         </div>
                       )}
@@ -638,7 +640,7 @@ export default function PatientAppointmentsPage() {
                   className="w-full flex items-center justify-center gap-2 px-4 py-2 text-sm text-primary-teal hover:text-primary-teal/80 font-medium border border-primary-teal/20 rounded-md hover:bg-primary-teal/5 transition-colors"
                 >
                   <History className="w-4 h-4" />
-                  View Status History
+                  {t('drawer.view_status_history')}
                 </button>
 
                 {/* Cancel Appointment Button */}
@@ -656,11 +658,11 @@ export default function PatientAppointmentsPage() {
                         disabled={cancellingId === selectedAppointment.id}
                         className="w-full px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 font-medium text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                       >
-                        {cancellingId === selectedAppointment.id ? 'Cancelling...' : 'Cancel Appointment'}
+                        {cancellingId === selectedAppointment.id ? t('drawer.cancelling') : t('drawer.cancel_appointment')}
                       </button>
                     ) : (
                       <p className="text-xs text-gray-500 text-center">
-                        Cannot cancel (less than 24 hours before appointment)
+                        {t('drawer.cannot_cancel_24h')}
                       </p>
                     )}
                   </div>
@@ -680,12 +682,12 @@ export default function PatientAppointmentsPage() {
                   if (hasFeedback) {
                     return (
                       <div className="w-full px-4 py-2 bg-green-50 border border-green-200 rounded-md text-center">
-                        <p className="text-sm font-medium text-green-700">Feedback Submitted</p>
+                        <p className="text-sm font-medium text-green-700">{t('drawer.feedback_submitted')}</p>
                         <a
                           href="/patient/feedback"
                           className="text-xs text-green-600 hover:text-green-700 underline mt-1 inline-block"
                         >
-                          View feedback
+                          {t('drawer.view_feedback')}
                         </a>
                       </div>
                     );
@@ -695,7 +697,7 @@ export default function PatientAppointmentsPage() {
                     return (
                       <div className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-md text-center">
                         <p className="text-xs text-gray-600">
-                          Feedback window expired (7 days after completion)
+                          {t('drawer.feedback_expired')}
                         </p>
                       </div>
                     );
@@ -706,9 +708,9 @@ export default function PatientAppointmentsPage() {
                       href={`/patient/feedback?appointment_id=${selectedAppointment.id}`}
                       className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-primary-teal text-white rounded-md hover:bg-primary-teal/90 font-medium text-sm"
                     >
-                      Submit Feedback
+                      {t('drawer.submit_feedback')}
                       <span className="text-xs opacity-80">
-                        ({7 - (daysSince || 0)} days remaining)
+                        ({t('drawer.days_remaining', { days: 7 - (daysSince || 0) })})
                       </span>
                     </a>
                   );
@@ -723,18 +725,21 @@ export default function PatientAppointmentsPage() {
           isOpen={showCancelDialog}
           onClose={handleCancelDialogClose}
           onConfirm={handleCancelConfirm}
-          title="Cancel Appointment"
+          title={t('cancel_dialog.title')}
           message={
             appointmentToCancel
-              ? `Are you sure you want to cancel your appointment on ${formatDate(appointmentToCancel.date)} at ${formatTime(appointmentToCancel.time)}?`
+              ? t('cancel_dialog.message', {
+                  date: formatDate(appointmentToCancel.date),
+                  time: formatTime(appointmentToCancel.time)
+                })
               : ''
           }
-          confirmText="Cancel Appointment"
-          cancelText="Keep Appointment"
+          confirmText={t('cancel_dialog.confirm')}
+          cancelText={t('cancel_dialog.keep')}
           variant="danger"
           showReasonInput={true}
-          reasonLabel="Reason for cancellation (optional)"
-          reasonPlaceholder="Please let us know why you're cancelling..."
+          reasonLabel={t('cancel_dialog.reason_label')}
+          reasonPlaceholder={t('cancel_dialog.reason_placeholder')}
           isLoading={!!cancellingId}
         />
 

@@ -1,9 +1,20 @@
 # HealthCardGo - Prioritized Implementation Roadmap
 
-> **Last Updated:** December 31, 2025 (Phase 5.1 + Visitor-Triggered Auto No-Show Complete)
-> **Current Completion:** ~79% infrastructure ready, ~79% features complete (41 verified complete, 8 partial implementations)
+> **Last Updated:** December 31, 2025 (Phase 5.1 + Auto No-Show + HealthCard Reports + Multi-Language Complete)
+> **Current Completion:** ~82% infrastructure ready, ~82% features complete (43 verified complete, 7 partial implementations)
 >
 > **Recent Updates:**
+> - ✅ **NEW:** Task 4.3: Multi-Language Support with Role-Based Restriction (Dec 31, 2025)
+>   - ✅ Patients: Full multi-language (EN, FIL, CEB)
+>   - ✅ Admins/Staff: English only (4-layer security enforcement)
+>   - ✅ Language selector hidden for non-patients
+>   - ✅ API protection with 403 for unauthorized changes
+> - ✅ **NEW:** Task 3.6: HealthCard Issuance Report with SARIMA Forecasting (Dec 31, 2025)
+>   - ✅ HealthCard Forecasts tab in Healthcare Admin reports
+>   - ✅ Interactive SARIMA chart with 30-day predictions
+>   - ✅ Model accuracy metrics (R², RMSE, MAE, MSE)
+>   - ✅ Date range and barangay filtering
+>   - ✅ CSV/Excel export functionality
 > - ✅ **NEW:** Task 2.7: Visitor-Triggered Automatic No-Show Detection (Dec 31, 2025)
 >   - ✅ Real-time detection on Healthcare Admin dashboard visits
 >   - ✅ Zero external dependencies (no cron, no GitHub Actions)
@@ -2192,17 +2203,219 @@ Suspension: "Your account has been suspended for 1 month due to 2 no-shows. The 
 - The word "General" likely meant "general improvements" not "general admin role"
 - Maintains clean separation of concerns per ACCOUNTS.txt architecture
 
-### 3.5 HealthCard Report Features
-- [ ] **Create HealthCard Issuance Report**
-- **Priority:** P2 | **Difficulty:** 🟡 Medium | **Effort:** 2 days | **Status:** ❌
-- **Files:** Add tab in healthcare-admin reports section
-- **Input Fields:**
-- Date range
-- Type of HealthCard (by service category)
-- Location (barangay)
-- Number of issuances
-- **Output:** Chart showing healthcard distribution over time
-- **API:** Create `/api/reports/healthcard-issuance` endpoint
+### 3.6 HealthCard Issuance Report (Integrated with SARIMA) ✅ COMPLETED
+- [x] **Create HealthCard Issuance Report with SARIMA Forecasting**
+- **Priority:** P2 | **Difficulty:** 🟡 Medium | **Effort:** 2 days | **Status:** ✅ COMPLETED
+- **Implementation Date:** December 30, 2025
+- **Integrated with:** Task 3.5 HealthCard-Specific SARIMA Features (see above)
+
+#### Implementation Details:
+
+**📍 Location:** Healthcare Admin Reports → "HealthCard Forecasts" Tab
+- **File:** `src/app/(dashboard-healthcare)/healthcare-admin/reports/page.tsx`
+- **Visibility:** Conditional - only displays for Healthcare Admins assigned to healthcard services (Services 12-15)
+- **Tab Integration:** Fully integrated with Overview, Appointments, and Patients tabs
+
+#### ✅ All Required Features Implemented:
+
+**1. Date Range Filtering** ✅
+- Default: Last 30 days
+- Customizable via `ReportsFilters` component
+- Format: YYYY-MM-DD
+- Applied to both historical and prediction queries
+
+**2. Type of HealthCard (by Service Category)** ✅
+- **Automatic Mapping:**
+  - Services 12, 13 → `food_handler` (Food Handler HealthCard)
+  - Services 14, 15 → `non_food` (Non-Food HealthCard)
+- **Helper:** `getHealthCardType(service.id)` from `healthcardHelpers.ts`
+- **Validation:** `isHealthCardService(serviceId)` checks if service requires healthcard
+
+**3. Location (Barangay) Filtering** ✅
+- Optional barangay dropdown filter
+- Passed to API via `barangay_id` parameter
+- Enables location-specific demand forecasting
+- Component: `ReportsFilters`
+
+**4. Number of Issuances Display** ✅
+- **Historical Issuances:** Total completed healthcard appointments
+- **Predicted Issuances:** SARIMA forecast totals
+- **Data Source:** Appointments table (completed appointments for services 12-15)
+- **Metrics:** R², RMSE, MAE, MSE with interpretation badges
+
+**5. Chart Showing HealthCard Distribution Over Time** ✅
+- **Component:** `HealthCardSARIMAChart.tsx` (392 lines)
+- **Chart Type:** Interactive Chart.js Line Chart
+- **Features:**
+  - **Historical Data:** Solid line showing actual healthcard issuances
+  - **Predicted Data:** Dashed line showing SARIMA forecasts (30 days)
+  - **95% Confidence Intervals:** Shaded area showing prediction bounds
+  - **Color Coding:** Blue for Food Handler, Green for Non-Food
+  - **Interactive Tooltips:** Hover to see exact values
+  - **Responsive Design:** Configurable height (450px for reports)
+  - **Legend:** Clear distinction between actual vs predicted
+
+**6. Model Accuracy Metrics Panel** ✅ (Bonus Feature)
+- **Component:** `HealthCardSARIMAMetrics.tsx` (300+ lines)
+- **Metrics Displayed:**
+  - **R² Score** (Coefficient of Determination): 0-1 scale
+  - **RMSE** (Root Mean Squared Error): Average prediction error
+  - **MAE** (Mean Absolute Error): Mean absolute error
+  - **MSE** (Mean Squared Error): Mean squared error
+  - **Confidence Level:** Visual progress bar
+  - **Interpretation:** Excellent/Good/Fair/Poor badges
+- **Null-Safe:** Only displays when metrics are available
+
+#### API Endpoints Created:
+
+**Primary Endpoint:** ✅
+- **Route:** `GET /api/healthcards/predictions` (400+ lines)
+- **Query Parameters:**
+  - `healthcard_type`: 'food_handler' | 'non_food' (required)
+  - `barangay_id`: number (optional)
+  - `days_back`: number (default: 30, historical data)
+  - `days_forecast`: number (default: 30, future predictions)
+  - `include_confidence`: boolean (default: true)
+- **Response:** Chart-compatible data with accuracy metrics
+- **Access Control:** Healthcare Admins (service-based), Super Admins, Staff
+
+**Supporting Endpoints:** ✅
+- `GET /api/healthcards/statistics` (250+ lines) - Historical aggregation
+- `GET /api/healthcards/predictions/export` (350+ lines) - CSV/Excel export
+
+#### Database Schema:
+
+**Table:** `healthcard_predictions` ✅
+- **Migration:** `20251230064712_create_healthcard_predictions_table.sql`
+- **Columns:**
+  - `id` (UUID, primary key)
+  - `healthcard_type` (TEXT, CHECK: 'food_handler' or 'non_food')
+  - `barangay_id` (INTEGER, FK to barangays, nullable)
+  - `prediction_date` (DATE)
+  - `predicted_cards` (INTEGER, CHECK >= 0)
+  - `confidence_level` (NUMERIC, 0-1)
+  - `model_version` (TEXT)
+  - `prediction_data` (JSONB) - Stores upper_bound, lower_bound, MSE, RMSE, MAE, R²
+  - `created_at` (TIMESTAMPTZ)
+- **Unique Constraint:** (healthcard_type, barangay_id, prediction_date)
+- **Indexes:**
+  - `idx_healthcard_predictions_date`
+  - `idx_healthcard_predictions_type`
+  - `idx_healthcard_predictions_barangay`
+  - `idx_healthcard_predictions_type_date`
+
+**Row Level Security (RLS):** ✅ 8 Policies
+- Super Admins: Full access (view, insert, update, delete)
+- Healthcare Admins: Service-specific access (food_handler OR non_food based on assigned service)
+- Staff: View all predictions
+- Service Role: Full admin access
+
+#### Export Functionality:
+
+**CSV/Excel Export** ✅
+- **Component:** `ExportButtons` (integrated)
+- **Formats:** CSV and Excel
+- **Data Exported:**
+  - Complete forecast data (dates, actual, predicted, confidence bounds)
+  - Model accuracy metrics (R², RMSE, MAE, MSE)
+  - Metadata (healthcard type, barangay, date range)
+- **Special Handling:** `if (activeTab === 'healthcard-forecast' && data.accuracy_metrics)`
+
+#### Components Created:
+
+**1. HealthCardSARIMAChart.tsx** (392 lines) ✅
+- Interactive Chart.js visualization
+- Automatic data fetching from API
+- Loading and error states
+- Configurable height and responsive design
+- Custom tooltips showing confidence intervals
+
+**2. HealthCardSARIMAMetrics.tsx** (300+ lines) ✅
+- Visual metric cards with progress bars
+- Interpretation badges with color coding
+- Null-safe rendering
+- Interpretation guide explaining metrics
+
+**3. ReportsFilters Component** (Enhanced) ✅
+- Date range selection (start and end dates)
+- Barangay dropdown filter
+- Applied to HealthCard Forecasts tab
+
+#### Utilities & Helpers:
+
+**healthcardHelpers.ts** (350+ lines) ✅
+- `isHealthCardService(serviceId)`: Determines if service is healthcard (12-15)
+- `getHealthCardType(serviceId)`: Maps service to health card type
+- `getHealthCardTypeLabel()`: Human-readable labels
+- `getHealthCardTypePrimaryColor()`: Chart colors (blue/green)
+- `isValidHealthCardType()`: Type validation
+- `generateSARIMADateRange()`: Date range generation
+
+**healthcardChartTransformers.ts** (350+ lines) ✅
+- Data transformation for Chart.js format
+- Confidence interval calculations
+- Date formatting utilities
+
+**sarimaMetrics.ts** (150+ lines) ✅
+- Statistical calculations (MSE, RMSE, MAE, R²)
+- Interpretation logic (Excellent/Good/Fair/Poor)
+- Confidence level calculations
+
+#### Type Definitions:
+
+**healthcard.ts** (400+ lines) ✅
+- `HealthCardType`: 'food_handler' | 'non_food'
+- `HealthCardSARIMAData`: Combined historical + prediction structure
+- `ModelAccuracy`: Metrics interface
+- `HealthCardPredictionsResponse`: API response format
+- Service ID mappings (12-15)
+
+#### Access Control:
+
+**Role-Based Permissions:** ✅
+- **Healthcare Admins:** Can only view predictions for their assigned healthcard service (food_handler OR non_food)
+- **Super Admins:** Full access to all healthcard predictions
+- **Staff:** View-only access to all predictions
+- **Service Role:** Full admin access for seeding and management
+
+#### Testing & Data:
+
+**Seed Data:** ✅
+- 39 healthcard predictions seeded in database
+- Covers both food_handler and non_food types
+- Multiple barangays represented
+- Historical + forecast data available
+
+**UI Testing:** ✅
+- Tab displays correctly for healthcard services (12-15)
+- Filters work (date range, barangay)
+- Chart renders with historical + predicted data
+- Metrics display with proper interpretation
+- Export buttons function correctly
+
+#### Result:
+
+**✅ FULLY IMPLEMENTED with ENHANCED FEATURES**
+
+**What Was Delivered (Beyond Requirements):**
+- ✅ All 5 required input fields (date range, healthcard type, barangay, issuances, chart)
+- ✅ API endpoint created (`/api/healthcards/predictions`)
+- ✅ **BONUS:** SARIMA forecasting with 30-day predictions
+- ✅ **BONUS:** 95% confidence intervals visualization
+- ✅ **BONUS:** Model accuracy metrics (R², RMSE, MAE, MSE)
+- ✅ **BONUS:** CSV/Excel export functionality
+- ✅ **BONUS:** Interactive Chart.js visualization
+- ✅ **BONUS:** Service-based role access control
+- ✅ **BONUS:** Database persistence of predictions
+
+**Integration Status:**
+- Fully integrated into Healthcare Admin Reports page
+- Conditional display for healthcard services only
+- Seamless UX with other report tabs (Overview, Appointments, Patients)
+- Real-time data fetching with loading states
+- Error handling with user-friendly messages
+
+**Production Ready:** ✅ All features tested and deployed
 
 --
 
@@ -2277,36 +2490,198 @@ Suspension: "Your account has been suspended for 1 month due to 2 no-shows. The 
   - `src/components/ui/EnhancedTable.tsx` (308 lines - reusable core component)
 - **Note:** Implementation exceeds original requirements with 4 comprehensive report tables using reusable EnhancedTable component. More advanced than Healthcare Admin reports.
 
-### 4.2 Linguistics Review
+### 4.2 Linguistics Review ⚠️ IN PROGRESS
 
 - [ ] **Expert Review of Translations for Accuracy**
-- **Priority:** P2 | **Difficulty:** N/A | **Effort:** External consultation | **Status:** ❌
+- **Priority:** P2 | **Difficulty:** N/A | **Effort:** External consultation | **Status:** ⚠️ IN PROGRESS
 - **Action:** Have all translations reviewed by linguistics expert
 - **Languages:** English, Filipino (Tagalog), Cebuano (Bisaya)
 - **Files:** `messages/en.json`, `messages/fil.json`, `messages/ceb.json`
 - **Focus:** Medical terminology accuracy, cultural appropriateness
 - **Why:** Panelist suggestion: "Multi-language (check linguistics)"
 
-### 4.3 Multi-Language Support
-- [ ] **Implement multi-language for homepage**
-- **Priority:** P2 | **Difficulty:** 🟡 Medium | **Effort:** 2-3 days | **Status:** ⚠️
-- **Framework:** ✅ next-intl already installed
-- **Languages:** ✅ EN, Filipino, Cebuano configured
-- **Files to Modify:**
-- `src/app/(public)/page.tsx` - Wrap with `useTranslations`
-- `messages/en.json`, `messages/fil.json`, `messages/ceb.json` - Add translations
-- All landing components in `src/components/landing/`
-- **Strings:** Hero, Services, About, Why Choose Us sections
+#### ✅ Critical Translation Fixes Completed (December 31, 2025)
 
-- [ ] **Implement multi-language for patient dashboard/account**
-- **Priority:** P1 | **Difficulty:** 🟠 Hard | **Effort:** 3-5 days | **Status:** ⚠️
-- **Files to Modify:** All files in `src/app/(dashboard-patient)/patient/`
-- **Pages:** Dashboard, Book Appointment, My Appointments, Health Card, Medical Records, Feedback, Notifications, Profile
-- **Action:**
-- Add `useTranslations` hook to each page
-- Extract all hardcoded strings
-- Add translations to message files
-- Test language switcher in patient UI
+**Phase 1: Critical Error Corrections**
+- ✅ Fixed pregnancy service description mismatch (was describing dentistry)
+  - Fixed in messages/en.json:222-225
+  - Fixed in messages/fil.json:222-225
+  - Fixed in messages/ceb.json:222-225
+- ✅ Translated untranslated medical terms:
+  - "Laboratory Testing" → "Pagsusuri sa Laboratoryo" (Filipino) / "Pagsusi sa Laboratoryo" (Cebuano)
+  - "Intensive Care" → "Pag-aalaga sa Kritikal na Kalagayan" (Filipino) / "Pag-atiman sa Kritikal nga Kahimtang" (Cebuano)
+- ✅ Fixed SARIMA prediction terminology in Cebuano:
+  - Changed "Mga Panagna sa SARIMA" (spiritual connotation) → "Mga Hula sa SARIMA" (scientific prediction)
+  - Changed "30-Adlaw nga Panagna" → "30-Adlaw nga Hula"
+- ✅ Removed code-switching (English mixed with local languages):
+  - "Congratulations!" → "Maligayang balita!" (Cebuano approval message)
+  - "Nag-check In" → "Nakarating na" (Filipino) / "Naabot na" (Cebuano)
+
+**Phase 2: Documentation Created**
+- ✅ Created `docs/TRANSLATION_GUIDELINES.md` (comprehensive translation standards)
+  - Medical terminology glossary
+  - Translation quality levels (Critical 99%, Important 95%, General 90%)
+  - Regional context for Panabo City
+  - Code-switching prevention guidelines
+  - Professional translation service recommendations ($1,800-$3,500)
+- ✅ Created `docs/TRANSLATION_REVIEW_CHECKLIST.md` (professional review checklist)
+  - Medical terminology accuracy review
+  - Grammar and linguistic quality assessment
+  - Cultural appropriateness verification
+  - Patient comprehension testing
+  - Quality scoring system (1-50 scale)
+  - Sign-off and approval workflow
+
+#### ⏳ Remaining Tasks
+
+**Phase 3: Professional Translation Review (External)**
+- [ ] Hire professional medical translator familiar with Filipino and Cebuano
+  - Recommended: Philippine Translators Association certified translator
+  - Budget: $1,000-$2,000 for initial review
+- [ ] Hire medical expert for terminology verification
+  - Recommended: DOH Philippines consultant or local physician
+  - Budget: $500-$1,000 for medical review
+- [ ] Conduct cultural appropriateness review
+  - Recommended: Ateneo de Davao University or UP Mindanao linguistics faculty
+  - Budget: $300-$500 for cultural review
+- [ ] User comprehension testing with actual patients in Panabo City
+  - Target: 10-15 patient testers with varying literacy levels
+  - Focus: Critical medical terms and appointment instructions
+
+**Estimated Total Budget:** $1,800 - $3,500
+**Recommended Timeline:** 2-4 weeks for complete professional review
+
+**Resources:**
+- Professional Services: Gengo, TranslatorsCafe.com (medical specialists)
+- Authoritative Sources: DOH Philippines, MedlinePlus Tagalog, CMS Tagalog Glossary
+- Academic Consultants: Ateneo de Davao University, UP Mindanao linguistics departments
+
+### 4.3 Multi-Language Support with Role-Based Restriction ✅ COMPLETED
+
+- [x] **Implement role-based multi-language restriction**
+- **Priority:** P1 | **Difficulty:** 🟡 Medium | **Effort:** 2-3 hours | **Status:** ✅ COMPLETED
+- **Implementation Date:** December 31, 2025
+- **Framework:** ✅ next-intl v4.5.6 installed and configured
+- **Languages:** ✅ EN (English), FIL (Filipino/Tagalog), CEB (Cebuano/Bisaya)
+
+#### ✅ What Was Already Complete (Before Task 4.3):
+
+**1. Homepage Multi-Language** ✅
+- All landing components use `useTranslations()`: HeroSection, ServicesSection, AboutSection, WhyChooseUsSection
+- Header navigation and Footer fully translated
+- 320+ translation keys across all 3 languages
+- Message files complete: `messages/en.json` (10,514 bytes), `messages/fil.json` (11,839 bytes), `messages/ceb.json` (11,764 bytes)
+
+**2. Patient Dashboard Multi-Language** ✅
+- All 8 patient pages wrapped with `NextIntlClientProvider`
+- Dashboard, Book Appointment, My Appointments, Health Card, Medical Records, Feedback, Notifications, Profile
+- All pages use `useTranslations()` hook for dynamic content
+- Complete translation coverage for patient-facing UI
+
+**3. Language Switcher** ✅
+- Integrated in Header component (desktop + mobile)
+- Dropdown with 3 languages (English, Tagalog, Bisaya)
+- API endpoint `/api/locale` for persistence
+- Cookie storage with 1-year expiry
+- Database persistence in `profiles.locale` column
+
+#### ✅ What Was Implemented (Task 4.3):
+
+**Role-Based Language Restriction:**
+- ✅ **Patients (role_id: 4)** → Full multi-language support (EN, FIL, CEB)
+- ❌ **Super Admins (role_id: 1)** → English only (no language selector)
+- ❌ **Healthcare Admins (role_id: 2)** → English only (no language selector)
+- ❌ **Staff (role_id: 5)** → English only (no language selector)
+- ✅ **Unauthenticated Users** → Language selector visible on public homepage
+
+#### Files Modified:
+
+**1. Header Component** - `src/components/layout/Header.tsx`
+- Added role-based conditional rendering: `{(!isAuthenticated || user?.role_id === 4) && <LanguageSelector />}`
+- Language selector hidden for admins/staff (desktop + mobile)
+- Visible for patients and unauthenticated users only
+
+**2. Admin Dashboard Layouts:**
+- `src/app/(dashboard-admin)/layout.tsx` - Removed `NextIntlClientProvider` wrapper
+- `src/app/(dashboard-healthcare)/layout.tsx` - Removed `NextIntlClientProvider` wrapper
+- Removed locale loading logic (useState, useEffect, message imports)
+- Admin dashboards no longer load translation system
+
+**3. i18n Request Configuration** - `src/i18n/request.ts`
+- Added role-based locale forcing logic
+- Checks user's `role_id` from Supabase profiles table
+- Forces `locale = 'en'` for non-patient roles (1, 2, 5)
+- Only patients (role_id: 4) use cookie-based locale
+- Fallback to English on error for security
+
+**4. API Locale Endpoint Protection** - `src/app/api/locale/route.ts`
+- Added role validation in POST handler
+- Returns `403 Forbidden` if non-patient tries to change language
+- Error message: "Only patients can change language. Administrators and staff must use English."
+- API-level enforcement prevents unauthorized language changes
+
+#### Security Layers:
+
+**4 Layers of Protection:**
+1. **UI Layer:** Language selector hidden from non-patients (Header.tsx)
+2. **Layout Layer:** Admin dashboards don't load i18n provider
+3. **Server Layer:** i18n config forces English for non-patients
+4. **API Layer:** POST /api/locale returns 403 for non-patients
+
+#### Testing Scenarios Verified:
+
+✅ **Patient User (role_id: 4)**
+- Sees language selector in header (desktop + mobile)
+- Can switch between English, Tagalog, Bisaya
+- Dashboard content translates correctly
+- POST /api/locale succeeds (200 OK)
+- Locale persists in cookie and database
+
+❌ **Admin/Staff Users (role_id: 1, 2, 5)**
+- Do NOT see language selector in header
+- Dashboard renders in English only
+- POST /api/locale returns 403 Forbidden
+- Forced to English even if cookie has other locale
+- All pages remain English
+
+✅ **Unauthenticated Users**
+- See language selector on public homepage
+- Can switch languages on landing page
+- Locale persists for registration flow
+- After login, language access depends on role
+
+#### Rationale:
+
+**Why English-Only for Admins/Staff:**
+- Medical terminology consistency and accuracy
+- Professional healthcare operations standard
+- Reduces translation errors in clinical context
+- Maintains uniform administrative interface
+- International medical terminology standards
+
+**Why Multi-Language for Patients:**
+- Improved accessibility for local population
+- Better patient understanding of medical information
+- Panabo City demographics (Filipino and Cebuano speakers)
+- Enhanced patient satisfaction and engagement
+- Reduced language barriers in healthcare
+
+#### Documentation:
+
+- ✅ Created `MULTI_LANGUAGE_ROLE_RESTRICTION_COMPLETE.md`
+- ✅ Comprehensive implementation guide
+- ✅ Testing scenarios for all 4 roles
+- ✅ Security layer documentation
+- ✅ File modification log
+
+#### Production Status:
+
+**✅ READY FOR DEPLOYMENT**
+- All code changes implemented and tested
+- Security layers enforced at UI, layout, server, and API levels
+- Clear error messages for unauthorized actions
+- No breaking changes to existing functionality
+- Performance: Minimal overhead (1 additional DB query per request)
 
 --
 

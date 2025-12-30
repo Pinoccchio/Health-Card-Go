@@ -492,7 +492,7 @@ export const medicalRecordTemplates: Record<TemplateType, MedicalRecordTemplate>
 /**
  * Get template by type
  */
-export function getTemplate(type: TemplateType): MedicalRecordTemplate {
+export function getTemplate(type: TemplateType): MedicalRecordTemplate | undefined {
   return medicalRecordTemplates[type];
 }
 
@@ -507,5 +507,6 @@ export function getAllTemplateTypes(): TemplateType[] {
  * Check if template requires encryption
  */
 export function requiresEncryption(type: TemplateType): boolean {
-  return medicalRecordTemplates[type].requiresEncryption;
+  const template = medicalRecordTemplates[type];
+  return template?.requiresEncryption ?? false;
 }

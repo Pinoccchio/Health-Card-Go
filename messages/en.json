@@ -221,7 +221,7 @@
       },
       "pregnancy": {
         "title": "Pregnancy",
-        "description": "Experience comprehensive oral care with Dentistry. Trust us to keep your smile healthy and bright."
+        "description": "Comprehensive prenatal care and support throughout your pregnancy journey. Our experienced healthcare team ensures the health and safety of you and your baby."
       }
     },
     "about": {
@@ -261,6 +261,445 @@
       "ourstores": "Our Stores",
       "terms": "Terms & Conditions",
       "copyright": "Contactus. Copyright © 2025"
+    }
+  },
+  "dashboard": {
+    "page_title": "Home",
+    "page_description": "Your Personal Health Portal",
+    "welcome": "Welcome, {name}!",
+    "tagline": "Your health, our priority",
+    "refresh": "Refresh",
+    "error_loading": "Error loading dashboard",
+    "pending_approval": {
+      "title": "Account Pending Approval",
+      "message": "Your account is currently pending approval. Once approved by an admin, you'll be able to book appointments and access all features."
+    },
+    "upcoming_appointment": "Upcoming Appointment",
+    "service": "Service",
+    "queue_number": "Queue Number: #{number}",
+    "view_details": "View Details",
+    "stats": {
+      "upcoming": "Upcoming",
+      "medical_records": "Medical Records",
+      "notifications": "Notifications",
+      "completed": "Completed",
+      "appointments": "Appointments",
+      "total_records": "Total records",
+      "unread": "Unread"
+    },
+    "quick_actions": {
+      "title": "Quick Actions",
+      "book_appointment": {
+        "title": "Book Appointment",
+        "description": "Schedule your visit"
+      },
+      "health_card": {
+        "title": "My Health Card",
+        "description": "View digital card"
+      },
+      "medical_records": {
+        "title": "Medical Records",
+        "description": "View your history"
+      }
+    }
+  },
+  "appointments_page": {
+    "page_title": "My Appointments",
+    "page_description": "View and manage your appointments",
+    "book_new_appointment": "Book New Appointment",
+    "loading": "Loading appointments...",
+    "search_placeholder": "Search by queue number or date...",
+    "table": {
+      "queue_hash": "Queue #",
+      "service": "Service",
+      "date": "Date",
+      "time_block": "Time Block",
+      "status": "Status",
+      "actions": "Actions",
+      "view_details": "View Details",
+      "not_specified": "Not specified"
+    },
+    "drawer": {
+      "title": "Appointment",
+      "subtitle": "My Appointment",
+      "appointment_details": "Appointment Details",
+      "queue_number": "Queue Number",
+      "queue_number_label": "Queue Number:",
+      "service": "Service",
+      "service_label": "Service:",
+      "date": "Date",
+      "date_label": "Date:",
+      "time_block": "Time Block",
+      "time_block_label": "Time Block:",
+      "reason_for_visit": "Reason for Visit",
+      "cancellation_reason": "Cancellation Reason",
+      "timeline": "Timeline",
+      "checked_in": "Checked In",
+      "checked_in_at": "Checked In:",
+      "started": "Started",
+      "started_at": "Started:",
+      "completed": "Completed",
+      "completed_at": "Completed:",
+      "view_history": "View Status History",
+      "view_status_history": "View Status History",
+      "cancel_appointment": "Cancel Appointment",
+      "cancelling": "Cancelling...",
+      "cannot_cancel": "Cannot cancel (less than 24 hours before appointment)",
+      "cannot_cancel_24h": "Cannot cancel (less than 24 hours before appointment)",
+      "feedback_submitted": "Feedback Submitted",
+      "view_feedback": "View feedback",
+      "feedback_expired": "Feedback window expired (7 days after completion)",
+      "submit_feedback": "Submit Feedback",
+      "days_remaining": "{days} days remaining"
+    },
+    "cancel_dialog": {
+      "title": "Cancel Appointment",
+      "message": "Are you sure you want to cancel your appointment on {date} at {time}?",
+      "confirm": "Cancel Appointment",
+      "keep": "Keep Appointment",
+      "reason_label": "Reason for cancellation (optional)",
+      "reason_placeholder": "Please let us know why you're cancelling..."
+    }
+  },
+  "book_appointment": {
+    "title": "Book Appointment",
+    "description": "Schedule your next visit (7-day advance booking required)",
+    "suspension": {
+      "title": "Account Suspended - Booking Disabled",
+      "message": "Your account has been suspended due to {count} missed appointments (no-shows).",
+      "days_remaining": "{days} day(s) remaining",
+      "expires_today": "Expires today",
+      "reinstatement_date": "Reinstatement Date:",
+      "what_this_means": "What this means:",
+      "bullet1": "You cannot book new appointments during the suspension period",
+      "bullet2": "Your account will be automatically reinstated on the date above",
+      "bullet3": "Please attend scheduled appointments to avoid future suspensions",
+      "contact_message": "If you believe this suspension is an error or have extenuating circumstances, please contact the City Health Office of Panabo City immediately."
+    },
+    "steps": {
+      "select_service": "Select Service",
+      "choose_date": "Choose Date",
+      "pick_time": "Pick Time",
+      "confirm": "Confirm"
+    },
+    "progress_steps": {
+      "step1": "Select Service",
+      "step2": "Choose Date",
+      "step3": "Pick Time",
+      "step4": "Confirm"
+    },
+    "step1": {
+      "heading": "Select a Service",
+      "description": "Choose the healthcare service you need. Each service is managed by specialized administrators.",
+      "loading": "Loading services...",
+      "no_services": "No services available at this time.",
+      "free_badge": "FREE",
+      "confidential_badge": "Confidential",
+      "managed_by": "Managed by {name}",
+      "and_more": "+{count} more",
+      "duration": "Duration: {minutes} min",
+      "booking_confirmation": "• Booking confirmation",
+      "about_system": {
+        "heading": "About Our Appointment System",
+        "description": "Each service is managed by specialized administrators who will review and confirm your booking based on your needs and availability."
+      }
+    },
+    "step2": {
+      "heading": "Choose a Date",
+      "description": "Appointments must be booked at least 7 days in advance. Only weekdays (Monday-Friday) are available.",
+      "back_to_services": "← Back to services"
+    },
+    "step3": {
+      "heading": "Select Time Block",
+      "description": "Choose between Morning (AM) or Afternoon (PM) time block for {date}",
+      "loading": "Loading available blocks...",
+      "full_badge": "FULL",
+      "availability": "Availability",
+      "slots": "{remaining} / {capacity} slots",
+      "available": "✓ Available - Click to select",
+      "fully_booked": "✗ Fully booked - Please choose another date or time block",
+      "no_blocks": "No available blocks for this date",
+      "choose_different_date": "← Choose different date"
+    },
+    "step4": {
+      "heading": "Confirm Appointment",
+      "service_label": "Service:",
+      "date_label": "Date:",
+      "time_block_label": "Time Block:",
+      "what_happens_next": {
+        "heading": "What Happens Next",
+        "step1": "Your booking will be reviewed by our {role}",
+        "step2": "Your appointment will be confirmed based on availability and your needs",
+        "step3": "You'll receive a confirmation notification ({time})",
+        "step4": "A reminder will be sent 3 days before your appointment"
+      },
+      "reason_label": "Reason for Visit (Optional)",
+      "reason_help": "Providing a reason helps our {role} better prepare for your appointment.",
+      "reason_placeholder": "Select a reason...",
+      "custom_reason_placeholder": "Please describe your reason for this appointment...",
+      "character_count": "{count}/500 characters",
+      "back_button": "← Back",
+      "booking_button": "Confirm Booking",
+      "booking_button_loading": "Booking..."
+    },
+    "success": {
+      "page_title": "Appointment Booked",
+      "heading": "Appointment Booking Submitted!",
+      "message": "Your appointment request has been received and is currently pending processing.",
+      "what_next_heading": "What Happens Next?",
+      "what_next_message": "Our {role} will review your booking and confirm your appointment. You'll receive a confirmation notification {time}.",
+      "healthcare_staff": "healthcare staff",
+      "shortly": "shortly",
+      "redirecting": "Redirecting to your appointments..."
+    }
+  },
+  "medical_records": {
+    "title": "My Medical Records",
+    "description": "View your complete medical history",
+    "loading": "Loading your medical records...",
+    "statistics": {
+      "total_records": "Total Records",
+      "general": "General",
+      "healthcard": "Healthcard",
+      "hiv": "HIV",
+      "pregnancy": "Pregnancy",
+      "immunization": "Immunization",
+      "laboratory": "Laboratory"
+    },
+    "table": {
+      "date_created": "Date Created",
+      "service": "Service",
+      "walk_in_visit": "Walk-in visit",
+      "template_type": "Template Type",
+      "category": "Category",
+      "actions": "Actions",
+      "view_details": "View Details",
+      "search_placeholder": "Search by service, template type, or category..."
+    },
+    "categories": {
+      "general": "General",
+      "healthcard": "Healthcard",
+      "hiv": "HIV",
+      "pregnancy": "Pregnancy",
+      "immunization": "Immunization",
+      "laboratory": "Laboratory"
+    }
+  },
+  "health_card": {
+    "title": "My Health Card",
+    "description": "Your digital health card with QR code",
+    "loading": "Loading your health card...",
+    "error": {
+      "title": "Unable to Load Health Card",
+      "try_again": "Try Again"
+    },
+    "success": {
+      "heading": "Your Digital Health Card",
+      "description": "Use this health card when visiting City Health Office facilities in Panabo City."
+    },
+    "no_card": {
+      "heading": "Health Card Not Available",
+      "description": "Your health card will be available after your first completed appointment."
+    },
+    "status": {
+      "active": "Active",
+      "expired": "Expired",
+      "inactive": "Inactive",
+      "expired_title": "Health Card Expired",
+      "inactive_title": "Health Card Inactive",
+      "expired_message": "Your health card has expired. Please contact the health office for renewal.",
+      "inactive_message": "This health card is currently inactive. Please contact the health office for assistance."
+    },
+    "labels": {
+      "card_number": "Card Number",
+      "patient_name": "Patient Name",
+      "patient_number": "Patient Number",
+      "date_of_birth": "Date of Birth",
+      "barangay": "Barangay",
+      "medical_information": "Medical Information",
+      "blood_type": "Blood Type",
+      "allergies": "Allergies",
+      "current_medications": "Current Medications",
+      "emergency_contact": "Emergency Contact",
+      "issued": "Issued",
+      "expires": "Expires"
+    },
+    "footer": {
+      "scan_for_quick_access": "Scan for quick access",
+      "city_health_office": "City Health Office",
+      "panabo_city": "Panabo City, Davao del Norte"
+    },
+    "download": {
+      "pdf": "Download PDF",
+      "generating_pdf": "Generating PDF...",
+      "png": "Download PNG",
+      "generating_png": "Generating PNG...",
+      "pdf_success": "Health card PDF downloaded successfully!",
+      "pdf_error": "Failed to generate PDF. Please try again.",
+      "png_success": "Health card image downloaded successfully!",
+      "png_error": "Failed to generate PNG. Please try again."
+    },
+    "how_to_use": {
+      "title": "How to Use Your Digital Health Card",
+      "step1": "Present this health card at any City Health Office facility in Panabo City",
+      "step2": "Healthcare staff can scan the QR code for quick access to your information",
+      "step3": "Download and print the PDF version for physical use",
+      "step4": "Keep your digital copy on your phone for easy access",
+      "step5": "Update your personal information if any details change"
+    },
+    "qr_test": {
+      "title": "Test Your QR Code",
+      "description": "Upload your downloaded health card image to verify that the QR code is readable and valid.",
+      "upload_button": "Upload QR Code Image",
+      "testing": "Testing QR Code...",
+      "valid_message": "QR code is valid and matches your health card! Healthcare staff will be able to scan this successfully.",
+      "invalid_message": "QR code does not match your current health card. Please download a fresh copy.",
+      "invalid_format": "QR code format is invalid. Please ensure you uploaded the correct health card QR code.",
+      "decode_failed": "Failed to decode QR code from image. Please ensure the image contains a clear, readable QR code.",
+      "verified_success": "QR code verified successfully!",
+      "mismatch_detected": "QR code mismatch detected",
+      "invalid_format_toast": "Invalid QR code format",
+      "scan_failed": "Failed to scan QR code",
+      "valid_badge": "✓ Valid QR Code",
+      "invalid_badge": "✗ Invalid QR Code"
+    }
+  },
+  "profile": {
+    "title": "My Profile",
+    "description": "Manage your account information",
+    "unauthorized": "Unauthorized access",
+    "sections": {
+      "personal_info": "Personal Information",
+      "emergency_contact": "Emergency Contact",
+      "medical_info": "Medical Information",
+      "account_info": "Account Information"
+    },
+    "fields": {
+      "first_name": "First Name",
+      "last_name": "Last Name",
+      "email": "Email Address",
+      "email_readonly": "Email cannot be changed",
+      "date_of_birth": "Date of Birth",
+      "gender": "Gender",
+      "contact_number": "Contact Number",
+      "phone_format": "+639XXXXXXXXX or 09XXXXXXXXX",
+      "barangay": "Barangay",
+      "loading_barangays": "Loading barangays...",
+      "select_barangay": "Select barangay",
+      "emergency_name": "Name",
+      "emergency_phone": "Phone",
+      "emergency_email": "Email (Optional)",
+      "blood_type": "Blood Type",
+      "select_blood_type": "Select blood type",
+      "allergies": "Allergies (one per line)",
+      "allergies_placeholder": "e.g., Peanuts\\nPenicillin",
+      "current_medications": "Current Medications",
+      "medications_placeholder": "List any medications you are currently taking",
+      "account_status": "Account Status",
+      "patient_number": "Patient Number",
+      "member_since": "Member Since"
+    },
+    "actions": {
+      "cancel": "Cancel",
+      "save_changes": "Save Changes",
+      "saving": "Saving..."
+    }
+  },
+  "feedback_page": {
+    "table": {
+      "submitted": "Submitted",
+      "service": "Service",
+      "not_available": "N/A",
+      "rating": "Rating",
+      "rating_suffix": "/ 5.0",
+      "recommend": "Recommend",
+      "yes": "Yes",
+      "no": "No",
+      "response": "Response",
+      "responded": "Responded",
+      "pending": "Pending",
+      "actions": "Actions",
+      "view_details": "View Details",
+      "search_placeholder": "Search by service or rating..."
+    },
+    "drawers": {
+      "submit_title": "Submit Feedback",
+      "details_title": "Feedback Details"
+    },
+    "completed_badge": "Completed"
+  },
+  "service_requirements": {
+    "no_requirements": "No special requirements",
+    "heading": "Requirements to Bring ({count})",
+    "tip_prefix": "💡 Tip:",
+    "tip_message": "Bring these documents to avoid rescheduling your appointment"
+  },
+  "enums": {
+    "appointment_status": {
+      "scheduled": "Scheduled",
+      "checked_in": "Checked In",
+      "in_progress": "In Progress",
+      "completed": "Completed",
+      "cancelled": "Cancelled",
+      "no_show": "No Show",
+      "pending": "Pending"
+    },
+    "notification_type": {
+      "appointment_reminder": "Appointment Reminder",
+      "approval": "Approval",
+      "cancellation": "Cancellation",
+      "feedback_request": "Feedback Request",
+      "general": "General"
+    },
+    "disease_type": {
+      "hiv_aids": "HIV/AIDS",
+      "dengue": "Dengue",
+      "malaria": "Malaria",
+      "measles": "Measles",
+      "rabies": "Rabies",
+      "pregnancy_complications": "Pregnancy Complications",
+      "other": "Other"
+    },
+    "disease_severity": {
+      "mild": "Mild",
+      "moderate": "Moderate",
+      "severe": "Severe",
+      "critical": "Critical"
+    },
+    "disease_status": {
+      "active": "Active",
+      "recovered": "Recovered",
+      "deceased": "Deceased",
+      "ongoing_treatment": "Ongoing Treatment"
+    },
+    "medical_category": {
+      "general": "General",
+      "healthcard": "Healthcard",
+      "hiv": "HIV",
+      "pregnancy": "Pregnancy",
+      "immunization": "Immunization",
+      "laboratory": "Laboratory"
+    },
+    "gender": {
+      "male": "Male",
+      "female": "Female",
+      "other": "Other"
+    },
+    "blood_type": {
+      "a_positive": "A+",
+      "a_negative": "A-",
+      "b_positive": "B+",
+      "b_negative": "B-",
+      "ab_positive": "AB+",
+      "ab_negative": "AB-",
+      "o_positive": "O+",
+      "o_negative": "O-"
+    },
+    "account_status": {
+      "active": "Active",
+      "inactive": "Inactive",
+      "suspended": "Suspended",
+      "pending": "Pending"
     }
   }
 }

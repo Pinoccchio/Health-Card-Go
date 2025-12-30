@@ -74,7 +74,7 @@
     },
     "approval": {
       "title": "Gi-approve na ang Account",
-      "message": "Congratulations! Gi-approve na ang imong account. Maka-book ka na ug mga appointment ug ma-access ang tanang features."
+      "message": "Maligayang balita! Gi-approve na ang imong account. Maka-book ka na ug mga appointment ug ma-access ang tanang features."
     },
     "rejection": {
       "title": "Pagsusi sa Account Application",
@@ -158,14 +158,14 @@
       "reason": "Hinungdan sa Pagbisita",
       "status": "Kahimtang",
       "timeline": "Timeline",
-      "checked_in": "Nag-check In",
+      "checked_in": "Naabot na",
       "started": "Nagsugod",
       "completed": "Nahuman"
     },
     "status": {
       "pending": "Naghulat",
       "scheduled": "Naka-iskedyul",
-      "checked_in": "Nag-check In",
+      "checked_in": "Naabot na",
       "in_progress": "Ginahimo",
       "completed": "Nahuman",
       "cancelled": "Nakansela",
@@ -177,11 +177,11 @@
     "description": "Subaysubaya ang mga outbreak ug trend sa sakit sa Dakbayan sa Panabo",
     "heatmap": "Mapa sa Sakit",
     "statistics": "Estadistika sa Sakit",
-    "predictions": "Mga Panagna sa SARIMA",
+    "predictions": "Mga Hula sa SARIMA",
     "alerts": "Mga Alerto sa Outbreak",
     "by_barangay": "Mga Kaso sumala sa Barangay",
     "trend_analysis": "Pagsusi sa Trend",
-    "forecast": "30-Adlaw nga Panagna"
+    "forecast": "30-Adlaw nga Hula"
   },
   "health_updates": {
     "title": "Mga Update sa Panglawas",
@@ -213,7 +213,7 @@
       "title": "Among Mga Serbisyo",
       "healthcard": {
         "title": "Health Card",
-        "description": "Tukma nga Diagnosis, Paspas nga Resulta: Masinati ang labing maayo nga Laboratory Testing sa among pasilidad."
+        "description": "Tukma nga Diagnosis, Paspas nga Resulta: Masinati ang labing maayo nga Pagsusi sa Laboratoryo sa among pasilidad."
       },
       "hiv": {
         "title": "HIV",
@@ -221,7 +221,7 @@
       },
       "pregnancy": {
         "title": "Pagmabdos",
-        "description": "Masinati ang bug-os nga pag-atiman sa ngipon gamit ang Dentistry. Salig kanamo aron mapadayon nga limpyo ug hayag ang inyong pahiyom."
+        "description": "Bug-os nga pag-atiman sa dili pa manganak ug suporta sa tibuok panahon sa inyong pagmabdos. Ang among batid nga koponan sa healthcare nagsiguro sa panglawas ug kaluwasan ninyo ug sa inyong bata."
       }
     },
     "about": {
@@ -234,8 +234,8 @@
       "title": "Ngano Kami ang Pilion",
       "subtitle": "Uban sa lig-on nga pasalig sa inyong kaayohan, ang among koponan sa lubhang nabansay nga mga propesyonal sa panglawas nagsiguro nga makadawat kamo ug wala na lain kondili mga talagsaong kasinatian sa pasyente.",
       "intensivecare": {
-        "title": "Intensive Care",
-        "description": "Ang among Intensive Care Unit gisangkapan sa advanced nga teknolohiya ug gitrabaho sa koponan sa mga propesyonal"
+        "title": "Pag-atiman sa Kritikal nga Kahimtang",
+        "description": "Ang among Unit sa Pag-atiman sa Kritikal nga Kahimtang gisangkapan sa advanced nga teknolohiya ug gitrabaho sa koponan sa mga propesyonal"
       },
       "ambulance": {
         "title": "Libre nga Ambulansya",
@@ -261,6 +261,445 @@
       "ourstores": "Among Mga Tindahan",
       "terms": "Mga Termino ug Kondisyon",
       "copyright": "Kontak. Copyright © 2025"
+    }
+  },
+  "dashboard": {
+    "page_title": "Home",
+    "page_description": "Ang Imong Personal Health Portal",
+    "welcome": "Maayong pag-abot, {name}!",
+    "tagline": "Ang imong panglawas, among priyoridad",
+    "refresh": "I-refresh",
+    "error_loading": "Sayop sa pag-load sa dashboard",
+    "pending_approval": {
+      "title": "Naghulat og Approval ang Account",
+      "message": "Ang imong account karon naghulat og approval. Kon approved na sa admin, maka-book ka na og mga appointment ug ma-access ang tanang features."
+    },
+    "upcoming_appointment": "Umaabot nga Appointment",
+    "service": "Serbisyo",
+    "queue_number": "Numero sa Linya: #{number}",
+    "view_details": "Tan-awon ang Detalye",
+    "stats": {
+      "upcoming": "Umaabot",
+      "medical_records": "Mga Medikal nga Rekord",
+      "notifications": "Mga Pahibalo",
+      "completed": "Nahuman",
+      "appointments": "Mga Appointment",
+      "total_records": "Kinatibuk-ang rekord",
+      "unread": "Wala pa Mabasa"
+    },
+    "quick_actions": {
+      "title": "Paspas nga Aksyon",
+      "book_appointment": {
+        "title": "Mag-book og Appointment",
+        "description": "Pag-iskedyul og bisita"
+      },
+      "health_card": {
+        "title": "Akong Health Card",
+        "description": "Tan-awon ang digital card"
+      },
+      "medical_records": {
+        "title": "Mga Medikal nga Rekord",
+        "description": "Tan-awon ang history"
+      }
+    }
+  },
+  "appointments_page": {
+    "page_title": "Akong Mga Appointment",
+    "page_description": "Tan-awa ug dumala sa imong mga appointment",
+    "book_new_appointment": "Mag-book og Bag-ong Appointment",
+    "loading": "Nag-load sa mga appointment...",
+    "search_placeholder": "Pangitaa gamit ang numero sa linya o petsa...",
+    "table": {
+      "queue_hash": "Linya #",
+      "service": "Serbisyo",
+      "date": "Petsa",
+      "time_block": "Oras",
+      "status": "Kahimtang",
+      "actions": "Mga Aksyon",
+      "view_details": "Tan-awon ang Detalye",
+      "not_specified": "Wala gi-specify"
+    },
+    "drawer": {
+      "title": "Appointment",
+      "subtitle": "Akong Appointment",
+      "appointment_details": "Detalye sa Appointment",
+      "queue_number": "Numero sa Linya",
+      "queue_number_label": "Numero sa Linya:",
+      "service": "Serbisyo",
+      "service_label": "Serbisyo:",
+      "date": "Petsa",
+      "date_label": "Petsa:",
+      "time_block": "Oras",
+      "time_block_label": "Oras:",
+      "reason_for_visit": "Hinungdan sa Pagbisita",
+      "cancellation_reason": "Hinungdan sa Kanselasyon",
+      "timeline": "Timeline",
+      "checked_in": "Naabot na",
+      "checked_in_at": "Naabot na:",
+      "started": "Nagsugod",
+      "started_at": "Nagsugod:",
+      "completed": "Nahuman",
+      "completed_at": "Nahuman:",
+      "view_history": "Tan-awon ang Kasaysayan sa Kahimtang",
+      "view_status_history": "Tan-awon ang Kasaysayan sa Kahimtang",
+      "cancel_appointment": "Kanselaon ang Appointment",
+      "cancelling": "Gikansela...",
+      "cannot_cancel": "Dili ma-kansela (kulang sa 24 oras sa wala pa ang appointment)",
+      "cannot_cancel_24h": "Dili ma-kansela (kulang sa 24 oras sa wala pa ang appointment)",
+      "feedback_submitted": "Naisumite ang Feedback",
+      "view_feedback": "Tan-awon ang feedback",
+      "feedback_expired": "Nag-expire na ang feedback window (7 ka adlaw human makompleto)",
+      "submit_feedback": "Ipadala ang Feedback",
+      "days_remaining": "{days} ka adlaw ang nahabilin"
+    },
+    "cancel_dialog": {
+      "title": "Kanselaon ang Appointment",
+      "message": "Sigurado ka ba nga gusto nimong kanselaon ang imong appointment sa {date} sa {time}?",
+      "confirm": "Kanselaon ang Appointment",
+      "keep": "Padayon ang Appointment",
+      "reason_label": "Hinungdan sa kanselasyon (opsyonal)",
+      "reason_placeholder": "Palihug sultihi kami ngano gikansela..."
+    }
+  },
+  "book_appointment": {
+    "title": "Mag-book og Appointment",
+    "description": "Pag-iskedyul sa sunod nga bisita (7-adlaw advance booking required)",
+    "suspension": {
+      "title": "Gi-suspend ang Account - Dili Maka-book",
+      "message": "Ang imong account gi-suspend tungod sa {count} ka missed appointments (no-shows).",
+      "days_remaining": "{days} ka adlaw ang nahabilin",
+      "expires_today": "Mag-expire karong adlawa",
+      "reinstatement_date": "Petsa sa Pagbalik:",
+      "what_this_means": "Ang buot ipasabot niini:",
+      "bullet1": "Dili ka maka-book og bag-ong appointment sa panahon sa suspension",
+      "bullet2": "Ang imong account awtomatik nga ibalik sa petsa sa ibabaw",
+      "bullet3": "Palihug motambong sa mga nakaset nga appointment aron malikayan ang future suspensions",
+      "contact_message": "Kon nagtuo ka nga ang suspension ni usa ka sayop o adunay extenuating circumstances, palihug kontak-a dayon ang City Health Office sa Panabo City."
+    },
+    "steps": {
+      "select_service": "Pilia ang Serbisyo",
+      "choose_date": "Pilia ang Petsa",
+      "pick_time": "Pilia ang Oras",
+      "confirm": "Kumpirma"
+    },
+    "progress_steps": {
+      "step1": "Pilia ang Serbisyo",
+      "step2": "Pilia ang Petsa",
+      "step3": "Pilia ang Oras",
+      "step4": "Kumpirma"
+    },
+    "step1": {
+      "heading": "Pilia ang Serbisyo",
+      "description": "Pilia ang healthcare service nga imong gikinahanglan. Ang matag serbisyo gidumala sa specialized administrators.",
+      "loading": "Nag-load sa mga serbisyo...",
+      "no_services": "Walay available nga serbisyo karon.",
+      "free_badge": "LIBRE",
+      "confidential_badge": "Kumpidensyal",
+      "managed_by": "Gidumala ni {name}",
+      "and_more": "+{count} pa",
+      "duration": "Gidugayon: {minutes} min",
+      "booking_confirmation": "• Kumpirmasyon sa booking",
+      "about_system": {
+        "heading": "Mahitungod sa Among Appointment System",
+        "description": "Ang matag serbisyo gidumala sa specialized administrators nga moreview ug mokumpirma sa imong booking base sa imong panginahanglan ug availability."
+      }
+    },
+    "step2": {
+      "heading": "Pilia ang Petsa",
+      "description": "Ang mga appointment kinahanglan i-book og dili ubos sa 7 ka adlaw. Weekdays lang (Lunes-Biyernes) ang available.",
+      "back_to_services": "← Balik sa mga serbisyo"
+    },
+    "step3": {
+      "heading": "Pilia ang Oras",
+      "description": "Pilia tali sa Buntag (AM) o Hapon (PM) para sa {date}",
+      "loading": "Nag-load sa available nga mga oras...",
+      "full_badge": "PUNO",
+      "availability": "Availability",
+      "slots": "{remaining} / {capacity} slots",
+      "available": "✓ Available - I-click aron pilion",
+      "fully_booked": "✗ Puno na - Palihug pilia ang lain nga petsa o oras",
+      "no_blocks": "Walay available nga oras para sa petsang ni",
+      "choose_different_date": "← Pilia ang lain nga petsa"
+    },
+    "step4": {
+      "heading": "Kumpirma ang Appointment",
+      "service_label": "Serbisyo:",
+      "date_label": "Petsa:",
+      "time_block_label": "Oras:",
+      "what_happens_next": {
+        "heading": "Unsa ang Sunod",
+        "step1": "Ang imong booking rerebyuhin sa among {role}",
+        "step2": "Ang imong appointment kokumpirmahin base sa availability ug imong panginahanglan",
+        "step3": "Makadawat ka og confirmation notification ({time})",
+        "step4": "Mopadala og pahinumdom 3 ka adlaw sa wala pa ang appointment"
+      },
+      "reason_label": "Hinungdan sa Pagbisita (Opsyonal)",
+      "reason_help": "Ang paghatag og hinungdan makatabang sa among {role} nga mangandam para sa imong appointment.",
+      "reason_placeholder": "Pilia ang hinungdan...",
+      "custom_reason_placeholder": "Palihug ihulagway ang hinungdan sa appointment ni...",
+      "character_count": "{count}/500 character",
+      "back_button": "← Balik",
+      "booking_button": "Kumpirma ang Booking",
+      "booking_button_loading": "Nag-book..."
+    },
+    "success": {
+      "page_title": "Appointment Booked",
+      "heading": "Naisumite ang Appointment Booking!",
+      "message": "Nadawat na ang imong appointment request ug karon giproseso.",
+      "what_next_heading": "Unsa ang Sunod?",
+      "what_next_message": "Ang among {role} moreview sa imong booking ug mokumpirma sa imong appointment. Makadawat ka og confirmation notification {time}.",
+      "healthcare_staff": "healthcare staff",
+      "shortly": "sa dili madugay",
+      "redirecting": "Gi-redirect sa imong mga appointment..."
+    }
+  },
+  "medical_records": {
+    "title": "Akong Mga Medikal nga Rekord",
+    "description": "Tan-awon ang imong kompleto nga medikal nga kasaysayan",
+    "loading": "Nag-load sa imong mga medikal nga rekord...",
+    "statistics": {
+      "total_records": "Kinatibuk-ang Rekord",
+      "general": "Kinatibuk-an",
+      "healthcard": "Healthcard",
+      "hiv": "HIV",
+      "pregnancy": "Pagmabdos",
+      "immunization": "Immunization",
+      "laboratory": "Laboratoryo"
+    },
+    "table": {
+      "date_created": "Petsa nga Gihimo",
+      "service": "Serbisyo",
+      "walk_in_visit": "Walk-in nga bisita",
+      "template_type": "Matang sa Template",
+      "category": "Kategorya",
+      "actions": "Mga Aksyon",
+      "view_details": "Tan-awon ang Detalye",
+      "search_placeholder": "Pangitaa gamit ang serbisyo, matang sa template, o kategorya..."
+    },
+    "categories": {
+      "general": "Kinatibuk-an",
+      "healthcard": "Healthcard",
+      "hiv": "HIV",
+      "pregnancy": "Pagmabdos",
+      "immunization": "Immunization",
+      "laboratory": "Laboratoryo"
+    }
+  },
+  "health_card": {
+    "title": "Akong Health Card",
+    "description": "Ang imong digital health card nga adunay QR code",
+    "loading": "Nag-load sa imong health card...",
+    "error": {
+      "title": "Dili Ma-load ang Health Card",
+      "try_again": "Sulayi Usab"
+    },
+    "success": {
+      "heading": "Ang Imong Digital Health Card",
+      "description": "Gamita kini nga health card kon mobisita sa City Health Office facilities sa Panabo City."
+    },
+    "no_card": {
+      "heading": "Wala pa ang Health Card",
+      "description": "Ang imong health card mahimong available human sa imong unang nakompletong appointment."
+    },
+    "status": {
+      "active": "Aktibo",
+      "expired": "Nag-expire na",
+      "inactive": "Dili Aktibo",
+      "expired_title": "Nag-expire na ang Health Card",
+      "inactive_title": "Dili Aktibo ang Health Card",
+      "expired_message": "Ang imong health card nag-expire na. Palihug kontak-a ang health office para sa renewal.",
+      "inactive_message": "Kini nga health card karon dili aktibo. Palihug kontak-a ang health office para sa tabang."
+    },
+    "labels": {
+      "card_number": "Numero sa Card",
+      "patient_name": "Ngalan sa Pasyente",
+      "patient_number": "Numero sa Pasyente",
+      "date_of_birth": "Petsa sa Pagkatawo",
+      "barangay": "Barangay",
+      "medical_information": "Medikal nga Impormasyon",
+      "blood_type": "Klase sa Dugo",
+      "allergies": "Mga Allergy",
+      "current_medications": "Kasamtangang Tambal",
+      "emergency_contact": "Emergency Contact",
+      "issued": "Giisyu",
+      "expires": "Mag-expire"
+    },
+    "footer": {
+      "scan_for_quick_access": "I-scan para sa paspas nga access",
+      "city_health_office": "City Health Office",
+      "panabo_city": "Panabo City, Davao del Norte"
+    },
+    "download": {
+      "pdf": "I-download ang PDF",
+      "generating_pdf": "Gihimo ang PDF...",
+      "png": "I-download ang PNG",
+      "generating_png": "Gihimo ang PNG...",
+      "pdf_success": "Malampuson nga na-download ang health card PDF!",
+      "pdf_error": "Napakyas ang paghimo sa PDF. Palihug sulayi usab.",
+      "png_success": "Malampuson nga na-download ang health card image!",
+      "png_error": "Napakyas ang paghimo sa PNG. Palihug sulayi usab."
+    },
+    "how_to_use": {
+      "title": "Unsaon Paggamit sa Imong Digital Health Card",
+      "step1": "Ipakita kini nga health card sa bisan unsang City Health Office facility sa Panabo City",
+      "step2": "Mahimo nga i-scan sa healthcare staff ang QR code para sa paspas nga access sa imong impormasyon",
+      "step3": "I-download ug i-print ang PDF version para sa pisikal nga paggamit",
+      "step4": "Tipigi ang imong digital copy sa imong phone para sa sayon nga access",
+      "step5": "I-update ang imong personal nga impormasyon kon adunay pagbag-o"
+    },
+    "qr_test": {
+      "title": "Sulayan ang Imong QR Code",
+      "description": "I-upload ang imong na-download nga health card image aron ma-verify nga mabasa ug valid ang QR code.",
+      "upload_button": "I-upload ang QR Code Image",
+      "testing": "Gisulayan ang QR Code...",
+      "valid_message": "Ang QR code valid ug motugma sa imong health card! Makahimo ang healthcare staff sa pag-scan niini nga malampuson.",
+      "invalid_message": "Ang QR code wala motugma sa imong kasamtangang health card. Palihug mag-download og bag-ong kopya.",
+      "invalid_format": "Ang format sa QR code invalid. Palihug siguruha nga sakto ang na-upload nga health card QR code.",
+      "decode_failed": "Napakyas ang pag-decode sa QR code gikan sa image. Palihug siguruha nga ang image adunay tin-aw ug mabasa nga QR code.",
+      "verified_success": "Malampuson nga na-verify ang QR code!",
+      "mismatch_detected": "Nakit-an nga dili motugma ang QR code",
+      "invalid_format_toast": "Invalid ang format sa QR code",
+      "scan_failed": "Napakyas ang pag-scan sa QR code",
+      "valid_badge": "✓ Valid nga QR Code",
+      "invalid_badge": "✗ Invalid nga QR Code"
+    }
+  },
+  "profile": {
+    "title": "Akong Profile",
+    "description": "Dumala ang imong account information",
+    "unauthorized": "Walay permiso nga access",
+    "sections": {
+      "personal_info": "Personal nga Impormasyon",
+      "emergency_contact": "Emergency Contact",
+      "medical_info": "Medikal nga Impormasyon",
+      "account_info": "Impormasyon sa Account"
+    },
+    "fields": {
+      "first_name": "Unang Ngalan",
+      "last_name": "Apelyido",
+      "email": "Email Address",
+      "email_readonly": "Dili ma-usab ang email",
+      "date_of_birth": "Petsa sa Pagkatawo",
+      "gender": "Sekso",
+      "contact_number": "Contact Number",
+      "phone_format": "+639XXXXXXXXX o 09XXXXXXXXX",
+      "barangay": "Barangay",
+      "loading_barangays": "Nag-load sa mga barangay...",
+      "select_barangay": "Pilia ang barangay",
+      "emergency_name": "Ngalan",
+      "emergency_phone": "Telepono",
+      "emergency_email": "Email (Opsyonal)",
+      "blood_type": "Blood Type",
+      "select_blood_type": "Pilia ang blood type",
+      "allergies": "Mga Allergy (usa matag linya)",
+      "allergies_placeholder": "pananglitan, Mani\\nPenicillin",
+      "current_medications": "Karon nga Mga Tambal",
+      "medications_placeholder": "Ilista ang mga tambal nga imong giinom karon",
+      "account_status": "Kahimtang sa Account",
+      "patient_number": "Patient Number",
+      "member_since": "Miyembro Sukad"
+    },
+    "actions": {
+      "cancel": "Kanselaon",
+      "save_changes": "I-save ang Mga Kausaban",
+      "saving": "Gi-save..."
+    }
+  },
+  "feedback_page": {
+    "table": {
+      "submitted": "Naisumite",
+      "service": "Serbisyo",
+      "not_available": "N/A",
+      "rating": "Rating",
+      "rating_suffix": "/ 5.0",
+      "recommend": "Irekomendar",
+      "yes": "Oo",
+      "no": "Dili",
+      "response": "Tubag",
+      "responded": "Adunay Tubag",
+      "pending": "Naghulat",
+      "actions": "Mga Aksyon",
+      "view_details": "Tan-awon ang Detalye",
+      "search_placeholder": "Pangitaa gamit ang serbisyo o rating..."
+    },
+    "drawers": {
+      "submit_title": "Ipadala ang Feedback",
+      "details_title": "Detalye sa Feedback"
+    },
+    "completed_badge": "Nahuman"
+  },
+  "service_requirements": {
+    "no_requirements": "Walay special nga requirements",
+    "heading": "Mga Requirement nga Dad-on ({count})",
+    "tip_prefix": "💡 Tip:",
+    "tip_message": "Dad-a ang mga dokumento aron malikayan ang pag-reschedule sa imong appointment"
+  },
+  "enums": {
+    "appointment_status": {
+      "scheduled": "Naka-iskedyul",
+      "checked_in": "Naabot na",
+      "in_progress": "Ginahimo",
+      "completed": "Nahuman",
+      "cancelled": "Nakansela",
+      "no_show": "Wala Miabot",
+      "pending": "Naghulat"
+    },
+    "notification_type": {
+      "appointment_reminder": "Pahinumdom sa Appointment",
+      "approval": "Approval",
+      "cancellation": "Kanselasyon",
+      "feedback_request": "Hangyo sa Feedback",
+      "general": "Kinatibuk-an"
+    },
+    "disease_type": {
+      "hiv_aids": "HIV/AIDS",
+      "dengue": "Dengue",
+      "malaria": "Malaria",
+      "measles": "Tigdas",
+      "rabies": "Rabis",
+      "pregnancy_complications": "Komplikasyon sa Pagmabdos",
+      "other": "Uban Pa"
+    },
+    "disease_severity": {
+      "mild": "Gamay",
+      "moderate": "Kasarangan",
+      "severe": "Grabe",
+      "critical": "Kritikal"
+    },
+    "disease_status": {
+      "active": "Aktibo",
+      "recovered": "Naayo",
+      "deceased": "Namatay",
+      "ongoing_treatment": "Kasalukuyang Pagtambal"
+    },
+    "medical_category": {
+      "general": "Kinatibuk-an",
+      "healthcard": "Healthcard",
+      "hiv": "HIV",
+      "pregnancy": "Pagmabdos",
+      "immunization": "Immunization",
+      "laboratory": "Laboratoryo"
+    },
+    "gender": {
+      "male": "Lalaki",
+      "female": "Babaye",
+      "other": "Lain"
+    },
+    "blood_type": {
+      "a_positive": "A+",
+      "a_negative": "A-",
+      "b_positive": "B+",
+      "b_negative": "B-",
+      "ab_positive": "AB+",
+      "ab_negative": "AB-",
+      "o_positive": "O+",
+      "o_negative": "O-"
+    },
+    "account_status": {
+      "active": "Aktibo",
+      "inactive": "Dili Aktibo",
+      "suspended": "Gi-suspend",
+      "pending": "Naghulat"
     }
   }
 }
