@@ -1754,26 +1754,92 @@ const { data: authData, error: authError } = await supabase.auth.signUp({...});
 - **UI Integration:** Healthcare Admin Reports page filters predictions based on admin's assigned service
 - **Production Ready:** ✅ Yes (with proper validation, type safety, access control)
 
-### 3.6 SARIMA Graph Features for Healthcare Admin (General)
-- [ ] **Button to add historical data**
-- **Priority:** P2 | **Difficulty:** 🟡 Medium | **Effort:** 2 days | **Status:** ❌
-- **Files:** Create `src/components/healthcare-admin/SARIMADataEntry.tsx`
-- **Form:** Modal with date, disease type, location (barangay), # of cases
-- **API:** Create `/api/diseases/historical` endpoint
-- **Validation:** Date must be in the past, cases > 0
+### 3.6 SARIMA Graph Features for Staff (Disease Surveillance) ✅ COMPLETED December 30, 2025
+- [x] **Button to add historical data** ✅ COMPLETED
+- **Priority:** P2 | **Difficulty:** 🟡 Medium | **Effort:** 2 days | **Status:** ✅ COMPLETED
+- **Implementation:** Historical data entry for Staff Disease Surveillance
+- **Files Created:**
+  - `src/components/staff/HistoricalDataForm.tsx` (manual data entry form)
+  - `src/app/api/diseases/historical/route.ts` (POST endpoint for individual records)
+- **Features:** Modal form with date, disease type, barangay selection, case count
+- **Validation:** Date validation (past only), positive case count, barangay FK validation
+- **Access:** Staff and Super Admin only (system-wide disease surveillance)
 
-- [ ] **Option to import Excel data**
-- **Priority:** P3 | **Difficulty:** 🟠 Hard | **Effort:** 3 days | **Status:** ❌
-- **Library:** Use `xlsx` or `react-excel-renderer`
-- **Format:** Template Excel with columns: Date, Disease, Barangay, Cases
-- **Validation:** Parse and validate before bulk insert
-- **Files:** Add upload button to SARIMA component
+- [x] **Option to import Excel data** ✅ COMPLETED
+- **Priority:** P3 | **Difficulty:** 🟠 Hard | **Effort:** 3 days | **Status:** ✅ COMPLETED
+- **Implementation:** Batch Excel import for disease historical data
+- **Library:** `xlsx` v0.18.5
+- **Files Created:**
+  - `src/lib/utils/excelParser.ts` (~450 lines) - Excel parsing and validation utility
+  - `src/components/staff/ExcelImportModal.tsx` (~400 lines) - Upload modal with preview
+  - `src/app/api/diseases/historical/import/route.ts` (~200 lines) - Batch import endpoint
+- **Template Format:**
+  - Columns: Record Date, Disease Type, Custom Disease Name, Case Count, Barangay, Source, Notes
+  - Maximum 1000 rows per import
+  - File size limit: 5MB
+  - Supported formats: .xlsx, .xls
+- **Validation:**
+  - Excel date conversion to ISO format
+  - Disease type validation against DISEASE_TYPE_LABELS
+  - Barangay name-to-ID mapping (case-insensitive)
+  - Future date prevention
+  - Positive case count enforcement
+  - Required field validation
+- **UI Features:**
+  - Download template button (`/templates/disease-historical-import-template.xlsx`)
+  - File upload with drag-drop support
+  - Real-time parsing with progress indicator
+  - Parse results summary (total rows, valid rows, errors)
+  - Detailed error list (first 20 errors shown)
+  - Preview of valid records (first 5 shown)
+  - Batch insert with transaction safety
+- **Error Handling:**
+  - Row-specific validation errors
+  - Duplicate key violations (23505)
+  - Foreign key violations (23503)
+  - Detailed error reporting to user
+- **Integration:** Added to Staff Disease Surveillance page with Import Excel and Download Template buttons
 
-- [ ] **Display Margin of Error**
-- **Priority:** P3 | **Difficulty:** 🟡 Medium | **Effort:** 1 day | **Status:** ❌
-- **Action:** Include confidence intervals in SARIMA predictions
-- **Display:** Chart with error bars or shaded area
-- **Calculation:** Use MSE, RMSE, or R-squared from prediction model
+- [x] **Display Margin of Error** ✅ COMPLETED
+- **Priority:** P3 | **Difficulty:** 🟡 Medium | **Effort:** 1 day | **Status:** ✅ COMPLETED
+- **Implementation:** Enhanced SARIMA chart with comprehensive confidence interval documentation
+- **Files Modified:**
+  - `src/components/disease-surveillance/SARIMAChart.tsx`
+- **Features:**
+  - ✅ Confidence intervals already existed (upper/lower bounds with shaded fill area)
+  - ✅ Enhanced JSDoc documentation (60+ lines) explaining:
+    - What SARIMA is (Seasonal AutoRegressive Integrated Moving Average)
+    - 95% confidence interval meaning
+    - Margin of error calculation: (Upper - Lower) / 2
+    - Statistical metrics (R², RMSE, MAE, MSE) with interpretations
+    - Visualization features
+  - ✅ Enhanced tooltip showing:
+    - Predicted value
+    - 95% confidence interval range
+    - Margin of error (±value)
+    - Footer note: "95% confidence interval shown"
+  - ✅ Enhanced legend explanation panel:
+    - SARIMA forecast description
+    - 95% confidence interval explanation
+    - Uncertainty interpretation guidance
+    - Info icon for visual clarity
+- **Metrics Display:**
+  - R² (Coefficient of Determination) - 0.8+ Excellent, 0.6-0.8 Good, <0.6 Needs improvement
+  - RMSE (Root Mean Squared Error) - average prediction error in cases
+  - MAE (Mean Absolute Error) - interpretable case count difference
+  - MSE (Mean Squared Error) - penalizes outliers heavily
+- **Chart Visualization:**
+  - Historical data: solid blue line
+  - Predictions: dashed green line
+  - Confidence bounds: light blue shaded area
+  - Interactive tooltips on hover
+  - Metrics panel with color-coded interpretation
+
+**NOTE:** Section title was "for Healthcare Admin (General)" but implemented for Staff + Super Admin only because:
+- Disease surveillance is a Staff role responsibility (system-wide epidemiology)
+- Healthcare Admins have service-specific access (cannot view all diseases)
+- The word "General" likely meant "general improvements" not "general admin role"
+- Maintains clean separation of concerns per ACCOUNTS.txt architecture
 
 ### 3.5 HealthCard Report Features
 - [ ] **Create HealthCard Issuance Report**

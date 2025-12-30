@@ -1,5 +1,55 @@
 'use client';
 
+/**
+ * Disease SARIMA Prediction Chart Component
+ *
+ * Displays historical disease cases and future predictions using SARIMA (Seasonal AutoRegressive
+ * Integrated Moving Average) time series forecasting with 95% confidence intervals.
+ *
+ * CONFIDENCE INTERVALS & MARGIN OF ERROR:
+ * -----------------------------------------
+ * The shaded blue area around predictions represents the 95% confidence interval, meaning:
+ * - We are 95% confident that actual future cases will fall within this range
+ * - Wider intervals indicate higher uncertainty in predictions (volatile historical patterns)
+ * - Narrower intervals indicate more stable and reliable predictions
+ *
+ * Margin of Error Calculation:
+ * - Margin = (Upper Bound - Lower Bound) / 2
+ * - Example: If Upper=50, Lower=30, then Margin = ±10 cases
+ *
+ * STATISTICAL METRICS EXPLAINED:
+ * --------------------------------
+ * The chart includes key accuracy metrics:
+ *
+ * R² (Coefficient of Determination):
+ * - Range: 0.0 to 1.0 (higher is better)
+ * - Measures how well predictions match actual values
+ * - 0.8+ = Excellent, 0.6-0.8 = Good, <0.6 = Needs improvement
+ *
+ * RMSE (Root Mean Squared Error):
+ * - Average prediction error in same units as data (cases)
+ * - Penalizes larger errors more heavily
+ * - Lower values indicate better accuracy
+ *
+ * MAE (Mean Absolute Error):
+ * - Average absolute difference between predicted and actual
+ * - More interpretable than RMSE (direct case count difference)
+ * - Lower values indicate better accuracy
+ *
+ * MSE (Mean Squared Error):
+ * - Squared prediction error (penalizes outliers heavily)
+ * - Used in model optimization
+ * - Lower values indicate better accuracy
+ *
+ * VISUALIZATION FEATURES:
+ * ------------------------
+ * - Historical data shown with solid blue line
+ * - Predictions shown with dashed green line
+ * - Confidence bounds shown with light blue shaded area
+ * - Hover over predicted points to see margin of error
+ * - Vertical line separates historical from predicted data
+ */
+
 import { useEffect, useState } from 'react';
 import {
   Chart as ChartJS,
@@ -246,7 +296,45 @@ export default function SARIMAChart({ diseaseType, barangayId }: SARIMAChartProp
             if (label.includes('Confidence')) {
               return null; // Don't show confidence in tooltip
             }
+
+            // For predicted cases, show confidence interval and margin of error
+            if (label === 'Predicted Cases') {
+              const chart = context.chart;
+              const datasets = chart.data.datasets;
+              const dataIndex = context.dataIndex;
+
+              // Find upper and lower confidence datasets
+              const upperDataset = datasets.find(d => d.label === 'Upper Confidence');
+              const lowerDataset = datasets.find(d => d.label === 'Lower Confidence');
+
+              if (upperDataset && lowerDataset && upperDataset.data && lowerDataset.data) {
+                const upperValue = upperDataset.data[dataIndex];
+                const lowerValue = lowerDataset.data[dataIndex];
+
+                // Only show confidence info if both bounds exist (i.e., this is a prediction)
+                if (upperValue !== null && lowerValue !== null &&
+                    typeof upperValue === 'number' && typeof lowerValue === 'number') {
+                  const margin = ((upperValue - lowerValue) / 2).toFixed(1);
+                  const predictedValue = context.parsed.y;
+
+                  return [
+                    `${label}: ${predictedValue} cases`,
+                    `95% CI: ${Math.round(lowerValue)}-${Math.round(upperValue)} cases`,
+                    `Margin of Error: ±${margin} cases`
+                  ];
+                }
+              }
+            }
+
             return `${label}: ${context.parsed.y} cases`;
+          },
+          footer: (context) => {
+            // Add helpful footer for predicted values
+            const firstItem = context[0];
+            if (firstItem && firstItem.dataset.label === 'Predicted Cases') {
+              return '\n95% confidence interval shown';
+            }
+            return '';
           },
         },
         filter: (tooltipItem) => {
@@ -361,12 +449,22 @@ export default function SARIMAChart({ diseaseType, barangayId }: SARIMAChartProp
         </div>
       )}
 
-      {/* Legend explanation */}
-      <div className="mt-3 p-3 bg-blue-50 rounded-lg">
-        <p className="text-xs text-blue-800">
-          <span className="font-semibold">SARIMA Forecast:</span> The blue dashed line shows predicted cases for the next 30 days.
-          The shaded area represents the 95% confidence interval, indicating the range where actual values are likely to fall.
-        </p>
+      {/* Legend explanation with confidence interval details */}
+      <div className="mt-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
+        <div className="flex items-start gap-2">
+          <Info className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
+          <div className="text-xs text-blue-900 space-y-1">
+            <p>
+              <span className="font-semibold">SARIMA Forecast:</span> The green dashed line shows predicted cases for the next 30 days based on historical patterns and seasonal trends.
+            </p>
+            <p>
+              <span className="font-semibold">95% Confidence Interval:</span> The shaded blue area represents the range where we are 95% confident actual values will fall. Hover over predicted points to see the margin of error.
+            </p>
+            <p className="text-blue-800">
+              <span className="font-semibold">Interpreting Uncertainty:</span> Wider intervals indicate higher uncertainty (volatile patterns), while narrower intervals suggest more stable and reliable predictions.
+            </p>
+          </div>
+        </div>
       </div>
 
       {/* Demo Data Disclaimer - shown when metrics are not available */}

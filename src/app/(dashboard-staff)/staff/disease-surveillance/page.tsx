@@ -7,6 +7,7 @@ import { ProfessionalCard } from '@/components/ui/ProfessionalCard';
 import { EnhancedTable } from '@/components/ui/EnhancedTable';
 import { Drawer } from '@/components/ui/Drawer';
 import { HistoricalDataForm } from '@/components/staff/HistoricalDataForm';
+import ExcelImportModal from '@/components/staff/ExcelImportModal';
 import { HistoricalStatsSummary } from '@/components/staff/HistoricalStatsSummary';
 import { IndividualCasesSummary } from '@/components/staff/IndividualCasesSummary';
 import { HistoricalStatisticsTable } from '@/components/staff/HistoricalStatisticsTable';
@@ -35,6 +36,8 @@ import {
   Eye,
   Edit2,
   Trash2,
+  Upload,
+  Download,
 } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -111,6 +114,7 @@ export default function StaffDiseaseSurveillancePage() {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [selectedRecord, setSelectedRecord] = useState<DiseaseRecord | null>(null);
   const [isHistoricalFormOpen, setIsHistoricalFormOpen] = useState(false);
+  const [isExcelImportOpen, setIsExcelImportOpen] = useState(false);
   const [isIndividualCasesReportOpen, setIsIndividualCasesReportOpen] = useState(false);
   const [isHistoricalStatsReportOpen, setIsHistoricalStatsReportOpen] = useState(false);
 
@@ -1013,20 +1017,37 @@ export default function StaffDiseaseSurveillancePage() {
           <div className="space-y-6">
             {/* Action Bar for Historical Statistics */}
             <div className="flex justify-end gap-3">
+              <a
+                href="/templates/disease-historical-import-template.xlsx"
+                download
+                className="px-4 py-2 bg-white text-gray-700 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors flex items-center gap-2 shadow-sm"
+                title="Download Excel Template"
+              >
+                <Download className="w-4 h-4" />
+                Download Template
+              </a>
+              <button
+                onClick={() => setIsExcelImportOpen(true)}
+                className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors flex items-center gap-2 shadow-sm"
+                title="Import from Excel"
+              >
+                <Upload className="w-4 h-4" />
+                Import Excel
+              </button>
               <button
                 onClick={() => setIsHistoricalFormOpen(true)}
                 className="px-4 py-2 bg-white text-primary-teal border border-primary-teal rounded-md hover:bg-teal-50 transition-colors flex items-center gap-2 shadow-sm"
-                title="Import Historical Data"
+                title="Add Historical Data Manually"
               >
                 <Database className="w-4 h-4" />
-                Import Historical Data
+                Add Historical Data
               </button>
               <button
                 onClick={() => setIsHistoricalStatsReportOpen(true)}
                 className="px-4 py-2 bg-primary-teal text-white rounded-md hover:bg-primary-teal/90 transition-colors flex items-center gap-2 shadow-sm"
               >
                 <FileText className="w-4 h-4" />
-                Generate Historical Statistics Report
+                Generate Report
               </button>
             </div>
 
@@ -1257,6 +1278,17 @@ export default function StaffDiseaseSurveillancePage() {
             fetchHistoricalStatistics();
           }}
           barangays={barangays}
+        />
+
+        {/* Excel Import Modal */}
+        <ExcelImportModal
+          isOpen={isExcelImportOpen}
+          onClose={() => setIsExcelImportOpen(false)}
+          onImportSuccess={() => {
+            toast.success('Disease data imported from Excel successfully');
+            fetchRecords();
+            fetchHistoricalStatistics();
+          }}
         />
 
         {/* Edit Historical Record Modal */}
