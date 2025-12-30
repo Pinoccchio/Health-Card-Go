@@ -1,10 +1,9 @@
 'use client';
 
 import { useState } from 'react';
-import { X, FileDown, Printer, Calendar, Filter } from 'lucide-react';
+import { X, Download, FileSpreadsheet, Calendar, Filter } from 'lucide-react';
 import { format } from 'date-fns';
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
+import { generateCSV, generateExcel, formatFileName } from '@/lib/utils/exportUtils';
 
 interface IndividualCasesReportGeneratorProps {
   isOpen: boolean;
@@ -37,7 +36,7 @@ export function IndividualCasesReportGenerator({
     end_date: format(new Date(), 'yyyy-MM-dd'),
   });
 
-  const generatePDF = async (printMode: boolean = false) => {
+  const fetchReportData = async () => {
     setIsGenerating(true);
     setError('');
 
@@ -62,67 +61,146 @@ export function IndividualCasesReportGenerator({
 
       const records = result.data || [];
 
-      // Create PDF document
-      const doc = new jsPDF();
-      const pageWidth = doc.internal.pageSize.getWidth();
-      const pageHeight = doc.internal.pageSize.getHeight();
+      return records;
+    } catch (err: any) {
+      console.error('Error fetching data:', err);
+      setError(err.message || 'Failed to fetch report data');
+      throw err;
+    } finally {
+      setIsGenerating(false);
+    }
+  };
 
-      // Header
-      doc.setFontSize(18);
-      doc.setFont('helvetica', 'bold');
-      doc.text('Individual Disease Cases Report', pageWidth / 2, 20, { align: 'center' });
+  const handleExportCSV = async () => {
+    setIsGenerating(true);
+    setError('');
 
-      doc.setFontSize(10);
-      doc.setFont('helvetica', 'normal');
-      doc.text('City Health Office - Panabo City, Davao del Norte', pageWidth / 2, 27, { align: 'center' });
+    try {
+      const records = await fetchReportData();
 
-      // Report metadata
-      doc.setFontSize(9);
-      doc.setFont('helvetica', 'italic');
-      const reportDate = `Generated: ${format(new Date(), 'MMMM d, yyyy h:mm a')}`;
-      doc.text(reportDate, pageWidth / 2, 34, { align: 'center' });
+      if (!records || records.length === 0) {
+        alert('No data available to export');
+        return;
+      }
 
-      // Filter information
-      let yPosition = 42;
-      doc.setFontSize(10);
-      doc.setFont('helvetica', 'bold');
-      doc.text('Report Filters:', 14, yPosition);
+      // Transform records into flat table data
+      const tableData = records.map((record: any) => {
+        // Extract patient info
+        let patientName = 'Unknown';
+        let patientAge = '-';
+        let patientGender = '-';
 
-      doc.setFont('helvetica', 'normal');
-      yPosition += 6;
-      doc.text(`Period: ${format(new Date(filters.start_date), 'MMM d, yyyy')} - ${format(new Date(filters.end_date), 'MMM d, yyyy')}`, 14, yPosition);
+        if (record.patients?.profiles) {
+          patientName = `${record.patients.profiles.first_name} ${record.patients.profiles.last_name}`;
+          if (record.patients.birth_date) {
+            const birthDate = new Date(record.patients.birth_date);
+            const age = Math.floor((new Date().getTime() - birthDate.getTime()) / (365.25 * 24 * 60 * 60 * 1000));
+            patientAge = age.toString();
+          }
+          patientGender = record.patients.gender || '-';
+        } else if (record.anonymous_patient_data) {
+          patientName = record.anonymous_patient_data.name || 'Walk-in Patient';
+          patientAge = record.anonymous_patient_data.age?.toString() || '-';
+          patientGender = record.anonymous_patient_data.gender || '-';
+        }
 
-      yPosition += 5;
-      const diseaseLabel = DISEASE_TYPES.find(d => d.value === filters.disease_type)?.label || 'All Diseases';
-      doc.text(`Disease Type: ${diseaseLabel}`, 14, yPosition);
+        const diseaseLabel = record.disease_type === 'other' && record.custom_disease_name
+          ? record.custom_disease_name
+          : (DISEASE_TYPES.find(d => d.value === record.disease_type)?.label || record.disease_type);
 
-      yPosition += 5;
-      const barangayLabel = filters.barangay_id === 'all'
-        ? 'All Barangays'
-        : barangays.find(b => b.id === parseInt(filters.barangay_id))?.name || 'Unknown';
-      doc.text(`Barangay: ${barangayLabel}`, 14, yPosition);
+        return {
+          diagnosis_date: format(new Date(record.diagnosis_date), 'MMM d, yyyy'),
+          disease_type: diseaseLabel,
+          custom_disease_name: record.custom_disease_name || '-',
+          patient_name: patientName,
+          age: patientAge,
+          gender: patientGender.charAt(0).toUpperCase() + patientGender.slice(1),
+          barangay: record.barangays?.name || 'Unknown',
+          severity: record.severity?.charAt(0).toUpperCase() + record.severity?.slice(1) || '-',
+          status: record.status.replace('_', ' ').split(' ').map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join(' '),
+        };
+      });
 
-      // Statistics summary
-      yPosition += 10;
-      doc.setFontSize(11);
-      doc.setFont('helvetica', 'bold');
-      doc.text('Summary Statistics', 14, yPosition);
+      const filename = formatFileName('individual_cases_report', 'csv');
+      generateCSV(tableData, filename.replace('.csv', ''));
+    } catch (err: any) {
+      console.error('Error exporting CSV:', err);
+      setError(err.message || 'Failed to export CSV');
+    } finally {
+      setIsGenerating(false);
+    }
+  };
 
-      yPosition += 7;
-      doc.setFontSize(9);
-      doc.setFont('helvetica', 'normal');
+  const handleExportExcel = async () => {
+    setIsGenerating(true);
+    setError('');
 
+    try {
+      const records = await fetchReportData();
+
+      if (!records || records.length === 0) {
+        alert('No data available to export');
+        return;
+      }
+
+      // Calculate summary statistics
       const totalCases = records.length;
       const activeCases = records.filter((r: any) => r.status === 'active' || r.status === 'ongoing_treatment').length;
       const recoveredCases = records.filter((r: any) => r.status === 'recovered').length;
       const deceasedCases = records.filter((r: any) => r.status === 'deceased').length;
 
-      doc.text(`Total Cases: ${totalCases}`, 14, yPosition);
-      doc.text(`Active/Ongoing Treatment: ${activeCases}`, 70, yPosition);
-      doc.text(`Recovered: ${recoveredCases}`, 140, yPosition);
+      const diseaseLabel = DISEASE_TYPES.find(d => d.value === filters.disease_type)?.label || 'All Diseases';
+      const barangayLabel = filters.barangay_id === 'all'
+        ? 'All Barangays'
+        : barangays.find(b => b.id === parseInt(filters.barangay_id))?.name || 'Unknown';
 
-      yPosition += 5;
-      doc.text(`Deceased: ${deceasedCases}`, 14, yPosition);
+      const summary = {
+        report_type: 'Individual Disease Cases Report',
+        period: `${format(new Date(filters.start_date), 'MMM d, yyyy')} - ${format(new Date(filters.end_date), 'MMM d, yyyy')}`,
+        disease_filter: diseaseLabel,
+        barangay_filter: barangayLabel,
+        total_cases: totalCases,
+        active_ongoing: activeCases,
+        recovered: recoveredCases,
+        deceased: deceasedCases,
+      };
+
+      // Transform records into table data
+      const tableData = records.map((record: any) => {
+        let patientName = 'Unknown';
+        let patientAge = '-';
+        let patientGender = '-';
+
+        if (record.patients?.profiles) {
+          patientName = `${record.patients.profiles.first_name} ${record.patients.profiles.last_name}`;
+          if (record.patients.birth_date) {
+            const birthDate = new Date(record.patients.birth_date);
+            const age = Math.floor((new Date().getTime() - birthDate.getTime()) / (365.25 * 24 * 60 * 60 * 1000));
+            patientAge = age.toString();
+          }
+          patientGender = record.patients.gender || '-';
+        } else if (record.anonymous_patient_data) {
+          patientName = record.anonymous_patient_data.name || 'Walk-in Patient';
+          patientAge = record.anonymous_patient_data.age?.toString() || '-';
+          patientGender = record.anonymous_patient_data.gender || '-';
+        }
+
+        const diseaseLabel = record.disease_type === 'other' && record.custom_disease_name
+          ? record.custom_disease_name
+          : (DISEASE_TYPES.find(d => d.value === record.disease_type)?.label || record.disease_type);
+
+        return {
+          diagnosis_date: format(new Date(record.diagnosis_date), 'MMM d, yyyy'),
+          disease_type: diseaseLabel,
+          custom_disease_name: record.custom_disease_name || '-',
+          patient_name: patientName,
+          age: patientAge,
+          gender: patientGender.charAt(0).toUpperCase() + patientGender.slice(1),
+          barangay: record.barangays?.name || 'Unknown',
+          severity: record.severity?.charAt(0).toUpperCase() + record.severity?.slice(1) || '-',
+          status: record.status.replace('_', ' ').split(' ').map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join(' '),
+        };
+      });
 
       // Severity breakdown
       const severityBreakdown = records.reduce((acc: any, record: any) => {
@@ -131,28 +209,15 @@ export function IndividualCasesReportGenerator({
         return acc;
       }, {});
 
-      yPosition += 5;
-      let severityText = 'Severity: ';
-      Object.entries(severityBreakdown).forEach(([severity, count], idx) => {
-        const formattedSeverity = severity.charAt(0).toUpperCase() + severity.slice(1);
-        severityText += `${formattedSeverity}: ${count}`;
-        if (idx < Object.keys(severityBreakdown).length - 1) {
-          severityText += ', ';
-        }
-      });
-      doc.text(severityText, 14, yPosition);
+      const severityData = Object.entries(severityBreakdown).map(([severity, count]) => ({
+        severity: severity.charAt(0).toUpperCase() + severity.slice(1),
+        count,
+      }));
 
-      // Disease breakdown by type (if "All Diseases" selected)
+      // Disease breakdown (if "All Diseases" selected)
+      let diseaseData: any[] = [];
       if (filters.disease_type === 'all') {
-        yPosition += 8;
-        doc.setFont('helvetica', 'bold');
-        doc.text('Disease Breakdown:', 14, yPosition);
-
-        yPosition += 5;
-        doc.setFont('helvetica', 'normal');
-
         const diseaseBreakdown = records.reduce((acc: any, record: any) => {
-          // For custom diseases, use custom_disease_name as the key to count them separately
           let key: string;
           if (record.disease_type === 'other' && record.custom_disease_name) {
             key = record.custom_disease_name;
@@ -163,147 +228,35 @@ export function IndividualCasesReportGenerator({
           return acc;
         }, {});
 
-        let xPos = 14;
-        Object.entries(diseaseBreakdown).forEach(([diseaseKey, count]) => {
-          // Check if this is a custom disease or standard disease
+        diseaseData = Object.entries(diseaseBreakdown).map(([diseaseKey, count]) => {
           const standardDisease = DISEASE_TYPES.find(d => d.value === diseaseKey);
           const label = standardDisease ? standardDisease.label : diseaseKey;
-          doc.text(`${label}: ${count}`, xPos, yPosition);
-          xPos += 60;
-          if (xPos > 170) {
-            xPos = 14;
-            yPosition += 5;
-          }
+          return {
+            disease: label,
+            count,
+          };
         });
       }
 
-      // Records table
-      yPosition += 12;
+      const excelData: any = {
+        summary,
+        tableData,
+        severityBreakdown: severityData,
+      };
 
-      const tableData = records.map((record: any) => {
-        // Extract patient info
-        let patientName = 'Unknown';
-        let patientAge = '-';
-        let patientGender = '-';
-
-        if (record.patients?.profiles) {
-          // Registered patient
-          patientName = `${record.patients.profiles.first_name} ${record.patients.profiles.last_name}`;
-          // Calculate age if birthdate available
-          if (record.patients.birth_date) {
-            const birthDate = new Date(record.patients.birth_date);
-            const age = Math.floor((new Date().getTime() - birthDate.getTime()) / (365.25 * 24 * 60 * 60 * 1000));
-            patientAge = age.toString();
-          }
-          patientGender = record.patients.gender || '-';
-        } else if (record.anonymous_patient_data) {
-          // Anonymous walk-in patient
-          patientName = record.anonymous_patient_data.name || 'Walk-in Patient';
-          patientAge = record.anonymous_patient_data.age?.toString() || '-';
-          patientGender = record.anonymous_patient_data.gender || '-';
-        }
-
-        // Format disease type - use custom_disease_name if it's a custom disease
-        const diseaseLabel = record.disease_type === 'other' && record.custom_disease_name
-          ? record.custom_disease_name
-          : (DISEASE_TYPES.find(d => d.value === record.disease_type)?.label || record.disease_type);
-
-        return [
-          format(new Date(record.diagnosis_date), 'MMM d, yyyy'),
-          diseaseLabel,
-          record.custom_disease_name || '-',
-          patientName,
-          patientAge,
-          patientGender.charAt(0).toUpperCase() + patientGender.slice(1),
-          record.barangays?.name || 'Unknown',
-          record.severity?.charAt(0).toUpperCase() + record.severity?.slice(1) || '-',
-          record.status.replace('_', ' ').split(' ').map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join(' '),
-        ];
-      });
-
-      autoTable(doc, {
-        startY: yPosition,
-        head: [['Date', 'Disease', 'Custom', 'Patient', 'Age', 'Gender', 'Barangay', 'Severity', 'Status']],
-        body: tableData,
-        theme: 'striped',
-        headStyles: {
-          fillColor: [20, 184, 166], // primary-teal color
-          textColor: 255,
-          fontSize: 8,
-          fontStyle: 'bold',
-        },
-        bodyStyles: {
-          fontSize: 7,
-        },
-        alternateRowStyles: {
-          fillColor: [245, 247, 250],
-        },
-        margin: { top: 10, left: 14, right: 14 },
-        styles: {
-          cellPadding: 2,
-          overflow: 'linebreak',
-        },
-        columnStyles: {
-          0: { cellWidth: 20 }, // Date
-          1: { cellWidth: 22 }, // Disease
-          2: { cellWidth: 18 }, // Custom
-          3: { cellWidth: 28 }, // Patient
-          4: { cellWidth: 10 }, // Age
-          5: { cellWidth: 15 }, // Gender
-          6: { cellWidth: 24 }, // Barangay
-          7: { cellWidth: 16 }, // Severity
-          8: { cellWidth: 22 }, // Status
-        },
-        didDrawPage: (data) => {
-          // Footer on every page
-          const pageSize = doc.internal.pageSize;
-          const pageHeight = pageSize.getHeight();
-          const pageWidth = pageSize.getWidth();
-          const pageCount = doc.internal.pages.length - 1;
-          const pageNum = data.pageNumber;
-
-          doc.setFontSize(8);
-          doc.setFont('helvetica', 'italic');
-          doc.setTextColor(100);
-
-          // Center: Computer-generated notice
-          doc.text(
-            'This is a computer-generated report. For official use only.',
-            pageWidth / 2,
-            pageHeight - 15,
-            { align: 'center' }
-          );
-
-          // Right: Simple page numbers (PROFESSIONAL FORMAT)
-          doc.text(
-            `Page ${pageNum} of ${pageCount}`,
-            pageWidth - 20,
-            pageHeight - 10,
-            { align: 'right' }
-          );
-        },
-      });
-
-      if (printMode) {
-        // Open print dialog
-        doc.autoPrint();
-        window.open(doc.output('bloburl'), '_blank');
-      } else {
-        // Download PDF
-        const fileName = `Individual_Cases_Report_${format(new Date(), 'yyyy-MM-dd')}.pdf`;
-        doc.save(fileName);
+      if (diseaseData.length > 0) {
+        excelData.diseaseBreakdown = diseaseData;
       }
 
+      const filename = formatFileName('individual_cases_report', 'xlsx');
+      generateExcel(excelData, filename.replace('.xlsx', ''));
     } catch (err: any) {
-      console.error('Error generating PDF:', err);
-      setError(err.message || 'Failed to generate report');
+      console.error('Error exporting Excel:', err);
+      setError(err.message || 'Failed to export Excel');
     } finally {
       setIsGenerating(false);
     }
   };
-
-  const handleDownload = () => generatePDF(false);
-  const handlePrint = () => generatePDF(true);
 
   const handleClose = () => {
     setError('');
@@ -333,11 +286,11 @@ export function IndividualCasesReportGenerator({
           <div className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between rounded-t-lg">
             <div>
               <h2 id="modal-title" className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-                <FileDown className="w-5 h-5 text-primary-teal" />
-                Generate Individual Cases Report
+                <Download className="w-5 h-5 text-primary-teal" />
+                Export Individual Cases Report
               </h2>
               <p className="text-sm text-gray-500 mt-1">
-                Create a PDF report with individual disease case records
+                Export individual disease case records to CSV or Excel
               </p>
             </div>
             <button
@@ -446,21 +399,21 @@ export function IndividualCasesReportGenerator({
               </button>
               <button
                 type="button"
-                onClick={handlePrint}
+                onClick={handleExportCSV}
                 className="px-4 py-2 bg-gray-700 text-white rounded-md hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                 disabled={isGenerating}
               >
-                <Printer className="w-4 h-4" />
-                {isGenerating ? 'Generating...' : 'Print Report'}
+                <Download className="w-4 h-4" />
+                {isGenerating ? 'Exporting...' : 'Export CSV'}
               </button>
               <button
                 type="button"
-                onClick={handleDownload}
+                onClick={handleExportExcel}
                 className="px-4 py-2 bg-primary-teal text-white rounded-md hover:bg-primary-teal/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                 disabled={isGenerating}
               >
-                <FileDown className="w-4 h-4" />
-                {isGenerating ? 'Generating...' : 'Download PDF'}
+                <FileSpreadsheet className="w-4 h-4" />
+                {isGenerating ? 'Exporting...' : 'Export Excel'}
               </button>
             </div>
           </div>

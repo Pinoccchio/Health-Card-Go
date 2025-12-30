@@ -37,6 +37,10 @@ export default function HealthcareAdminReportsPage() {
   // Track if filters have changed (to trigger re-fetch)
   const [filtersKey, setFiltersKey] = useState(0);
 
+  // Data states for export
+  const [appointmentsData, setAppointmentsData] = useState<any>(null);
+  const [patientsData, setPatientsData] = useState<any>(null);
+
   useEffect(() => {
     const fetchServiceInfo = async () => {
       setLoading(true);
@@ -110,6 +114,46 @@ export default function HealthcareAdminReportsPage() {
     fetchServiceInfo();
   }, []);
 
+  // Fetch report data for export
+  useEffect(() => {
+    const fetchReportData = async () => {
+      if (!service) return;
+
+      try {
+        const params = new URLSearchParams({
+          start_date: startDate,
+          end_date: endDate,
+          service_id: service.id.toString(),
+        });
+
+        if (barangayId) params.append('barangay_id', barangayId.toString());
+
+        // Fetch appointments data if service requires appointments
+        if (service.requires_appointment && (activeTab === 'overview' || activeTab === 'appointments')) {
+          const apptResponse = await fetch(`/api/healthcare-admin/reports/appointments?${params}`);
+          if (apptResponse.ok) {
+            const apptData = await apptResponse.json();
+            setAppointmentsData(apptData.data); // Extract inner data object
+          }
+        }
+
+        // Fetch patients data
+        if (activeTab === 'overview' || activeTab === 'patients') {
+          const patientParams = new URLSearchParams(params);
+          const patientResponse = await fetch(`/api/healthcare-admin/reports/patients?${patientParams}`);
+          if (patientResponse.ok) {
+            const patientData = await patientResponse.json();
+            setPatientsData(patientData.data); // Extract inner data object
+          }
+        }
+      } catch (err) {
+        console.error('Error fetching report data:', err);
+      }
+    };
+
+    fetchReportData();
+  }, [service, activeTab, filtersKey, startDate, endDate, barangayId]);
+
   const handleApplyFilters = () => {
     // Increment key to trigger re-render of child components
     setFiltersKey((prev) => prev + 1);
@@ -178,13 +222,12 @@ export default function HealthcareAdminReportsPage() {
               </div>
               <div>
                 <ExportButtons
-                  reportType={activeTab === 'appointments' ? 'appointments' : 'patients'}
+                  activeTab={activeTab}
                   serviceName={service.name}
                   startDate={startDate}
                   endDate={endDate}
                   barangayId={barangayId}
-                  requiresAppointment={service.requires_appointment}
-                  requiresMedicalRecord={service.requires_medical_record}
+                  data={activeTab === 'appointments' ? appointmentsData : patientsData}
                 />
               </div>
             </div>

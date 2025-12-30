@@ -176,6 +176,7 @@ export async function GET(request: NextRequest) {
             { status: 'Checked In', count: 0 },
           ],
           trend_data: [],
+          table_data: [],
           filters_applied: {
             start_date: startDate,
             end_date: endDate,
@@ -199,6 +200,69 @@ export async function GET(request: NextRequest) {
       total_count: count,
       rows_returned: appointments?.length || 0,
       date_range: `${startDate} to ${endDate}`,
+    });
+
+    // Fetch detailed appointment records for table export
+    let detailedQuery = supabase
+      .from('appointments')
+      .select(`
+        id,
+        appointment_number,
+        appointment_date,
+        appointment_time,
+        status,
+        reason,
+        created_at,
+        patients:patient_id (
+          patient_number,
+          user_id,
+          profiles:user_id (
+            first_name,
+            last_name,
+            barangays (
+              name
+            )
+          )
+        )
+      `)
+      .eq('service_id', profile.assigned_service_id)
+      .gte('appointment_date', startDate)
+      .lte('appointment_date', endDate)
+      .order('appointment_date', { ascending: false })
+      .order('appointment_time', { ascending: true });
+
+    // Add barangay filter to detailed query if provided
+    if (patientIdsToFilter && patientIdsToFilter.length > 0) {
+      detailedQuery = detailedQuery.in('patient_id', patientIdsToFilter);
+    }
+
+    const { data: detailedAppointments, error: detailedError } = await detailedQuery;
+
+    if (detailedError) {
+      console.error('[HEALTHCARE ADMIN REPORTS - APPOINTMENTS] Error fetching detailed appointments:', detailedError);
+    }
+
+    // Transform detailed appointments for table export
+    const tableData = detailedAppointments?.map(appt => {
+      const patient = appt.patients as any;
+      const profile = patient?.profiles as any;
+      const barangay = profile?.barangays as any;
+
+      return {
+        appointment_number: appt.appointment_number || 'N/A',
+        appointment_date: appt.appointment_date,
+        appointment_time: appt.appointment_time,
+        patient_number: patient?.patient_number || 'N/A',
+        patient_name: profile ? `${profile.first_name} ${profile.last_name}` : 'Unknown',
+        barangay: barangay?.name || 'N/A',
+        status: appt.status,
+        reason: appt.reason || '',
+        created_at: appt.created_at,
+      };
+    }) || [];
+
+    console.log('[HEALTHCARE ADMIN REPORTS - APPOINTMENTS] Table data prepared:', {
+      total_rows: tableData.length,
     });
 
     // Calculate summary statistics
@@ -255,6 +319,7 @@ export async function GET(request: NextRequest) {
         completion_rate: completionRate,
         status_breakdown: statusBreakdown,
         trend_data: trendData,
+        table_data: tableData,
         filters_applied: {
           start_date: startDate,
           end_date: endDate,

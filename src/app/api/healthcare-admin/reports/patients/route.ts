@@ -205,6 +205,7 @@ export async function GET(request: NextRequest) {
             { status: 'Inactive', count: 0 },
             { status: 'Suspended', count: 0 },
           ],
+          table_data: [],
           filters_applied: {
             start_date: startDate || null,
             end_date: endDate || null,
@@ -270,6 +271,50 @@ export async function GET(request: NextRequest) {
       barangay_filter_applied: barangayId ? 'yes' : 'no',
     });
 
+    // Fetch detailed patient information for table export
+    const adminClient = createAdminClient();
+    const { data: fullPatientData, error: fullPatientError } = await adminClient
+      .from('patients')
+      .select(`
+        id,
+        patient_number,
+        user_id,
+        profiles:user_id (
+          first_name,
+          last_name,
+          email,
+          contact_number,
+          status,
+          barangays (
+            name
+          )
+        )
+      `)
+      .in('user_id', userIds);
+
+    if (fullPatientError) {
+      console.error('[HEALTHCARE ADMIN REPORTS - PATIENTS] Error fetching full patient data:', fullPatientError);
+    }
+
+    // Transform patient data for table export
+    const tableData = fullPatientData?.map(patient => {
+      const profile = patient.profiles as any;
+      const barangay = profile?.barangays as any;
+
+      return {
+        patient_number: patient.patient_number || 'N/A',
+        patient_name: profile ? `${profile.first_name} ${profile.last_name}` : 'Unknown',
+        email: profile?.email || 'N/A',
+        contact_number: profile?.contact_number || 'N/A',
+        barangay: barangay?.name || 'N/A',
+        status: profile?.status || 'N/A',
+      };
+    }) || [];
+
+    console.log('[HEALTHCARE ADMIN REPORTS - PATIENTS] Table data prepared:', {
+      total_rows: tableData.length,
+    });
+
     // Calculate summary statistics
     const summaryStats = {
       total_patients: patients?.length || 0,
@@ -322,6 +367,7 @@ export async function GET(request: NextRequest) {
         summary: summaryStats,
         status_breakdown: statusBreakdown,
         barangay_breakdown: barangayBreakdown,
+        table_data: tableData,
         filters_applied: {
           start_date: startDate || null,
           end_date: endDate || null,

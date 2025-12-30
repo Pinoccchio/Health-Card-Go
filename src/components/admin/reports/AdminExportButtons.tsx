@@ -5,23 +5,23 @@ import { Button } from '@/components/ui';
 import { Download, FileSpreadsheet } from 'lucide-react';
 import { generateCSV, generateExcel, formatFileName } from '@/lib/utils/exportUtils';
 
-interface ExportButtonsProps {
+interface AdminExportButtonsProps {
   activeTab: string;
-  serviceName: string;
   startDate: string;
   endDate: string;
+  serviceId?: number;
   barangayId?: number;
   data?: any;
 }
 
-export default function ExportButtons({
+export default function AdminExportButtons({
   activeTab,
-  serviceName,
   startDate,
   endDate,
+  serviceId,
   barangayId,
   data,
-}: ExportButtonsProps) {
+}: AdminExportButtonsProps) {
   const [exporting, setExporting] = useState(false);
 
   const handleExportCSV = async () => {
@@ -32,7 +32,7 @@ export default function ExportButtons({
         return;
       }
 
-      const filename = formatFileName(`${serviceName}_${activeTab}`, 'csv');
+      const filename = formatFileName(`admin_report_${activeTab}`, 'csv');
       generateCSV(data.table_data, filename.replace('.csv', ''));
     } catch (error) {
       console.error('Error exporting to CSV:', error);
@@ -50,7 +50,7 @@ export default function ExportButtons({
         return;
       }
 
-      const filename = formatFileName(`${serviceName}_${activeTab}`, 'xlsx');
+      const filename = formatFileName(`admin_report_${activeTab}`, 'xlsx');
 
       // Prepare Excel data with all available sheets
       const excelData: any = {
@@ -77,6 +77,10 @@ export default function ExportButtons({
 
       if (data.barangay_breakdown) {
         excelData.barangayBreakdown = data.barangay_breakdown;
+      }
+
+      if (data.rating_distribution) {
+        excelData.ratingDistribution = data.rating_distribution;
       }
 
       if (data.trend_data) {

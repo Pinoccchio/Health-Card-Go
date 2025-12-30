@@ -1,10 +1,9 @@
 'use client';
 
 import { useState } from 'react';
-import { X, FileDown, Printer, Calendar, Filter } from 'lucide-react';
+import { X, Download, FileSpreadsheet, Calendar, Filter } from 'lucide-react';
 import { format } from 'date-fns';
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
+import { generateCSV, generateExcel, formatFileName } from '@/lib/utils/exportUtils';
 
 interface HistoricalStatisticsReportGeneratorProps {
   isOpen: boolean;
@@ -37,7 +36,7 @@ export function HistoricalStatisticsReportGenerator({
     end_date: format(new Date(), 'yyyy-MM-dd'),
   });
 
-  const generatePDF = async (printMode: boolean = false) => {
+  const fetchReportData = async () => {
     setIsGenerating(true);
     setError('');
 
@@ -63,97 +62,126 @@ export function HistoricalStatisticsReportGenerator({
       const records = result.data || [];
       const summary = result.summary || {};
 
-      // Create PDF document
-      const doc = new jsPDF();
-      const pageWidth = doc.internal.pageSize.getWidth();
-      const pageHeight = doc.internal.pageSize.getHeight();
+      return { records, summary };
+    } catch (err: any) {
+      console.error('Error fetching data:', err);
+      setError(err.message || 'Failed to fetch report data');
+      throw err;
+    } finally {
+      setIsGenerating(false);
+    }
+  };
 
-      // Header
-      doc.setFontSize(18);
-      doc.setFont('helvetica', 'bold');
-      doc.text('Historical Disease Statistics Report', pageWidth / 2, 20, { align: 'center' });
+  const handleExportCSV = async () => {
+    setIsGenerating(true);
+    setError('');
 
-      doc.setFontSize(10);
-      doc.setFont('helvetica', 'normal');
-      doc.text('City Health Office - Panabo City, Davao del Norte', pageWidth / 2, 27, { align: 'center' });
+    try {
+      const { records } = await fetchReportData();
 
-      // Report metadata
-      doc.setFontSize(9);
-      doc.setFont('helvetica', 'italic');
-      const reportDate = `Generated: ${format(new Date(), 'MMMM d, yyyy h:mm a')}`;
-      doc.text(reportDate, pageWidth / 2, 34, { align: 'center' });
+      if (!records || records.length === 0) {
+        alert('No data available to export');
+        return;
+      }
 
-      // Filter information
-      let yPosition = 42;
-      doc.setFontSize(10);
-      doc.setFont('helvetica', 'bold');
-      doc.text('Report Filters:', 14, yPosition);
+      // Transform records into flat table data
+      const tableData = records.map((record: any) => {
+        let importedBy = 'Unknown';
+        if (record.created_by) {
+          const firstName = record.created_by.first_name || '';
+          const lastName = record.created_by.last_name || '';
+          importedBy = `${firstName} ${lastName}`.trim() || record.created_by.email || 'Staff';
+        }
 
-      doc.setFont('helvetica', 'normal');
-      yPosition += 6;
-      doc.text(`Period: ${format(new Date(filters.start_date), 'MMM d, yyyy')} - ${format(new Date(filters.end_date), 'MMM d, yyyy')}`, 14, yPosition);
+        return {
+          record_date: format(new Date(record.record_date), 'MMM d, yyyy'),
+          disease_type: DISEASE_TYPES.find(d => d.value === record.disease_type)?.label || record.disease_type,
+          custom_disease_name: record.custom_disease_name || '-',
+          barangay: record.barangays?.name || 'All Barangays',
+          case_count: record.case_count?.toLocaleString() || '0',
+          source: record.source || '-',
+          imported_by: importedBy,
+          notes: record.notes || '-',
+        };
+      });
 
-      yPosition += 5;
-      const diseaseLabel = DISEASE_TYPES.find(d => d.value === filters.disease_type)?.label || 'All Diseases';
-      doc.text(`Disease Type: ${diseaseLabel}`, 14, yPosition);
+      const filename = formatFileName('historical_statistics_report', 'csv');
+      generateCSV(tableData, filename.replace('.csv', ''));
+    } catch (err: any) {
+      console.error('Error exporting CSV:', err);
+      setError(err.message || 'Failed to export CSV');
+    } finally {
+      setIsGenerating(false);
+    }
+  };
 
-      yPosition += 5;
-      const barangayLabel = filters.barangay_id === 'all'
-        ? 'All Barangays'
-        : barangays.find(b => b.id === parseInt(filters.barangay_id))?.name || 'Unknown';
-      doc.text(`Barangay: ${barangayLabel}`, 14, yPosition);
+  const handleExportExcel = async () => {
+    setIsGenerating(true);
+    setError('');
 
-      // Statistics summary
-      yPosition += 10;
-      doc.setFontSize(11);
-      doc.setFont('helvetica', 'bold');
-      doc.text('Summary Statistics', 14, yPosition);
+    try {
+      const { records, summary } = await fetchReportData();
 
-      yPosition += 7;
-      doc.setFontSize(9);
-      doc.setFont('helvetica', 'normal');
+      if (!records || records.length === 0) {
+        alert('No data available to export');
+        return;
+      }
 
+      // Calculate summary statistics
       const totalRecords = summary.totalRecords || records.length;
       const totalCases = summary.totalCases || records.reduce((sum: number, r: any) => sum + (r.case_count || 0), 0);
 
-      doc.text(`Total Historical Records: ${totalRecords}`, 14, yPosition);
-      doc.text(`Total Aggregate Cases: ${totalCases.toLocaleString()}`, 90, yPosition);
+      const diseaseLabel = DISEASE_TYPES.find(d => d.value === filters.disease_type)?.label || 'All Diseases';
+      const barangayLabel = filters.barangay_id === 'all'
+        ? 'All Barangays'
+        : barangays.find(b => b.id === parseInt(filters.barangay_id))?.name || 'Unknown';
 
-      yPosition += 5;
-      if (summary.earliestDate && summary.latestDate) {
-        const dateRange = `${format(new Date(summary.earliestDate), 'MMM yyyy')} - ${format(new Date(summary.latestDate), 'MMM yyyy')}`;
-        doc.text(`Date Range: ${dateRange}`, 14, yPosition);
-      } else {
-        doc.text('Date Range: No data', 14, yPosition);
-      }
+      const summaryObj = {
+        report_type: 'Historical Disease Statistics Report',
+        period: `${format(new Date(filters.start_date), 'MMM d, yyyy')} - ${format(new Date(filters.end_date), 'MMM d, yyyy')}`,
+        disease_filter: diseaseLabel,
+        barangay_filter: barangayLabel,
+        total_records: totalRecords,
+        total_aggregate_cases: totalCases.toLocaleString(),
+        date_range: summary.earliestDate && summary.latestDate
+          ? `${format(new Date(summary.earliestDate), 'MMM yyyy')} - ${format(new Date(summary.latestDate), 'MMM yyyy')}`
+          : 'No data',
+        most_common_disease: summary.mostCommonDisease
+          ? `${DISEASE_TYPES.find(d => d.value === summary.mostCommonDisease)?.label || summary.mostCommonDisease} (${summary.diseaseTypeCounts?.[summary.mostCommonDisease] || 0} records)`
+          : '-',
+      };
 
-      yPosition += 5;
-      if (summary.mostCommonDisease) {
-        const diseaseLabel = DISEASE_TYPES.find(d => d.value === summary.mostCommonDisease)?.label || summary.mostCommonDisease;
-        const count = summary.diseaseTypeCounts?.[summary.mostCommonDisease] || 0;
-        doc.text(`Most Common Disease: ${diseaseLabel} (${count} records)`, 14, yPosition);
-      }
+      // Transform records into table data
+      const tableData = records.map((record: any) => {
+        let importedBy = 'Unknown';
+        if (record.created_by) {
+          const firstName = record.created_by.first_name || '';
+          const lastName = record.created_by.last_name || '';
+          importedBy = `${firstName} ${lastName}`.trim() || record.created_by.email || 'Staff';
+        }
 
-      // Disease breakdown by type (if "All Diseases" selected)
+        return {
+          record_date: format(new Date(record.record_date), 'MMM d, yyyy'),
+          disease_type: DISEASE_TYPES.find(d => d.value === record.disease_type)?.label || record.disease_type,
+          custom_disease_name: record.custom_disease_name || '-',
+          barangay: record.barangays?.name || 'All Barangays',
+          case_count: record.case_count?.toLocaleString() || '0',
+          source: record.source || '-',
+          imported_by: importedBy,
+          notes: record.notes || '-',
+        };
+      });
+
+      // Disease breakdown (if "All Diseases" selected)
+      let diseaseData: any[] = [];
       if (filters.disease_type === 'all' && summary.diseaseTypeCounts) {
-        yPosition += 8;
-        doc.setFont('helvetica', 'bold');
-        doc.text('Disease Breakdown (by record count):', 14, yPosition);
-
-        yPosition += 5;
-        doc.setFont('helvetica', 'normal');
-
-        let xPos = 14;
-        Object.entries(summary.diseaseTypeCounts).forEach(([diseaseKey, count]) => {
-          // Check if this is a custom disease or standard disease
+        diseaseData = Object.entries(summary.diseaseTypeCounts).map(([diseaseKey, count]) => {
           const standardDisease = DISEASE_TYPES.find(d => d.value === diseaseKey);
           const label = standardDisease ? standardDisease.label : diseaseKey;
-          doc.text(`${label}: ${count}`, xPos, yPosition);
-          xPos += 60;
-          if (xPos > 170) {
-            xPos = 14;
-            yPosition += 5;
-          }
+          return {
+            disease: label,
+            record_count: count,
+          };
         });
       }
 
@@ -164,132 +192,33 @@ export function HistoricalStatisticsReportGenerator({
         return acc;
       }, {});
 
-      if (Object.keys(sourceBreakdown).length > 0) {
-        yPosition += 8;
-        doc.setFont('helvetica', 'bold');
-        doc.text('Data Sources:', 14, yPosition);
+      const sourceData = Object.entries(sourceBreakdown).map(([source, count]) => ({
+        source,
+        count,
+      }));
 
-        yPosition += 5;
-        doc.setFont('helvetica', 'normal');
+      const excelData: any = {
+        summary: summaryObj,
+        tableData,
+      };
 
-        let xPos = 14;
-        Object.entries(sourceBreakdown).forEach(([source, count]) => {
-          const displayText = `${source}: ${count}`;
-          doc.text(displayText, xPos, yPosition);
-          xPos += 70;
-          if (xPos > 170) {
-            xPos = 14;
-            yPosition += 5;
-          }
-        });
+      if (diseaseData.length > 0) {
+        excelData.diseaseBreakdown = diseaseData;
       }
 
-      // Records table
-      yPosition += 12;
-
-      const tableData = records.map((record: any) => {
-        // Format created_by information
-        let importedBy = 'Unknown';
-        if (record.created_by) {
-          const firstName = record.created_by.first_name || '';
-          const lastName = record.created_by.last_name || '';
-          importedBy = `${firstName} ${lastName}`.trim() || record.created_by.email || 'Staff';
-        }
-
-        return [
-          format(new Date(record.record_date), 'MMM d, yyyy'),
-          DISEASE_TYPES.find(d => d.value === record.disease_type)?.label || record.disease_type,
-          record.custom_disease_name || '-',
-          record.barangays?.name || 'All Barangays',
-          record.case_count?.toLocaleString() || '0',
-          record.source || '-',
-          importedBy,
-          record.notes || '-',
-        ];
-      });
-
-      autoTable(doc, {
-        startY: yPosition,
-        head: [['Record Date', 'Disease', 'Custom', 'Barangay', 'Cases', 'Source', 'Imported By', 'Notes']],
-        body: tableData,
-        theme: 'striped',
-        headStyles: {
-          fillColor: [20, 184, 166], // primary-teal color
-          textColor: 255,
-          fontSize: 8,
-          fontStyle: 'bold',
-        },
-        bodyStyles: {
-          fontSize: 7,
-        },
-        alternateRowStyles: {
-          fillColor: [245, 247, 250],
-        },
-        margin: { top: 10, left: 14, right: 14 },
-        styles: {
-          cellPadding: 3,
-          overflow: 'linebreak',
-        },
-        columnStyles: {
-          0: { cellWidth: 20 }, // Record Date
-          1: { cellWidth: 20 }, // Disease
-          2: { cellWidth: 15 }, // Custom
-          3: { cellWidth: 22 }, // Barangay
-          4: { cellWidth: 12 }, // Cases
-          5: { cellWidth: 22 }, // Source
-          6: { cellWidth: 20 }, // Imported By
-          7: { cellWidth: 43 }, // Notes
-        },
-        didDrawPage: (data) => {
-          // Footer on every page
-          const pageSize = doc.internal.pageSize;
-          const pageHeight = pageSize.getHeight();
-          const pageWidth = pageSize.getWidth();
-          const pageCount = doc.internal.pages.length - 1;
-          const pageNum = data.pageNumber;
-
-          doc.setFontSize(8);
-          doc.setFont('helvetica', 'italic');
-          doc.setTextColor(100);
-
-          // Center: Computer-generated notice
-          doc.text(
-            'This is a computer-generated report. Historical aggregate data for statistical analysis.',
-            pageWidth / 2,
-            pageHeight - 15,
-            { align: 'center' }
-          );
-
-          // Right: Simple page numbers (PROFESSIONAL FORMAT)
-          doc.text(
-            `Page ${pageNum} of ${pageCount}`,
-            pageWidth - 20,
-            pageHeight - 10,
-            { align: 'right' }
-          );
-        },
-      });
-
-      if (printMode) {
-        // Open print dialog
-        doc.autoPrint();
-        window.open(doc.output('bloburl'), '_blank');
-      } else {
-        // Download PDF
-        const fileName = `Historical_Statistics_Report_${format(new Date(), 'yyyy-MM-dd')}.pdf`;
-        doc.save(fileName);
+      if (sourceData.length > 0) {
+        excelData.sourceBreakdown = sourceData;
       }
 
+      const filename = formatFileName('historical_statistics_report', 'xlsx');
+      generateExcel(excelData, filename.replace('.xlsx', ''));
     } catch (err: any) {
-      console.error('Error generating PDF:', err);
-      setError(err.message || 'Failed to generate report');
+      console.error('Error exporting Excel:', err);
+      setError(err.message || 'Failed to export Excel');
     } finally {
       setIsGenerating(false);
     }
   };
-
-  const handleDownload = () => generatePDF(false);
-  const handlePrint = () => generatePDF(true);
 
   const handleClose = () => {
     setError('');
@@ -319,11 +248,11 @@ export function HistoricalStatisticsReportGenerator({
           <div className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between rounded-t-lg">
             <div>
               <h2 id="modal-title" className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-                <FileDown className="w-5 h-5 text-primary-teal" />
-                Generate Historical Statistics Report
+                <Download className="w-5 h-5 text-primary-teal" />
+                Export Historical Statistics Report
               </h2>
               <p className="text-sm text-gray-500 mt-1">
-                Create a PDF report with aggregate historical disease data
+                Export aggregate historical disease data to CSV or Excel
               </p>
             </div>
             <button
@@ -432,21 +361,21 @@ export function HistoricalStatisticsReportGenerator({
               </button>
               <button
                 type="button"
-                onClick={handlePrint}
+                onClick={handleExportCSV}
                 className="px-4 py-2 bg-gray-700 text-white rounded-md hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                 disabled={isGenerating}
               >
-                <Printer className="w-4 h-4" />
-                {isGenerating ? 'Generating...' : 'Print Report'}
+                <Download className="w-4 h-4" />
+                {isGenerating ? 'Exporting...' : 'Export CSV'}
               </button>
               <button
                 type="button"
-                onClick={handleDownload}
+                onClick={handleExportExcel}
                 className="px-4 py-2 bg-primary-teal text-white rounded-md hover:bg-primary-teal/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                 disabled={isGenerating}
               >
-                <FileDown className="w-4 h-4" />
-                {isGenerating ? 'Generating...' : 'Download PDF'}
+                <FileSpreadsheet className="w-4 h-4" />
+                {isGenerating ? 'Exporting...' : 'Export Excel'}
               </button>
             </div>
           </div>

@@ -23,3 +23,6 @@ export { ProfessionalCard } from './ProfessionalCard';
 export type { ProfessionalCardProps } from './ProfessionalCard';
 
 export { Modal } from './Modal';
+
+export { EnhancedTable } from './EnhancedTable';
+export type { EnhancedTableProps } from './EnhancedTable';
