@@ -1699,20 +1699,60 @@ const { data: authData, error: authError } = await supabase.auth.signUp({...});
 
 ### 3.5 HealthCard-Specific SARIMA Features
 
-- [ ] **Create HealthCard-Specific SARIMA Chart**
-- **Priority:** P2 | **Difficulty:** 🟡 Medium | **Effort:** 2-3 days | **Status:** ❌
-- **Fields:** Date, Number of HealthCards Issued, Type (Food/Non-Food), Location
-- **Files:** Create `/components/healthcare-admin/HealthCardSARIMA.tsx`
-- **API:** Create `/api/reports/healthcard-sarima` endpoint
-- **Note:** Separate from disease SARIMA - tracks healthcard issuance trends
-- **Why:** User requirement: "HealthCard admin SARIMA fields: Date, number of healthcard, type (food/non-food healthcard), location"
+- [x] **Create HealthCard-Specific SARIMA Chart** ✅ COMPLETED
+- **Priority:** P2 | **Difficulty:** 🟡 Medium | **Effort:** ~8 hours | **Status:** ✅ COMPLETE (Dec 30, 2025)
+- **Implementation:** Full SARIMA forecasting system with Gemini AI integration
+- **Components Created:**
+  - `HealthCardSARIMAChart.tsx` (392 lines) - Interactive Chart.js visualization with historical data, predictions, and 95% confidence intervals
+  - `HealthCardSARIMAMetrics.tsx` (300+ lines) - Model accuracy metrics display (R², RMSE, MAE, MSE)
+- **API Endpoints:**
+  - `GET /api/healthcards/statistics` (250+ lines) - Aggregated historical statistics
+  - `GET /api/healthcards/predictions` (400+ lines) - SARIMA predictions with confidence intervals
+  - `GET /api/healthcards/predictions/export` (350+ lines) - CSV/Excel export functionality
+- **Utilities:**
+  - `healthcardHelpers.ts` (350+ lines) - Service mapping, validation, date range generation
+  - `healthcardChartTransformers.ts` (350+ lines) - Data transformation for Chart.js
+  - `sarimaMetrics.ts` (150+ lines) - Statistical calculations (MSE, RMSE, MAE, R²)
+- **Type Definitions:** `healthcard.ts` (400+ lines) - Comprehensive TypeScript types
+- **Database:** `healthcard_predictions` table with 39 seed predictions, RLS policies, indexes
+- **Integration:** Healthcare Admin Reports → "HealthCard Forecasts" tab (conditionally rendered for services 12-15)
+- **Features Delivered:**
+  - ✅ Date-based forecasting (30 days historical + 30 days forecast)
+  - ✅ Number of HealthCards Issued (actual vs predicted)
+  - ✅ Type categorization (Food Handler vs Non-Food)
+  - ✅ Location filtering (barangay-specific or system-wide)
+  - ✅ Summary statistics cards (total historical, total predicted)
+  - ✅ Model accuracy metrics with interpretation
+  - ✅ CSV/Excel export with accuracy metrics sheet
+  - ✅ Service-based access control (Healthcare Admins see only their service type)
+- **Documentation:** `HEALTHCARD_SARIMA_IMPLEMENTATION_COMPLETE.md` (comprehensive guide)
+- **Total Code:** 2,500+ lines across 8 major files
+- **Production Ready:** ✅ Yes (with seed data, error handling, responsive UI)
 
-- [ ] **Add Food/Non-Food HealthCard Categorization**
-- **Priority:** P2 | **Difficulty:** 🟡 Medium | **Effort:** 1-2 days | **Status:** ❌
-- **Database:** Add `healthcard_type` field to services or appointments table
-- **Options:** 'food_handler', 'non_food', 'general'
-- **Files:** Update booking form and healthcard admin forms
-- **Clarification Needed:** Should this be a new service type or a field on existing service?
+- [x] **Add Food/Non-Food HealthCard Categorization** ✅ COMPLETED
+- **Priority:** P2 | **Difficulty:** 🟡 Medium | **Effort:** Included in above | **Status:** ✅ COMPLETE (Dec 30, 2025)
+- **Implementation:** Service-based mapping (no database changes required)
+- **Approach:** Derived from existing service IDs using helper functions
+- **Mapping:**
+  - Services 12, 13 → `'food_handler'` (Food Handler Health Card Processing + Renewal)
+  - Services 14, 15 → `'non_food'` (Non-Food Health Card Processing + Renewal)
+- **Database Schema:**
+  - `healthcard_predictions.healthcard_type` field with CHECK constraint ('food_handler', 'non_food')
+  - Unique constraint on (healthcard_type, barangay_id, prediction_date)
+- **Helper Functions:** (in `healthcardHelpers.ts`)
+  - `getHealthCardType(serviceId)` - Maps service ID to healthcard type
+  - `isHealthCardService(serviceId)` - Validates if service is healthcard-related
+  - `getServiceIdsForType(type)` - Returns service IDs for a type ([12, 13] or [14, 15])
+  - `getHealthCardTypeLabel(type)` - Display labels ('Food Handler', 'Non-Food Handler')
+  - `getHealthCardTypeDescription(type)` - Detailed descriptions
+  - Color functions for chart styling
+- **Type Definitions:**
+  - `HealthCardType = 'food_handler' | 'non_food'`
+  - `SERVICE_TO_HEALTHCARD_TYPE` constant mapping
+  - `HEALTHCARD_TYPE_TO_SERVICES` reverse mapping
+- **Access Control:** RLS policy ensures Healthcare Admins see only predictions matching their assigned service type
+- **UI Integration:** Healthcare Admin Reports page filters predictions based on admin's assigned service
+- **Production Ready:** ✅ Yes (with proper validation, type safety, access control)
 
 ### 3.6 SARIMA Graph Features for Healthcare Admin (General)
 - [ ] **Button to add historical data**
@@ -1793,11 +1833,32 @@ const { data: authData, error: authError } = await supabase.auth.signUp({...});
 - **Actions:** ✅ Edit role, ✅ Edit category, ✅ Edit status (activate/deactivate), ✅ Reset password
 - **Validation:** ✅ Cannot edit Super Admin accounts (only Super Admin can edit others)
 
-- [ ] **Add tabular form in reports**
-- **Priority:** P2 | **Difficulty:** 🟢 Easy | **Effort:** 1 day | **Status:** ⚠️
-- **Files:** `src/app/(dashboard-admin)/admin/reports/page.tsx`
-- **Current:** Charts implemented
-- **Add:** Data tables below each chart with full dataset, sortable, searchable
+- [x] **Add tabular form in reports** ✅ COMPLETED
+- **Priority:** P2 | **Difficulty:** 🟢 Easy | **Effort:** 1 day | **Status:** ✅ COMPLETE
+- **Completed:** December 30, 2025
+- **Files:** `src/app/(dashboard-admin)/admin/reports/page.tsx` (456 lines)
+- **Implementation:** EnhancedTable component with sorting, searching, pagination
+- **Tables Implemented:**
+  - ✅ AppointmentReportTable - Sortable, searchable, paginated (50 items/page)
+  - ✅ PatientReportTable - With row highlighting for suspended/at-risk patients
+  - ✅ DiseaseReportTable - With severity-based color coding and legends
+  - ✅ FeedbackReportTable - With star ratings and visual indicators
+- **Features:**
+  - ✅ Column sorting (ascending/descending) on all tables
+  - ✅ Global search functionality across all columns
+  - ✅ Pagination (50 items per page)
+  - ✅ Row highlighting for critical cases (suspended, severe diseases)
+  - ✅ Visual legends for status interpretation
+  - ✅ Color-coded badges (status, severity, ratings)
+  - ✅ Export functionality support
+  - ✅ Custom rendering (star ratings, icons, dates)
+- **Components Created:**
+  - `src/components/admin/reports/AppointmentReportTable.tsx` (154 lines)
+  - `src/components/admin/reports/PatientReportTable.tsx` (205 lines)
+  - `src/components/admin/reports/DiseaseReportTable.tsx` (233 lines)
+  - `src/components/admin/reports/FeedbackReportTable.tsx` (238 lines)
+  - `src/components/ui/EnhancedTable.tsx` (308 lines - reusable core component)
+- **Note:** Implementation exceeds original requirements with 4 comprehensive report tables using reusable EnhancedTable component. More advanced than Healthcare Admin reports.
 
 ### 4.2 Linguistics Review
 

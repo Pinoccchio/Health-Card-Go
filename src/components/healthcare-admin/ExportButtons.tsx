@@ -83,6 +83,15 @@ export default function ExportButtons({
         excelData.trendData = data.trend_data;
       }
 
+      // Add SARIMA-specific accuracy metrics (for HealthCard Forecasts tab)
+      if (activeTab === 'healthcard-forecast' && data.accuracy_metrics) {
+        const metricsData = Object.entries(data.accuracy_metrics).map(([key, value]) => ({
+          'Metric': key.replace(/_/g, ' ').toUpperCase(),
+          'Value': value
+        }));
+        excelData.accuracyMetrics = metricsData;
+      }
+
       generateExcel(excelData, filename.replace('.xlsx', ''));
     } catch (error) {
       console.error('Error exporting to Excel:', error);

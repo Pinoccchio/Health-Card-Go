@@ -9,6 +9,10 @@ import ReportsFilters from '@/components/healthcare-admin/ReportsFilters';
 import AppointmentListTable from '@/components/healthcare-admin/AppointmentListTable';
 import PatientListTable from '@/components/healthcare-admin/PatientListTable';
 import ExportButtons from '@/components/healthcare-admin/ExportButtons';
+import HealthCardSARIMAChart from '@/components/healthcare-admin/HealthCardSARIMAChart';
+import HealthCardSARIMAMetrics from '@/components/healthcare-admin/HealthCardSARIMAMetrics';
+import { getHealthCardType, isHealthCardService } from '@/lib/utils/healthcardHelpers';
+import type { HealthCardType } from '@/types/healthcard';
 
 interface ServiceData {
   id: number;
@@ -32,7 +36,7 @@ export default function HealthcareAdminReportsPage() {
     return new Date().toISOString().split('T')[0];
   });
   const [barangayId, setBarangayId] = useState<number | undefined>(undefined);
-  const [activeTab, setActiveTab] = useState<'overview' | 'appointments' | 'patients'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'appointments' | 'patients' | 'healthcard-forecast'>('overview');
 
   // Track if filters have changed (to trigger re-fetch)
   const [filtersKey, setFiltersKey] = useState(0);
@@ -40,6 +44,8 @@ export default function HealthcareAdminReportsPage() {
   // Data states for export
   const [appointmentsData, setAppointmentsData] = useState<any>(null);
   const [patientsData, setPatientsData] = useState<any>(null);
+  const [sarimaData, setSarimaData] = useState<any>(null);
+  const [sarimaMetrics, setSarimaMetrics] = useState<any>(null);
 
   useEffect(() => {
     const fetchServiceInfo = async () => {
@@ -146,6 +152,45 @@ export default function HealthcareAdminReportsPage() {
             setPatientsData(patientData.data); // Extract inner data object
           }
         }
+
+        // Fetch SARIMA data if HealthCard service and forecast tab is active
+        if (isHealthCardService(service.id) && activeTab === 'healthcard-forecast') {
+          const healthcardType = getHealthCardType(service.id);
+          const sarimaParams = new URLSearchParams({
+            healthcard_type: healthcardType,
+            days_back: '30',
+            days_forecast: '30',
+          });
+
+          if (barangayId) sarimaParams.append('barangay_id', barangayId.toString());
+
+          // Fetch export data for CSV/Excel
+          const sarimaResponse = await fetch(`/api/healthcards/predictions/export?${sarimaParams}`);
+          if (sarimaResponse.ok) {
+            const sarimaResponseData = await sarimaResponse.json();
+            setSarimaData(sarimaResponseData); // Store entire response for export
+          }
+
+          // Fetch chart data to get model_accuracy from API
+          // This is the ONLY source for metrics display (calculated from overlapping data)
+          const chartParams = new URLSearchParams({
+            healthcard_type: healthcardType,
+            days_back: '30',
+            days_forecast: '30',
+          });
+
+          if (barangayId) chartParams.append('barangay_id', barangayId.toString());
+
+          const chartResponse = await fetch(`/api/healthcards/predictions?${chartParams}`);
+          if (chartResponse.ok) {
+            const chartData = await chartResponse.json();
+            // Extract model_accuracy from transformed data (null if < 5 overlapping points)
+            setSarimaMetrics(chartData.data?.model_accuracy || null);
+          } else {
+            // If chart API fails, ensure metrics are null
+            setSarimaMetrics(null);
+          }
+        }
       } catch (err) {
         console.error('Error fetching report data:', err);
       }
@@ -227,7 +272,12 @@ export default function HealthcareAdminReportsPage() {
                   startDate={startDate}
                   endDate={endDate}
                   barangayId={barangayId}
-                  data={activeTab === 'appointments' ? appointmentsData : patientsData}
+                  data={
+                    activeTab === 'appointments' ? appointmentsData :
+                    activeTab === 'patients' ? patientsData :
+                    activeTab === 'healthcard-forecast' ? sarimaData :
+                    null
+                  }
                 />
               </div>
             </div>
@@ -280,6 +330,18 @@ export default function HealthcareAdminReportsPage() {
                 >
                   Patients
                 </button>
+                {isHealthCardService(service.id) && (
+                  <button
+                    onClick={() => setActiveTab('healthcard-forecast')}
+                    className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${
+                      activeTab === 'healthcard-forecast'
+                        ? 'border-blue-600 text-blue-600'
+                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                    }`}
+                  >
+                    HealthCard Forecasts
+                  </button>
+                )}
               </nav>
             </div>
 
@@ -320,6 +382,39 @@ export default function HealthcareAdminReportsPage() {
                   endDate={endDate}
                   barangayId={barangayId}
                 />
+              )}
+
+              {/* HealthCard Forecasts Tab - SARIMA Predictions */}
+              {activeTab === 'healthcard-forecast' && isHealthCardService(service.id) && (
+                <div className="space-y-6">
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <h3 className="font-semibold text-blue-900 mb-2">
+                      HealthCard Issuance Forecasting (SARIMA)
+                    </h3>
+                    <p className="text-sm text-blue-800">
+                      This chart shows historical health card issuances and AI-predicted future demand
+                      for your assigned service. Use these insights to optimize staffing and resource
+                      allocation.
+                    </p>
+                  </div>
+
+                  <HealthCardSARIMAChart
+                    healthcardType={getHealthCardType(service.id) as HealthCardType}
+                    barangayId={barangayId || null}
+                    daysBack={30}
+                    daysForecast={30}
+                    showTitle={true}
+                    height={450}
+                  />
+
+                  {/* Only show metrics section if metrics are available */}
+                  {sarimaMetrics && (
+                    <HealthCardSARIMAMetrics
+                      metrics={sarimaMetrics}
+                      showDetails={true}
+                    />
+                  )}
+                </div>
               )}
             </div>
           </div>

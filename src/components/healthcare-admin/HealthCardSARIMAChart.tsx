@@ -1,0 +1,391 @@
+'use client';
+
+/**
+ * HealthCard SARIMA Chart Component
+ *
+ * Displays SARIMA predictions for health card issuance with:
+ * - Historical actual issuances (solid line)
+ * - Predicted future issuances (dashed line)
+ * - 95% confidence intervals (shaded area)
+ * - Separate views for Food Handler vs Non-Food
+ */
+
+import React, { useEffect, useState } from 'react';
+import { Line } from 'react-chartjs-2';
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Title,
+  Tooltip,
+  Legend,
+  Filler,
+  ChartOptions,
+} from 'chart.js';
+import {
+  HealthCardSARIMAData,
+  HealthCardType,
+  HealthCardPredictionsResponse,
+} from '@/types/healthcard';
+import {
+  getHealthCardTypeLabel,
+  getHealthCardTypePrimaryColor,
+  getHealthCardTypeLightColor,
+} from '@/lib/utils/healthcardHelpers';
+import { AlertCircle, TrendingUp, Calendar, MapPin } from 'lucide-react';
+
+// Register Chart.js components
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Title,
+  Tooltip,
+  Legend,
+  Filler
+);
+
+interface HealthCardSARIMAChartProps {
+  healthcardType: HealthCardType;
+  barangayId?: number | null;
+  daysBack?: number;
+  daysForecast?: number;
+  showTitle?: boolean;
+  height?: number;
+}
+
+export default function HealthCardSARIMAChart({
+  healthcardType,
+  barangayId = null,
+  daysBack = 30,
+  daysForecast = 30,
+  showTitle = true,
+  height = 400,
+}: HealthCardSARIMAChartProps) {
+  const [chartData, setChartData] = useState<HealthCardSARIMAData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Fetch predictions data
+  useEffect(() => {
+    async function fetchPredictions() {
+      try {
+        setLoading(true);
+        setError(null);
+
+        const params = new URLSearchParams({
+          healthcard_type: healthcardType,
+          days_back: daysBack.toString(),
+          days_forecast: daysForecast.toString(),
+        });
+
+        if (barangayId !== null) {
+          params.append('barangay_id', barangayId.toString());
+        }
+
+        const response = await fetch(`/api/healthcards/predictions?${params}`);
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Failed to fetch predictions');
+        }
+
+        const result: HealthCardPredictionsResponse = await response.json();
+
+        if (!result.success) {
+          throw new Error(result.data as any);
+        }
+
+        setChartData(result.data);
+      } catch (err) {
+        console.error('[HealthCardSARIMAChart] Error:', err);
+        setError(err instanceof Error ? err.message : 'Failed to load chart data');
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchPredictions();
+  }, [healthcardType, barangayId, daysBack, daysForecast]);
+
+  // Build Chart.js configuration
+  const getChartConfig = () => {
+    if (!chartData) return null;
+
+    const color = getHealthCardTypePrimaryColor(healthcardType);
+    const lightColor = getHealthCardTypeLightColor(healthcardType);
+
+    const data = {
+      labels: chartData.dates,
+      datasets: [
+        // Actual issuances (solid line)
+        {
+          label: 'Actual Cards Issued',
+          data: chartData.actualCards,
+          borderColor: color,
+          backgroundColor: color,
+          borderWidth: 2.5,
+          pointRadius: 4,
+          pointHoverRadius: 6,
+          tension: 0.3,
+          fill: false,
+          spanGaps: false,
+        },
+        // Predicted issuances (dashed line)
+        {
+          label: 'Predicted Cards',
+          data: chartData.predictedCards,
+          borderColor: color,
+          backgroundColor: color,
+          borderWidth: 2,
+          borderDash: [8, 4],
+          pointRadius: 3,
+          pointHoverRadius: 5,
+          pointStyle: 'circle',
+          tension: 0.3,
+          fill: false,
+          spanGaps: false,
+        },
+        // 95% Confidence Interval (shaded area)
+        {
+          label: '95% Confidence Interval',
+          data: chartData.upperBound.map((upper, i) => {
+            const lower = chartData.lowerBound[i];
+            if (upper === null || lower === null) return null;
+            return { y: [lower, upper] };
+          }),
+          backgroundColor: lightColor,
+          borderColor: 'transparent',
+          fill: true,
+          pointRadius: 0,
+          showLine: false,
+          type: 'line' as const,
+        },
+      ],
+    };
+
+    const options: ChartOptions<'line'> = {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: {
+        mode: 'index' as const,
+        intersect: false,
+      },
+      plugins: {
+        legend: {
+          position: 'top' as const,
+          labels: {
+            usePointStyle: true,
+            padding: 15,
+            font: {
+              size: 12,
+            },
+          },
+        },
+        title: {
+          display: showTitle,
+          text: `${getHealthCardTypeLabel(healthcardType)} Health Card Issuance Forecast${
+            chartData.barangay_name ? ` - ${chartData.barangay_name}` : ' (System-wide)'
+          }`,
+          font: {
+            size: 16,
+            weight: 'bold',
+          },
+          padding: {
+            top: 10,
+            bottom: 20,
+          },
+        },
+        tooltip: {
+          callbacks: {
+            title: (context) => {
+              const date = context[0].label;
+              return new Date(date).toLocaleDateString('en-PH', {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric',
+              });
+            },
+            label: (context) => {
+              const label = context.dataset.label || '';
+              const value = context.parsed.y;
+              if (value === null) return '';
+              return `${label}: ${Math.round(value)} cards`;
+            },
+          },
+          backgroundColor: 'rgba(0, 0, 0, 0.8)',
+          padding: 12,
+          bodyFont: {
+            size: 13,
+          },
+          titleFont: {
+            size: 14,
+            weight: 'bold',
+          },
+        },
+      },
+      scales: {
+        x: {
+          grid: {
+            display: false,
+          },
+          ticks: {
+            maxRotation: 45,
+            minRotation: 45,
+            font: {
+              size: 10,
+            },
+            callback: function (value, index) {
+              // Show every 5th date
+              if (index % 5 === 0) {
+                const date = chartData.dates[index];
+                return new Date(date).toLocaleDateString('en-PH', {
+                  month: 'short',
+                  day: 'numeric',
+                });
+              }
+              return '';
+            },
+          },
+        },
+        y: {
+          beginAtZero: true,
+          grid: {
+            color: 'rgba(0, 0, 0, 0.05)',
+          },
+          ticks: {
+            stepSize: 1,
+            font: {
+              size: 11,
+            },
+            callback: function (value) {
+              return Math.round(value as number);
+            },
+          },
+          title: {
+            display: true,
+            text: 'Number of Health Cards',
+            font: {
+              size: 12,
+              weight: 'bold',
+            },
+          },
+        },
+      },
+    };
+
+    return { data, options };
+  };
+
+  // Render loading state
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center" style={{ height }}>
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+          <p className="mt-4 text-sm text-gray-600">Loading SARIMA predictions...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Render error state
+  if (error || !chartData) {
+    return (
+      <div className="flex items-center justify-center" style={{ height }}>
+        <div className="text-center max-w-md p-6 bg-red-50 rounded-lg border border-red-200">
+          <AlertCircle className="mx-auto h-12 w-12 text-red-600 mb-3" />
+          <h3 className="text-lg font-semibold text-red-900 mb-2">
+            Failed to Load Predictions
+          </h3>
+          <p className="text-sm text-red-700">{error || 'No data available'}</p>
+          <button
+            onClick={() => window.location.reload()}
+            className="mt-4 px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors text-sm"
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  const chartConfig = getChartConfig();
+  if (!chartConfig) return null;
+
+  return (
+    <div className="space-y-4">
+      {/* Summary Statistics */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+        <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+          <div className="flex items-center gap-2 mb-1">
+            <TrendingUp className="h-4 w-4 text-blue-600" />
+            <span className="text-xs font-medium text-blue-900">Total Historical</span>
+          </div>
+          <p className="text-2xl font-bold text-blue-900">{chartData.total_historical}</p>
+          <p className="text-xs text-blue-700 mt-1">Last {daysBack} days</p>
+        </div>
+
+        <div className="bg-green-50 p-4 rounded-lg border border-green-200">
+          <div className="flex items-center gap-2 mb-1">
+            <Calendar className="h-4 w-4 text-green-600" />
+            <span className="text-xs font-medium text-green-900">Predicted Total</span>
+          </div>
+          <p className="text-2xl font-bold text-green-900">{chartData.total_predicted}</p>
+          <p className="text-xs text-green-700 mt-1">Next {daysForecast} days</p>
+        </div>
+
+        <div className="bg-purple-50 p-4 rounded-lg border border-purple-200">
+          <div className="flex items-center gap-2 mb-1">
+            <MapPin className="h-4 w-4 text-purple-600" />
+            <span className="text-xs font-medium text-purple-900">Location</span>
+          </div>
+          <p className="text-sm font-bold text-purple-900">
+            {chartData.barangay_name || 'All Barangays'}
+          </p>
+          <p className="text-xs text-purple-700 mt-1">System-wide forecast</p>
+        </div>
+
+        <div className="bg-orange-50 p-4 rounded-lg border border-orange-200">
+          <div className="flex items-center gap-2 mb-1">
+            <AlertCircle className="h-4 w-4 text-orange-600" />
+            <span className="text-xs font-medium text-orange-900">Card Type</span>
+          </div>
+          <p className="text-sm font-bold text-orange-900">
+            {getHealthCardTypeLabel(healthcardType)}
+          </p>
+          <p className="text-xs text-orange-700 mt-1">
+            {healthcardType === 'food_handler' ? 'Services 12-13' : 'Services 14-15'}
+          </p>
+        </div>
+      </div>
+
+      {/* Chart */}
+      <div
+        className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm"
+        style={{ height }}
+      >
+        <Line data={chartConfig.data} options={chartConfig.options} />
+      </div>
+
+      {/* Legend Info */}
+      <div className="bg-gray-50 p-4 rounded-lg border border-gray-200 text-sm">
+        <p className="font-semibold text-gray-900 mb-2">Chart Guide:</p>
+        <ul className="space-y-1 text-gray-700">
+          <li>
+            <strong>Solid Line:</strong> Actual health cards issued (historical data)
+          </li>
+          <li>
+            <strong>Dashed Line:</strong> Predicted health cards (SARIMA forecast)
+          </li>
+          <li>
+            <strong>Shaded Area:</strong> 95% confidence interval (prediction uncertainty)
+          </li>
+        </ul>
+      </div>
+    </div>
+  );
+}

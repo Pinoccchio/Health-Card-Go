@@ -92,6 +92,7 @@ export function generateExcel(
     severityBreakdown?: any[];
     barangayBreakdown?: any[];
     ratingDistribution?: any[];
+    accuracyMetrics?: any[];
   },
   filename: string,
   excludeColumns: string[] = ['id']
@@ -172,6 +173,12 @@ export function generateExcel(
   if (data.trendData && data.trendData.length > 0) {
     const trendSheet = XLSX.utils.json_to_sheet(data.trendData);
     XLSX.utils.book_append_sheet(workbook, trendSheet, 'Trend Data');
+  }
+
+  // Add Accuracy Metrics Sheet (SARIMA forecasts)
+  if (data.accuracyMetrics && data.accuracyMetrics.length > 0) {
+    const metricsSheet = XLSX.utils.json_to_sheet(data.accuracyMetrics);
+    XLSX.utils.book_append_sheet(workbook, metricsSheet, 'Model Accuracy');
   }
 
   // Generate and download Excel file

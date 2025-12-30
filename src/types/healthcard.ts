@@ -1,0 +1,272 @@
+/**
+ * HealthCard SARIMA Types
+ *
+ * Type definitions for health card issuance tracking and SARIMA predictions.
+ * Supports Food Handler and Non-Food health cards with location-based forecasting.
+ */
+
+import { Database } from './supabase';
+
+// ============================================================================
+// HealthCard Type Classification
+// ============================================================================
+
+/**
+ * Health card classification based on service type
+ * - food_handler: Services 12, 13 (Food Handler Processing & Renewal)
+ * - non_food: Services 14, 15 (Non-Food Processing & Renewal)
+ */
+export type HealthCardType = 'food_handler' | 'non_food';
+
+// ============================================================================
+// HealthCard Statistics (Historical Data)
+// ============================================================================
+
+/**
+ * Aggregated health card issuance statistics
+ * Used for historical tracking and SARIMA model training
+ */
+export interface HealthCardStatistic {
+  id: string;
+  healthcard_type: HealthCardType;
+  barangay_id: number | null;
+  issue_date: string; // Date string (YYYY-MM-DD)
+  card_count: number;
+  created_at: string;
+
+  // Optional joined data
+  barangay?: {
+    id: number;
+    name: string;
+    code: string;
+  };
+}
+
+/**
+ * Payload for creating health card statistics
+ */
+export interface CreateHealthCardStatisticPayload {
+  healthcard_type: HealthCardType;
+  barangay_id: number | null;
+  issue_date: string;
+  card_count: number;
+}
+
+// ============================================================================
+// HealthCard Predictions (SARIMA Forecasts)
+// ============================================================================
+
+/**
+ * SARIMA prediction for health card issuance
+ */
+export interface HealthCardPrediction {
+  id: string;
+  healthcard_type: HealthCardType;
+  barangay_id: number | null;
+  prediction_date: string; // Date string (YYYY-MM-DD)
+  predicted_cards: number;
+  confidence_level: number | null; // 0-1 scale
+  model_version: string | null;
+  prediction_data: PredictionMetadata | null;
+  created_at: string;
+
+  // Optional joined data
+  barangay?: {
+    id: number;
+    name: string;
+    code: string;
+  };
+}
+
+/**
+ * Additional metadata stored with predictions
+ */
+export interface PredictionMetadata {
+  upper_bound?: number;
+  lower_bound?: number;
+  mse?: number;
+  rmse?: number;
+  mae?: number;
+  r_squared?: number;
+  trend?: 'increasing' | 'decreasing' | 'stable';
+  seasonality_detected?: boolean;
+  notes?: string;
+}
+
+/**
+ * Payload for creating health card predictions
+ */
+export interface CreateHealthCardPredictionPayload {
+  healthcard_type: HealthCardType;
+  barangay_id: number | null;
+  prediction_date: string;
+  predicted_cards: number;
+  confidence_level?: number;
+  model_version?: string;
+  prediction_data?: PredictionMetadata;
+}
+
+// ============================================================================
+// SARIMA Chart Data
+// ============================================================================
+
+/**
+ * Combined historical + prediction data for SARIMA chart visualization
+ */
+export interface HealthCardSARIMAData {
+  // Chart data points
+  dates: string[]; // All dates (historical + forecast)
+  historicalDates: string[]; // Past dates with actual data
+  forecastDates: string[]; // Future dates with predictions
+
+  // Actual issuance data (historical)
+  actualCards: (number | null)[]; // Null for future dates
+
+  // Predicted data (extends into future)
+  predictedCards: (number | null)[]; // Null for dates without predictions
+
+  // Confidence intervals
+  upperBound: (number | null)[];
+  lowerBound: (number | null)[];
+
+  // Metadata
+  healthcard_type: HealthCardType;
+  barangay_id: number | null;
+  barangay_name: string | null;
+  total_historical: number;
+  total_predicted: number;
+  model_accuracy: ModelAccuracy | null;
+  last_updated: string;
+}
+
+/**
+ * SARIMA model accuracy metrics
+ */
+export interface ModelAccuracy {
+  mse: number; // Mean Squared Error
+  rmse: number; // Root Mean Squared Error
+  mae: number; // Mean Absolute Error
+  r_squared: number; // Coefficient of Determination (0-1, higher is better)
+  interpretation: 'excellent' | 'good' | 'fair' | 'poor';
+  confidence_level: number; // 0-1 scale
+}
+
+// ============================================================================
+// API Response Types
+// ============================================================================
+
+/**
+ * Response from /api/healthcards/statistics
+ */
+export interface HealthCardStatisticsResponse {
+  success: boolean;
+  data: HealthCardStatistic[];
+  total: number;
+  filters?: {
+    healthcard_type?: HealthCardType;
+    barangay_id?: number;
+    start_date?: string;
+    end_date?: string;
+  };
+}
+
+/**
+ * Response from /api/healthcards/predictions
+ */
+export interface HealthCardPredictionsResponse {
+  success: boolean;
+  data: HealthCardSARIMAData;
+  metadata: {
+    healthcard_type: HealthCardType;
+    barangay_id: number | null;
+    barangay_name: string | null;
+    days_historical: number;
+    days_forecast: number;
+    total_data_points: number;
+    model_version: string;
+  };
+}
+
+// ============================================================================
+// Filter & Query Types
+// ============================================================================
+
+/**
+ * Filters for querying health card statistics
+ */
+export interface HealthCardStatisticsFilters {
+  healthcard_type?: HealthCardType;
+  barangay_id?: number;
+  start_date?: string; // YYYY-MM-DD
+  end_date?: string; // YYYY-MM-DD
+  service_id?: number; // For healthcare admin filtering
+}
+
+/**
+ * Filters for querying health card predictions
+ */
+export interface HealthCardPredictionsFilters {
+  healthcard_type?: HealthCardType;
+  barangay_id?: number;
+  days_back?: number; // How many days of historical data to include
+  days_forecast?: number; // How many days to forecast
+  include_confidence?: boolean; // Include upper/lower bounds
+}
+
+// ============================================================================
+// Service Mapping
+// ============================================================================
+
+/**
+ * Maps service IDs to health card types
+ */
+export const SERVICE_TO_HEALTHCARD_TYPE: Record<number, HealthCardType> = {
+  12: 'food_handler', // Food Handler Health Card Processing
+  13: 'food_handler', // Food Handler Health Card Renewal
+  14: 'non_food', // Non-Food Health Card Processing
+  15: 'non_food', // Non-Food Health Card Renewal
+};
+
+/**
+ * Maps health card types to service IDs
+ */
+export const HEALTHCARD_TYPE_TO_SERVICES: Record<HealthCardType, number[]> = {
+  food_handler: [12, 13],
+  non_food: [14, 15],
+};
+
+/**
+ * Human-readable labels for health card types
+ */
+export const HEALTHCARD_TYPE_LABELS: Record<HealthCardType, string> = {
+  food_handler: 'Food Handler',
+  non_food: 'Non-Food Handler',
+};
+
+/**
+ * Color schemes for health card types (Chart.js compatible)
+ */
+export const HEALTHCARD_TYPE_COLORS: Record<HealthCardType, {
+  primary: string;
+  light: string;
+  dark: string;
+}> = {
+  food_handler: {
+    primary: 'rgb(59, 130, 246)', // Blue
+    light: 'rgba(59, 130, 246, 0.2)',
+    dark: 'rgb(29, 78, 216)',
+  },
+  non_food: {
+    primary: 'rgb(34, 197, 94)', // Green
+    light: 'rgba(34, 197, 94, 0.2)',
+    dark: 'rgb(21, 128, 61)',
+  },
+};
+
+// ============================================================================
+// Supabase Database Types (if using typed client)
+// ============================================================================
+
+export type HealthCardPredictionRow = Database['public']['Tables']['healthcard_predictions']['Row'];
+export type HealthCardPredictionInsert = Database['public']['Tables']['healthcard_predictions']['Insert'];
+export type HealthCardPredictionUpdate = Database['public']['Tables']['healthcard_predictions']['Update'];
