@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useAuth } from '@/lib/auth';
 import { DashboardLayout } from '@/components/dashboard';
 import { Container } from '@/components/ui';
 import { createClient } from '@/lib/supabase/client';
@@ -22,6 +23,7 @@ interface ServiceData {
 }
 
 export default function HealthcareAdminReportsPage() {
+  const { user } = useAuth();
   const [service, setService] = useState<ServiceData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -207,7 +209,7 @@ export default function HealthcareAdminReportsPage() {
   if (loading) {
     return (
       <DashboardLayout
-        roleId={2}
+        roleId={user?.role_id || 2}
         pageTitle="Reports & Analytics"
         pageDescription="View detailed reports and analytics for your assigned service"
       >
@@ -226,7 +228,7 @@ export default function HealthcareAdminReportsPage() {
   if (error) {
     return (
       <DashboardLayout
-        roleId={2}
+        roleId={user?.role_id || 2}
         pageTitle="Reports & Analytics"
         pageDescription="View detailed reports and analytics for your assigned service"
       >
@@ -246,7 +248,7 @@ export default function HealthcareAdminReportsPage() {
 
   return (
     <DashboardLayout
-      roleId={2}
+      roleId={user?.role_id || 2}
       pageTitle="Reports & Analytics"
       pageDescription={`Reports for ${service.name}`}
     >

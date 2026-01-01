@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
+import { useAuth } from '@/lib/auth';
 import { DashboardLayout } from '@/components/dashboard';
 import { Container, ConfirmDialog } from '@/components/ui';
 import { ProfessionalCard } from '@/components/ui/ProfessionalCard';
@@ -67,6 +68,7 @@ interface ToastMessage {
 }
 
 export default function HealthcareAdminPatientsPage() {
+  const { user } = useAuth();
   const [patients, setPatients] = useState<Patient[]>([]);
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
   const [loading, setLoading] = useState(true);
@@ -270,7 +272,7 @@ export default function HealthcareAdminPatientsPage() {
 
   return (
     <DashboardLayout
-      roleId={2}
+      roleId={user?.role_id || 2}
       pageTitle="Patient Management"
       pageDescription="View and manage patient registrations and accounts"
     >

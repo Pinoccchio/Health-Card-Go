@@ -102,7 +102,9 @@ export default function HealthcareAdminAppointmentsPage() {
   const [appointments, setAppointments] = useState<AdminAppointment[]>([]);
   const [allAppointmentsForDates, setAllAppointmentsForDates] = useState<AdminAppointment[]>([]); // For dropdown dates only
   const [selectedAppointment, setSelectedAppointment] = useState<AdminAppointment | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [appointmentsLoading, setAppointmentsLoading] = useState(true);
+  const [datesLoading, setDatesLoading] = useState(true);
+  const loading = appointmentsLoading || datesLoading; // Combined loading state - waits for BOTH fetches
   const [error, setError] = useState('');
   const [filter, setFilter] = useState<'all' | 'pending' | 'scheduled' | 'checked_in' | 'in_progress' | 'completed' | 'cancelled' | 'no_show'>('all');
   const [dateFilter, setDateFilter] = useState<string>('all');
@@ -348,6 +350,7 @@ export default function HealthcareAdminAppointmentsPage() {
 
   // Fetch ALL appointments (for dropdown dates only) - no pagination
   const fetchAllAppointmentsForDates = async () => {
+    setDatesLoading(true);
     try {
       const params = new URLSearchParams({
         page: '1',
@@ -374,11 +377,13 @@ export default function HealthcareAdminAppointmentsPage() {
     } catch (err: any) {
       console.error('Error fetching all appointments for dates:', err);
       // Don't show error to user - this is background fetch for dates only
+    } finally {
+      setDatesLoading(false);
     }
   };
 
   const fetchAppointments = async () => {
-    setLoading(true);
+    setAppointmentsLoading(true);
     setError('');
     try {
       // Hybrid approach: When specific date selected, fetch ALL for that date (no pagination)
@@ -442,7 +447,7 @@ export default function HealthcareAdminAppointmentsPage() {
       console.error('❌ [APPOINTMENTS] Fetch error:', err);
       setError('An unexpected error occurred');
     } finally {
-      setLoading(false);
+      setAppointmentsLoading(false);
     }
   };
 
@@ -1020,7 +1025,7 @@ export default function HealthcareAdminAppointmentsPage() {
   // Show loading state while checking access
   if (isCheckingAccess) {
     return (
-      <DashboardLayout roleId={2} pageTitle="Appointments" pageDescription="Loading...">
+      <DashboardLayout roleId={user?.role_id || 2} pageTitle="Appointments" pageDescription="Loading...">
         <Container size="full">
           <div className="flex items-center justify-center h-64">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-teal"></div>
@@ -1033,7 +1038,7 @@ export default function HealthcareAdminAppointmentsPage() {
   // If no access, show error (will redirect, but show this temporarily)
   if (!hasAccess) {
     return (
-      <DashboardLayout roleId={2} pageTitle="Access Denied" pageDescription="Redirecting...">
+      <DashboardLayout roleId={user?.role_id || 2} pageTitle="Access Denied" pageDescription="Redirecting...">
         <Container size="full">
           <div className="bg-orange-50 border border-orange-200 rounded-lg p-8 text-center">
             <AlertTriangle className="w-16 h-16 text-orange-600 mx-auto mb-4" />
@@ -1052,7 +1057,7 @@ export default function HealthcareAdminAppointmentsPage() {
 
   return (
     <DashboardLayout
-      roleId={2}
+      roleId={user?.role_id || 2}
       pageTitle="Appointments"
       pageDescription="Manage and monitor all appointments"
     >
@@ -1072,10 +1077,61 @@ export default function HealthcareAdminAppointmentsPage() {
         )}
 
         {loading ? (
-          <div className="text-center py-12">
-            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary-teal"></div>
-            <p className="mt-2 text-sm text-gray-500">Loading appointments...</p>
-          </div>
+          <>
+            {/* Date Selector Skeleton */}
+            <div className="bg-white rounded-lg shadow p-6 mb-6 animate-pulse">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 bg-gray-200 rounded-lg"></div>
+                  <div>
+                    <div className="h-6 bg-gray-200 rounded w-48 mb-2"></div>
+                    <div className="h-4 bg-gray-200 rounded w-32"></div>
+                  </div>
+                </div>
+                <div className="h-10 bg-gray-200 rounded w-40"></div>
+              </div>
+            </div>
+
+            {/* Statistics Cards Skeleton */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-4 gap-4 mb-6">
+              {[...Array(8)].map((_, i) => (
+                <div key={i} className="bg-white rounded-lg shadow p-6 animate-pulse">
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                      <div className="h-4 bg-gray-200 rounded w-20 mb-2"></div>
+                      <div className="h-8 bg-gray-200 rounded w-16"></div>
+                    </div>
+                    <div className="w-12 h-12 bg-gray-200 rounded-xl"></div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Filter Buttons Skeleton */}
+            <div className="flex flex-wrap gap-2 mb-6">
+              {[...Array(8)].map((_, i) => (
+                <div key={i} className="h-10 bg-gray-200 rounded-full w-36 animate-pulse"></div>
+              ))}
+            </div>
+
+            {/* Table Skeleton */}
+            <div className="bg-white rounded-lg shadow overflow-hidden">
+              <div className="p-6">
+                <div className="h-6 bg-gray-200 rounded w-48 mb-6"></div>
+                {[...Array(6)].map((_, i) => (
+                  <div key={i} className="py-4 border-b border-gray-200 last:border-b-0 animate-pulse">
+                    <div className="flex items-center justify-between gap-4">
+                      <div className="flex-1">
+                        <div className="h-5 bg-gray-200 rounded w-3/4 mb-2"></div>
+                        <div className="h-4 bg-gray-200 rounded w-1/2"></div>
+                      </div>
+                      <div className="h-8 bg-gray-200 rounded w-24"></div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </>
         ) : availableDates.length === 0 ? (
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-8 text-center">
             <Calendar className="w-16 h-16 text-blue-600 mx-auto mb-4" />

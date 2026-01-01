@@ -11,7 +11,6 @@ import {
   Calendar,
   Megaphone,
   Shield,
-  ClipboardCheck,
   UserPlus,
   RefreshCw,
   Clock,
@@ -25,8 +24,8 @@ import { format } from 'date-fns';
 interface DashboardStats {
   patients: {
     total: number;
-    pending: number;
     active: number;
+    suspended: number;
     rejected: number;
   };
   appointments: {
@@ -39,16 +38,6 @@ interface DashboardStats {
     total: number;
     active: number;
   };
-}
-
-interface RecentPatient {
-  id: string;
-  first_name: string;
-  last_name: string;
-  email: string;
-  patient_number?: string;
-  status: string;
-  created_at: string;
 }
 
 interface UpcomingAppointment {
@@ -69,16 +58,16 @@ interface UpcomingAppointment {
 export default function HealthcareAdminDashboard() {
   const { user } = useAuth();
   const [stats, setStats] = useState<DashboardStats>({
-    patients: { total: 0, pending: 0, active: 0, rejected: 0 },
+    patients: { total: 0, active: 0, suspended: 0, rejected: 0 },
     appointments: { total: 0, today: 0, scheduled: 0, completed: 0 },
     announcements: { total: 0, active: 0 },
   });
-  const [recentPatients, setRecentPatients] = useState<RecentPatient[]>([]);
   const [upcomingAppointments, setUpcomingAppointments] = useState<UpcomingAppointment[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
   const [serviceName, setServiceName] = useState<string>('Loading...');
+  const [requiresAppointment, setRequiresAppointment] = useState<boolean>(true); // Default to true for Pattern 2
 
   useEffect(() => {
     fetchDashboardData();
@@ -93,13 +82,14 @@ export default function HealthcareAdminDashboard() {
       else setLoading(true);
       setError('');
 
-      // Fetch user's assigned service name if available
+      // Fetch user's assigned service name and properties if available
       if (user?.assigned_service_id) {
         try {
           const serviceRes = await fetch(`/api/services/${user.assigned_service_id}`);
           const serviceData = await serviceRes.json();
           if (serviceData.success && serviceData.data) {
             setServiceName(serviceData.data.name);
+            setRequiresAppointment(serviceData.data.requires_appointment ?? true);
           } else {
             setServiceName('Service Not Found');
           }
@@ -112,7 +102,14 @@ export default function HealthcareAdminDashboard() {
       }
 
       // Fetch patients statistics
-      const patientsRes = await fetch('/api/admin/patients?limit=1000');
+      // Use different endpoint based on user role
+      // Super Admin: all patients globally
+      // Healthcare Admin: only patients from their assigned service
+      const patientsEndpoint = user?.role === 'super_admin'
+        ? '/api/admin/patients?limit=1000'
+        : '/api/healthcare-admin/patients?limit=1000';
+
+      const patientsRes = await fetch(patientsEndpoint);
       const patientsData = await patientsRes.json();
 
       // Fetch appointments statistics
@@ -131,8 +128,8 @@ export default function HealthcareAdminDashboard() {
         // Calculate patient stats
         const patientStats = {
           total: patients.length,
-          pending: patients.filter((p: any) => p.status === 'pending').length,
           active: patients.filter((p: any) => p.status === 'active').length,
+          suspended: patients.filter((p: any) => p.status === 'suspended').length,
           rejected: patients.filter((p: any) => p.status === 'rejected').length,
         };
 
@@ -156,22 +153,6 @@ export default function HealthcareAdminDashboard() {
           appointments: appointmentStats,
           announcements: announcementStats,
         });
-
-        // Get recent pending patients
-        const pendingPatients = patients
-          .filter((p: any) => p.status === 'pending')
-          .sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-          .slice(0, 5)
-          .map((p: any) => ({
-            id: p.id,
-            first_name: p.first_name,
-            last_name: p.last_name,
-            email: p.email,
-            patient_number: p.patients?.patient_number,
-            status: p.status,
-            created_at: p.created_at,
-          }));
-        setRecentPatients(pendingPatients);
 
         // Get upcoming appointments
         const upcoming = appointments
@@ -202,7 +183,7 @@ export default function HealthcareAdminDashboard() {
   if (error) {
     return (
       <DashboardLayout
-        roleId={2}
+        roleId={user?.role_id || 2}
         pageTitle="Dashboard"
         pageDescription="Healthcare Administration Dashboard"
       >
@@ -225,7 +206,7 @@ export default function HealthcareAdminDashboard() {
 
   return (
     <DashboardLayout
-      roleId={2}
+      roleId={user?.role_id || 2}
       pageTitle="Dashboard"
       pageDescription="Healthcare Administration Dashboard"
     >
@@ -273,28 +254,10 @@ export default function HealthcareAdminDashboard() {
                   </div>
                   <p className="text-3xl font-bold text-gray-900">{stats.patients.total}</p>
                   <p className="text-xs text-gray-500 mt-1">
-                    {stats.patients.active} active, {stats.patients.rejected} rejected
+                    {stats.patients.active} active, {stats.patients.suspended} suspended, {stats.patients.rejected} rejected
                   </p>
                 </div>
               </div>
-
-              {/* Pending Approvals */}
-              <Link
-                href="/healthcare-admin/patients?filter=pending"
-                className="bg-white rounded-lg shadow p-6 hover:shadow-lg transition-shadow cursor-pointer group"
-              >
-                <div className="flex flex-col">
-                  <div className="flex items-center justify-between mb-2">
-                    <p className="text-sm font-medium text-gray-600">Pending Approvals</p>
-                    <ClipboardCheck className="w-8 h-8 text-cta-orange" />
-                  </div>
-                  <p className="text-3xl font-bold text-gray-900">{stats.patients.pending}</p>
-                  <p className="text-xs text-primary-teal mt-1 group-hover:underline flex items-center gap-1">
-                    Review pending patients
-                    <ArrowRight className="w-3 h-3" />
-                  </p>
-                </div>
-              </Link>
 
               {/* Total Appointments */}
               <div className="bg-white rounded-lg shadow p-6 hover:shadow-lg transition-shadow">
@@ -346,33 +309,33 @@ export default function HealthcareAdminDashboard() {
             {/* Quick Actions */}
             <div className="bg-white rounded-lg shadow p-6 mb-8">
               <h3 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                <Link
-                  href="/healthcare-admin/patients?filter=pending"
-                  className="flex items-center gap-3 p-4 border border-gray-200 rounded-lg hover:border-primary-teal hover:bg-primary-teal/5 transition-all group"
-                >
-                  <ClipboardCheck className="w-8 h-8 text-cta-orange group-hover:scale-110 transition-transform" />
-                  <div>
-                    <p className="font-medium text-gray-900">Approve Patients</p>
-                    <p className="text-xs text-gray-500">
-                      {stats.patients.pending} pending
-                    </p>
-                  </div>
-                </Link>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {requiresAppointment ? (
+                  <Link
+                    href="/healthcare-admin/appointments"
+                    className="flex items-center gap-3 p-4 border border-gray-200 rounded-lg hover:border-primary-teal hover:bg-primary-teal/5 transition-all group"
+                  >
+                    <Calendar className="w-8 h-8 text-info group-hover:scale-110 transition-transform" />
+                    <div>
+                      <p className="font-medium text-gray-900">View Appointments</p>
+                      <p className="text-xs text-gray-500">Manage schedule</p>
+                    </div>
+                  </Link>
+                ) : (
+                  <Link
+                    href="/healthcare-admin/walk-in"
+                    className="flex items-center gap-3 p-4 border border-gray-200 rounded-lg hover:border-primary-teal hover:bg-primary-teal/5 transition-all group"
+                  >
+                    <UserPlus className="w-8 h-8 text-info group-hover:scale-110 transition-transform" />
+                    <div>
+                      <p className="font-medium text-gray-900">View Walk-in Queue</p>
+                      <p className="text-xs text-gray-500">Manage walk-ins</p>
+                    </div>
+                  </Link>
+                )}
 
                 <Link
-                  href="/healthcare-admin/appointments"
-                  className="flex items-center gap-3 p-4 border border-gray-200 rounded-lg hover:border-primary-teal hover:bg-primary-teal/5 transition-all group"
-                >
-                  <Calendar className="w-8 h-8 text-info group-hover:scale-110 transition-transform" />
-                  <div>
-                    <p className="font-medium text-gray-900">View Appointments</p>
-                    <p className="text-xs text-gray-500">Manage schedule</p>
-                  </div>
-                </Link>
-
-                <Link
-                  href="/healthcare-admin/announcements"
+                  href="/healthcare-admin/announcements/manage"
                   className="flex items-center gap-3 p-4 border border-gray-200 rounded-lg hover:border-primary-teal hover:bg-primary-teal/5 transition-all group"
                 >
                   <Megaphone className="w-8 h-8 text-success group-hover:scale-110 transition-transform" />
@@ -396,114 +359,67 @@ export default function HealthcareAdminDashboard() {
             </div>
 
             {/* Recent Activity */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-              {/* Recent Pending Patients */}
-              <div className="bg-white rounded-lg shadow">
-                <div className="p-6 border-b border-gray-200">
-                  <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-                    <ClipboardCheck className="w-5 h-5 text-cta-orange" />
-                    Recent Pending Patients
-                  </h3>
-                </div>
-                <div className="divide-y divide-gray-200">
-                  {recentPatients.length === 0 ? (
-                    <div className="p-6 text-center text-gray-500">
-                      <CheckCircle className="w-12 h-12 text-green-500 mx-auto mb-2" />
-                      <p>No pending approvals</p>
-                    </div>
-                  ) : (
-                    recentPatients.map((patient) => (
+            {requiresAppointment && (
+              <div className="grid grid-cols-1 gap-8 mb-8">
+                {/* Upcoming Appointments */}
+                <div className="bg-white rounded-lg shadow">
+                  <div className="p-6 border-b border-gray-200">
+                    <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                      <Calendar className="w-5 h-5 text-info" />
+                      Upcoming Appointments
+                    </h3>
+                  </div>
+                  <div className="divide-y divide-gray-200">
+                    {upcomingAppointments.length === 0 ? (
+                      <div className="p-6 text-center text-gray-500">
+                        <Calendar className="w-12 h-12 text-gray-400 mx-auto mb-2" />
+                        <p>No upcoming appointments</p>
+                      </div>
+                    ) : (
+                      upcomingAppointments.map((appointment) => (
+                        <Link
+                          key={appointment.id}
+                          href={`/healthcare-admin/appointments`}
+                          className="p-4 hover:bg-gray-50 transition-colors block"
+                        >
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="font-medium text-gray-900">
+                                #{appointment.appointment_number} -{' '}
+                                {appointment.patients.profiles.first_name}{' '}
+                                {appointment.patients.profiles.last_name}
+                              </p>
+                              <p className="text-sm text-gray-500">
+                                {appointment.patients.patient_number}
+                              </p>
+                            </div>
+                            <div className="text-right">
+                              <p className="text-sm font-medium text-gray-900">
+                                {format(new Date(appointment.appointment_date), 'MMM d, yyyy')}
+                              </p>
+                              <p className="text-xs text-gray-500">
+                                {format(new Date(`2000-01-01T${appointment.appointment_time}`), 'h:mm a')}
+                              </p>
+                            </div>
+                          </div>
+                        </Link>
+                      ))
+                    )}
+                  </div>
+                  {upcomingAppointments.length > 0 && (
+                    <div className="p-4 border-t border-gray-200">
                       <Link
-                        key={patient.id}
-                        href={`/healthcare-admin/patients?filter=pending`}
-                        className="p-4 hover:bg-gray-50 transition-colors block"
+                        href="/healthcare-admin/appointments"
+                        className="text-sm text-primary-teal hover:underline flex items-center justify-center gap-1"
                       >
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <p className="font-medium text-gray-900">
-                              {patient.first_name} {patient.last_name}
-                            </p>
-                            <p className="text-sm text-gray-500">{patient.email}</p>
-                          </div>
-                          <div className="text-right">
-                            <p className="text-xs text-gray-500">
-                              {format(new Date(patient.created_at), 'MMM d, h:mm a')}
-                            </p>
-                          </div>
-                        </div>
+                        View all appointments
+                        <ArrowRight className="w-4 h-4" />
                       </Link>
-                    ))
+                    </div>
                   )}
                 </div>
-                {recentPatients.length > 0 && (
-                  <div className="p-4 border-t border-gray-200">
-                    <Link
-                      href="/healthcare-admin/patients?filter=pending"
-                      className="text-sm text-primary-teal hover:underline flex items-center justify-center gap-1"
-                    >
-                      View all pending patients
-                      <ArrowRight className="w-4 h-4" />
-                    </Link>
-                  </div>
-                )}
               </div>
-
-              {/* Upcoming Appointments */}
-              <div className="bg-white rounded-lg shadow">
-                <div className="p-6 border-b border-gray-200">
-                  <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-                    <Calendar className="w-5 h-5 text-info" />
-                    Upcoming Appointments
-                  </h3>
-                </div>
-                <div className="divide-y divide-gray-200">
-                  {upcomingAppointments.length === 0 ? (
-                    <div className="p-6 text-center text-gray-500">
-                      <Calendar className="w-12 h-12 text-gray-400 mx-auto mb-2" />
-                      <p>No upcoming appointments</p>
-                    </div>
-                  ) : (
-                    upcomingAppointments.map((appointment) => (
-                      <Link
-                        key={appointment.id}
-                        href={`/healthcare-admin/appointments`}
-                        className="p-4 hover:bg-gray-50 transition-colors block"
-                      >
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <p className="font-medium text-gray-900">
-                              #{appointment.appointment_number} -{' '}
-                              {appointment.patients.profiles.first_name}{' '}
-                              {appointment.patients.profiles.last_name}
-                            </p>
-                            <p className="text-sm text-gray-500">
-                              {appointment.patients.patient_number}
-                            </p>
-                          </div>
-                          <div className="text-right">
-                            <p className="text-sm font-medium text-gray-900">
-                              {format(new Date(appointment.appointment_date), 'MMM d')}
-                            </p>
-                            <p className="text-xs text-gray-500">{appointment.appointment_time}</p>
-                          </div>
-                        </div>
-                      </Link>
-                    ))
-                  )}
-                </div>
-                {upcomingAppointments.length > 0 && (
-                  <div className="p-4 border-t border-gray-200">
-                    <Link
-                      href="/healthcare-admin/appointments"
-                      className="text-sm text-primary-teal hover:underline flex items-center justify-center gap-1"
-                    >
-                      View all appointments
-                      <ArrowRight className="w-4 h-4" />
-                    </Link>
-                  </div>
-                )}
-              </div>
-            </div>
+            )}
 
             {/* Recent Announcements - Full Width */}
             <AnnouncementsWidget

@@ -181,7 +181,7 @@ export default function NewWalkInPatient() {
   }
 
   return (
-    <DashboardLayout roleId={2} pageTitle="Add Walk-in Patient">
+    <DashboardLayout roleId={user?.role_id || 2} pageTitle="Add Walk-in Patient">
       <Container>
         <div className="mb-6">
           <button

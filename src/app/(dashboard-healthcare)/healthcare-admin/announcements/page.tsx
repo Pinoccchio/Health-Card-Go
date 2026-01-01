@@ -1,88 +1,32 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
+import Link from 'next/link';
+import { useAuth } from '@/lib/auth';
 import { DashboardLayout } from '@/components/dashboard';
-import { Container, ConfirmDialog, Button } from '@/components/ui';
-import { ProfessionalCard } from '@/components/ui/ProfessionalCard';
-import { EnhancedTable } from '@/components/ui/EnhancedTable';
-import { Drawer } from '@/components/ui/Drawer';
-import {
-  Megaphone,
-  Plus,
-  Edit,
-  Trash2,
-  Eye,
-  ToggleLeft,
-  ToggleRight,
-  Users,
-  UserCheck,
-  Activity,
-  ListChecks,
-  CheckCircle,
-  Clock,
-  Stethoscope,
-  Shield,
-} from 'lucide-react';
-import { Announcement, AnnouncementFormData, TargetAudience } from '@/types';
+import { Container } from '@/components/ui';
+import { Megaphone, Clock, Users, Shield, Settings, AlertCircle, RefreshCw } from 'lucide-react';
+import { Announcement } from '@/types';
 
-export default function HealthcareAdminAnnouncementsPage() {
+export default function HealthcareAdminAnnouncementsViewPage() {
+  const { user } = useAuth();
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
-  const [selectedAnnouncement, setSelectedAnnouncement] = useState<Announcement | null>(null);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState<'all' | 'active' | 'inactive'>('all');
-  const [audienceFilter, setAudienceFilter] = useState<'all' | TargetAudience>('all');
-  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
-  const [drawerMode, setDrawerMode] = useState<'view' | 'edit' | 'create'>('view');
-  const [actionLoading, setActionLoading] = useState(false);
-
-  // Search state
-  const [searchQuery, setSearchQuery] = useState('');
-
-  // Delete dialog state
-  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
-  const [pendingDelete, setPendingDelete] = useState<Announcement | null>(null);
-
-  // Toggle/Deactivate confirmation state
-  const [showToggleDialog, setShowToggleDialog] = useState(false);
-  const [pendingToggle, setPendingToggle] = useState<Announcement | null>(null);
-
-  // Form state
-  const [formData, setFormData] = useState<AnnouncementFormData>({
-    title: '',
-    content: '',
-    target_audience: 'all',
-    is_active: true,
-  });
-  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     fetchAnnouncements();
   }, []);
 
-  // Clear messages after 5 seconds
-  useEffect(() => {
-    if (successMessage) {
-      const timer = setTimeout(() => setSuccessMessage(null), 5000);
-      return () => clearTimeout(timer);
-    }
-  }, [successMessage]);
-
-  useEffect(() => {
-    if (errorMessage) {
-      const timer = setTimeout(() => setErrorMessage(null), 5000);
-      return () => clearTimeout(timer);
-    }
-  }, [errorMessage]);
-
   const fetchAnnouncements = async () => {
     try {
       setLoading(true);
+      setError(null);
 
+      // Fetch announcements targeted to healthcare_admin or all
       const params = new URLSearchParams({
-        limit: '1000', // Get all for client-side filtering
-        include_inactive: 'true', // Include inactive announcements for admin management
+        target_audience: 'healthcare_admin',
+        limit: '1000',
       });
 
       const response = await fetch(`/api/announcements?${params.toString()}`);
@@ -95,837 +39,189 @@ export default function HealthcareAdminAnnouncementsPage() {
       setAnnouncements(result.data || []);
     } catch (err) {
       console.error('Error fetching announcements:', err);
-      setErrorMessage(err instanceof Error ? err.message : 'Failed to load announcements');
+      setError(err instanceof Error ? err.message : 'Failed to load announcements');
     } finally {
       setLoading(false);
     }
   };
 
-  // Calculate statistics
-  const statistics = useMemo(() => {
-    const total = announcements.length;
-    const active = announcements.filter(a => a.is_active).length;
-    const inactive = announcements.filter(a => !a.is_active).length;
-    const forAll = announcements.filter(a => a.target_audience === 'all').length;
-    const forPatients = announcements.filter(a => a.target_audience === 'patients').length;
-    const forAdmins = announcements.filter(a => a.target_audience === 'healthcare_admin').length;
-    const forSuperAdmins = announcements.filter(a => a.target_audience === 'super_admin').length;
-    const forStaff = announcements.filter(a => a.target_audience === 'staff').length;
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffInMs = now.getTime() - date.getTime();
+    const diffInDays = Math.floor(diffInMs / (1000 * 60 * 60 * 24));
 
-    return { total, active, inactive, forAll, forPatients, forAdmins, forSuperAdmins, forStaff };
-  }, [announcements]);
-
-  // Filter announcements
-  const filteredAnnouncements = useMemo(() => {
-    let filtered = announcements;
-
-    // Status filter
-    if (filter === 'active') {
-      filtered = filtered.filter(a => a.is_active);
-    } else if (filter === 'inactive') {
-      filtered = filtered.filter(a => !a.is_active);
-    }
-
-    // Audience filter
-    if (audienceFilter !== 'all') {
-      filtered = filtered.filter(a => a.target_audience === audienceFilter);
-    }
-
-    // Search filter
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(a =>
-        a.title.toLowerCase().includes(query) ||
-        a.content.toLowerCase().includes(query)
-      );
-    }
-
-    return filtered;
-  }, [announcements, filter, audienceFilter, searchQuery]);
-
-  // Handle drawer open for create
-  const handleCreate = () => {
-    setSelectedAnnouncement(null);
-    setFormData({
-      title: '',
-      content: '',
-      target_audience: 'all',
-      is_active: true,
-    });
-    setFormErrors({});
-    setDrawerMode('create');
-    setIsDrawerOpen(true);
-  };
-
-  // Handle drawer open for edit
-  const handleEdit = (announcement: Announcement) => {
-    setSelectedAnnouncement(announcement);
-    setFormData({
-      title: announcement.title,
-      content: announcement.content,
-      target_audience: announcement.target_audience,
-      is_active: announcement.is_active,
-    });
-    setFormErrors({});
-    setDrawerMode('edit');
-    setIsDrawerOpen(true);
-  };
-
-  // Handle drawer open for view
-  const handleView = (announcement: Announcement) => {
-    setSelectedAnnouncement(announcement);
-    setFormData({
-      title: announcement.title,
-      content: announcement.content,
-      target_audience: announcement.target_audience,
-      is_active: announcement.is_active,
-    });
-    setDrawerMode('view');
-    setIsDrawerOpen(true);
-  };
-
-  // Validate form
-  const validateForm = (): boolean => {
-    const errors: Record<string, string> = {};
-
-    if (!formData.title.trim()) {
-      errors.title = 'Title is required';
-    } else if (formData.title.length > 200) {
-      errors.title = 'Title must be 200 characters or less';
-    }
-
-    if (!formData.content.trim()) {
-      errors.content = 'Content is required';
-    } else if (formData.content.length > 1000) {
-      errors.content = 'Content must be 1000 characters or less';
-    }
-
-    setFormErrors(errors);
-    return Object.keys(errors).length === 0;
-  };
-
-  // Handle form submit
-  const handleSubmit = async () => {
-    if (!validateForm()) {
-      return;
-    }
-
-    try {
-      setActionLoading(true);
-
-      const url = selectedAnnouncement
-        ? `/api/announcements/${selectedAnnouncement.id}`
-        : '/api/announcements';
-
-      const method = selectedAnnouncement ? 'PATCH' : 'POST';
-
-      const response = await fetch(url, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
+    if (diffInDays === 0) {
+      return 'Today';
+    } else if (diffInDays === 1) {
+      return 'Yesterday';
+    } else if (diffInDays < 7) {
+      return `${diffInDays} days ago`;
+    } else {
+      return date.toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
       });
-
-      const result = await response.json();
-
-      if (!response.ok) {
-        throw new Error(result.error || 'Failed to save announcement');
-      }
-
-      setSuccessMessage(
-        selectedAnnouncement
-          ? 'Announcement updated successfully'
-          : 'Announcement created successfully'
-      );
-
-      setIsDrawerOpen(false);
-      fetchAnnouncements();
-    } catch (err) {
-      console.error('Error saving announcement:', err);
-      setErrorMessage(err instanceof Error ? err.message : 'An error occurred');
-    } finally {
-      setActionLoading(false);
     }
   };
 
-  // Handle delete
-  const handleDeleteClick = (announcement: Announcement) => {
-    setPendingDelete(announcement);
-    setShowDeleteDialog(true);
-  };
-
-  const handleDelete = async () => {
-    if (!pendingDelete) return;
-
-    try {
-      setActionLoading(true);
-
-      const response = await fetch(`/api/announcements/${pendingDelete.id}`, {
-        method: 'DELETE',
-      });
-
-      const result = await response.json();
-
-      if (!response.ok) {
-        throw new Error(result.error || 'Failed to delete announcement');
-      }
-
-      setSuccessMessage('Announcement deleted successfully');
-      setShowDeleteDialog(false);
-      setPendingDelete(null);
-      fetchAnnouncements();
-    } catch (err) {
-      console.error('Error deleting announcement:', err);
-      setErrorMessage(err instanceof Error ? err.message : 'An error occurred');
-    } finally {
-      setActionLoading(false);
+  const getAudienceLabel = (targetAudience: string) => {
+    switch (targetAudience) {
+      case 'all':
+        return 'All Users';
+      case 'healthcare_admin':
+        return 'Healthcare Admins';
+      case 'super_admin':
+        return 'Super Admins';
+      case 'patients':
+        return 'Patients';
+      case 'staff':
+        return 'Staff';
+      default:
+        return targetAudience;
     }
   };
 
-  // Handle toggle click - show confirmation dialog
-  const handleToggleClick = (announcement: Announcement) => {
-    setPendingToggle(announcement);
-    setShowToggleDialog(true);
-  };
-
-  // Handle confirmed toggle active status
-  const handleConfirmToggle = async () => {
-    if (!pendingToggle) return;
-
-    try {
-      setActionLoading(true);
-
-      const response = await fetch(`/api/announcements/${pendingToggle.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ is_active: !pendingToggle.is_active }),
-      });
-
-      const result = await response.json();
-
-      if (!response.ok) {
-        throw new Error(result.error || 'Failed to update announcement');
-      }
-
-      setSuccessMessage(
-        `Announcement ${pendingToggle.is_active ? 'deactivated' : 'activated'} successfully`
-      );
-
-      setShowToggleDialog(false);
-      setPendingToggle(null);
-      fetchAnnouncements();
-    } catch (err) {
-      console.error('Error toggling announcement:', err);
-      setErrorMessage(err instanceof Error ? err.message : 'An error occurred');
-    } finally {
-      setActionLoading(false);
+  const getAudienceIcon = (targetAudience: string) => {
+    switch (targetAudience) {
+      case 'all':
+        return Users;
+      case 'healthcare_admin':
+        return Shield;
+      default:
+        return Megaphone;
     }
   };
-
-  // Table columns
-  const columns = [
-    {
-      accessor: 'title',
-      header: 'Announcement',
-      sortable: true,
-      render: (value: any, row: Announcement) => {
-        if (!row) return null;
-        return (
-          <div className="max-w-md">
-            <div className="font-medium text-gray-900">
-              {row.title}
-            </div>
-            <div className="text-sm text-gray-900 truncate">
-              {row.content.substring(0, 80)}
-              {row.content.length > 80 && '...'}
-            </div>
-          </div>
-        );
-      },
-    },
-    {
-      accessor: 'target_audience',
-      header: 'Target Audience',
-      sortable: true,
-      render: (value: any, row: Announcement) => {
-        if (!row) return null;
-
-        const audienceConfig = {
-          all: { label: 'All Users', color: 'purple', icon: Users },
-          patients: { label: 'Patients', color: 'blue', icon: UserCheck },
-          healthcare_admin: { label: 'Healthcare Admins', color: 'green', icon: Shield },
-          super_admin: { label: 'Super Admins', color: 'orange', icon: CheckCircle },
-          staff: { label: 'Staff', color: 'cyan', icon: Activity },
-        };
-
-        const config = audienceConfig[row.target_audience];
-        const Icon = config.icon;
-
-        const colorClasses = {
-          purple: 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200',
-          blue: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
-          green: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
-          orange: 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200',
-          cyan: 'bg-cyan-100 text-cyan-800 dark:bg-cyan-900 dark:text-cyan-200',
-        };
-
-        return (
-          <span className={`inline-flex items-center gap-1 px-2 py-1 text-xs font-semibold rounded-full ${colorClasses[config.color as keyof typeof colorClasses]}`}>
-            <Icon className="w-3 h-3" />
-            {config.label}
-          </span>
-        );
-      },
-    },
-    {
-      accessor: 'is_active',
-      header: 'Status',
-      sortable: true,
-      render: (value: any, row: Announcement) => {
-        if (!row) return null;
-        return (
-          <span className={`inline-flex items-center gap-1 px-2 py-1 text-xs font-semibold rounded-full ${
-            row.is_active
-              ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
-              : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-100'
-          }`}>
-            {row.is_active ? <CheckCircle className="w-3 h-3" /> : <Clock className="w-3 h-3" />}
-            {row.is_active ? 'Active' : 'Inactive'}
-          </span>
-        );
-      },
-    },
-    {
-      accessor: 'created_at',
-      header: 'Created',
-      sortable: true,
-      render: (value: any, row: Announcement) => {
-        if (!row) return null;
-
-        const date = new Date(row.created_at);
-        const now = new Date();
-        const diffInMs = now.getTime() - date.getTime();
-        const diffInDays = Math.floor(diffInMs / (1000 * 60 * 60 * 24));
-
-        let timeAgo = '';
-        if (diffInDays === 0) {
-          timeAgo = 'Today';
-        } else if (diffInDays === 1) {
-          timeAgo = 'Yesterday';
-        } else if (diffInDays < 7) {
-          timeAgo = `${diffInDays} days ago`;
-        } else {
-          timeAgo = date.toLocaleDateString();
-        }
-
-        return (
-          <div className="flex items-center gap-1 text-sm text-gray-900">
-            <Clock className="w-3 h-3 text-gray-900" />
-            <span className="font-medium text-gray-900">{timeAgo}</span>
-          </div>
-        );
-      },
-    },
-    {
-      accessor: 'actions',
-      header: 'Actions',
-      render: (value: any, row: Announcement) => {
-        if (!row) return null;
-        return (
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => handleView(row)}
-              className="inline-flex items-center px-3 py-1.5 bg-[#20C997] text-white text-xs font-medium rounded-md hover:bg-[#1AA179] transition-colors"
-            >
-              <Eye className="w-3 h-3 mr-1.5" />
-              View
-            </button>
-            <button
-              onClick={() => handleEdit(row)}
-              className="inline-flex items-center px-3 py-1.5 bg-blue-600 text-white text-xs font-medium rounded-md hover:bg-blue-700 transition-colors"
-            >
-              <Edit className="w-3 h-3 mr-1.5" />
-              Edit
-            </button>
-            <button
-              onClick={() => handleToggleClick(row)}
-              className={`inline-flex items-center px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
-                row.is_active
-                  ? 'bg-gray-600 text-white hover:bg-gray-700'
-                  : 'bg-green-600 text-white hover:bg-green-700'
-              }`}
-            >
-              {row.is_active ? (
-                <>
-                  <ToggleRight className="w-3 h-3 mr-1.5" />
-                  Deactivate
-                </>
-              ) : (
-                <>
-                  <ToggleLeft className="w-3 h-3 mr-1.5" />
-                  Activate
-                </>
-              )}
-            </button>
-            <button
-              onClick={() => handleDeleteClick(row)}
-              className="inline-flex items-center px-3 py-1.5 bg-red-600 text-white text-xs font-medium rounded-md hover:bg-red-700 transition-colors"
-            >
-              <Trash2 className="w-3 h-3 mr-1.5" />
-              Delete
-            </button>
-          </div>
-        );
-      },
-    },
-  ];
 
   return (
     <DashboardLayout
-      roleId={2}
+      roleId={user?.role_id || 2}
       pageTitle="Announcements"
-      pageDescription="Manage announcements and communications"
+      pageDescription="View announcements and updates"
     >
       <Container size="full">
-        {/* Success Message */}
-        {successMessage && (
-          <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded-md flex items-start">
-            <CheckCircle className="w-5 h-5 text-green-600 mt-0.5 mr-3 flex-shrink-0" />
-            <p className="text-sm font-medium text-green-800">{successMessage}</p>
+        {/* Header */}
+        <div className="mb-6 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="p-3 bg-primary-teal/10 rounded-lg">
+              <Megaphone className="w-6 h-6 text-primary-teal" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">Announcements</h1>
+              <p className="text-sm text-gray-600">Stay updated with important information</p>
+            </div>
           </div>
-        )}
-
-        {/* Error Message */}
-        {errorMessage && (
-          <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-md flex items-start">
-            <Activity className="w-5 h-5 text-red-600 mt-0.5 mr-3 flex-shrink-0" />
-            <p className="text-sm font-medium text-red-800">{errorMessage}</p>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={fetchAnnouncements}
+              disabled={loading}
+              className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors disabled:opacity-50"
+            >
+              <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+              Refresh
+            </button>
+            <Link
+              href="/healthcare-admin/announcements/manage"
+              className="flex items-center gap-2 px-4 py-2 bg-primary-teal text-white rounded-md hover:bg-primary-teal-dark transition-colors"
+            >
+              <Settings className="w-4 h-4" />
+              Manage Announcements
+            </Link>
           </div>
-        )}
+        </div>
 
+        {/* Content */}
         {loading ? (
-          <div className="text-center py-12">
-            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-[#20C997]"></div>
-            <p className="mt-2 text-sm text-gray-500">Loading announcements...</p>
+          <div className="bg-white rounded-lg shadow p-12 text-center">
+            <RefreshCw className="w-12 h-12 text-primary-teal animate-spin mx-auto mb-4" />
+            <p className="text-gray-600">Loading announcements...</p>
+          </div>
+        ) : error ? (
+          <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
+            <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-3" />
+            <h3 className="text-lg font-semibold text-red-900 mb-2">Error Loading Announcements</h3>
+            <p className="text-red-800 mb-4">{error}</p>
+            <button
+              onClick={fetchAnnouncements}
+              className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors"
+            >
+              Try Again
+            </button>
+          </div>
+        ) : announcements.length === 0 ? (
+          <div className="bg-white rounded-lg shadow p-12 text-center">
+            <Megaphone className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">No Announcements</h3>
+            <p className="text-gray-600 mb-6">There are no announcements at this time.</p>
+            <Link
+              href="/healthcare-admin/announcements/manage"
+              className="inline-flex items-center gap-2 px-4 py-2 bg-primary-teal text-white rounded-md hover:bg-primary-teal-dark transition-colors"
+            >
+              <Settings className="w-4 h-4" />
+              Create New Announcement
+            </Link>
           </div>
         ) : (
-          <>
-            {/* Statistics Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 mb-6">
-              <ProfessionalCard variant="flat" className="bg-gradient-to-br from-teal-50 to-teal-100 border-l-4 border-teal-500">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-gray-600 mb-1">Total</p>
-                    <p className="text-3xl font-bold text-gray-900">{statistics.total}</p>
-                  </div>
-                  <div className="w-12 h-12 bg-teal-500 rounded-xl flex items-center justify-center shadow-lg">
-                    <ListChecks className="w-6 h-6 text-white" />
-                  </div>
-                </div>
-              </ProfessionalCard>
+          <div className="space-y-4">
+            {announcements.map((announcement) => {
+              const AudienceIcon = getAudienceIcon(announcement.target_audience);
 
-              <ProfessionalCard variant="flat" className="bg-gradient-to-br from-green-50 to-green-100 border-l-4 border-green-500">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-gray-600 mb-1">Active</p>
-                    <p className="text-3xl font-bold text-gray-900">{statistics.active}</p>
-                  </div>
-                  <div className="w-12 h-12 bg-green-500 rounded-xl flex items-center justify-center shadow-lg">
-                    <CheckCircle className="w-6 h-6 text-white" />
-                  </div>
-                </div>
-              </ProfessionalCard>
-
-              <ProfessionalCard variant="flat" className="bg-gradient-to-br from-gray-50 to-gray-100 border-l-4 border-gray-400">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-gray-600 mb-1">Inactive</p>
-                    <p className="text-3xl font-bold text-gray-900">{statistics.inactive}</p>
-                  </div>
-                  <div className="w-12 h-12 bg-gray-400 rounded-xl flex items-center justify-center shadow-lg">
-                    <Clock className="w-6 h-6 text-white" />
-                  </div>
-                </div>
-              </ProfessionalCard>
-
-              <ProfessionalCard variant="flat" className="bg-gradient-to-br from-blue-50 to-blue-100 border-l-4 border-blue-500">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-gray-600 mb-1">For Patients</p>
-                    <p className="text-3xl font-bold text-gray-900">{statistics.forPatients}</p>
-                  </div>
-                  <div className="w-12 h-12 bg-blue-500 rounded-xl flex items-center justify-center shadow-lg">
-                    <UserCheck className="w-6 h-6 text-white" />
-                  </div>
-                </div>
-              </ProfessionalCard>
-
-              <ProfessionalCard variant="flat" className="bg-gradient-to-br from-green-50 to-green-100 border-l-4 border-green-500">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-gray-600 mb-1">For Admins</p>
-                    <p className="text-3xl font-bold text-gray-900">{statistics.forAdmins}</p>
-                  </div>
-                  <div className="w-12 h-12 bg-green-500 rounded-xl flex items-center justify-center shadow-lg">
-                    <Shield className="w-6 h-6 text-white" />
-                  </div>
-                </div>
-              </ProfessionalCard>
-
-              <ProfessionalCard variant="flat" className="bg-gradient-to-br from-orange-50 to-orange-100 border-l-4 border-orange-500">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-gray-600 mb-1">For Super Admins</p>
-                    <p className="text-3xl font-bold text-gray-900">{statistics.forSuperAdmins}</p>
-                  </div>
-                  <div className="w-12 h-12 bg-orange-500 rounded-xl flex items-center justify-center shadow-lg">
-                    <CheckCircle className="w-6 h-6 text-white" />
-                  </div>
-                </div>
-              </ProfessionalCard>
-
-              <ProfessionalCard variant="flat" className="bg-gradient-to-br from-cyan-50 to-cyan-100 border-l-4 border-cyan-500">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-gray-600 mb-1">For Staff</p>
-                    <p className="text-3xl font-bold text-gray-900">{statistics.forStaff}</p>
-                  </div>
-                  <div className="w-12 h-12 bg-cyan-500 rounded-xl flex items-center justify-center shadow-lg">
-                    <Activity className="w-6 h-6 text-white" />
-                  </div>
-                </div>
-              </ProfessionalCard>
-            </div>
-
-            {/* Quick Status Filters */}
-            <div className="flex flex-wrap gap-2 mb-6">
-              {[
-                { id: 'all', label: 'All Announcements', count: statistics.total, color: 'teal', icon: ListChecks },
-                { id: 'active', label: 'Active', count: statistics.active, color: 'green', icon: CheckCircle },
-                { id: 'inactive', label: 'Inactive', count: statistics.inactive, color: 'gray', icon: Clock },
-              ].map((statusFilter) => {
-                const Icon = statusFilter.icon;
-                const isActive = filter === statusFilter.id;
-                const colorClasses = {
-                  teal: { bg: 'bg-teal-100 hover:bg-teal-200', text: 'text-teal-700', ring: 'ring-teal-500', activeBg: 'bg-teal-200' },
-                  green: { bg: 'bg-green-100 hover:bg-green-200', text: 'text-green-700', ring: 'ring-green-500', activeBg: 'bg-green-200' },
-                  gray: { bg: 'bg-gray-100 hover:bg-gray-200', text: 'text-gray-700', ring: 'ring-gray-400', activeBg: 'bg-gray-200' },
-                };
-                const colors = colorClasses[statusFilter.color as keyof typeof colorClasses];
-
-                return (
-                  <button
-                    key={statusFilter.id}
-                    onClick={() => setFilter(statusFilter.id as typeof filter)}
-                    className={`
-                      flex items-center gap-2 px-4 py-2 rounded-full font-medium text-sm transition-all
-                      ${isActive ? `${colors.activeBg} ${colors.text} ring-2 ${colors.ring} shadow-md` : `${colors.bg} ${colors.text}`}
-                    `}
-                  >
-                    <Icon className="w-4 h-4" />
-                    <span>{statusFilter.label}</span>
-                    <span className={`
-                      ml-1 px-2 py-0.5 rounded-full text-xs font-bold
-                      ${isActive ? 'bg-white/80' : 'bg-white/60'}
-                    `}>
-                      {statusFilter.count}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-
-            {/* Action Button */}
-            <div className="flex justify-end mb-4">
-              <button
-                onClick={handleCreate}
-                className="inline-flex items-center px-4 py-2 bg-[#20C997] text-white text-sm font-medium rounded-md hover:bg-[#1AA179] transition-colors shadow-sm"
-              >
-                <Plus className="w-4 h-4 mr-2" />
-                Create Announcement
-              </button>
-            </div>
-
-            {/* Announcements Table */}
-            <div className="mt-6">
-              <EnhancedTable
-                columns={columns}
-                data={filteredAnnouncements}
-                searchable
-                searchPlaceholder="Search by title or content..."
-                searchValue={searchQuery}
-                onSearchChange={setSearchQuery}
-                paginated={false}
-                loading={loading}
-                emptyMessage="No announcements found"
-              />
-            </div>
-          </>
-        )}
-
-        {/* Announcement Drawer */}
-        <Drawer
-          isOpen={isDrawerOpen}
-          onClose={() => setIsDrawerOpen(false)}
-          title={
-            drawerMode === 'create'
-              ? 'Create Announcement'
-              : drawerMode === 'edit'
-              ? 'Edit Announcement'
-              : 'Announcement Details'
-          }
-          subtitle={
-            selectedAnnouncement && drawerMode !== 'create'
-              ? `Target: ${
-                  selectedAnnouncement.target_audience === 'all'
-                    ? 'All Users'
-                    : selectedAnnouncement.target_audience === 'patients'
-                    ? 'Patients'
-                    : selectedAnnouncement.target_audience === 'healthcare_admin'
-                    ? 'Healthcare Admins'
-                    : selectedAnnouncement.target_audience === 'super_admin'
-                    ? 'Super Admins'
-                    : selectedAnnouncement.target_audience === 'staff'
-                    ? 'Staff'
-                    : 'Unknown'
-                }`
-              : undefined
-          }
-          metadata={
-            selectedAnnouncement && drawerMode !== 'create'
-              ? {
-                  createdOn: new Date(selectedAnnouncement.created_at).toLocaleDateString('en-US', {
-                    month: 'short',
-                    day: 'numeric',
-                    year: 'numeric',
-                  }),
-                  author: selectedAnnouncement.profiles
-                    ? `By: ${selectedAnnouncement.profiles.first_name} ${selectedAnnouncement.profiles.last_name}`
-                    : 'Unknown Author',
-                }
-              : undefined
-          }
-          size="xl"
-        >
-          <div className="p-6">
-            <div className="space-y-8">
-
-            {/* Form Fields */}
-            {drawerMode !== 'view' ? (
-              <>
-                {/* Form Section */}
-                <div className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4 pb-2 border-b border-gray-200">
-                    Announcement Details
-                  </h3>
-
-                  <div className="space-y-4">
-                    {/* Title */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Title
-                        <span className="text-red-500 ml-1">*</span>
-                      </label>
-                      <input
-                        type="text"
-                        value={formData.title}
-                        onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                        className={`w-full px-3 py-2 border rounded-md shadow-sm focus:ring-2 focus:ring-primary-teal focus:border-primary-teal ${
-                          formErrors.title ? 'border-red-500' : 'border-gray-300'
-                        }`}
-                        placeholder="Enter announcement title"
-                        maxLength={200}
-                      />
-                      {formErrors.title && (
-                        <p className="mt-1 text-xs text-red-600">{formErrors.title}</p>
-                      )}
-                      <p className="mt-1 text-xs text-gray-500">
-                        {formData.title.length}/200 characters
-                      </p>
+              return (
+                <div
+                  key={announcement.id}
+                  className="bg-white rounded-lg shadow hover:shadow-md transition-shadow"
+                >
+                  <div className="p-6">
+                    {/* Header with title and metadata */}
+                    <div className="flex items-start justify-between gap-4 mb-3">
+                      <div className="flex-1">
+                        <h2 className="text-xl font-semibold text-gray-900 mb-2">
+                          {announcement.title}
+                        </h2>
+                        <div className="flex items-center gap-4 text-sm text-gray-600">
+                          <div className="flex items-center gap-1">
+                            <Clock className="w-4 h-4" />
+                            <span>{formatDate(announcement.created_at)}</span>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <AudienceIcon className="w-4 h-4" />
+                            <span>{getAudienceLabel(announcement.target_audience)}</span>
+                          </div>
+                          {announcement.profiles && (
+                            <span className="text-gray-500">
+                              By {announcement.profiles.first_name} {announcement.profiles.last_name}
+                            </span>
+                          )}
+                        </div>
+                      </div>
                     </div>
 
                     {/* Content */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Content
-                        <span className="text-red-500 ml-1">*</span>
-                      </label>
-                      <textarea
-                        value={formData.content}
-                        onChange={(e) => setFormData({ ...formData, content: e.target.value })}
-                        rows={6}
-                        className={`w-full px-3 py-2 border rounded-md shadow-sm focus:ring-2 focus:ring-primary-teal focus:border-primary-teal ${
-                          formErrors.content ? 'border-red-500' : 'border-gray-300'
-                        }`}
-                        placeholder="Enter announcement content"
-                        maxLength={1000}
-                      />
-                      {formErrors.content && (
-                        <p className="mt-1 text-xs text-red-600">{formErrors.content}</p>
-                      )}
-                      <p className="mt-1 text-xs text-gray-500">
-                        {formData.content.length}/1000 characters
-                      </p>
-                    </div>
-
-                    {/* Target Audience */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Target Audience
-                        <span className="text-red-500 ml-1">*</span>
-                      </label>
-                      <select
-                        value={formData.target_audience}
-                        onChange={(e) => setFormData({ ...formData, target_audience: e.target.value as TargetAudience })}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-primary-teal focus:border-primary-teal"
-                      >
-                        <option value="all">All Users</option>
-                        <option value="patients">Patients Only</option>
-                        <option value="healthcare_admin">Healthcare Admins Only</option>
-                        <option value="super_admin">Super Admins Only</option>
-                        <option value="staff">Staff Only</option>
-                      </select>
-                    </div>
-
-                    {/* Active Status */}
-                    <div>
-                      <div className="flex items-center">
-                        <input
-                          type="checkbox"
-                          id="is_active"
-                          checked={formData.is_active}
-                          onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })}
-                          className="w-4 h-4 text-primary-teal border-gray-300 rounded focus:ring-primary-teal"
-                        />
-                        <label htmlFor="is_active" className="ml-2 text-sm text-gray-700">
-                          Active (announcement will be visible to target audience)
-                        </label>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </>
-            ) : (
-              <>
-                {/* View Mode */}
-                <div className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4 pb-2 border-b border-gray-200">
-                    Announcement Details
-                  </h3>
-
-                  <div className="space-y-4">
-                    <div>
-                      <h4 className="text-xl font-bold text-gray-900 mb-2">
-                        {selectedAnnouncement?.title}
-                      </h4>
-                      <div className="flex items-center gap-2 mb-4">
-                        <span className={`inline-flex items-center gap-1 px-2 py-1 text-xs font-semibold rounded-full ${
-                          selectedAnnouncement?.is_active
-                            ? 'bg-green-100 text-green-800'
-                            : 'bg-gray-100 text-gray-800'
-                        }`}>
-                          {selectedAnnouncement?.is_active ? <CheckCircle className="w-3 h-3" /> : <Clock className="w-3 h-3" />}
-                          {selectedAnnouncement?.is_active ? 'Active' : 'Inactive'}
-                        </span>
-                      </div>
-                    </div>
-
-                    <div>
-                      <p className="text-sm font-medium text-gray-700 mb-1">Content</p>
-                      <p className="text-gray-900 whitespace-pre-wrap leading-relaxed">
-                        {selectedAnnouncement?.content}
-                      </p>
-                    </div>
-
-                    <div className="pt-4 border-t border-gray-200">
-                      <p className="text-sm text-gray-700">
-                        <strong className="font-semibold">Target Audience:</strong>{' '}
-                        {selectedAnnouncement?.target_audience === 'all' && 'All Users'}
-                        {selectedAnnouncement?.target_audience === 'patients' && 'Patients'}
-                        {selectedAnnouncement?.target_audience === 'healthcare_admin' && 'Healthcare Admins'}
-                        {selectedAnnouncement?.target_audience === 'super_admin' && 'Super Admins'}
-                        {selectedAnnouncement?.target_audience === 'staff' && 'Staff'}
+                    <div className="prose prose-sm max-w-none">
+                      <p className="text-gray-700 whitespace-pre-wrap leading-relaxed">
+                        {announcement.content}
                       </p>
                     </div>
                   </div>
                 </div>
-              </>
-            )}
-
-            {/* Action Buttons */}
-            <div className="flex items-center justify-end space-x-4 pt-6 border-t border-gray-200">
-              {drawerMode === 'view' ? (
-                <>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    onClick={() => setIsDrawerOpen(false)}
-                  >
-                    Close
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="primary"
-                    onClick={() => setDrawerMode('edit')}
-                  >
-                    Edit
-                  </Button>
-                </>
-              ) : (
-                <>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    onClick={() => setIsDrawerOpen(false)}
-                    disabled={actionLoading}
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="primary"
-                    onClick={handleSubmit}
-                    disabled={actionLoading}
-                  >
-                    {actionLoading ? 'Saving...' : (drawerMode === 'create' ? 'Create' : 'Update')}
-                  </Button>
-                </>
-              )}
-            </div>
-            </div>
+              );
+            })}
           </div>
-        </Drawer>
+        )}
 
-        {/* Toggle Confirmation Dialog */}
-        <ConfirmDialog
-          isOpen={showToggleDialog}
-          onClose={() => {
-            setShowToggleDialog(false);
-            setPendingToggle(null);
-          }}
-          onConfirm={handleConfirmToggle}
-          title={pendingToggle?.is_active ? "Deactivate Announcement" : "Activate Announcement"}
-          message={pendingToggle?.is_active
-            ? `Are you sure you want to deactivate "${pendingToggle?.title}"? It will no longer be visible to users.`
-            : `Are you sure you want to activate "${pendingToggle?.title}"? It will become visible to the target audience.`}
-          confirmText={pendingToggle?.is_active ? "Deactivate" : "Activate"}
-          variant={pendingToggle?.is_active ? "warning" : "info"}
-          loading={actionLoading}
-        />
-
-        {/* Delete Confirmation Dialog */}
-        <ConfirmDialog
-          isOpen={showDeleteDialog}
-          onClose={() => {
-            setShowDeleteDialog(false);
-            setPendingDelete(null);
-          }}
-          onConfirm={handleDelete}
-          title="Delete Announcement"
-          message={`Are you sure you want to delete "${pendingDelete?.title}"? This action cannot be undone.`}
-          confirmText="Delete"
-          variant="danger"
-          loading={actionLoading}
-        />
+        {/* Footer Info */}
+        {!loading && !error && announcements.length > 0 && (
+          <div className="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <p className="text-sm text-blue-800">
+              <strong>Showing {announcements.length} announcement{announcements.length !== 1 ? 's' : ''}</strong> targeted to healthcare administrators.
+              {' '}To create or manage announcements, visit the{' '}
+              <Link href="/healthcare-admin/announcements/manage" className="font-semibold underline hover:text-blue-900">
+                management page
+              </Link>.
+            </p>
+          </div>
+        )}
       </Container>
     </DashboardLayout>
   );

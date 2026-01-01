@@ -36,6 +36,7 @@ import {
   PlayCircle
 } from 'lucide-react';
 import { useToast } from '@/lib/contexts/ToastContext';
+import { format } from 'date-fns';
 
 interface WalkInPatient {
   id: string;
@@ -595,7 +596,7 @@ export default function WalkInQueuePage() {
         <div className="flex items-center gap-1">
           <Calendar className="w-3 h-3 text-gray-400" />
           <span className="text-sm text-gray-700">
-            {new Date(value).toLocaleDateString()}
+            {format(new Date(value), 'MMM d, yyyy')}
           </span>
         </div>
       ),
@@ -747,7 +748,7 @@ export default function WalkInQueuePage() {
   ];
 
   return (
-    <DashboardLayout roleId={2} pageTitle="Walk-in Queue" pageDescription={`Manage walk-in patients for ${serviceName}`}>
+    <DashboardLayout roleId={user?.role_id || 2} pageTitle="Walk-in Queue" pageDescription={`Manage walk-in patients for ${serviceName}`}>
       <Container size="full">
         <div className="space-y-6">
           {/* Header with Register Button */}
@@ -941,7 +942,40 @@ export default function WalkInQueuePage() {
             <p className="text-gray-600 mb-6">View and manage patients who have checked in today</p>
 
             {isLoadingQueue ? (
-              <div className="text-center py-8 text-gray-500">Loading queue...</div>
+              <>
+                {/* Statistics Cards Skeleton */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                  {[...Array(4)].map((_, i) => (
+                    <div key={i} className="bg-white rounded-lg shadow p-6 animate-pulse">
+                      <div className="flex items-center justify-between">
+                        <div className="flex-1">
+                          <div className="h-4 bg-gray-200 rounded w-20 mb-2"></div>
+                          <div className="h-8 bg-gray-200 rounded w-16"></div>
+                        </div>
+                        <div className="w-12 h-12 bg-gray-200 rounded-xl"></div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Table Skeleton */}
+                <div className="bg-white rounded-lg shadow overflow-hidden">
+                  <div className="p-6">
+                    <div className="h-6 bg-gray-200 rounded w-48 mb-6"></div>
+                    {[...Array(5)].map((_, i) => (
+                      <div key={i} className="py-4 border-b border-gray-200 last:border-b-0 animate-pulse">
+                        <div className="flex items-center justify-between gap-4">
+                          <div className="flex-1">
+                            <div className="h-5 bg-gray-200 rounded w-3/4 mb-2"></div>
+                            <div className="h-4 bg-gray-200 rounded w-1/2"></div>
+                          </div>
+                          <div className="h-8 bg-gray-200 rounded w-24"></div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </>
             ) : (
               <EnhancedTable
                 columns={walkInTableColumns}
@@ -984,11 +1018,11 @@ export default function WalkInQueuePage() {
               <div className="flex items-center gap-4 text-sm text-white">
                 <div className="flex items-center gap-1">
                   <Calendar className="w-4 h-4" />
-                  {new Date(selectedPatient.appointment_date).toLocaleDateString()}
+                  {format(new Date(selectedPatient.appointment_date), 'MMM d, yyyy')}
                 </div>
                 <div className="flex items-center gap-1">
                   <Clock className="w-4 h-4" />
-                  {selectedPatient.appointment_time}
+                  {format(new Date(`2000-01-01T${selectedPatient.appointment_time}`), 'h:mm a')}
                 </div>
               </div>
             }
@@ -1031,7 +1065,7 @@ export default function WalkInQueuePage() {
                     </div>
                     <div className="flex justify-between">
                       <span className="text-gray-600">Date:</span>
-                      <span className="font-medium text-gray-900">{new Date(selectedPatient.appointment_date).toLocaleDateString()}</span>
+                      <span className="font-medium text-gray-900">{format(new Date(selectedPatient.appointment_date), 'MMM d, yyyy')}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-gray-600">Time Block:</span>

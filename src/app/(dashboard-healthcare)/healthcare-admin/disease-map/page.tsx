@@ -99,7 +99,7 @@ export default function HealthcareAdminDiseaseMap() {
   if (error) {
     return (
       <DashboardLayout
-        roleId={2}
+        roleId={user?.role_id || 2}
         pageTitle="Disease Map"
         pageDescription="View disease distribution across barangays"
       >
@@ -122,7 +122,7 @@ export default function HealthcareAdminDiseaseMap() {
 
   return (
     <DashboardLayout
-      roleId={2}
+      roleId={user?.role_id || 2}
       pageTitle="Disease Map"
       pageDescription="View disease distribution across barangays"
     >

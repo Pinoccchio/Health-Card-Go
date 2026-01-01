@@ -371,7 +371,7 @@ export default function HealthcareAdminMedicalRecordsPage() {
   // Show loading state while checking access
   if (isCheckingAccess) {
     return (
-      <DashboardLayout roleId={2} pageTitle="Medical Records" pageDescription="Loading...">
+      <DashboardLayout roleId={user?.role_id || 2} pageTitle="Medical Records" pageDescription="Loading...">
         <Container size="full">
           <div className="flex items-center justify-center h-64">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-teal"></div>
@@ -384,7 +384,7 @@ export default function HealthcareAdminMedicalRecordsPage() {
   // If no access, show error (will redirect, but show this temporarily)
   if (!hasAccess) {
     return (
-      <DashboardLayout roleId={2} pageTitle="Access Denied" pageDescription="Redirecting...">
+      <DashboardLayout roleId={user?.role_id || 2} pageTitle="Access Denied" pageDescription="Redirecting...">
         <Container size="full">
           <div className="bg-red-50 border border-red-200 rounded-lg p-8 text-center">
             <AlertTriangle className="w-16 h-16 text-red-600 mx-auto mb-4" />
@@ -400,7 +400,7 @@ export default function HealthcareAdminMedicalRecordsPage() {
 
   return (
     <DashboardLayout
-      roleId={2}
+      roleId={user?.role_id || 2}
       pageTitle="Medical Records"
       pageDescription="View and manage medical records for your assigned service"
     >
