@@ -275,12 +275,15 @@ export async function getHealthcareAdminMenuItems(
       });
     }
 
-    // Always show Disease Map
-    menuItems.push({
-      label: 'Disease Map',
-      href: '/healthcare-admin/disease-map',
-      icon: Map,
-    });
+    // Only show Disease Map for services with medical records (Pattern 2 & 3)
+    // Pattern 1 (health card) and Pattern 4 (education) don't track diseases
+    if (service.requires_medical_record) {
+      menuItems.push({
+        label: 'Disease Map',
+        href: '/healthcare-admin/disease-map',
+        icon: Map,
+      });
+    }
 
     // Always show Reports and Announcements
     menuItems.push(

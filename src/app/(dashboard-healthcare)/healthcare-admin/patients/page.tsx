@@ -73,6 +73,8 @@ export default function HealthcareAdminPatientsPage() {
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | PatientStatus>('all');
+  const [serviceName, setServiceName] = useState<string>('Loading...');
+  const [requiresMedicalRecords, setRequiresMedicalRecords] = useState<boolean>(true);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
 
@@ -90,6 +92,31 @@ export default function HealthcareAdminPatientsPage() {
 
   // Action dialog state
   const [pendingAction, setPendingAction] = useState<Patient | null>(null);
+
+  // Fetch service properties on mount
+  useEffect(() => {
+    const fetchServiceProperties = async () => {
+      if (user?.assigned_service_id) {
+        try {
+          const serviceRes = await fetch(`/api/services/${user.assigned_service_id}`);
+          const serviceData = await serviceRes.json();
+          if (serviceData.success && serviceData.data) {
+            setServiceName(serviceData.data.name);
+            setRequiresMedicalRecords(serviceData.data.requires_medical_record ?? true);
+          } else {
+            setServiceName('Service Not Found');
+          }
+        } catch (err) {
+          console.error('Error fetching service properties:', err);
+          setServiceName('Unknown Service');
+        }
+      } else {
+        setServiceName('No Service Assigned');
+      }
+    };
+
+    fetchServiceProperties();
+  }, [user?.assigned_service_id]);
 
   // Reset to page 1 when filter changes
   // Reset to page 1 when filter or search changes
@@ -612,8 +639,8 @@ export default function HealthcareAdminPatientsPage() {
                 </div>
               )}
 
-              {/* Medical Information */}
-              {(() => {
+              {/* Medical Information - Only show for services that require medical records */}
+              {requiresMedicalRecords && (() => {
                 // Only show Medical Information section if patient has any medical data
                 const hasMedicalData = selectedPatient.patients && (
                   selectedPatient.patients.medical_history?.blood_type ||
