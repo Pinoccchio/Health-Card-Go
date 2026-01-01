@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
+import { useTranslations } from 'next-intl';
 import { DashboardLayout } from '@/components/dashboard';
 import { Container, Drawer } from '@/components/ui';
 import { ProfessionalCard } from '@/components/ui/ProfessionalCard';
@@ -67,6 +68,7 @@ interface Feedback {
 type FilterType = 'all' | 'pending' | 'submitted' | 'recommended' | 'with_response' | 'awaiting_response';
 
 export default function PatientFeedbackPage() {
+  const t = useTranslations('feedback');
   const [filter, setFilter] = useState<FilterType>('all');
   const [eligibleAppointments, setEligibleAppointments] = useState<Appointment[]>([]);
   const [feedbackHistory, setFeedbackHistory] = useState<Feedback[]>([]);
@@ -134,7 +136,7 @@ export default function PatientFeedbackPage() {
 
     } catch (err) {
       console.error('Error loading data:', err);
-      setError('Failed to load data. Please try again.');
+      setError(t('errors.load_failed'));
     } finally {
       setLoading(false);
     }
@@ -201,7 +203,7 @@ export default function PatientFeedbackPage() {
   // Define table columns for feedback history
   const tableColumns = [
     {
-      header: 'Submitted',
+      header: t('table.submitted'),
       accessor: 'created_at',
       sortable: true,
       render: (value: string) => (
@@ -212,7 +214,7 @@ export default function PatientFeedbackPage() {
       ),
     },
     {
-      header: 'Service',
+      header: t('table.service'),
       accessor: 'service',
       sortable: false,
       render: (_: any, row: Feedback) => (
@@ -220,60 +222,60 @@ export default function PatientFeedbackPage() {
           {row.appointments?.services ? (
             <span className="text-gray-900">{row.appointments.services.name}</span>
           ) : (
-            <span className="text-gray-400 italic">N/A</span>
+            <span className="text-gray-400 italic">{t('table.not_available')}</span>
           )}
         </div>
       ),
     },
     {
-      header: 'Rating',
+      header: t('table.rating'),
       accessor: 'rating',
       sortable: true,
       render: (value: number) => (
         <div className="flex items-center gap-1 text-sm">
           <Star className="w-4 h-4 text-yellow-500 fill-yellow-500" />
           <span className="font-semibold text-gray-900">{value.toFixed(1)}</span>
-          <span className="text-gray-500">/ 5.0</span>
+          <span className="text-gray-500">{t('card.rating_scale')}</span>
         </div>
       ),
     },
     {
-      header: 'Recommend',
+      header: t('table.recommend'),
       accessor: 'would_recommend',
       sortable: true,
       render: (value: boolean) => (
         value ? (
           <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
             <ThumbsUp className="w-3 h-3 mr-1" />
-            Yes
+            {t('recommend.yes')}
           </span>
         ) : (
           <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
-            No
+            {t('recommend.no')}
           </span>
         )
       ),
     },
     {
-      header: 'Response',
+      header: t('table.response'),
       accessor: 'admin_response',
       sortable: false,
       render: (value: string | undefined) => (
         value ? (
           <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
             <Reply className="w-3 h-3 mr-1" />
-            Responded
+            {t('status.responded')}
           </span>
         ) : (
           <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
             <Clock className="w-3 h-3 mr-1" />
-            Pending
+            {t('status.pending')}
           </span>
         )
       ),
     },
     {
-      header: 'Actions',
+      header: t('table.actions'),
       accessor: 'actions',
       render: (_: any, row: Feedback) => (
         <button
@@ -281,7 +283,7 @@ export default function PatientFeedbackPage() {
           className="inline-flex items-center px-3 py-1.5 bg-[#20C997] text-white text-xs font-medium rounded-md hover:bg-[#1AA179] transition-colors"
         >
           <Eye className="w-3 h-3 mr-1.5" />
-          View Details
+          {t('table.view_details')}
         </button>
       ),
     },
@@ -290,8 +292,8 @@ export default function PatientFeedbackPage() {
   return (
     <DashboardLayout
       roleId={4}
-      pageTitle="Feedback"
-      pageDescription="Share your experience and view your feedback history"
+      pageTitle={t('title')}
+      pageDescription={t('description')}
     >
       <Container size="full">
         {/* Error state */}
@@ -311,7 +313,7 @@ export default function PatientFeedbackPage() {
               <ProfessionalCard variant="flat" className="bg-gradient-to-br from-teal-50 to-teal-100 border-l-4 border-teal-500">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-gray-600 mb-1">Submitted</p>
+                    <p className="text-sm text-gray-600 mb-1">{t('statistics.submitted')}</p>
                     <p className="text-3xl font-bold text-gray-900">{statistics.totalSubmitted}</p>
                   </div>
                   <div className="w-12 h-12 bg-teal-500 rounded-xl flex items-center justify-center shadow-lg">
@@ -323,7 +325,7 @@ export default function PatientFeedbackPage() {
               <ProfessionalCard variant="flat" className="bg-gradient-to-br from-orange-50 to-orange-100 border-l-4 border-orange-500">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-gray-600 mb-1">Pending</p>
+                    <p className="text-sm text-gray-600 mb-1">{t('statistics.pending')}</p>
                     <p className="text-3xl font-bold text-gray-900">{statistics.pending}</p>
                   </div>
                   <div className="w-12 h-12 bg-orange-500 rounded-xl flex items-center justify-center shadow-lg">
@@ -335,7 +337,7 @@ export default function PatientFeedbackPage() {
               <ProfessionalCard variant="flat" className="bg-gradient-to-br from-yellow-50 to-yellow-100 border-l-4 border-yellow-500">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-gray-600 mb-1">Avg Rating</p>
+                    <p className="text-sm text-gray-600 mb-1">{t('statistics.avg_rating')}</p>
                     <p className="text-3xl font-bold text-gray-900">{statistics.averageRating.toFixed(1)}</p>
                   </div>
                   <div className="w-12 h-12 bg-yellow-500 rounded-xl flex items-center justify-center shadow-lg">
@@ -347,7 +349,7 @@ export default function PatientFeedbackPage() {
               <ProfessionalCard variant="flat" className="bg-gradient-to-br from-green-50 to-green-100 border-l-4 border-green-500">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-gray-600 mb-1">Recommended</p>
+                    <p className="text-sm text-gray-600 mb-1">{t('statistics.recommended')}</p>
                     <p className="text-3xl font-bold text-gray-900">{statistics.recommendations}</p>
                   </div>
                   <div className="w-12 h-12 bg-green-500 rounded-xl flex items-center justify-center shadow-lg">
@@ -359,7 +361,7 @@ export default function PatientFeedbackPage() {
               <ProfessionalCard variant="flat" className="bg-gradient-to-br from-blue-50 to-blue-100 border-l-4 border-blue-500">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-gray-600 mb-1">With Response</p>
+                    <p className="text-sm text-gray-600 mb-1">{t('statistics.with_response')}</p>
                     <p className="text-3xl font-bold text-gray-900">{statistics.withResponse}</p>
                   </div>
                   <div className="w-12 h-12 bg-blue-500 rounded-xl flex items-center justify-center shadow-lg">
@@ -371,7 +373,7 @@ export default function PatientFeedbackPage() {
               <ProfessionalCard variant="flat" className="bg-gradient-to-br from-purple-50 to-purple-100 border-l-4 border-purple-500">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-gray-600 mb-1">Awaiting</p>
+                    <p className="text-sm text-gray-600 mb-1">{t('statistics.awaiting')}</p>
                     <p className="text-3xl font-bold text-gray-900">{statistics.awaitingResponse}</p>
                   </div>
                   <div className="w-12 h-12 bg-purple-500 rounded-xl flex items-center justify-center shadow-lg">
@@ -384,12 +386,12 @@ export default function PatientFeedbackPage() {
             {/* Quick Filters */}
             <div className="flex flex-wrap gap-2 mb-6">
               {[
-                { id: 'all', label: 'All', count: statistics.totalSubmitted + statistics.pending, color: 'teal', icon: ListChecks },
-                { id: 'pending', label: 'Pending Feedback', count: statistics.pending, color: 'orange', icon: Clock },
-                { id: 'submitted', label: 'Submitted', count: statistics.totalSubmitted, color: 'teal', icon: Send },
-                { id: 'recommended', label: 'Recommended', count: statistics.recommendations, color: 'green', icon: ThumbsUp },
-                { id: 'with_response', label: 'With Response', count: statistics.withResponse, color: 'blue', icon: Reply },
-                { id: 'awaiting_response', label: 'Awaiting Response', count: statistics.awaitingResponse, color: 'purple', icon: MessageSquare },
+                { id: 'all', labelKey: 'all', count: statistics.totalSubmitted + statistics.pending, color: 'teal', icon: ListChecks },
+                { id: 'pending', labelKey: 'pending_feedback', count: statistics.pending, color: 'orange', icon: Clock },
+                { id: 'submitted', labelKey: 'submitted', count: statistics.totalSubmitted, color: 'teal', icon: Send },
+                { id: 'recommended', labelKey: 'recommended', count: statistics.recommendations, color: 'green', icon: ThumbsUp },
+                { id: 'with_response', labelKey: 'with_response', count: statistics.withResponse, color: 'blue', icon: Reply },
+                { id: 'awaiting_response', labelKey: 'awaiting_response', count: statistics.awaitingResponse, color: 'purple', icon: MessageSquare },
               ].map((filterOption) => {
                 const Icon = filterOption.icon;
                 const isActive = filter === filterOption.id;
@@ -412,7 +414,7 @@ export default function PatientFeedbackPage() {
                     `}
                   >
                     <Icon className="w-4 h-4" />
-                    <span>{filterOption.label}</span>
+                    <span>{t(`filters.${filterOption.labelKey}`)}</span>
                     <span className={`ml-1 px-2 py-0.5 rounded-full text-xs font-bold ${isActive ? 'bg-white/80' : 'bg-white/60'}`}>
                       {filterOption.count}
                     </span>
@@ -428,10 +430,10 @@ export default function PatientFeedbackPage() {
                 <div className="bg-white rounded-lg shadow p-6">
                   <div className="mb-6">
                     <h2 className="text-lg font-semibold text-gray-900 mb-2">
-                      Eligible Appointments
+                      {t('eligible_appointments')}
                     </h2>
                     <p className="text-sm text-gray-600">
-                      You can submit feedback within 7 days of appointment completion.
+                      {t('eligible_description')}
                     </p>
                   </div>
 
@@ -441,10 +443,10 @@ export default function PatientFeedbackPage() {
                         <Clock className="w-8 h-8 text-gray-400" />
                       </div>
                       <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                        No Eligible Appointments
+                        {t('no_eligible')}
                       </h3>
                       <p className="text-gray-600">
-                        You don't have any completed appointments eligible for feedback at this time.
+                        {t('no_eligible_description')}
                       </p>
                     </div>
                   ) : (
@@ -461,10 +463,10 @@ export default function PatientFeedbackPage() {
                               <div className="flex-1">
                                 <div className="flex items-center gap-3 mb-2">
                                   <h3 className="font-medium text-gray-900">
-                                    {appointment.services?.name || 'N/A'}
+                                    {appointment.services?.name || t('table.not_available')}
                                   </h3>
                                   <span className="px-2 py-1 bg-green-100 text-green-700 text-xs font-medium rounded">
-                                    Completed
+                                    {t('status.completed')}
                                   </span>
                                 </div>
 
@@ -487,11 +489,11 @@ export default function PatientFeedbackPage() {
                                 <div className="flex items-center text-sm">
                                   {daysRemaining > 0 ? (
                                     <span className="text-amber-600 font-medium">
-                                      {daysRemaining} day{daysRemaining !== 1 ? 's' : ''} remaining to submit feedback
+                                      {daysRemaining} {t('days_remaining')}
                                     </span>
                                   ) : (
                                     <span className="text-red-600 font-medium">
-                                      Feedback deadline expired
+                                      {t('deadline_expired')}
                                     </span>
                                   )}
                                 </div>
@@ -502,7 +504,7 @@ export default function PatientFeedbackPage() {
                                   onClick={() => handleSubmitClick(appointment)}
                                   className="ml-4 px-4 py-2 bg-primary-teal text-white rounded-lg hover:bg-primary-teal/90 transition-colors text-sm font-medium"
                                 >
-                                  Submit Feedback
+                                  {t('submit')}
                                 </button>
                               )}
                             </div>
@@ -519,10 +521,10 @@ export default function PatientFeedbackPage() {
                 <div className="bg-white rounded-lg shadow p-6">
                   <div className="mb-6">
                     <h2 className="text-lg font-semibold text-gray-900 mb-2">
-                      Your Feedback History
+                      {t('feedback_history')}
                     </h2>
                     <p className="text-sm text-gray-600">
-                      View all your submitted feedback and admin responses.
+                      {t('history_description')}
                     </p>
                   </div>
 
@@ -532,16 +534,16 @@ export default function PatientFeedbackPage() {
                         <MessageSquare className="w-8 h-8 text-gray-400" />
                       </div>
                       <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                        No Feedback Yet
+                        {t('no_feedback')}
                       </h3>
                       <p className="text-gray-600 mb-4">
-                        You haven't submitted any feedback yet.
+                        {t('no_feedback_description')}
                       </p>
                       <button
                         onClick={() => setFilter('pending')}
                         className="px-4 py-2 bg-primary-teal text-white rounded-lg hover:bg-primary-teal/90 transition-colors text-sm font-medium"
                       >
-                        View Eligible Appointments
+                        {t('view_eligible')}
                       </button>
                     </div>
                   ) : (
@@ -549,7 +551,7 @@ export default function PatientFeedbackPage() {
                       columns={tableColumns}
                       data={filteredFeedback}
                       searchable
-                      searchPlaceholder="Search by service or rating..."
+                      searchPlaceholder={t('search_placeholder')}
                       paginated
                       pageSize={10}
                     />
@@ -587,8 +589,8 @@ export default function PatientFeedbackPage() {
               }
             }}
             size="xl"
-            title="Submit Feedback"
-            subtitle={selectedAppointment.services?.name || 'Appointment'}
+            title={t('submit')}
+            subtitle={selectedAppointment.services?.name || t('card.appointment')}
           >
             <div className="p-6">
               <FeedbackForm
@@ -619,8 +621,8 @@ export default function PatientFeedbackPage() {
               setSelectedFeedback(null);
             }}
             size="xl"
-            title="Feedback Details"
-            subtitle={selectedFeedback.appointments?.services?.name || 'Appointment'}
+            title={t('details')}
+            subtitle={selectedFeedback.appointments?.services?.name || t('card.appointment')}
           >
             <div className="p-6">
               <FeedbackCard feedback={selectedFeedback} showAppointmentDetails={true} />

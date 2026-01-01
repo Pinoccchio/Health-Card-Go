@@ -1,5 +1,6 @@
 'use client';
 
+import { useTranslations } from 'next-intl';
 import StarRating from '@/components/ui/StarRating';
 import { Calendar, User, Building2, Timer, ThumbsUp, ThumbsDown, MessageSquare, Reply, Clock } from 'lucide-react';
 import { TimeBlock, TIME_BLOCKS, getTimeBlockColor } from '@/types/appointment';
@@ -32,9 +33,10 @@ interface FeedbackCardProps {
 }
 
 export default function FeedbackCard({ feedback, showAppointmentDetails = true }: FeedbackCardProps) {
+  const t = useTranslations('feedback.card');
   const adminName = feedback.responded_by_profile
     ? `${feedback.responded_by_profile.first_name} ${feedback.responded_by_profile.last_name}`
-    : 'Administrator';
+    : t('administrator');
 
   return (
     <div className="bg-white border border-gray-200 rounded-lg p-5 space-y-4">
@@ -44,19 +46,19 @@ export default function FeedbackCard({ feedback, showAppointmentDetails = true }
           <div className="grid grid-cols-2 gap-3 text-sm">
             <div className="flex items-center text-gray-700">
               <Building2 className="w-4 h-4 mr-2 text-gray-500" />
-              <span className="font-medium">Service:</span>
-              <span className="ml-2">{feedback.appointments.services?.name || 'N/A'}</span>
+              <span className="font-medium">{t('service_label')}</span>
+              <span className="ml-2">{feedback.appointments.services?.name || t('not_available')}</span>
             </div>
             <div className="flex items-center text-gray-700">
               <Calendar className="w-4 h-4 mr-2 text-gray-500" />
-              <span className="font-medium">Date:</span>
+              <span className="font-medium">{t('date_label')}</span>
               <span className="ml-2">
                 {new Date(feedback.appointments.appointment_date).toLocaleDateString()}
               </span>
             </div>
             <div className="flex items-center gap-2 text-gray-700">
               <Clock className="w-4 h-4 text-gray-500" />
-              <span className="font-medium">Time:</span>
+              <span className="font-medium">{t('time_label')}</span>
               {feedback.appointments.time_block ? (
                 <>
                   <span className={`px-2 py-0.5 rounded text-xs font-bold ${getTimeBlockColor(feedback.appointments.time_block)}`}>
@@ -78,7 +80,7 @@ export default function FeedbackCard({ feedback, showAppointmentDetails = true }
       <div className="flex items-center justify-between">
         <div className="flex items-center text-sm text-gray-500">
           <Calendar className="w-4 h-4 mr-2" />
-          Submitted on {new Date(feedback.created_at).toLocaleDateString('en-US', {
+          {t('submitted_on')} {new Date(feedback.created_at).toLocaleDateString('en-US', {
             year: 'numeric',
             month: 'long',
             day: 'numeric',
@@ -87,12 +89,12 @@ export default function FeedbackCard({ feedback, showAppointmentDetails = true }
         {feedback.would_recommend ? (
           <div className="flex items-center text-green-600 text-sm font-medium">
             <ThumbsUp className="w-4 h-4 mr-1" />
-            Recommends
+            {t('recommends')}
           </div>
         ) : (
           <div className="flex items-center text-gray-500 text-sm">
             <ThumbsDown className="w-4 h-4 mr-1" />
-            Does not recommend
+            {t('does_not_recommend')}
           </div>
         )}
       </div>
@@ -100,15 +102,15 @@ export default function FeedbackCard({ feedback, showAppointmentDetails = true }
       {/* Ratings Grid */}
       <div className="grid grid-cols-3 gap-4">
         <div>
-          <p className="text-xs text-gray-500 mb-1">Overall Experience</p>
+          <p className="text-xs text-gray-500 mb-1">{t('overall_experience')}</p>
           <StarRating value={feedback.rating} readonly size="sm" />
         </div>
         <div>
-          <p className="text-xs text-gray-500 mb-1">Facility Cleanliness</p>
+          <p className="text-xs text-gray-500 mb-1">{t('facility_cleanliness')}</p>
           <StarRating value={feedback.facility_rating} readonly size="sm" />
         </div>
         <div>
-          <p className="text-xs text-gray-500 mb-1">Wait Time</p>
+          <p className="text-xs text-gray-500 mb-1">{t('wait_time')}</p>
           <StarRating value={feedback.wait_time_rating} readonly size="sm" />
         </div>
       </div>
@@ -118,7 +120,7 @@ export default function FeedbackCard({ feedback, showAppointmentDetails = true }
         <div className="flex items-start">
           <MessageSquare className="w-4 h-4 mr-2 text-gray-500 mt-0.5 flex-shrink-0" />
           <div className="flex-1">
-            <p className="text-xs font-medium text-gray-500 mb-1">Comments</p>
+            <p className="text-xs font-medium text-gray-500 mb-1">{t('comments')}</p>
             <p className="text-sm text-gray-700 whitespace-pre-wrap">{feedback.comments}</p>
           </div>
         </div>
@@ -131,7 +133,7 @@ export default function FeedbackCard({ feedback, showAppointmentDetails = true }
             <Reply className="w-4 h-4 mr-2 text-blue-600 mt-0.5 flex-shrink-0" />
             <div className="flex-1">
               <div className="flex items-center justify-between mb-1">
-                <p className="text-xs font-medium text-blue-900">Administrator Response</p>
+                <p className="text-xs font-medium text-blue-900">{t('admin_response')}</p>
                 {feedback.responded_at && (
                   <p className="text-xs text-blue-600">
                     {new Date(feedback.responded_at).toLocaleDateString()}

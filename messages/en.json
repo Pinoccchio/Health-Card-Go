@@ -96,9 +96,31 @@
       "title": "Notification",
       "message": "You have a new notification from Panabo City Health Office."
     },
+    "appointment_status_updated": {
+      "title": "Appointment Status Updated",
+      "message": "Your appointment #{appointment_number} status was reverted to \"{new_status}\". {reason}"
+    },
+    "check_in_success": {
+      "title": "Checked In Successfully",
+      "message": "You have been checked in for appointment #{appointment_number}. Please wait to be called."
+    },
+    "consultation_started": {
+      "title": "Consultation Started",
+      "message": "Your consultation for appointment #{appointment_number} has started. Please proceed to the consultation room."
+    },
+    "appointment_cancelled": {
+      "title": "Appointment Cancelled",
+      "message": "Your appointment #{appointment_number} scheduled for {date} at {time} has been cancelled. {reason}"
+    },
     "unread_badge": "Unread",
     "go_to_page": "Go to Related Page",
-    "notification_details": "Notification Details"
+    "notification_details": "Notification Details",
+    "time": {
+      "just_now": "Just now",
+      "minutes_ago": "m ago",
+      "hours_ago": "h ago",
+      "days_ago": "d ago"
+    }
   },
   "feedback": {
     "title": "Feedback",
@@ -121,6 +143,40 @@
     "view_eligible": "View Eligible Appointments",
     "days_remaining": "day(s) remaining to submit feedback",
     "deadline_expired": "Feedback deadline expired",
+    "details": "Feedback Details",
+    "title": "Feedback",
+    "description": "Share your experience and view your feedback history",
+    "search_placeholder": "Search by service or rating...",
+    "statistics": {
+      "submitted": "Submitted",
+      "pending": "Pending",
+      "avg_rating": "Avg Rating",
+      "recommended": "Recommended",
+      "with_response": "With Response",
+      "awaiting": "Awaiting"
+    },
+    "table": {
+      "submitted": "Submitted",
+      "service": "Service",
+      "rating": "Rating",
+      "recommend": "Recommend",
+      "response": "Response",
+      "actions": "Actions",
+      "view_details": "View Details",
+      "not_available": "N/A"
+    },
+    "status": {
+      "completed": "Completed",
+      "responded": "Responded",
+      "pending": "Pending"
+    },
+    "recommend": {
+      "yes": "Yes",
+      "no": "No"
+    },
+    "errors": {
+      "load_failed": "Failed to load data. Please try again."
+    },
     "filters": {
       "all": "All",
       "pending_feedback": "Pending Feedback",
@@ -128,6 +184,51 @@
       "recommended": "Recommended",
       "with_response": "With Response",
       "awaiting_response": "Awaiting Response"
+    },
+    "form": {
+      "appointment_details": "Appointment Details",
+      "service_label": "Service:",
+      "date_label": "Date:",
+      "time_label": "Time:",
+      "overall_experience": "Overall Experience",
+      "facility_cleanliness": "Facility Cleanliness",
+      "wait_time_satisfaction": "Wait Time Satisfaction",
+      "would_recommend": "Would you recommend this service?",
+      "help_others": "Help others make informed decisions",
+      "comments_label": "Comments & Suggestions",
+      "comments_placeholder": "Share your experience and suggestions for improvement...",
+      "helper_text": "Please provide specific feedback",
+      "cancel": "Cancel",
+      "submitting": "Submitting...",
+      "submit_button": "Submit Feedback",
+      "success": "Thank you! Your feedback has been submitted successfully.",
+      "errors": {
+        "overall_required": "Overall rating is required",
+        "facility_required": "Facility rating is required",
+        "wait_time_required": "Wait time rating is required",
+        "comments_required": "Comments are required",
+        "comments_max": "Comments must be 500 characters or less",
+        "submit_failed": "Failed to submit feedback"
+      },
+      "character_limit": "/500",
+      "not_available": "N/A"
+    },
+    "card": {
+      "service_label": "Service:",
+      "date_label": "Date:",
+      "time_label": "Time:",
+      "submitted_on": "Submitted on",
+      "recommends": "Recommends",
+      "does_not_recommend": "Does not recommend",
+      "overall_experience": "Overall Experience",
+      "facility_cleanliness": "Facility Cleanliness",
+      "wait_time": "Wait Time",
+      "comments": "Comments",
+      "admin_response": "Administrator Response",
+      "administrator": "Administrator",
+      "not_available": "N/A",
+      "appointment": "Appointment",
+      "rating_scale": "/ 5.0"
     }
   },
   "appointments": {
@@ -309,6 +410,31 @@
     "book_new_appointment": "Book New Appointment",
     "loading": "Loading appointments...",
     "search_placeholder": "Search by queue number or date...",
+    "errors": {
+      "failed_to_load": "Failed to load appointments",
+      "unexpected_error": "An unexpected error occurred",
+      "cancel_24h_minimum": "Appointments can only be cancelled at least 24 hours in advance"
+    },
+    "statistics": {
+      "total": "Total",
+      "pending": "Pending",
+      "scheduled": "Scheduled",
+      "checked_in": "Checked In",
+      "in_progress": "In Progress",
+      "completed": "Completed",
+      "cancelled": "Cancelled",
+      "no_show": "No Show"
+    },
+    "filters": {
+      "all": "All Appointments",
+      "pending": "Pending",
+      "scheduled": "Scheduled",
+      "checked_in": "Checked In",
+      "in_progress": "In Progress",
+      "completed": "Completed",
+      "cancelled": "Cancelled",
+      "no_show": "No Show"
+    },
     "table": {
       "queue_hash": "Queue #",
       "service": "Service",
@@ -375,6 +501,13 @@
       "bullet2": "Your account will be automatically reinstated on the date above",
       "bullet3": "Please attend scheduled appointments to avoid future suspensions",
       "contact_message": "If you believe this suspension is an error or have extenuating circumstances, please contact the City Health Office of Panabo City immediately."
+    },
+    "errors": {
+      "loading_blocks_failed": "Failed to load available time blocks",
+      "cannot_book_suspended": "Cannot book appointments while your account is suspended",
+      "reason_required": "Please provide a reason for your visit",
+      "booking_failed": "Failed to book appointment",
+      "unexpected_error": "An unexpected error occurred"
     },
     "steps": {
       "select_service": "Select Service",
@@ -455,10 +588,16 @@
   },
   "medical_records": {
     "title": "My Medical Records",
-    "description": "View your complete medical history",
+    "description": "View your complete medical history and health records",
+    "page_description_short": "View your complete medical history",
     "loading": "Loading your medical records...",
     "statistics": {
       "total_records": "Total Records",
+      "this_month": "This Month",
+      "encrypted": "Encrypted",
+      "encryption_tooltip": "Sensitive health data protected",
+      "last_record": "Last Record",
+      "no_records_yet": "No records yet",
       "general": "General",
       "healthcard": "Healthcard",
       "hiv": "HIV",
@@ -467,14 +606,25 @@
       "laboratory": "Laboratory"
     },
     "table": {
+      "patient": "Patient",
+      "date": "Date",
       "date_created": "Date Created",
       "service": "Service",
       "walk_in_visit": "Walk-in visit",
       "template_type": "Template Type",
       "category": "Category",
+      "diagnosis": "Diagnosis",
+      "encryption": "Encryption",
+      "created_by": "Created By",
       "actions": "Actions",
+      "view": "View",
       "view_details": "View Details",
-      "search_placeholder": "Search by service, template type, or category..."
+      "search_placeholder": "Search by patient name or number...",
+      "loading": "Loading medical records...",
+      "no_records_found": "No medical records found",
+      "no_records_hint": "Try adjusting your search or filter criteria.",
+      "no_records_complete_appointments": "No medical records yet. Complete appointments from the Pending Work section above to create records.",
+      "showing_count": "Showing {showing} of {total} medical records"
     },
     "categories": {
       "general": "General",
@@ -483,6 +633,66 @@
       "pregnancy": "Pregnancy",
       "immunization": "Immunization",
       "laboratory": "Laboratory"
+    },
+    "filters": {
+      "all_categories": "All Categories"
+    },
+    "buttons": {
+      "create_new": "Create New Record",
+      "export": "Export"
+    },
+    "pagination": {
+      "previous": "Previous",
+      "next": "Next",
+      "showing_page": "Showing page {current} of {total}"
+    },
+    "info_note": "Medical records are automatically created when you complete appointments. Check the Pending Work section above for appointments ready to complete.",
+    "empty_state": {
+      "title": "No Medical Records Yet",
+      "description": "Medical records are automatically created when healthcare staff complete your appointments. Book an appointment to start building your health history.",
+      "cta_button": "Book an Appointment"
+    },
+    "encryption_status": {
+      "encrypted": "Encrypted",
+      "unencrypted": "Unencrypted"
+    },
+    "error": {
+      "failed_to_load": "Failed to load medical records"
+    },
+    "modal": {
+      "title": "Medical Record Details",
+      "subtitle": "View detailed medical record information",
+      "close_aria": "Close modal",
+      "error": {
+        "title": "Record Not Found",
+        "message": "The medical record data could not be loaded. Please try refreshing the page.",
+        "close_button": "Close"
+      },
+      "sensitive_data": {
+        "title": "Sensitive Medical Data",
+        "hiv_message": "This record contains sensitive HIV information that is encrypted and protected.",
+        "pregnancy_message": "This record contains sensitive pregnancy information that is encrypted and protected."
+      },
+      "sections": {
+        "patient_information": "Patient Information",
+        "medical_information": "Medical Information",
+        "record_information": "Record Information"
+      },
+      "labels": {
+        "patient_name": "Patient Name",
+        "patient_number": "Patient Number",
+        "diagnosis": "Diagnosis",
+        "prescription": "Prescription",
+        "notes": "Notes",
+        "created_by": "Created By",
+        "created_at": "Created At",
+        "template_type": "Template Type",
+        "linked_appointment": "Linked Appointment",
+        "not_available": "N/A"
+      },
+      "buttons": {
+        "close": "Close"
+      }
     }
   },
   "health_card": {
@@ -603,6 +813,18 @@
       "cancel": "Cancel",
       "save_changes": "Save Changes",
       "saving": "Saving..."
+    },
+    "errors": {
+      "load_failed": "Failed to load profile",
+      "unexpected": "An unexpected error occurred",
+      "validation_failed": "Please fix the errors in the form",
+      "update_failed": "Failed to update profile"
+    },
+    "messages": {
+      "success": "Profile updated successfully"
+    },
+    "loading": {
+      "skeleton_title": "Loading..."
     }
   },
   "feedback_page": {

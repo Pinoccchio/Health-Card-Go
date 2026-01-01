@@ -276,9 +276,10 @@ export async function PATCH(
           await adminClient.from('notifications').insert({
             user_id: patientUserId,
             type: 'general',
-            title: 'Checked In Successfully',
-            message: `You have been checked in for appointment #${queueNumber}. Your queue number is ${queueNumber}. Please wait for your name to be called.`,
+            title: 'notifications.check_in_success.title',
+            message: 'notifications.check_in_success.message',
             link: '/patient/appointments',
+            data: `appointment_number=${queueNumber}`
           });
           console.log(`✅ [NOTIFICATION] Check-in notification sent for appointment #${queueNumber}`);
         }
@@ -288,9 +289,10 @@ export async function PATCH(
           await adminClient.from('notifications').insert({
             user_id: patientUserId,
             type: 'general',
-            title: 'Consultation Started',
-            message: `Your consultation for appointment #${queueNumber} has started. Your healthcare provider is ready to see you.`,
+            title: 'notifications.consultation_started.title',
+            message: 'notifications.consultation_started.message',
             link: '/patient/appointments',
+            data: `appointment_number=${queueNumber}`
           });
           console.log(`✅ [NOTIFICATION] Consultation started notification sent for appointment #${queueNumber}`);
         }
@@ -300,31 +302,23 @@ export async function PATCH(
           await adminClient.from('notifications').insert({
             user_id: patientUserId,
             type: 'cancellation',
-            title: 'Appointment Cancelled',
-            message: `Your appointment #${queueNumber} on ${appointmentWithPatient.appointment_date} at ${appointmentWithPatient.appointment_time} has been cancelled.${reason ? ' Reason: ' + reason : ''}`,
+            title: 'notifications.appointment_cancelled.title',
+            message: 'notifications.appointment_cancelled.message',
             link: '/patient/appointments',
-            data: `appointment_number=${queueNumber}|date=${appointmentWithPatient.appointment_date}|time=${appointmentWithPatient.appointment_time}`
+            data: `appointment_number=${queueNumber}|date=${appointmentWithPatient.appointment_date}|time=${appointmentWithPatient.appointment_time}|reason=${reason || ''}`
           });
           console.log(`✅ [NOTIFICATION] Cancellation notification sent for appointment #${queueNumber}`);
         }
 
         // Status revert notification
         if (isRevertOperation && historyEntry) {
-          const statusNames: Record<string, string> = {
-            'scheduled': 'Scheduled',
-            'checked_in': 'Checked In',
-            'in_progress': 'In Progress',
-            'completed': 'Completed',
-            'cancelled': 'Cancelled',
-            'no_show': 'No Show'
-          };
-
           await adminClient.from('notifications').insert({
             user_id: patientUserId,
             type: 'general',
-            title: 'Appointment Status Updated',
-            message: `Your appointment #${queueNumber} status was reverted to "${statusNames[targetStatus] || targetStatus}". ${reason ? 'Reason: ' + reason : ''}`,
+            title: 'notifications.appointment_status_updated.title',
+            message: 'notifications.appointment_status_updated.message',
             link: '/patient/appointments',
+            data: `appointment_number=${queueNumber}|new_status=${targetStatus}|reason=${reason || ''}`
           });
           console.log(`✅ [NOTIFICATION] Revert notification sent for appointment #${queueNumber}: ${appointment.status} → ${targetStatus}`);
         }

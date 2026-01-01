@@ -1,9 +1,50 @@
 'use client';
 
 import React from 'react';
+import { useTranslations } from 'next-intl';
 import { X, Calendar, User, FileText, Pill, StickyNote, AlertTriangle, ExternalLink } from 'lucide-react';
 import { CategoryBadge } from './CategoryBadge';
 import { EncryptionBadge } from './EncryptionBadge';
+
+// English fallback translations for non-patient users
+const ENGLISH_FALLBACK = {
+  // Error state
+  'error.title': 'Unable to Load Record',
+  'error.message': 'The medical record could not be loaded. Please try again.',
+  'error.close_button': 'Close',
+
+  // Header
+  'title': 'Medical Record Details',
+  'subtitle': 'Complete medical record information',
+  'close_aria': 'Close modal',
+
+  // Sensitive Data Warning
+  'sensitive_data.title': 'Sensitive Information',
+  'sensitive_data.hiv_message': 'This record contains sensitive HIV-related information.',
+  'sensitive_data.pregnancy_message': 'This record contains sensitive pregnancy-related information.',
+
+  // Patient Information Section
+  'sections.patient_information': 'Patient Information',
+  'labels.patient_name': 'Patient Name',
+  'labels.patient_number': 'Patient Number',
+  'labels.not_available': 'N/A',
+
+  // Medical Information Section
+  'sections.medical_information': 'Medical Information',
+  'labels.diagnosis': 'Diagnosis',
+  'labels.prescription': 'Prescription',
+  'labels.notes': 'Notes',
+
+  // Record Information Section
+  'sections.record_information': 'Record Information',
+  'labels.created_by': 'Created By',
+  'labels.created_at': 'Created Date',
+  'labels.template_type': 'Template Type',
+  'labels.linked_appointment': 'Linked Appointment',
+
+  // Footer
+  'buttons.close': 'Close',
+};
 
 interface MedicalRecord {
   id: string;
@@ -36,9 +77,36 @@ interface MedicalRecordDetailsModalProps {
   record: MedicalRecord | null;
   isOpen: boolean;
   onClose: () => void;
+  disableTranslations?: boolean; // For non-patient users (healthcare admin, super admin)
 }
 
-export function MedicalRecordDetailsModal({ record, isOpen, onClose }: MedicalRecordDetailsModalProps) {
+export function MedicalRecordDetailsModal({ record, isOpen, onClose, disableTranslations = false }: MedicalRecordDetailsModalProps) {
+  // Conditionally use translations - only for patient users
+  let t: any;
+
+  try {
+    if (!disableTranslations) {
+      t = useTranslations('medical_records.modal');
+    }
+  } catch (e) {
+    // NextIntl context not available, use English fallback
+  }
+
+  // Translation helper that falls back to English
+  const getText = (key: string, params?: Record<string, any>): string => {
+    if (disableTranslations || !t) {
+      const template = ENGLISH_FALLBACK[key as keyof typeof ENGLISH_FALLBACK] || key;
+      if (params) {
+        return Object.entries(params).reduce(
+          (str, [k, v]) => str.replace(`{${k}}`, String(v)),
+          template
+        );
+      }
+      return template;
+    }
+    return t(key, params);
+  };
+
   console.log('🎭 Modal render - isOpen:', isOpen, 'record:', record);
 
   if (!isOpen) return null;
@@ -60,9 +128,9 @@ export function MedicalRecordDetailsModal({ record, isOpen, onClose }: MedicalRe
               <AlertTriangle className="h-6 w-6 text-red-600" />
             </div>
             <div className="ml-4">
-              <h3 className="text-lg font-medium text-gray-900">Record Not Found</h3>
+              <h3 className="text-lg font-medium text-gray-900">{getText('error.title')}</h3>
               <p className="mt-2 text-sm text-gray-500">
-                The medical record data could not be loaded. Please try refreshing the page.
+                {getText('error.message')}
               </p>
             </div>
           </div>
@@ -72,7 +140,7 @@ export function MedicalRecordDetailsModal({ record, isOpen, onClose }: MedicalRe
               onClick={onClose}
               className="w-full px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 font-medium transition-colors"
             >
-              Close
+              {getText('error.close_button')}
             </button>
           </div>
           </div>
@@ -130,14 +198,14 @@ export function MedicalRecordDetailsModal({ record, isOpen, onClose }: MedicalRe
                 <FileText className="h-6 w-6 text-teal-600" />
               </div>
               <div>
-                <h2 className="text-xl font-bold text-gray-900">Medical Record Details</h2>
-                <p className="text-sm text-gray-500 mt-0.5">View detailed medical record information</p>
+                <h2 className="text-xl font-bold text-gray-900">{getText('title')}</h2>
+                <p className="text-sm text-gray-500 mt-0.5">{getText('subtitle')}</p>
               </div>
             </div>
             <button
               onClick={onClose}
               className="inline-flex items-center justify-center h-8 w-8 rounded-lg hover:bg-gray-200 transition-colors text-gray-500 hover:text-gray-700"
-              aria-label="Close modal"
+              aria-label={getText('close_aria')}
             >
               <X className="h-5 w-5" />
             </button>
@@ -151,9 +219,9 @@ export function MedicalRecordDetailsModal({ record, isOpen, onClose }: MedicalRe
             <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg flex gap-3">
               <AlertTriangle className="h-5 w-5 text-yellow-600 flex-shrink-0 mt-0.5" />
               <div>
-                <h3 className="font-semibold text-yellow-800">Sensitive Medical Data</h3>
+                <h3 className="font-semibold text-yellow-800">{getText('sensitive_data.title')}</h3>
                 <p className="text-sm text-yellow-700 mt-1">
-                  This record contains sensitive {record.category === 'hiv' ? 'HIV' : 'pregnancy'} information that is encrypted and protected.
+                  {record.category === 'hiv' ? getText('sensitive_data.hiv_message') : getText('sensitive_data.pregnancy_message')}
                 </p>
               </div>
             </div>
@@ -161,7 +229,7 @@ export function MedicalRecordDetailsModal({ record, isOpen, onClose }: MedicalRe
 
           {/* Badges Row */}
           <div className="mb-6 flex flex-wrap gap-2">
-            <CategoryBadge category={record.category} />
+            <CategoryBadge category={record.category} label={disableTranslations ? undefined : undefined} />
             <EncryptionBadge isEncrypted={record.is_encrypted} />
           </div>
 
@@ -169,16 +237,16 @@ export function MedicalRecordDetailsModal({ record, isOpen, onClose }: MedicalRe
           <div className="mb-6 pb-6 border-b border-gray-200">
             <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wider mb-4 flex items-center gap-2">
               <User className="h-4 w-4 text-gray-400" />
-              Patient Information
+              {getText('sections.patient_information')}
             </h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="bg-gray-50 p-4 rounded-lg">
-                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Patient Name</p>
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">{getText('labels.patient_name')}</p>
                 <p className="text-sm font-medium text-gray-900">{patientName}</p>
               </div>
               <div className="bg-gray-50 p-4 rounded-lg">
-                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Patient Number</p>
-                <p className="text-sm font-medium text-gray-900">{record.patients?.patient_number || 'N/A'}</p>
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">{getText('labels.patient_number')}</p>
+                <p className="text-sm font-medium text-gray-900">{record.patients?.patient_number || getText('labels.not_available')}</p>
               </div>
             </div>
           </div>
@@ -187,7 +255,7 @@ export function MedicalRecordDetailsModal({ record, isOpen, onClose }: MedicalRe
           <div className="mb-6 pb-6 border-b border-gray-200">
             <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wider mb-4 flex items-center gap-2">
               <FileText className="h-4 w-4 text-gray-400" />
-              Medical Information
+              {getText('sections.medical_information')}
             </h3>
 
             {/* Diagnosis */}
@@ -195,7 +263,7 @@ export function MedicalRecordDetailsModal({ record, isOpen, onClose }: MedicalRe
               <div className="mb-4">
                 <div className="flex items-center gap-2 mb-2">
                   <FileText className="h-4 w-4 text-gray-400" />
-                  <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Diagnosis</label>
+                  <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">{getText('labels.diagnosis')}</label>
                 </div>
                 <div className="bg-blue-50 border border-blue-100 p-4 rounded-lg">
                   <p className="text-sm text-gray-800 whitespace-pre-wrap break-words">{record.diagnosis}</p>
@@ -208,7 +276,7 @@ export function MedicalRecordDetailsModal({ record, isOpen, onClose }: MedicalRe
               <div className="mb-4">
                 <div className="flex items-center gap-2 mb-2">
                   <Pill className="h-4 w-4 text-gray-400" />
-                  <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Prescription</label>
+                  <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">{getText('labels.prescription')}</label>
                 </div>
                 <div className="bg-green-50 border border-green-100 p-4 rounded-lg">
                   <p className="text-sm text-gray-800 whitespace-pre-wrap break-words">{record.prescription}</p>
@@ -221,7 +289,7 @@ export function MedicalRecordDetailsModal({ record, isOpen, onClose }: MedicalRe
               <div>
                 <div className="flex items-center gap-2 mb-2">
                   <StickyNote className="h-4 w-4 text-gray-400" />
-                  <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Notes</label>
+                  <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">{getText('labels.notes')}</label>
                 </div>
                 <div className="bg-purple-50 border border-purple-100 p-4 rounded-lg">
                   <p className="text-sm text-gray-800 whitespace-pre-wrap break-words">{record.notes}</p>
@@ -234,26 +302,26 @@ export function MedicalRecordDetailsModal({ record, isOpen, onClose }: MedicalRe
           <div className="pb-6">
             <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wider mb-4 flex items-center gap-2">
               <Calendar className="h-4 w-4 text-gray-400" />
-              Record Information
+              {getText('sections.record_information')}
             </h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="bg-gray-50 p-4 rounded-lg">
-                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Created By</p>
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">{getText('labels.created_by')}</p>
                 <p className="text-sm font-medium text-gray-900">{creatorName}</p>
               </div>
               <div className="bg-gray-50 p-4 rounded-lg">
-                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Created At</p>
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">{getText('labels.created_at')}</p>
                 <p className="text-sm font-medium text-gray-900">{formatDate(record.created_at)}</p>
               </div>
               {record.template_type && (
                 <div className="bg-gray-50 p-4 rounded-lg">
-                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Template Type</p>
+                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">{getText('labels.template_type')}</p>
                   <p className="text-sm font-medium text-gray-900 capitalize">{record.template_type.replace(/_/g, ' ')}</p>
                 </div>
               )}
               {record.appointment_id && (
                 <div className="bg-gray-50 p-4 rounded-lg">
-                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Linked Appointment</p>
+                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">{getText('labels.linked_appointment')}</p>
                   <div className="flex items-center gap-2">
                     <p className="text-sm font-medium text-gray-900 font-mono">{record.appointment_id.substring(0, 8)}...</p>
                     <ExternalLink className="h-3 w-3 text-gray-400" />
@@ -270,7 +338,7 @@ export function MedicalRecordDetailsModal({ record, isOpen, onClose }: MedicalRe
             onClick={onClose}
             className="w-full px-4 py-2.5 bg-primary-teal text-white rounded-lg hover:bg-primary-teal/90 font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-teal"
           >
-            Close
+            {getText('buttons.close')}
           </button>
         </div>
         </div>

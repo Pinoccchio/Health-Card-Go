@@ -1,4 +1,5 @@
 import { Bell } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 import NotificationItem from './NotificationItem';
 import { Notification } from '@/hooks/useNotifications';
 
@@ -10,16 +11,18 @@ interface NotificationListProps {
 }
 
 function EmptyNotificationsState() {
+  const t = useTranslations('notifications');
+
   return (
     <div className="text-center py-12">
       <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gray-100 mb-4">
         <Bell className="w-8 h-8 text-gray-400" />
       </div>
       <h3 className="text-lg font-semibold text-gray-900 mb-2">
-        No notifications yet
+        {t('no_notifications')}
       </h3>
       <p className="text-gray-600">
-        You'll receive notifications for appointments, account updates, and other important information.
+        {t('no_notifications_description')}
       </p>
     </div>
   );

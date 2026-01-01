@@ -130,11 +130,11 @@ export default function PatientBookAppointmentPage() {
       if (data.success) {
         setAvailableBlocks(data.blocks || []);
       } else {
-        setError(data.reason || 'Unable to load available blocks');
+        setError(data.reason || t('errors.loading_blocks_failed'));
         setAvailableBlocks([]);
       }
     } catch (err) {
-      setError('Failed to load available time blocks');
+      setError(t('errors.loading_blocks_failed'));
       setAvailableBlocks([]);
     } finally {
       setLoading(false);
@@ -165,14 +165,14 @@ export default function PatientBookAppointmentPage() {
 
     // Block submission if account is suspended
     if (isSuspended) {
-      setError('Cannot book appointments while your account is suspended');
+      setError(t('errors.cannot_book_suspended'));
       setLoading(false);
       return;
     }
 
     // Validate if "Other" is selected but no custom reason provided
     if (reasonTemplate === 'Other (please specify)' && !customReason.trim()) {
-      setError('Please provide a reason for your visit');
+      setError(t('errors.reason_required'));
       setLoading(false);
       return;
     }
@@ -200,10 +200,10 @@ export default function PatientBookAppointmentPage() {
           window.location.href = '/patient/appointments';
         }, 3000);
       } else {
-        setError(data.error || 'Failed to book appointment');
+        setError(data.error || t('errors.booking_failed'));
       }
     } catch (err) {
-      setError('An unexpected error occurred');
+      setError(t('errors.unexpected_error'));
     } finally {
       setLoading(false);
     }
@@ -305,8 +305,7 @@ export default function PatientBookAppointmentPage() {
                   </div>
                   <div className="mt-4 pt-4 border-t border-red-200">
                     <p className="text-xs">
-                      If you believe this suspension is an error or have extenuating circumstances,
-                      please contact the City Health Office of Panabo City immediately.
+                      {t('suspension.contact_message')}
                     </p>
                   </div>
                 </div>

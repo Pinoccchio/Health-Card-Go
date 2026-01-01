@@ -1,4 +1,5 @@
 import { Bell, CheckCircle, XCircle, MessageSquare, Calendar, Info, Eye } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 import { Notification } from '@/hooks/useNotifications';
 
 interface NotificationItemProps {
@@ -41,6 +42,7 @@ const typeConfig = {
 };
 
 export default function NotificationItem({ notification, onMarkAsRead, onViewDetails }: NotificationItemProps) {
+  const t = useTranslations('notifications');
   const isUnread = !notification.read_at;
   const config = typeConfig[notification.type] || typeConfig.general;
   const Icon = config.icon;
@@ -53,10 +55,10 @@ export default function NotificationItem({ notification, onMarkAsRead, onViewDet
     const diffHours = Math.floor(diffMs / 3600000);
     const diffDays = Math.floor(diffMs / 86400000);
 
-    if (diffMins < 1) return 'Just now';
-    if (diffMins < 60) return `${diffMins}m ago`;
-    if (diffHours < 24) return `${diffHours}h ago`;
-    if (diffDays < 7) return `${diffDays}d ago`;
+    if (diffMins < 1) return t('time.just_now');
+    if (diffMins < 60) return `${diffMins} ${t('time.minutes_ago')}`;
+    if (diffHours < 24) return `${diffHours} ${t('time.hours_ago')}`;
+    if (diffDays < 7) return `${diffDays} ${t('time.days_ago')}`;
     return date.toLocaleDateString();
   };
 
@@ -112,7 +114,7 @@ export default function NotificationItem({ notification, onMarkAsRead, onViewDet
           {/* Type badge and actions */}
           <div className="mt-3 flex items-center justify-between gap-3">
             <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${config.bgColor} ${config.color} border ${config.borderColor}`}>
-              {notification.type.replace('_', ' ')}
+              {t(`types.${notification.type}`, { defaultValue: notification.type.replace(/_/g, ' ') })}
             </span>
 
             {/* View Details Button */}
@@ -122,7 +124,7 @@ export default function NotificationItem({ notification, onMarkAsRead, onViewDet
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-primary-teal hover:bg-primary-teal hover:text-white border border-primary-teal rounded-lg transition-colors"
               >
                 <Eye className="w-3.5 h-3.5" />
-                View Details
+                {t('view_details')}
               </button>
             )}
           </div>

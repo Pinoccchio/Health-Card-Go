@@ -67,6 +67,7 @@ const statusConfig = APPOINTMENT_STATUS_CONFIG;
 
 export default function PatientAppointmentsPage() {
   const t = useTranslations('appointments_page');
+  const tStatus = useTranslations('enums.appointment_status');
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
   const [loading, setLoading] = useState(true);
@@ -112,10 +113,10 @@ export default function PatientAppointmentsPage() {
       if (data.success) {
         setAppointments(data.data || []);
       } else {
-        setError(data.error || 'Failed to load appointments');
+        setError(data.error || t('errors.failed_to_load'));
       }
     } catch (err) {
-      setError('An unexpected error occurred');
+      setError(t('errors.unexpected_error'));
     } finally {
       setLoading(false);
     }
@@ -131,7 +132,7 @@ export default function PatientAppointmentsPage() {
   const handleCancelClick = (appointmentId: string, appointmentDate: string, appointmentTime: string) => {
     // Check 24-hour policy (using Philippine timezone)
     if (!canCancelByTimezone(appointmentDate, appointmentTime)) {
-      setError('Appointments can only be cancelled at least 24 hours in advance');
+      setError(t('errors.cancel_24h_minimum'));
       return;
     }
 
@@ -170,10 +171,10 @@ export default function PatientAppointmentsPage() {
           setSelectedAppointment(null);
         }
       } else {
-        setError(data.error || 'Failed to cancel appointment');
+        setError(data.error || t('errors.failed_to_load'));
       }
     } catch (err) {
-      setError('An unexpected error occurred');
+      setError(t('errors.unexpected_error'));
     } finally {
       setCancellingId(null);
     }
@@ -232,7 +233,7 @@ export default function PatientAppointmentsPage() {
     return (
       <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${config.color}`}>
         <Icon className="w-3 h-3 mr-1" />
-        {config.label}
+        {tStatus(status)}
       </span>
     );
   };
@@ -351,7 +352,7 @@ export default function PatientAppointmentsPage() {
               <ProfessionalCard variant="flat" className="bg-gradient-to-br from-teal-50 to-teal-100 border-l-4 border-teal-500">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-gray-600 mb-1">Total</p>
+                    <p className="text-sm text-gray-600 mb-1">{t('statistics.total')}</p>
                     <p className="text-3xl font-bold text-gray-900">{statistics.total}</p>
                   </div>
                   <div className="w-12 h-12 bg-teal-500 rounded-xl flex items-center justify-center shadow-lg">
@@ -363,7 +364,7 @@ export default function PatientAppointmentsPage() {
               <ProfessionalCard variant="flat" className="bg-gradient-to-br from-orange-50 to-orange-100 border-l-4 border-orange-500">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-gray-600 mb-1">Pending</p>
+                    <p className="text-sm text-gray-600 mb-1">{t('statistics.pending')}</p>
                     <p className="text-3xl font-bold text-gray-900">{statistics.pending}</p>
                   </div>
                   <div className="w-12 h-12 bg-orange-500 rounded-xl flex items-center justify-center shadow-lg">
@@ -375,7 +376,7 @@ export default function PatientAppointmentsPage() {
               <ProfessionalCard variant="flat" className="bg-gradient-to-br from-blue-50 to-blue-100 border-l-4 border-blue-500">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-gray-600 mb-1">Scheduled</p>
+                    <p className="text-sm text-gray-600 mb-1">{t('statistics.scheduled')}</p>
                     <p className="text-3xl font-bold text-gray-900">{statistics.scheduled}</p>
                   </div>
                   <div className="w-12 h-12 bg-blue-500 rounded-xl flex items-center justify-center shadow-lg">
@@ -387,7 +388,7 @@ export default function PatientAppointmentsPage() {
               <ProfessionalCard variant="flat" className="bg-gradient-to-br from-purple-50 to-purple-100 border-l-4 border-purple-500">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-gray-600 mb-1">Checked In</p>
+                    <p className="text-sm text-gray-600 mb-1">{t('statistics.checked_in')}</p>
                     <p className="text-3xl font-bold text-gray-900">{statistics.checked_in}</p>
                   </div>
                   <div className="w-12 h-12 bg-purple-500 rounded-xl flex items-center justify-center shadow-lg">
@@ -399,7 +400,7 @@ export default function PatientAppointmentsPage() {
               <ProfessionalCard variant="flat" className="bg-gradient-to-br from-amber-50 to-amber-100 border-l-4 border-amber-500">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-gray-600 mb-1">In Progress</p>
+                    <p className="text-sm text-gray-600 mb-1">{t('statistics.in_progress')}</p>
                     <p className="text-3xl font-bold text-gray-900">{statistics.in_progress}</p>
                   </div>
                   <div className="w-12 h-12 bg-amber-500 rounded-xl flex items-center justify-center shadow-lg">
@@ -411,7 +412,7 @@ export default function PatientAppointmentsPage() {
               <ProfessionalCard variant="flat" className="bg-gradient-to-br from-green-50 to-green-100 border-l-4 border-green-500">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-gray-600 mb-1">Completed</p>
+                    <p className="text-sm text-gray-600 mb-1">{t('statistics.completed')}</p>
                     <p className="text-3xl font-bold text-gray-900">{statistics.completed}</p>
                   </div>
                   <div className="w-12 h-12 bg-green-500 rounded-xl flex items-center justify-center shadow-lg">
@@ -423,7 +424,7 @@ export default function PatientAppointmentsPage() {
               <ProfessionalCard variant="flat" className="bg-gradient-to-br from-gray-50 to-gray-100 border-l-4 border-gray-500">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-gray-600 mb-1">Cancelled</p>
+                    <p className="text-sm text-gray-600 mb-1">{t('statistics.cancelled')}</p>
                     <p className="text-3xl font-bold text-gray-900">{statistics.cancelled}</p>
                   </div>
                   <div className="w-12 h-12 bg-gray-500 rounded-xl flex items-center justify-center shadow-lg">
@@ -435,7 +436,7 @@ export default function PatientAppointmentsPage() {
               <ProfessionalCard variant="flat" className="bg-gradient-to-br from-red-50 to-red-100 border-l-4 border-red-500">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-gray-600 mb-1">No Show</p>
+                    <p className="text-sm text-gray-600 mb-1">{t('statistics.no_show')}</p>
                     <p className="text-3xl font-bold text-gray-900">{statistics.no_show}</p>
                   </div>
                   <div className="w-12 h-12 bg-red-500 rounded-xl flex items-center justify-center shadow-lg">
@@ -448,14 +449,14 @@ export default function PatientAppointmentsPage() {
             {/* Quick Status Filters */}
             <div className="flex flex-wrap gap-2 mb-6">
               {[
-                { id: 'all', label: 'All Appointments', count: statistics.total, color: 'gray', icon: ListChecks },
-                { id: 'pending', label: 'Pending', count: statistics.pending, color: 'orange', icon: Clock },
-                { id: 'scheduled', label: 'Scheduled', count: statistics.scheduled, color: 'blue', icon: Calendar },
-                { id: 'checked_in', label: 'Checked In', count: statistics.checked_in, color: 'purple', icon: UserCheck },
-                { id: 'in_progress', label: 'In Progress', count: statistics.in_progress, color: 'amber', icon: Activity },
-                { id: 'completed', label: 'Completed', count: statistics.completed, color: 'green', icon: CheckCircle },
-                { id: 'cancelled', label: 'Cancelled', count: statistics.cancelled, color: 'gray', icon: XCircle },
-                { id: 'no_show', label: 'No Show', count: statistics.no_show, color: 'red', icon: AlertCircle },
+                { id: 'all', labelKey: 'all', count: statistics.total, color: 'gray', icon: ListChecks },
+                { id: 'pending', labelKey: 'pending', count: statistics.pending, color: 'orange', icon: Clock },
+                { id: 'scheduled', labelKey: 'scheduled', count: statistics.scheduled, color: 'blue', icon: Calendar },
+                { id: 'checked_in', labelKey: 'checked_in', count: statistics.checked_in, color: 'purple', icon: UserCheck },
+                { id: 'in_progress', labelKey: 'in_progress', count: statistics.in_progress, color: 'amber', icon: Activity },
+                { id: 'completed', labelKey: 'completed', count: statistics.completed, color: 'green', icon: CheckCircle },
+                { id: 'cancelled', labelKey: 'cancelled', count: statistics.cancelled, color: 'gray', icon: XCircle },
+                { id: 'no_show', labelKey: 'no_show', count: statistics.no_show, color: 'red', icon: AlertCircle },
               ].map((statusFilter) => {
                 const Icon = statusFilter.icon;
                 const isActive = filter === statusFilter.id;
@@ -480,7 +481,7 @@ export default function PatientAppointmentsPage() {
                     `}
                   >
                     <Icon className="w-4 h-4" />
-                    <span>{statusFilter.label}</span>
+                    <span>{t(`filters.${statusFilter.labelKey}`)}</span>
                     <span className={`
                       ml-1 px-2 py-0.5 rounded-full text-xs font-bold
                       ${isActive ? 'bg-white/80' : 'bg-white/60'}

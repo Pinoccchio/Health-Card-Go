@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useTranslations } from 'next-intl';
 import StarRating from '@/components/ui/StarRating';
 import { Calendar, Clock, Building2, Timer, ThumbsUp, MessageSquare } from 'lucide-react';
 import { useToast } from '@/lib/contexts/ToastContext';
@@ -24,6 +25,7 @@ interface FeedbackFormProps {
 }
 
 export default function FeedbackForm({ appointment, onSuccess, onCancel }: FeedbackFormProps) {
+  const t = useTranslations('feedback.form');
   const [formData, setFormData] = useState({
     rating: 0,
     facility_rating: 0,
@@ -39,19 +41,19 @@ export default function FeedbackForm({ appointment, onSuccess, onCancel }: Feedb
     const newErrors: Record<string, string> = {};
 
     if (formData.rating === 0) {
-      newErrors.rating = 'Overall rating is required';
+      newErrors.rating = t('errors.overall_required');
     }
     if (formData.facility_rating === 0) {
-      newErrors.facility_rating = 'Facility rating is required';
+      newErrors.facility_rating = t('errors.facility_required');
     }
     if (formData.wait_time_rating === 0) {
-      newErrors.wait_time_rating = 'Wait time rating is required';
+      newErrors.wait_time_rating = t('errors.wait_time_required');
     }
     if (formData.comments.trim().length === 0) {
-      newErrors.comments = 'Comments are required';
+      newErrors.comments = t('errors.comments_required');
     }
     if (formData.comments.length > 500) {
-      newErrors.comments = 'Comments must be 500 characters or less';
+      newErrors.comments = t('errors.comments_max');
     }
 
     setErrors(newErrors);
@@ -82,14 +84,14 @@ export default function FeedbackForm({ appointment, onSuccess, onCancel }: Feedb
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || 'Failed to submit feedback');
+        throw new Error(data.error || t('errors.submit_failed'));
       }
 
-      toast.success('Thank you! Your feedback has been submitted successfully.');
+      toast.success(t('success'));
       onSuccess();
     } catch (error) {
       console.error('Error submitting feedback:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Failed to submit feedback';
+      const errorMessage = error instanceof Error ? error.message : t('errors.submit_failed');
       setErrors({ submit: errorMessage });
       toast.error(errorMessage);
     } finally {
@@ -101,21 +103,21 @@ export default function FeedbackForm({ appointment, onSuccess, onCancel }: Feedb
     <div className="bg-white rounded-lg">
       {/* Appointment Context */}
       <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-        <h3 className="text-sm font-medium text-blue-900 mb-3">Appointment Details</h3>
+        <h3 className="text-sm font-medium text-blue-900 mb-3">{t('appointment_details')}</h3>
         <div className="grid grid-cols-2 gap-3 text-sm">
           <div className="flex items-center text-gray-700">
             <Building2 className="w-4 h-4 mr-2 text-blue-600" />
-            <span className="font-medium">Service:</span>
-            <span className="ml-2">{appointment.services?.name || 'N/A'}</span>
+            <span className="font-medium">{t('service_label')}</span>
+            <span className="ml-2">{appointment.services?.name || t('not_available')}</span>
           </div>
           <div className="flex items-center text-gray-700">
             <Calendar className="w-4 h-4 mr-2 text-blue-600" />
-            <span className="font-medium">Date:</span>
+            <span className="font-medium">{t('date_label')}</span>
             <span className="ml-2">{new Date(appointment.appointment_date).toLocaleDateString()}</span>
           </div>
           <div className="flex items-center gap-2 text-gray-700">
             <Clock className="w-4 h-4 text-blue-600" />
-            <span className="font-medium">Time:</span>
+            <span className="font-medium">{t('time_label')}</span>
             <span className={`px-2 py-0.5 rounded text-xs font-bold ${getTimeBlockColor(appointment.time_block)}`}>
               {appointment.time_block}
             </span>
@@ -130,7 +132,7 @@ export default function FeedbackForm({ appointment, onSuccess, onCancel }: Feedb
         {/* Overall Experience */}
         <div>
           <StarRating
-            label="Overall Experience"
+            label={t('overall_experience')}
             value={formData.rating}
             onChange={(value) => {
               setFormData({ ...formData, rating: value });
@@ -147,7 +149,7 @@ export default function FeedbackForm({ appointment, onSuccess, onCancel }: Feedb
         {/* Facility Cleanliness */}
         <div>
           <StarRating
-            label="Facility Cleanliness"
+            label={t('facility_cleanliness')}
             value={formData.facility_rating}
             onChange={(value) => {
               setFormData({ ...formData, facility_rating: value });
@@ -164,7 +166,7 @@ export default function FeedbackForm({ appointment, onSuccess, onCancel }: Feedb
         {/* Wait Time Satisfaction */}
         <div>
           <StarRating
-            label="Wait Time Satisfaction"
+            label={t('wait_time_satisfaction')}
             value={formData.wait_time_rating}
             onChange={(value) => {
               setFormData({ ...formData, wait_time_rating: value });
@@ -184,9 +186,9 @@ export default function FeedbackForm({ appointment, onSuccess, onCancel }: Feedb
             <ThumbsUp className="w-5 h-5 mr-3 text-green-600" />
             <div>
               <label htmlFor="would_recommend" className="text-sm font-medium text-gray-700 cursor-pointer">
-                Would you recommend this service?
+                {t('would_recommend')}
               </label>
-              <p className="text-xs text-gray-500 mt-1">Help others make informed decisions</p>
+              <p className="text-xs text-gray-500 mt-1">{t('help_others')}</p>
             </div>
           </div>
           <button
@@ -213,7 +215,7 @@ export default function FeedbackForm({ appointment, onSuccess, onCancel }: Feedb
         <div>
           <label htmlFor="comments" className="flex items-center text-sm font-medium text-gray-700 mb-2">
             <MessageSquare className="w-4 h-4 mr-2" />
-            Comments & Suggestions
+            {t('comments_label')}
             <span className="text-red-500 ml-1">*</span>
           </label>
           <textarea
@@ -225,7 +227,7 @@ export default function FeedbackForm({ appointment, onSuccess, onCancel }: Feedb
             }}
             rows={4}
             maxLength={500}
-            placeholder="Share your experience and suggestions for improvement..."
+            placeholder={t('comments_placeholder')}
             className={`
               w-full px-3 py-2 border rounded-lg resize-none
               focus:outline-none focus:ring-2 focus:ring-blue-500
@@ -236,10 +238,10 @@ export default function FeedbackForm({ appointment, onSuccess, onCancel }: Feedb
             {errors.comments ? (
               <p className="text-red-500 text-sm">{errors.comments}</p>
             ) : (
-              <p className="text-gray-500 text-xs">Please provide specific feedback</p>
+              <p className="text-gray-500 text-xs">{t('helper_text')}</p>
             )}
             <p className="text-gray-400 text-xs">
-              {formData.comments.length}/500
+              {formData.comments.length}{t('character_limit')}
             </p>
           </div>
         </div>
@@ -259,7 +261,7 @@ export default function FeedbackForm({ appointment, onSuccess, onCancel }: Feedb
             disabled={isSubmitting}
             className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50"
           >
-            Cancel
+            {t('cancel')}
           </button>
           <button
             type="submit"
@@ -272,10 +274,10 @@ export default function FeedbackForm({ appointment, onSuccess, onCancel }: Feedb
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                 </svg>
-                Submitting...
+                {t('submitting')}
               </>
             ) : (
-              'Submit Feedback'
+              t('submit_button')
             )}
           </button>
         </div>

@@ -480,6 +480,7 @@ export default function HealthcareAdminMedicalRecordsPage() {
           onCreate={undefined}  // Medical records created via appointment completion only
           autoOpenRecord={autoOpenRecord}
           onAutoOpenComplete={handleAutoOpenComplete}
+          disableTranslations={true}  // Healthcare Admin uses English only
         />
 
         {/* Create Medical Record Modal */}

@@ -1,11 +1,46 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { useTranslations } from 'next-intl';
 import { Search, FileText, Calendar, User, ChevronLeft, ChevronRight, Download, Plus, Eye, AlertCircle } from 'lucide-react';
 import { CategoryBadge } from './CategoryBadge';
 import { EncryptionBadge } from './EncryptionBadge';
 import { MedicalRecordDetailsModal } from './MedicalRecordDetailsModal';
 import { formatPhilippineDate } from '@/lib/utils/timezone';
+
+// English fallback translations for non-patient users
+const ENGLISH_FALLBACK = {
+  'table.search_placeholder': 'Search by patient name or diagnosis...',
+  'filters.all_categories': 'All Categories',
+  'buttons.create_new': 'Create New',
+  'buttons.export': 'Export',
+  'info_note': 'You have pending appointments that need to be completed. Medical records will appear here once you complete appointments.',
+  'table.showing_count': 'Showing {showing} of {total} records',
+  'table.loading': 'Loading records...',
+  'table.no_records_found': 'No records found',
+  'table.no_records_hint': 'Try adjusting your search or filter to find what you\'re looking for.',
+  'table.no_records_complete_appointments': 'Complete appointments to start creating medical records.',
+  'table.patient': 'Patient',
+  'table.date': 'Date',
+  'table.category': 'Category',
+  'table.diagnosis': 'Diagnosis',
+  'table.encryption': 'Encryption',
+  'table.created_by': 'Created By',
+  'table.actions': 'Actions',
+  'table.view': 'View',
+  'pagination.previous': 'Previous',
+  'pagination.next': 'Next',
+  'pagination.showing_page': 'Page {current} of {total}',
+};
+
+const CATEGORY_ENGLISH_FALLBACK: Record<string, string> = {
+  'general': 'General',
+  'healthcard': 'Health Card',
+  'hiv': 'HIV',
+  'pregnancy': 'Pregnancy',
+  'immunization': 'Immunization',
+  'laboratory': 'Laboratory',
+};
 
 interface MedicalRecord {
   id: string;
@@ -62,6 +97,7 @@ interface MedicalRecordsListProps {
   onCreate?: () => void;
   autoOpenRecord?: MedicalRecord | null;
   onAutoOpenComplete?: () => void;
+  disableTranslations?: boolean; // For non-patient users (healthcare admin, super admin)
 }
 
 export function MedicalRecordsList({
@@ -78,7 +114,44 @@ export function MedicalRecordsList({
   onCreate,
   autoOpenRecord,
   onAutoOpenComplete,
+  disableTranslations = false,
 }: MedicalRecordsListProps) {
+  // Conditionally use translations - only for patient users
+  let t: any;
+  let tEnum: any;
+
+  try {
+    if (!disableTranslations) {
+      t = useTranslations('medical_records');
+      tEnum = useTranslations('enums.medical_category');
+    }
+  } catch (e) {
+    // NextIntl context not available, use English fallback
+  }
+
+  // Translation helper that falls back to English
+  const getText = (key: string, params?: Record<string, any>): string => {
+    if (disableTranslations || !t) {
+      const template = ENGLISH_FALLBACK[key as keyof typeof ENGLISH_FALLBACK] || key;
+      if (params) {
+        return Object.entries(params).reduce(
+          (str, [k, v]) => str.replace(`{${k}}`, String(v)),
+          template
+        );
+      }
+      return template;
+    }
+    return t(key, params);
+  };
+
+  // Category translation helper
+  const getCategoryText = (category: string): string => {
+    if (disableTranslations || !tEnum) {
+      return CATEGORY_ENGLISH_FALLBACK[category] || category;
+    }
+    return tEnum(category);
+  };
+
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [selectedRecord, setSelectedRecord] = useState<MedicalRecord | null>(null);
@@ -144,7 +217,7 @@ export function MedicalRecordsList({
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
             <input
               type="text"
-              placeholder="Search by patient name or number..."
+              placeholder={getText('table.search_placeholder')}
               value={searchQuery}
               onChange={handleSearchChange}
               className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
@@ -158,13 +231,13 @@ export function MedicalRecordsList({
             onChange={handleCategoryChange}
             className="flex-1 sm:flex-none px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
           >
-            <option value="all">All Categories</option>
-            <option value="general">General</option>
-            <option value="healthcard">Health Card</option>
-            <option value="hiv">HIV</option>
-            <option value="pregnancy">Pregnancy</option>
-            <option value="immunization">Immunization</option>
-            <option value="laboratory">Laboratory</option>
+            <option value="all">{getText('filters.all_categories')}</option>
+            <option value="general">{getCategoryText('general')}</option>
+            <option value="healthcard">{getCategoryText('healthcard')}</option>
+            <option value="hiv">{getCategoryText('hiv')}</option>
+            <option value="pregnancy">{getCategoryText('pregnancy')}</option>
+            <option value="immunization">{getCategoryText('immunization')}</option>
+            <option value="laboratory">{getCategoryText('laboratory')}</option>
           </select>
 
           {onCreate && (
@@ -173,7 +246,7 @@ export function MedicalRecordsList({
               className="flex items-center gap-2 px-4 py-2 bg-primary-teal text-white rounded-lg hover:bg-primary-teal/90 transition-colors"
             >
               <Plus className="w-4 h-4" />
-              Create New Record
+              {getText('buttons.create_new')}
             </button>
           )}
 
@@ -188,7 +261,7 @@ export function MedicalRecordsList({
               }`}
             >
               <Download className="w-4 h-4" />
-              Export
+              {getText('buttons.export')}
             </button>
           )}
         </div>
@@ -199,14 +272,14 @@ export function MedicalRecordsList({
         <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 flex items-start gap-2">
           <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
           <p className="text-sm text-amber-800">
-            <span className="font-medium">Note:</span> Medical records are automatically created when you complete appointments. Check the Pending Work section above for appointments ready to complete.
+            {getText('info_note')}
           </p>
         </div>
       )}
 
       {/* Records Count */}
       <div className="text-sm text-gray-600">
-        Showing {records.length} of {totalRecords} medical records
+        {getText('table.showing_count', { showing: records.length, total: totalRecords })}
       </div>
 
       {/* Table */}
@@ -214,16 +287,16 @@ export function MedicalRecordsList({
         {isLoading ? (
           <div className="p-8 text-center">
             <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-teal-600"></div>
-            <p className="mt-2 text-gray-500">Loading medical records...</p>
+            <p className="mt-2 text-gray-500">{getText('table.loading')}</p>
           </div>
         ) : records.length === 0 ? (
           <div className="p-8 text-center">
             <FileText className="mx-auto h-12 w-12 text-gray-400" />
-            <h3 className="mt-2 text-sm font-medium text-gray-900">No medical records found</h3>
+            <h3 className="mt-2 text-sm font-medium text-gray-900">{getText('table.no_records_found')}</h3>
             <p className="mt-1 text-sm text-gray-500">
               {searchQuery || selectedCategory !== 'all'
-                ? 'Try adjusting your search or filter criteria.'
-                : 'No medical records yet. Complete appointments from the Pending Work section above to create records.'}
+                ? getText('table.no_records_hint')
+                : getText('table.no_records_complete_appointments')}
             </p>
           </div>
         ) : (
@@ -232,25 +305,25 @@ export function MedicalRecordsList({
               <thead className="bg-gray-50">
                 <tr>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Patient
+                    {getText('table.patient')}
                   </th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Date
+                    {getText('table.date')}
                   </th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Category
+                    {getText('table.category')}
                   </th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Diagnosis
+                    {getText('table.diagnosis')}
                   </th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Encryption
+                    {getText('table.encryption')}
                   </th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Created By
+                    {getText('table.created_by')}
                   </th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Actions
+                    {getText('table.actions')}
                   </th>
                 </tr>
               </thead>
@@ -306,7 +379,10 @@ export function MedicalRecordsList({
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <CategoryBadge category={record.category} />
+                        <CategoryBadge
+                          category={record.category}
+                          label={disableTranslations ? CATEGORY_ENGLISH_FALLBACK[record.category] : undefined}
+                        />
                       </td>
                       <td className="px-6 py-4">
                         <div className="text-sm text-gray-900 max-w-xs">
@@ -314,7 +390,12 @@ export function MedicalRecordsList({
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <EncryptionBadge isEncrypted={record.is_encrypted} showLabel={false} />
+                        <EncryptionBadge
+                          isEncrypted={record.is_encrypted}
+                          showLabel={false}
+                          encryptedLabel={disableTranslations ? 'Encrypted' : undefined}
+                          unencryptedLabel={disableTranslations ? 'Unencrypted' : undefined}
+                        />
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                         {creatorName}
@@ -325,7 +406,7 @@ export function MedicalRecordsList({
                           className="inline-flex items-center px-3 py-1.5 bg-primary-teal text-white text-xs font-medium rounded-md hover:bg-primary-teal/90 transition-colors"
                         >
                           <Eye className="w-3 h-3 mr-1.5" />
-                          View
+                          {getText('table.view')}
                         </button>
                       </td>
                     </tr>
@@ -343,21 +424,20 @@ export function MedicalRecordsList({
                     disabled={currentPage === 1}
                     className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    Previous
+                    {getText('pagination.previous')}
                   </button>
                   <button
                     onClick={() => onPageChange(currentPage + 1)}
                     disabled={currentPage === totalPages}
                     className="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    Next
+                    {getText('pagination.next')}
                   </button>
                 </div>
                 <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
                   <div>
                     <p className="text-sm text-gray-700">
-                      Showing page <span className="font-medium">{currentPage}</span> of{' '}
-                      <span className="font-medium">{totalPages}</span>
+                      {getText('pagination.showing_page', { current: currentPage, total: totalPages })}
                     </p>
                   </div>
                   <div>
@@ -393,6 +473,7 @@ export function MedicalRecordsList({
           setIsModalOpen(false);
           setSelectedRecord(null);
         }}
+        disableTranslations={disableTranslations}
       />
     </div>
   );

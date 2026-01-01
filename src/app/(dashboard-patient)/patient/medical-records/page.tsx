@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useTranslations } from 'next-intl';
 import { DashboardLayout } from '@/components/dashboard';
 import { Container } from '@/components/ui';
 import { MedicalRecordsList } from '@/components/medical-records/MedicalRecordsList';
@@ -57,6 +58,7 @@ interface ApiResponse {
 }
 
 export default function PatientMedicalRecordsPage() {
+  const t = useTranslations('medical_records');
   const [records, setRecords] = useState<MedicalRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
@@ -185,8 +187,8 @@ export default function PatientMedicalRecordsPage() {
   return (
     <DashboardLayout
       roleId={4}
-      pageTitle="My Medical Records"
-      pageDescription="View your complete medical history and health records"
+      pageTitle={t('title')}
+      pageDescription={t('description')}
     >
       <Container size="full">
         <div className="space-y-6">
@@ -211,7 +213,7 @@ export default function PatientMedicalRecordsPage() {
               <div className="bg-gradient-to-br from-teal-50 to-teal-100 border-l-4 border-teal-500 rounded-lg shadow-sm p-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-gray-600 mb-1">Total Records</p>
+                    <p className="text-sm text-gray-600 mb-1">{t('statistics.total_records')}</p>
                     <p className="text-3xl font-bold text-gray-900">{totalCount}</p>
                   </div>
                   <div className="w-12 h-12 bg-teal-500 rounded-xl flex items-center justify-center shadow-lg">
@@ -224,7 +226,7 @@ export default function PatientMedicalRecordsPage() {
               <div className="bg-gradient-to-br from-blue-50 to-blue-100 border-l-4 border-blue-500 rounded-lg shadow-sm p-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-gray-600 mb-1">This Month</p>
+                    <p className="text-sm text-gray-600 mb-1">{t('statistics.this_month')}</p>
                     <p className="text-3xl font-bold text-gray-900">{thisMonthCount}</p>
                   </div>
                   <div className="w-12 h-12 bg-blue-500 rounded-xl flex items-center justify-center shadow-lg">
@@ -237,23 +239,23 @@ export default function PatientMedicalRecordsPage() {
               <div className="bg-gradient-to-br from-purple-50 to-purple-100 border-l-4 border-purple-500 rounded-lg shadow-sm p-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-gray-600 mb-1">Encrypted</p>
+                    <p className="text-sm text-gray-600 mb-1">{t('statistics.encrypted')}</p>
                     <p className="text-3xl font-bold text-gray-900">{encryptedCount}</p>
                   </div>
                   <div className="w-12 h-12 bg-purple-500 rounded-xl flex items-center justify-center shadow-lg">
                     <Shield className="w-6 h-6 text-white" />
                   </div>
                 </div>
-                <p className="text-xs text-gray-500 mt-2">Sensitive health data protected</p>
+                <p className="text-xs text-gray-500 mt-2">{t('statistics.encryption_tooltip')}</p>
               </div>
 
               {/* Last Record Date - Orange */}
               <div className="bg-gradient-to-br from-orange-50 to-orange-100 border-l-4 border-orange-500 rounded-lg shadow-sm p-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-gray-600 mb-1">Last Record</p>
+                    <p className="text-sm text-gray-600 mb-1">{t('statistics.last_record')}</p>
                     <p className="text-lg font-semibold text-gray-900 mt-1">
-                      {lastRecordDate ? formatDate(lastRecordDate) : 'No records yet'}
+                      {lastRecordDate ? formatDate(lastRecordDate) : t('statistics.no_records_yet')}
                     </p>
                   </div>
                   <div className="w-12 h-12 bg-orange-500 rounded-xl flex items-center justify-center shadow-lg">
@@ -278,16 +280,15 @@ export default function PatientMedicalRecordsPage() {
                 <div className="mx-auto h-16 w-16 flex items-center justify-center rounded-full bg-teal-100 mb-4">
                   <FileText className="h-8 w-8 text-teal-600" />
                 </div>
-                <h3 className="text-lg font-medium text-gray-900 mb-2">No Medical Records Yet</h3>
+                <h3 className="text-lg font-medium text-gray-900 mb-2">{t('empty_state.title')}</h3>
                 <p className="text-sm text-gray-600 mb-6">
-                  Medical records are automatically created when healthcare staff complete your appointments.
-                  Book an appointment to start building your health history.
+                  {t('empty_state.description')}
                 </p>
                 <Link
                   href="/patient/book-appointment"
                   className="inline-flex items-center px-4 py-2 bg-primary-teal text-white rounded-lg hover:bg-primary-teal/90 transition-colors"
                 >
-                  Book an Appointment
+                  {t('empty_state.cta_button')}
                 </Link>
               </div>
             </div>

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
+import { useTranslations } from 'next-intl';
 import { DashboardLayout } from '@/components/dashboard';
 import { Container, Button } from '@/components/ui';
 import { ProfessionalCard } from '@/components/ui/ProfessionalCard';
@@ -12,6 +13,7 @@ import NotificationDrawer from '@/components/notifications/NotificationDrawer';
 type FilterType = 'all' | 'unread' | 'approval' | 'appointment_reminder' | 'cancellation' | 'feedback_request' | 'general';
 
 export default function PatientNotificationsPage() {
+  const t = useTranslations('notifications');
   const [filter, setFilter] = useState<FilterType>('all');
   const [selectedNotification, setSelectedNotification] = useState<Notification | null>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
@@ -51,8 +53,8 @@ export default function PatientNotificationsPage() {
   return (
     <DashboardLayout
       roleId={4}
-      pageTitle="Notifications"
-      pageDescription="Stay updated with your health appointments"
+      pageTitle={t('title')}
+      pageDescription={t('description')}
     >
       <Container size="full">
         {/* Error state */}
@@ -69,7 +71,7 @@ export default function PatientNotificationsPage() {
               <ProfessionalCard variant="flat" className="bg-gradient-to-br from-teal-50 to-teal-100 border-l-4 border-teal-500">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-gray-600 mb-1">Total</p>
+                    <p className="text-sm text-gray-600 mb-1">{t('statistics.total')}</p>
                     <p className="text-3xl font-bold text-gray-900">{statistics.total}</p>
                   </div>
                   <div className="w-12 h-12 bg-teal-500 rounded-xl flex items-center justify-center shadow-lg">
@@ -81,7 +83,7 @@ export default function PatientNotificationsPage() {
               <ProfessionalCard variant="flat" className="bg-gradient-to-br from-orange-50 to-orange-100 border-l-4 border-orange-500">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-gray-600 mb-1">Unread</p>
+                    <p className="text-sm text-gray-600 mb-1">{t('statistics.unread')}</p>
                     <p className="text-3xl font-bold text-gray-900">{statistics.unread}</p>
                   </div>
                   <div className="w-12 h-12 bg-orange-500 rounded-xl flex items-center justify-center shadow-lg">
@@ -93,7 +95,7 @@ export default function PatientNotificationsPage() {
               <ProfessionalCard variant="flat" className="bg-gradient-to-br from-green-50 to-green-100 border-l-4 border-green-500">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-gray-600 mb-1">Approvals</p>
+                    <p className="text-sm text-gray-600 mb-1">{t('statistics.approvals')}</p>
                     <p className="text-3xl font-bold text-gray-900">{statistics.approvals}</p>
                   </div>
                   <div className="w-12 h-12 bg-green-500 rounded-xl flex items-center justify-center shadow-lg">
@@ -105,7 +107,7 @@ export default function PatientNotificationsPage() {
               <ProfessionalCard variant="flat" className="bg-gradient-to-br from-blue-50 to-blue-100 border-l-4 border-blue-500">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-gray-600 mb-1">Reminders</p>
+                    <p className="text-sm text-gray-600 mb-1">{t('statistics.reminders')}</p>
                     <p className="text-3xl font-bold text-gray-900">{statistics.reminders}</p>
                   </div>
                   <div className="w-12 h-12 bg-blue-500 rounded-xl flex items-center justify-center shadow-lg">
@@ -117,7 +119,7 @@ export default function PatientNotificationsPage() {
               <ProfessionalCard variant="flat" className="bg-gradient-to-br from-red-50 to-red-100 border-l-4 border-red-500">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-gray-600 mb-1">Cancellations</p>
+                    <p className="text-sm text-gray-600 mb-1">{t('statistics.cancellations')}</p>
                     <p className="text-3xl font-bold text-gray-900">{statistics.cancellations}</p>
                   </div>
                   <div className="w-12 h-12 bg-red-500 rounded-xl flex items-center justify-center shadow-lg">
@@ -129,7 +131,7 @@ export default function PatientNotificationsPage() {
               <ProfessionalCard variant="flat" className="bg-gradient-to-br from-purple-50 to-purple-100 border-l-4 border-purple-500">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-gray-600 mb-1">Feedback</p>
+                    <p className="text-sm text-gray-600 mb-1">{t('statistics.feedback')}</p>
                     <p className="text-3xl font-bold text-gray-900">{statistics.feedbacks}</p>
                   </div>
                   <div className="w-12 h-12 bg-purple-500 rounded-xl flex items-center justify-center shadow-lg">
@@ -142,13 +144,13 @@ export default function PatientNotificationsPage() {
             {/* Quick Filters */}
             <div className="flex flex-wrap gap-2 mb-6">
               {[
-                { id: 'all', label: 'All', count: statistics.total, color: 'teal', icon: Bell },
-                { id: 'unread', label: 'Unread', count: statistics.unread, color: 'orange', icon: Bell },
-                { id: 'approval', label: 'Approvals', count: statistics.approvals, color: 'green', icon: CheckCircle },
-                { id: 'appointment_reminder', label: 'Reminders', count: statistics.reminders, color: 'blue', icon: Calendar },
-                { id: 'cancellation', label: 'Cancellations', count: statistics.cancellations, color: 'red', icon: XCircle },
-                { id: 'feedback_request', label: 'Feedback', count: statistics.feedbacks, color: 'purple', icon: MessageSquare },
-                { id: 'general', label: 'General', count: statistics.general, color: 'gray', icon: Info },
+                { id: 'all', label: t('filters.all'), count: statistics.total, color: 'teal', icon: Bell },
+                { id: 'unread', label: t('filters.unread'), count: statistics.unread, color: 'orange', icon: Bell },
+                { id: 'approval', label: t('filters.approval'), count: statistics.approvals, color: 'green', icon: CheckCircle },
+                { id: 'appointment_reminder', label: t('filters.appointment_reminder'), count: statistics.reminders, color: 'blue', icon: Calendar },
+                { id: 'cancellation', label: t('filters.cancellation'), count: statistics.cancellations, color: 'red', icon: XCircle },
+                { id: 'feedback_request', label: t('filters.feedback_request'), count: statistics.feedbacks, color: 'purple', icon: MessageSquare },
+                { id: 'general', label: t('filters.general'), count: statistics.general, color: 'gray', icon: Info },
               ].map((filterOption) => {
                 const Icon = filterOption.icon;
                 const isActive = filter === filterOption.id;
@@ -191,7 +193,7 @@ export default function PatientNotificationsPage() {
                 className="flex items-center gap-2"
               >
                 <CheckCheck className="w-4 h-4" />
-                Mark all as read
+                {t('mark_all_read')}
               </Button>
             </div>
 

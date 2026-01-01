@@ -54,7 +54,7 @@
       "approvals": "Mga Apruba",
       "reminders": "Mga Paalala",
       "cancellations": "Mga Kanselasyon",
-      "feedback": "Feedback"
+      "feedback": "Mga Puna"
     },
     "filters": {
       "all": "Lahat",
@@ -96,9 +96,31 @@
       "title": "Abiso",
       "message": "Mayroon kang bagong abiso mula sa Panabo City Health Office."
     },
+    "appointment_status_updated": {
+      "title": "Na-update ang Katayuan ng Appointment",
+      "message": "Ang iyong appointment #{appointment_number} ay na-revert sa \"{new_status}\". {reason}"
+    },
+    "check_in_success": {
+      "title": "Matagumpay na Nag-check In",
+      "message": "Nag-check in ka na para sa appointment #{appointment_number}. Mangyaring maghintay na tawagin."
+    },
+    "consultation_started": {
+      "title": "Nagsimula ang Konsultasyon",
+      "message": "Nagsimula na ang iyong konsultasyon para sa appointment #{appointment_number}. Mangyaring pumunta sa consultation room."
+    },
+    "appointment_cancelled": {
+      "title": "Nakansela ang Appointment",
+      "message": "Ang iyong appointment #{appointment_number} na nakatakda sa {date} sa {time} ay nakansela na. {reason}"
+    },
     "unread_badge": "Hindi Nabasa",
     "go_to_page": "Pumunta sa Kaugnay na Pahina",
-    "notification_details": "Detalye ng Abiso"
+    "notification_details": "Detalye ng Abiso",
+    "time": {
+      "just_now": "Ngayon lang",
+      "minutes_ago": "min nakalipas",
+      "hours_ago": "oras nakalipas",
+      "days_ago": "araw nakalipas"
+    }
   },
   "feedback": {
     "title": "Feedback",
@@ -121,6 +143,40 @@
     "view_eligible": "Tingnan ang Mga Kwalipikadong Appointment",
     "days_remaining": "araw na natitira upang magsumite ng feedback",
     "deadline_expired": "Nag-expire na ang deadline ng feedback",
+    "details": "Mga Detalye ng Feedback",
+    "title": "Feedback",
+    "description": "Ibahagi ang iyong karanasan at tingnan ang iyong kasaysayan ng feedback",
+    "search_placeholder": "Maghanap gamit ang serbisyo o rating...",
+    "statistics": {
+      "submitted": "Naisumite",
+      "pending": "Naghihintay",
+      "avg_rating": "Avg Rating",
+      "recommended": "Nirekomenda",
+      "with_response": "May Tugon",
+      "awaiting": "Naghihintay"
+    },
+    "table": {
+      "submitted": "Naisumite",
+      "service": "Serbisyo",
+      "rating": "Rating",
+      "recommend": "Irerekomenda",
+      "response": "Tugon",
+      "actions": "Mga Aksyon",
+      "view_details": "Tingnan ang Detalye",
+      "not_available": "N/A"
+    },
+    "status": {
+      "completed": "Nakumpleto",
+      "responded": "Tumugon Na",
+      "pending": "Naghihintay"
+    },
+    "recommend": {
+      "yes": "Oo",
+      "no": "Hindi"
+    },
+    "errors": {
+      "load_failed": "Nabigo ang pag-load ng data. Mangyaring subukan muli."
+    },
     "filters": {
       "all": "Lahat",
       "pending_feedback": "Naghihintay ng Feedback",
@@ -128,6 +184,51 @@
       "recommended": "Inirerekomenda",
       "with_response": "May Tugon",
       "awaiting_response": "Naghihintay ng Tugon"
+    },
+    "form": {
+      "appointment_details": "Mga Detalye ng Appointment",
+      "service_label": "Serbisyo:",
+      "date_label": "Petsa:",
+      "time_label": "Oras:",
+      "overall_experience": "Kabuuang Karanasan",
+      "facility_cleanliness": "Kalinisan ng Pasilidad",
+      "wait_time_satisfaction": "Kasiyahan sa Oras ng Paghihintay",
+      "would_recommend": "Irerekomenda mo ba ang serbisyong ito?",
+      "help_others": "Tulungan ang iba na gumawa ng matalinong desisyon",
+      "comments_label": "Mga Komento at Mungkahi",
+      "comments_placeholder": "Ibahagi ang iyong karanasan at mga mungkahi para sa pagpapabuti...",
+      "helper_text": "Mangyaring magbigay ng tukoy na feedback",
+      "cancel": "Kanselahin",
+      "submitting": "Isinusumite...",
+      "submit_button": "Magsumite ng Feedback",
+      "success": "Salamat! Matagumpay na naisumite ang iyong feedback.",
+      "errors": {
+        "overall_required": "Kailangan ang kabuuang rating",
+        "facility_required": "Kailangan ang rating ng kalinisan",
+        "wait_time_required": "Kailangan ang rating ng oras ng paghihintay",
+        "comments_required": "Kailangan ang mga komento",
+        "comments_max": "Ang mga komento ay dapat 500 character o mas kaunti",
+        "submit_failed": "Nabigo ang pagsusumite ng feedback"
+      },
+      "character_limit": "/500",
+      "not_available": "Walang Data"
+    },
+    "card": {
+      "service_label": "Serbisyo:",
+      "date_label": "Petsa:",
+      "time_label": "Oras:",
+      "submitted_on": "Naisumite noong",
+      "recommends": "Inirerekomenda",
+      "does_not_recommend": "Hindi inirerekomenda",
+      "overall_experience": "Kabuuang Karanasan",
+      "facility_cleanliness": "Kalinisan ng Pasilidad",
+      "wait_time": "Oras ng Paghihintay",
+      "comments": "Mga Komento",
+      "admin_response": "Tugon ng Administrator",
+      "administrator": "Administrator",
+      "not_available": "N/A",
+      "appointment": "Appointment",
+      "rating_scale": "/ 5.0"
     }
   },
   "appointments": {
@@ -309,6 +410,31 @@
     "book_new_appointment": "Mag-book ng Bagong Appointment",
     "loading": "Naglo-load ng mga appointment...",
     "search_placeholder": "Maghanap gamit ang numero sa pila o petsa...",
+    "errors": {
+      "failed_to_load": "Hindi ma-load ang mga appointment",
+      "unexpected_error": "May hindi inaasahang error na naganap",
+      "cancel_24h_minimum": "Ang mga appointment ay maaari lamang kanselahin nang hindi bababa sa 24 na oras bago ang appointment"
+    },
+    "statistics": {
+      "total": "Kabuuan",
+      "pending": "Nakabinbin",
+      "scheduled": "Nakatakda",
+      "checked_in": "Naka-check In",
+      "in_progress": "Isinasagawa",
+      "completed": "Tapos Na",
+      "cancelled": "Nakansela",
+      "no_show": "Hindi Dumating"
+    },
+    "filters": {
+      "all": "Lahat ng Appointment",
+      "pending": "Nakabinbin",
+      "scheduled": "Nakatakda",
+      "checked_in": "Naka-check In",
+      "in_progress": "Isinasagawa",
+      "completed": "Tapos Na",
+      "cancelled": "Nakansela",
+      "no_show": "Hindi Dumating"
+    },
     "table": {
       "queue_hash": "Pila #",
       "service": "Serbisyo",
@@ -375,6 +501,13 @@
       "bullet2": "Ang iyong account ay awtomatikong ibabalik sa petsa sa itaas",
       "bullet3": "Mangyaring dumalo sa mga nakaset na appointment upang maiwasan ang future suspensions",
       "contact_message": "Kung naniniwala ka na ang suspension na ito ay pagkakamali o may extenuating circumstances, mangyaring makipag-ugnayan sa City Health Office ng Panabo City kaagad."
+    },
+    "errors": {
+      "loading_blocks_failed": "Nabigo ang pag-load ng available na time blocks",
+      "cannot_book_suspended": "Hindi maka-book ng appointment habang naka-suspend ang iyong account",
+      "reason_required": "Mangyaring magbigay ng dahilan ng iyong pagbisita",
+      "booking_failed": "Nabigo ang pag-book ng appointment",
+      "unexpected_error": "May hindi inaasahang error na naganap"
     },
     "steps": {
       "select_service": "Pumili ng Serbisyo",
@@ -455,10 +588,16 @@
   },
   "medical_records": {
     "title": "Aking Mga Medikal na Rekord",
-    "description": "Tingnan ang iyong kumpletong medikal na kasaysayan",
+    "description": "Tingnan ang iyong kumpletong medikal na kasaysayan at mga rekord sa kalusugan",
+    "page_description_short": "Tingnan ang iyong kumpletong medikal na kasaysayan",
     "loading": "Naglo-load ng iyong mga medikal na rekord...",
     "statistics": {
       "total_records": "Kabuuang Rekord",
+      "this_month": "Ngayong Buwan",
+      "encrypted": "Naka-encrypt",
+      "encryption_tooltip": "Sensitibong datos ng kalusugan na protektado",
+      "last_record": "Huling Rekord",
+      "no_records_yet": "Walang rekord pa",
       "general": "Pangkalahatan",
       "healthcard": "Healthcard",
       "hiv": "HIV",
@@ -467,14 +606,25 @@
       "laboratory": "Laboratoryo"
     },
     "table": {
+      "patient": "Pasyente",
+      "date": "Petsa",
       "date_created": "Petsa ng Paggawa",
       "service": "Serbisyo",
       "walk_in_visit": "Walk-in na bisita",
       "template_type": "Uri ng Template",
       "category": "Kategorya",
+      "diagnosis": "Diagnosis",
+      "encryption": "Encryption",
+      "created_by": "Nilikha ni",
       "actions": "Mga Aksyon",
+      "view": "Tingnan",
       "view_details": "Tingnan ang Detalye",
-      "search_placeholder": "Maghanap gamit ang serbisyo, uri ng template, o kategorya..."
+      "search_placeholder": "Maghanap gamit ang pangalan o numero ng pasyente...",
+      "loading": "Naglo-load ng mga medikal na rekord...",
+      "no_records_found": "Walang nakitang medikal na rekord",
+      "no_records_hint": "Subukang baguhin ang iyong paghahanap o filter.",
+      "no_records_complete_appointments": "Walang medikal na rekord pa. Kumpletuhin ang mga appointment mula sa Pending Work section sa itaas upang lumikha ng mga rekord.",
+      "showing_count": "Ipinapakita ang {showing} sa {total} na medikal na rekord"
     },
     "categories": {
       "general": "Pangkalahatan",
@@ -483,6 +633,66 @@
       "pregnancy": "Pagbubuntis",
       "immunization": "Immunization",
       "laboratory": "Laboratoryo"
+    },
+    "filters": {
+      "all_categories": "Lahat ng Kategorya"
+    },
+    "buttons": {
+      "create_new": "Lumikha ng Bagong Rekord",
+      "export": "I-export"
+    },
+    "pagination": {
+      "previous": "Nakaraan",
+      "next": "Susunod",
+      "showing_page": "Ipinapakita ang pahina {current} sa {total}"
+    },
+    "info_note": "Ang mga medikal na rekord ay awtomatikong nilikha kapag nakumpleto mo ang mga appointment. Tingnan ang Pending Work section sa itaas para sa mga appointment na handa nang makumpleto.",
+    "empty_state": {
+      "title": "Walang Medikal na Rekord Pa",
+      "description": "Ang mga medikal na rekord ay awtomatikong nilikha kapag nakumpleto ng healthcare staff ang iyong mga appointment. Mag-book ng appointment upang magsimulang bumuo ng iyong kasaysayan sa kalusugan.",
+      "cta_button": "Mag-book ng Appointment"
+    },
+    "encryption_status": {
+      "encrypted": "Naka-encrypt",
+      "unencrypted": "Hindi naka-encrypt"
+    },
+    "error": {
+      "failed_to_load": "Nabigong i-load ang mga medikal na rekord"
+    },
+    "modal": {
+      "title": "Detalye ng Medikal na Rekord",
+      "subtitle": "Tingnan ang detalyadong impormasyon ng medikal na rekord",
+      "close_aria": "Isara ang modal",
+      "error": {
+        "title": "Hindi Natagpuan ang Rekord",
+        "message": "Ang datos ng medikal na rekord ay hindi ma-load. Mangyaring i-refresh ang pahina.",
+        "close_button": "Isara"
+      },
+      "sensitive_data": {
+        "title": "Sensitibong Medikal na Datos",
+        "hiv_message": "Ang rekord na ito ay naglalaman ng sensitibong impormasyon tungkol sa HIV na naka-encrypt at protektado.",
+        "pregnancy_message": "Ang rekord na ito ay naglalaman ng sensitibong impormasyon tungkol sa pagbubuntis na naka-encrypt at protektado."
+      },
+      "sections": {
+        "patient_information": "Impormasyon ng Pasyente",
+        "medical_information": "Medikal na Impormasyon",
+        "record_information": "Impormasyon ng Rekord"
+      },
+      "labels": {
+        "patient_name": "Pangalan ng Pasyente",
+        "patient_number": "Numero ng Pasyente",
+        "diagnosis": "Diagnosis",
+        "prescription": "Reseta",
+        "notes": "Mga Tala",
+        "created_by": "Nilikha ni",
+        "created_at": "Nilikha noong",
+        "template_type": "Uri ng Template",
+        "linked_appointment": "Konektadong Appointment",
+        "not_available": "N/A"
+      },
+      "buttons": {
+        "close": "Isara"
+      }
     }
   },
   "health_card": {
@@ -603,6 +813,18 @@
       "cancel": "Kanselahin",
       "save_changes": "I-save ang Mga Pagbabago",
       "saving": "Sine-save..."
+    },
+    "errors": {
+      "load_failed": "Nabigo ang pag-load ng profile",
+      "unexpected": "May nangyaring hindi inaasahang error",
+      "validation_failed": "Mangyaring ayusin ang mga error sa form",
+      "update_failed": "Nabigo ang pag-update ng profile"
+    },
+    "messages": {
+      "success": "Matagumpay na na-update ang profile"
+    },
+    "loading": {
+      "skeleton_title": "Naglo-load..."
     }
   },
   "feedback_page": {

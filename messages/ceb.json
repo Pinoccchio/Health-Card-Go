@@ -54,7 +54,7 @@
       "approvals": "Mga Approval",
       "reminders": "Mga Pahinumdom",
       "cancellations": "Mga Kanselasyon",
-      "feedback": "Feedback"
+      "feedback": "Mga Komentaryo"
     },
     "filters": {
       "all": "Tanan",
@@ -96,9 +96,31 @@
       "title": "Pahibalo",
       "message": "Naa kay bag-ong pahibalo gikan sa Panabo City Health Office."
     },
+    "appointment_status_updated": {
+      "title": "Gi-update ang Katayuan sa Appointment",
+      "message": "Ang imong appointment #{appointment_number} gi-revert sa \"{new_status}\". {reason}"
+    },
+    "check_in_success": {
+      "title": "Malampuson ang Pag-check In",
+      "message": "Nag-check in ka na para sa appointment #{appointment_number}. Palihug paghulat nga tawagon."
+    },
+    "consultation_started": {
+      "title": "Nagsugod ang Konsultasyon",
+      "message": "Nagsugod na ang imong konsultasyon para sa appointment #{appointment_number}. Palihug adto sa consultation room."
+    },
+    "appointment_cancelled": {
+      "title": "Gikansela ang Appointment",
+      "message": "Ang imong appointment #{appointment_number} nga gi-iskedyul sa {date} sa {time} gikansela na. {reason}"
+    },
     "unread_badge": "Wala pa Mabasa",
     "go_to_page": "Adto sa Kalabot nga Pahina",
-    "notification_details": "Detalye sa Pahibalo"
+    "notification_details": "Detalye sa Pahibalo",
+    "time": {
+      "just_now": "Bag-o lang",
+      "minutes_ago": "min ang milabay",
+      "hours_ago": "oras ang milabay",
+      "days_ago": "adlaw ang milabay"
+    }
   },
   "feedback": {
     "title": "Feedback",
@@ -121,6 +143,40 @@
     "view_eligible": "Tan-awon ang Mga Kwalipikadong Appointment",
     "days_remaining": "ka adlaw ang nahabilin para mupadala ug feedback",
     "deadline_expired": "Nag-expire na ang deadline sa feedback",
+    "details": "Mga Detalye sa Feedback",
+    "title": "Feedback",
+    "description": "Ipaambit ang imong kasinatian ug tan-awon ang imong kasaysayan sa feedback",
+    "search_placeholder": "Pangitaa gamit ang serbisyo o rating...",
+    "statistics": {
+      "submitted": "Napadala",
+      "pending": "Naghulat",
+      "avg_rating": "Avg Rating",
+      "recommended": "Girekomendar",
+      "with_response": "May Tubag",
+      "awaiting": "Naghulat"
+    },
+    "table": {
+      "submitted": "Napadala",
+      "service": "Serbisyo",
+      "rating": "Rating",
+      "recommend": "Girekomendar",
+      "response": "Tubag",
+      "actions": "Mga Aksyon",
+      "view_details": "Tan-awon ang Detalye",
+      "not_available": "N/A"
+    },
+    "status": {
+      "completed": "Nakompleto",
+      "responded": "Nitubag Na",
+      "pending": "Naghulat"
+    },
+    "recommend": {
+      "yes": "Oo",
+      "no": "Dili"
+    },
+    "errors": {
+      "load_failed": "Napakyas ang pag-load sa data. Palihug sulayi pag-usab."
+    },
     "filters": {
       "all": "Tanan",
       "pending_feedback": "Naghulat ug Feedback",
@@ -128,6 +184,51 @@
       "recommended": "Girekomendar",
       "with_response": "Adunay Tubag",
       "awaiting_response": "Naghulat ug Tubag"
+    },
+    "form": {
+      "appointment_details": "Mga Detalye sa Appointment",
+      "service_label": "Serbisyo:",
+      "date_label": "Petsa:",
+      "time_label": "Oras:",
+      "overall_experience": "Kinatibuk-ang Kasinatian",
+      "facility_cleanliness": "Kalimpyo sa Pasilidad",
+      "wait_time_satisfaction": "Katagbawan sa Oras sa Paghulat",
+      "would_recommend": "Irekomendar ba nimo kini nga serbisyo?",
+      "help_others": "Tabangan ang uban nga maghimo ug maalamon nga desisyon",
+      "comments_label": "Mga Komento ug Sugyot",
+      "comments_placeholder": "Ipaambit ang imong kasinatian ug mga sugyot para sa pagpauswag...",
+      "helper_text": "Palihug paghatag ug piho nga feedback",
+      "cancel": "Kanselahon",
+      "submitting": "Gipadala...",
+      "submit_button": "Ipadala ang Feedback",
+      "success": "Salamat! Malampuson nga napadala ang imong feedback.",
+      "errors": {
+        "overall_required": "Kinahanglan ang kinatibuk-ang rating",
+        "facility_required": "Kinahanglan ang rating sa kalimpyo",
+        "wait_time_required": "Kinahanglan ang rating sa oras sa paghulat",
+        "comments_required": "Kinahanglan ang mga komento",
+        "comments_max": "Ang mga komento kinahanglan 500 character o ubos pa",
+        "submit_failed": "Napakyas ang pagpadala sa feedback"
+      },
+      "character_limit": "/500",
+      "not_available": "Walay Datos"
+    },
+    "card": {
+      "service_label": "Serbisyo:",
+      "date_label": "Petsa:",
+      "time_label": "Oras:",
+      "submitted_on": "Gipadala niadtong",
+      "recommends": "Girekomendar",
+      "does_not_recommend": "Wala girekomendar",
+      "overall_experience": "Kinatibuk-ang Kasinatian",
+      "facility_cleanliness": "Kalimpyo sa Pasilidad",
+      "wait_time": "Oras sa Paghulat",
+      "comments": "Mga Komento",
+      "admin_response": "Tubag sa Administrator",
+      "administrator": "Administrator",
+      "not_available": "N/A",
+      "appointment": "Appointment",
+      "rating_scale": "/ 5.0"
     }
   },
   "appointments": {
@@ -309,6 +410,31 @@
     "book_new_appointment": "Mag-book og Bag-ong Appointment",
     "loading": "Nag-load sa mga appointment...",
     "search_placeholder": "Pangitaa gamit ang numero sa linya o petsa...",
+    "errors": {
+      "failed_to_load": "Napakyas sa pag-load sa mga appointment",
+      "unexpected_error": "Adunay wala damha nga sayop nga nahitabo",
+      "cancel_24h_minimum": "Ang mga appointment mahimo lang kanselahon dili mubu sa 24 ka oras sa wala pa ang appointment"
+    },
+    "statistics": {
+      "total": "Tibuok",
+      "pending": "Naghulat",
+      "scheduled": "Nakaschedulehedulado",
+      "checked_in": "Naka-check In",
+      "in_progress": "Ginahimo",
+      "completed": "Nahuman Na",
+      "cancelled": "Gikansela",
+      "no_show": "Wala Miabot"
+    },
+    "filters": {
+      "all": "Tanang Appointment",
+      "pending": "Naghulat",
+      "scheduled": "Nakahedulo",
+      "checked_in": "Naka-check In",
+      "in_progress": "Ginahimo",
+      "completed": "Nahuman Na",
+      "cancelled": "Gikansela",
+      "no_show": "Wala Miabot"
+    },
     "table": {
       "queue_hash": "Linya #",
       "service": "Serbisyo",
@@ -375,6 +501,13 @@
       "bullet2": "Ang imong account awtomatik nga ibalik sa petsa sa ibabaw",
       "bullet3": "Palihug motambong sa mga nakaset nga appointment aron malikayan ang future suspensions",
       "contact_message": "Kon nagtuo ka nga ang suspension ni usa ka sayop o adunay extenuating circumstances, palihug kontak-a dayon ang City Health Office sa Panabo City."
+    },
+    "errors": {
+      "loading_blocks_failed": "Napakyas ang pag-load sa available nga time blocks",
+      "cannot_book_suspended": "Dili maka-book og appointment samtang gi-suspend ang imong account",
+      "reason_required": "Palihug paghatag og hinungdan sa imong pagbisita",
+      "booking_failed": "Napakyas ang pag-book sa appointment",
+      "unexpected_error": "Adunay wala damha nga sayop nga nahitabo"
     },
     "steps": {
       "select_service": "Pilia ang Serbisyo",
@@ -455,10 +588,16 @@
   },
   "medical_records": {
     "title": "Akong Mga Medikal nga Rekord",
-    "description": "Tan-awon ang imong kompleto nga medikal nga kasaysayan",
+    "description": "Tan-awon ang imong kompleto nga medikal nga kasaysayan ug mga rekord sa panglawas",
+    "page_description_short": "Tan-awon ang imong kompleto nga medikal nga kasaysayan",
     "loading": "Nag-load sa imong mga medikal nga rekord...",
     "statistics": {
       "total_records": "Kinatibuk-ang Rekord",
+      "this_month": "Karong Bulana",
+      "encrypted": "Naka-encrypt",
+      "encryption_tooltip": "Sensitibo nga datos sa panglawas nga protektado",
+      "last_record": "Katapusang Rekord",
+      "no_records_yet": "Wala pay rekord",
       "general": "Kinatibuk-an",
       "healthcard": "Healthcard",
       "hiv": "HIV",
@@ -467,14 +606,25 @@
       "laboratory": "Laboratoryo"
     },
     "table": {
+      "patient": "Pasyente",
+      "date": "Petsa",
       "date_created": "Petsa nga Gihimo",
       "service": "Serbisyo",
       "walk_in_visit": "Walk-in nga bisita",
       "template_type": "Matang sa Template",
       "category": "Kategorya",
+      "diagnosis": "Diagnosis",
+      "encryption": "Encryption",
+      "created_by": "Gibuhat ni",
       "actions": "Mga Aksyon",
+      "view": "Tan-awa",
       "view_details": "Tan-awon ang Detalye",
-      "search_placeholder": "Pangitaa gamit ang serbisyo, matang sa template, o kategorya..."
+      "search_placeholder": "Pangitaa gamit ang ngalan o numero sa pasyente...",
+      "loading": "Nag-load sa mga medikal nga rekord...",
+      "no_records_found": "Walay nakitang medikal nga rekord",
+      "no_records_hint": "Sulayan ang pag-adjust sa imong pagpangita o filter.",
+      "no_records_complete_appointments": "Wala pay medikal nga rekord. Kumplituha ang mga appointment gikan sa Pending Work section sa ibabaw aron makahimo og mga rekord.",
+      "showing_count": "Nagpakita og {showing} sa {total} nga medikal nga rekord"
     },
     "categories": {
       "general": "Kinatibuk-an",
@@ -483,6 +633,66 @@
       "pregnancy": "Pagmabdos",
       "immunization": "Immunization",
       "laboratory": "Laboratoryo"
+    },
+    "filters": {
+      "all_categories": "Tanang Kategorya"
+    },
+    "buttons": {
+      "create_new": "Paghimo og Bag-ong Rekord",
+      "export": "I-export"
+    },
+    "pagination": {
+      "previous": "Miaging",
+      "next": "Sunod",
+      "showing_page": "Nagpakita sa pahina {current} sa {total}"
+    },
+    "info_note": "Ang mga medikal nga rekord automatiko nga gihimo kon nakompleto nimo ang mga appointment. Tan-awa ang Pending Work section sa ibabaw para sa mga appointment nga andam na nga makompleto.",
+    "empty_state": {
+      "title": "Wala Pay Medikal nga Rekord",
+      "description": "Ang mga medikal nga rekord automatiko nga gihimo kon nakompleto sa healthcare staff ang imong mga appointment. Mag-book og appointment aron magsugod sa pagtukod sa imong kasaysayan sa panglawas.",
+      "cta_button": "Mag-book og Appointment"
+    },
+    "encryption_status": {
+      "encrypted": "Naka-encrypt",
+      "unencrypted": "Wala naka-encrypt"
+    },
+    "error": {
+      "failed_to_load": "Napakyas ang pag-load sa mga medikal nga rekord"
+    },
+    "modal": {
+      "title": "Detalye sa Medikal nga Rekord",
+      "subtitle": "Tan-awon ang detalyado nga impormasyon sa medikal nga rekord",
+      "close_aria": "Sirad-i ang modal",
+      "error": {
+        "title": "Wala Makit-i ang Rekord",
+        "message": "Ang datos sa medikal nga rekord wala ma-load. Palihug i-refresh ang pahina.",
+        "close_button": "Sirad-i"
+      },
+      "sensitive_data": {
+        "title": "Sensitibo nga Medikal nga Datos",
+        "hiv_message": "Kini nga rekord adunay sensitibo nga impormasyon bahin sa HIV nga naka-encrypt ug protektado.",
+        "pregnancy_message": "Kini nga rekord adunay sensitibo nga impormasyon bahin sa pagmabdos nga naka-encrypt ug protektado."
+      },
+      "sections": {
+        "patient_information": "Impormasyon sa Pasyente",
+        "medical_information": "Medikal nga Impormasyon",
+        "record_information": "Impormasyon sa Rekord"
+      },
+      "labels": {
+        "patient_name": "Ngalan sa Pasyente",
+        "patient_number": "Numero sa Pasyente",
+        "diagnosis": "Diagnosis",
+        "prescription": "Reseta",
+        "notes": "Mga Nota",
+        "created_by": "Gibuhat ni",
+        "created_at": "Gibuhat sa",
+        "template_type": "Matang sa Template",
+        "linked_appointment": "Konektadong Appointment",
+        "not_available": "N/A"
+      },
+      "buttons": {
+        "close": "Sirad-i"
+      }
     }
   },
   "health_card": {
@@ -603,6 +813,18 @@
       "cancel": "Kanselaon",
       "save_changes": "I-save ang Mga Kausaban",
       "saving": "Gi-save..."
+    },
+    "errors": {
+      "load_failed": "Napakyas ang pag-load sa profile",
+      "unexpected": "Adunay wala damha nga sayop",
+      "validation_failed": "Palihug ayuha ang mga sayop sa form",
+      "update_failed": "Napakyas ang pag-update sa profile"
+    },
+    "messages": {
+      "success": "Malampuson nga na-update ang profile"
+    },
+    "loading": {
+      "skeleton_title": "Nagkarga..."
     }
   },
   "feedback_page": {
