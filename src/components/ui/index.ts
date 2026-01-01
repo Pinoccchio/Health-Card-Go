@@ -28,3 +28,8 @@ export { EnhancedTable } from './EnhancedTable';
 export type { EnhancedTableProps } from './EnhancedTable';
 
 export { EmptyState } from './EmptyState';
+
+export { DateCalendar } from './DateCalendar';
+export { DateCalendarHeader } from './DateCalendarHeader';
+export { DateCell } from './DateCell';
+export { DateCalendarModal } from './DateCalendarModal';

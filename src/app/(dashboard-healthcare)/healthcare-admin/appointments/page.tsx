@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth';
 import { DashboardLayout } from '@/components/dashboard';
-import { Container, ConfirmDialog } from '@/components/ui';
+import { Container, ConfirmDialog, DateCalendarModal } from '@/components/ui';
 import { ProfessionalCard } from '@/components/ui/ProfessionalCard';
 import { EnhancedTable } from '@/components/ui/EnhancedTable';
 import { Drawer } from '@/components/ui/Drawer';
@@ -36,6 +36,7 @@ import {
   PlayCircle,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
 } from 'lucide-react';
 import { getPhilippineTime } from '@/lib/utils/timezone';
 import { APPOINTMENT_STATUS_CONFIG } from '@/lib/constants/colors';
@@ -99,6 +100,7 @@ export default function HealthcareAdminAppointmentsPage() {
   const [isCheckingAccess, setIsCheckingAccess] = useState(true);
   const [hasAccess, setHasAccess] = useState(false);
   const [appointments, setAppointments] = useState<AdminAppointment[]>([]);
+  const [allAppointmentsForDates, setAllAppointmentsForDates] = useState<AdminAppointment[]>([]); // For dropdown dates only
   const [selectedAppointment, setSelectedAppointment] = useState<AdminAppointment | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -113,14 +115,15 @@ export default function HealthcareAdminAppointmentsPage() {
   });
 
   // Get unique dates that have appointments (sorted chronologically)
+  // Use allAppointmentsForDates (not paginated) to show all available dates in dropdown
   const availableDates = useMemo(() => {
     const dates = new Set<string>();
-    appointments.forEach(apt => {
+    allAppointmentsForDates.forEach(apt => {
       const date = apt.appointment_date.split('T')[0];
       dates.add(date);
     });
     return Array.from(dates).sort();
-  }, [appointments]);
+  }, [allAppointmentsForDates]);
 
   // Dropdown dates: includes selected date even if it has no appointments
   // This keeps header and dropdown in sync
@@ -129,12 +132,23 @@ export default function HealthcareAdminAppointmentsPage() {
     return Array.from(dates).sort();
   }, [selectedDate, availableDates]);
 
+  // Create markedDates Map for calendar (date string -> appointment count)
+  const markedDates = useMemo(() => {
+    const dateMap = new Map<string, number>();
+    allAppointmentsForDates.forEach(apt => {
+      const dateKey = apt.appointment_date.split('T')[0]; // YYYY-MM-DD
+      dateMap.set(dateKey, (dateMap.get(dateKey) || 0) + 1);
+    });
+    return dateMap;
+  }, [allAppointmentsForDates]);
+
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize] = useState(20);
   const [totalRecords, setTotalRecords] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [isCalendarModalOpen, setIsCalendarModalOpen] = useState(false);
 
   // Search state
   const [searchQuery, setSearchQuery] = useState('');
@@ -218,13 +232,25 @@ export default function HealthcareAdminAppointmentsPage() {
     return () => clearTimeout(timeoutId);
   }, [searchQuery]);
 
-  // Fetch appointments when page changes or on initial mount
-  // Note: Status and date filtering are now client-side, so we don't refetch on filter changes
+  // Fetch ALL appointments for dropdown dates (only once on mount)
+  useEffect(() => {
+    if (hasAccess) {
+      fetchAllAppointmentsForDates();
+    }
+  }, [hasAccess]);
+
+  // ✅ FIXED: Reset to page 1 when selectedDate changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [selectedDate]);
+
+  // Fetch appointments when page changes, date changes, or on initial mount
+  // ✅ FIXED: Now refetches when selectedDate changes (server-side filtering)
   useEffect(() => {
     if (hasAccess) {
       fetchAppointments();
     }
-  }, [currentPage, hasAccess]);
+  }, [currentPage, selectedDate, hasAccess]);
 
   // Fetch last history entries when appointments data changes
   // Dependencies on full appointments array (not just length) to trigger when status updates
@@ -320,13 +346,48 @@ export default function HealthcareAdminAppointmentsPage() {
     setHasMedicalRecords(records);
   };
 
+  // Fetch ALL appointments (for dropdown dates only) - no pagination
+  const fetchAllAppointmentsForDates = async () => {
+    try {
+      const params = new URLSearchParams({
+        page: '1',
+        limit: '1000', // Fetch up to 1000 appointments for date dropdown
+      });
+
+      const response = await fetch(`/api/appointments?${params.toString()}`);
+      const data = await response.json();
+
+      console.log('📅 [ALL APPOINTMENTS FOR DATES] API Response:', {
+        success: data.success,
+        appointmentsCount: data.data?.length || 0,
+        message: 'Fetched all appointments for dropdown dates',
+      });
+
+      if (!response.ok) {
+        console.error('Failed to fetch all appointments for dates');
+        return;
+      }
+
+      if (data.success) {
+        setAllAppointmentsForDates(data.data || []);
+      }
+    } catch (err: any) {
+      console.error('Error fetching all appointments for dates:', err);
+      // Don't show error to user - this is background fetch for dates only
+    }
+  };
+
   const fetchAppointments = async () => {
     setLoading(true);
     setError('');
     try {
+      // Hybrid approach: When specific date selected, fetch ALL for that date (no pagination)
+      // When viewing all dates, use pagination normally
+      const isDateFiltered = selectedDate !== 'all';
+
       const params = new URLSearchParams({
-        page: currentPage.toString(),
-        limit: pageSize.toString(),
+        page: isDateFiltered ? '1' : currentPage.toString(),
+        limit: isDateFiltered ? '1000' : pageSize.toString(), // Fetch all appointments for selected date
       });
 
       // Add search query
@@ -334,9 +395,12 @@ export default function HealthcareAdminAppointmentsPage() {
         params.append('search', searchQuery.trim());
       }
 
-      // Status filtering is now handled client-side (like walk-in page)
-      // Date filtering is now handled client-side to enable navigation even when selected date is empty
-      // This allows the page to show date selector and empty state instead of "No Appointments Found"
+      // ✅ FIXED: Apply date filter server-side when specific date is selected
+      if (isDateFiltered) {
+        params.append('date', selectedDate);
+      }
+
+      // Status filtering is handled client-side (like walk-in page)
 
       const response = await fetch(`/api/appointments?${params.toString()}`);
       const data = await response.json();
@@ -382,18 +446,13 @@ export default function HealthcareAdminAppointmentsPage() {
     }
   };
 
-  // Filter appointments by selected date ONLY (for statistics calculation)
-  // This ensures filter button counts remain constant regardless of active filter
-  const dateOnlyFilteredAppointments = useMemo(() => {
-    return appointments.filter(apt => {
-      const aptDate = apt.appointment_date.split('T')[0]; // Get YYYY-MM-DD part
-      return aptDate === selectedDate;
-    });
-  }, [appointments, selectedDate]);
+  // ✅ FIXED: No more client-side date filtering needed (done server-side)
+  // appointments array already contains only the selected date's appointments
+  // We only need to apply status filtering client-side
 
-  // Filter by BOTH date AND status (for table display)
+  // Filter by status ONLY (for table display)
   const dateFilteredAppointments = useMemo(() => {
-    let filtered = dateOnlyFilteredAppointments;
+    let filtered = appointments;
 
     // Apply status filter client-side (like walk-in page)
     if (filter !== 'all') {
@@ -401,13 +460,13 @@ export default function HealthcareAdminAppointmentsPage() {
     }
 
     return filtered;
-  }, [dateOnlyFilteredAppointments, filter]);
+  }, [appointments, filter]);
 
-  // Calculate statistics from DATE-ONLY filtered appointments (not status-filtered)
-  // This ensures filter button counts remain constant regardless of active filter
+  // Calculate statistics from appointments (already filtered by date server-side)
+  // This ensures filter button counts remain constant regardless of active status filter
   const statistics = useMemo(
-    () => calculateAppointmentStatistics(dateOnlyFilteredAppointments),
-    [dateOnlyFilteredAppointments]
+    () => calculateAppointmentStatistics(appointments),
+    [appointments]
   );
 
   const formatDate = (dateString: string) => {
@@ -1030,9 +1089,9 @@ export default function HealthcareAdminAppointmentsPage() {
           </div>
         ) : (
           <>
-            {/* Date Selector - Compact & Professional */}
+            {/* Date Selector - Compact Button */}
             <div className="bg-white rounded-lg shadow p-6 mb-6">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 {/* Date Info */}
                 <div className="flex items-center gap-3">
                   <div className="w-12 h-12 bg-primary-teal/10 rounded-lg flex items-center justify-center">
@@ -1048,68 +1107,39 @@ export default function HealthcareAdminAppointmentsPage() {
                       })}
                     </h2>
                     <p className="text-xs text-gray-600">
-                      {dateFilteredAppointments.length} {dateFilteredAppointments.length === 1 ? 'appointment' : 'appointments'} in queue
+                      {appointments.length} {appointments.length === 1 ? 'appointment' : 'appointments'} total
+                      {filter !== 'all' && dateFilteredAppointments.length !== appointments.length && (
+                        <span className="ml-1 text-primary-teal font-medium">
+                          • {dateFilteredAppointments.length} filtered
+                        </span>
+                      )}
                     </p>
                   </div>
                 </div>
 
-                {/* Date Navigation */}
-                <div className="flex items-center gap-2">
-                  {/* Previous */}
-                  <button
-                    onClick={handlePreviousDate}
-                    disabled={dropdownDates.indexOf(selectedDate) === 0}
-                    className="px-3 py-2 bg-gray-100 hover:bg-gray-200 disabled:opacity-30 disabled:cursor-not-allowed rounded-md transition-colors"
-                    title="Previous date"
-                  >
-                    <ChevronLeft className="w-4 h-4 text-gray-700" />
-                  </button>
-
-                  {/* Quick Filters */}
-                  <button
-                    onClick={handleTodayClick}
-                    className="px-3 py-2 bg-gray-100 hover:bg-gray-200 rounded-md text-xs font-medium text-gray-700 transition-colors"
-                  >
-                    Today
-                  </button>
-
-                  <button
-                    onClick={handleTomorrowClick}
-                    className="px-3 py-2 bg-gray-100 hover:bg-gray-200 rounded-md text-xs font-medium text-gray-700 transition-colors"
-                  >
-                    Tomorrow
-                  </button>
-
-                  {/* Date Dropdown - Shows selected date and all dates with appointments */}
-                  <select
-                    value={selectedDate}
-                    onChange={(e) => setSelectedDate(e.target.value)}
-                    className="px-3 py-2 bg-gray-100 hover:bg-gray-200 border border-gray-300 rounded-md text-xs font-medium text-gray-900 focus:outline-none focus:ring-2 focus:ring-primary-teal/50 transition-colors"
-                  >
-                    {dropdownDates.map((date) => (
-                      <option key={date} value={date} className="text-gray-900">
-                        {new Date(date).toLocaleDateString('en-US', {
-                          month: 'short',
-                          day: 'numeric',
-                          year: 'numeric',
-                          weekday: 'short'
-                        })} ({appointments.filter(apt => apt.appointment_date.split('T')[0] === date).length})
-                      </option>
-                    ))}
-                  </select>
-
-                  {/* Next */}
-                  <button
-                    onClick={handleNextDate}
-                    disabled={dropdownDates.indexOf(selectedDate) === dropdownDates.length - 1}
-                    className="px-3 py-2 bg-gray-100 hover:bg-gray-200 disabled:opacity-30 disabled:cursor-not-allowed rounded-md transition-colors"
-                    title="Next date"
-                  >
-                    <ChevronRight className="w-4 h-4 text-gray-700" />
-                  </button>
-                </div>
+                {/* Change Date Button */}
+                <button
+                  onClick={() => setIsCalendarModalOpen(true)}
+                  className="flex items-center gap-2 px-4 py-2.5 bg-primary-teal/10 hover:bg-primary-teal/20 text-primary-teal rounded-lg transition-colors font-medium text-sm"
+                >
+                  <Calendar className="w-4 h-4" />
+                  <span>Change Date</span>
+                  <ChevronDown className="w-4 h-4" />
+                </button>
               </div>
             </div>
+
+            {/* Date Calendar Modal */}
+            <DateCalendarModal
+              isOpen={isCalendarModalOpen}
+              onClose={() => setIsCalendarModalOpen(false)}
+              selectedDate={new Date(selectedDate + 'T00:00:00')}
+              onDateSelect={(date) => {
+                const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+                setSelectedDate(dateStr);
+              }}
+              markedDates={markedDates}
+            />
 
             {/* Statistics Cards */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-4 gap-4 mb-6">

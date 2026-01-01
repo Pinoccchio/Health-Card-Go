@@ -17,7 +17,8 @@ BEGIN
     -- Priority 1: Reversion metadata (explicit override for revert operations)
     IF NEW._reversion_metadata IS NOT NULL THEN
         v_changed_by_id := (NEW._reversion_metadata->>'changed_by_id')::UUID;
-        v_is_reversion := TRUE;
+        -- ✅ FIX: Read is_reversion flag from metadata, default to false for normal status changes
+        v_is_reversion := COALESCE((NEW._reversion_metadata->>'is_reversion')::BOOLEAN, FALSE);
         v_reverted_from_history_id := (NEW._reversion_metadata->>'reverted_from_history_id')::UUID;
 
     -- Priority 2: Completion context (healthcare admin completing appointment)

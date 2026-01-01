@@ -151,6 +151,33 @@ export async function POST(
     // Step 2: Create medical record if provided
     let createdMedicalRecord = null;
     if (medical_record) {
+      // Map category to template_type
+      const templateTypeMap: Record<string, string> = {
+        general: 'general_checkup',
+        healthcard: 'general_checkup',
+        hiv: 'hiv',
+        pregnancy: 'prenatal',
+        immunization: 'immunization'
+      };
+
+      const template_type = templateTypeMap[medical_record.category] || 'general_checkup';
+
+      // Prepare record_data with metadata
+      const record_data = medical_record.record_data && Object.keys(medical_record.record_data).length > 0
+        ? {
+            ...medical_record.record_data,
+            created_via: 'appointment_completion',
+            created_at: new Date().toISOString(),
+          }
+        : {
+            // Fallback for backward compatibility (if old form data is sent)
+            diagnosis: medical_record.diagnosis || '',
+            prescription: medical_record.prescription || '',
+            notes: medical_record.notes || '',
+            created_via: 'appointment_completion',
+            created_at: new Date().toISOString(),
+          };
+
       const { data: medicalRecord, error: medicalRecordError } = await adminClient
         .from('medical_records')
         .insert({
@@ -158,16 +185,11 @@ export async function POST(
           appointment_id: appointmentId,
           created_by_id: profile.id,
           category: medical_record.category,
+          template_type: template_type,
           diagnosis: medical_record.diagnosis || null,
           prescription: medical_record.prescription || null,
           notes: medical_record.notes || null,
-          record_data: medical_record.record_data || {
-            diagnosis: medical_record.diagnosis || '',
-            prescription: medical_record.prescription || '',
-            notes: medical_record.notes || '',
-            created_via: 'appointment_completion',
-            created_at: new Date().toISOString(),
-          },
+          record_data: record_data,
           is_encrypted: medical_record.category === 'hiv' || medical_record.category === 'pregnancy',
         })
         .select()

@@ -5,7 +5,7 @@ import { X, CheckCircle, Loader2, Calendar, Clock, FileText } from 'lucide-react
 import { Button } from '@/components/ui';
 import { useToast } from '@/lib/contexts/ToastContext';
 import { formatTimeBlock, TimeBlock, TIME_BLOCKS } from '@/types/appointment';
-import { EnhancedMedicalRecordForm, EnhancedMedicalRecordFormData } from '@/components/medical-records/EnhancedMedicalRecordForm';
+import { TemplateMedicalRecordForm, TemplateMedicalRecordFormData } from '@/components/medical-records/TemplateMedicalRecordForm';
 
 interface AppointmentCompletionModalProps {
   isOpen: boolean;
@@ -25,6 +25,12 @@ interface AppointmentCompletionModalProps {
         first_name: string;
         last_name: string;
         email: string;
+        date_of_birth?: string;
+        gender?: string;
+        barangay_id?: number;
+        barangays?: {
+          name: string;
+        };
       };
     };
   };
@@ -47,16 +53,27 @@ export function AppointmentCompletionModal({
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingService, setIsLoadingService] = useState(true);
   const [serviceDetails, setServiceDetails] = useState<ServiceDetails | null>(null);
-  const [medicalRecordData, setMedicalRecordData] = useState<EnhancedMedicalRecordFormData>({
+  const [medicalRecordData, setMedicalRecordData] = useState<TemplateMedicalRecordFormData>({
     category: 'general',
     template_type: 'general_checkup',
+    record_data: {},
     diagnosis: '',
     prescription: '',
     notes: '',
-    track_disease: false,
-    disease_data: undefined,
   });
   const [isMedicalRecordValid, setIsMedicalRecordValid] = useState(false);
+
+  // Helper function to calculate age from date of birth
+  const calculateAge = (dateOfBirth: string): number => {
+    const today = new Date();
+    const birthDate = new Date(dateOfBirth);
+    let age = today.getFullYear() - birthDate.getFullYear();
+    const monthDiff = today.getMonth() - birthDate.getMonth();
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+      age--;
+    }
+    return age;
+  };
 
   // Fetch service details to check if medical record is required
   useEffect(() => {
@@ -84,7 +101,7 @@ export function AppointmentCompletionModal({
     }
   };
 
-  const handleMedicalRecordChange = (data: EnhancedMedicalRecordFormData, isValid: boolean) => {
+  const handleMedicalRecordChange = (data: TemplateMedicalRecordFormData, isValid: boolean) => {
     setMedicalRecordData(data);
     setIsMedicalRecordValid(isValid);
   };
@@ -94,8 +111,8 @@ export function AppointmentCompletionModal({
 
     // Validate medical record data if required
     if (serviceDetails?.requires_medical_record) {
-      if (!isMedicalRecordValid || !medicalRecordData.diagnosis.trim()) {
-        toast.error('Diagnosis is required for this service');
+      if (!isMedicalRecordValid) {
+        toast.error('Please fill in all required medical record fields');
         return;
       }
     }
@@ -106,20 +123,16 @@ export function AppointmentCompletionModal({
       const payload: any = {};
 
       // Only include medical record if service requires it or if data is provided
-      if (serviceDetails?.requires_medical_record || medicalRecordData.diagnosis.trim()) {
+      if (serviceDetails?.requires_medical_record || Object.keys(medicalRecordData.record_data).length > 0) {
         payload.medical_record = {
           category: medicalRecordData.category,
           template_type: medicalRecordData.template_type,
-          diagnosis: medicalRecordData.diagnosis.trim() || null,
-          prescription: medicalRecordData.prescription.trim() || null,
-          notes: medicalRecordData.notes.trim() || null,
+          record_data: medicalRecordData.record_data,
+          // Include backward compatibility fields
+          diagnosis: medicalRecordData.diagnosis || medicalRecordData.record_data.diagnosis || null,
+          prescription: medicalRecordData.prescription || medicalRecordData.record_data.prescription || null,
+          notes: medicalRecordData.notes || medicalRecordData.record_data.notes || medicalRecordData.record_data.clinical_notes || medicalRecordData.record_data.counseling_notes || null,
         };
-
-        // Include disease tracking data if enabled
-        if (medicalRecordData.track_disease && medicalRecordData.disease_data) {
-          payload.medical_record.track_disease = true;
-          payload.medical_record.disease_data = medicalRecordData.disease_data;
-        }
       }
 
       const response = await fetch(`/api/appointments/${appointment.id}/complete`, {
@@ -151,11 +164,10 @@ export function AppointmentCompletionModal({
     setMedicalRecordData({
       category: 'general',
       template_type: 'general_checkup',
+      record_data: {},
       diagnosis: '',
       prescription: '',
       notes: '',
-      track_disease: false,
-      disease_data: undefined,
     });
   };
 
@@ -263,15 +275,24 @@ export function AppointmentCompletionModal({
                       <span className="text-red-500">*</span>
                     </h4>
 
-                    <EnhancedMedicalRecordForm
-                      patientId={appointment.patients.id}
+                    <TemplateMedicalRecordForm
+                      patientData={{
+                        id: appointment.patients.id,
+                        patient_number: appointment.patients.patient_number,
+                        first_name: appointment.patients.profiles.first_name,
+                        last_name: appointment.patients.profiles.last_name,
+                        age: appointment.patients.profiles.date_of_birth ? calculateAge(appointment.patients.profiles.date_of_birth) : 0,
+                        sex: appointment.patients.profiles.gender ?
+                          (appointment.patients.profiles.gender.charAt(0).toUpperCase() + appointment.patients.profiles.gender.slice(1)) :
+                          'Unknown',
+                        barangay: (appointment.patients.profiles as any).barangays?.name || 'Unknown',
+                      }}
                       appointmentId={appointment.id}
                       serviceId={appointment.service_id}
                       serviceCategory={serviceDetails?.category}
                       isRequired={true}
                       onChange={handleMedicalRecordChange}
                       showLabels={true}
-                      enableDiseaseTracking={true} // ✅ Enable disease tracking in production
                     />
                   </div>
                 ) : (

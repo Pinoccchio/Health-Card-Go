@@ -60,11 +60,11 @@ export const generalCheckupTemplate: MedicalRecordTemplate = {
     {
       title: 'Patient Information',
       fields: [
-        { name: 'patient_name', label: 'Patient Name', type: 'text', required: true },
-        { name: 'patient_number', label: 'Patient Number', type: 'text', required: true },
-        { name: 'age', label: 'Age', type: 'number', required: true, unit: 'years' },
-        { name: 'sex', label: 'Sex', type: 'text', required: true },
-        { name: 'barangay', label: 'Barangay', type: 'text', required: true },
+        { name: 'patient_name', label: 'Patient Name', type: 'text', required: true, readonly: true },
+        { name: 'patient_number', label: 'Patient Number', type: 'text', required: true, readonly: true },
+        { name: 'age', label: 'Age', type: 'number', required: true, unit: 'years', readonly: true },
+        { name: 'sex', label: 'Sex', type: 'text', required: true, readonly: true },
+        { name: 'barangay', label: 'Barangay', type: 'text', required: true, readonly: true },
       ],
     },
     {
@@ -144,11 +144,11 @@ export const immunizationTemplate: MedicalRecordTemplate = {
     {
       title: 'Patient Information',
       fields: [
-        { name: 'patient_name', label: 'Patient Name', type: 'text', required: true },
-        { name: 'patient_number', label: 'Patient Number', type: 'text', required: true },
-        { name: 'age', label: 'Age', type: 'number', required: true, unit: 'years' },
-        { name: 'sex', label: 'Sex', type: 'text', required: true },
-        { name: 'barangay', label: 'Barangay', type: 'text', required: true },
+        { name: 'patient_name', label: 'Patient Name', type: 'text', required: true, readonly: true },
+        { name: 'patient_number', label: 'Patient Number', type: 'text', required: true, readonly: true },
+        { name: 'age', label: 'Age', type: 'number', required: true, unit: 'years', readonly: true },
+        { name: 'sex', label: 'Sex', type: 'text', required: true, readonly: true },
+        { name: 'barangay', label: 'Barangay', type: 'text', required: true, readonly: true },
       ],
     },
     {
@@ -227,11 +227,11 @@ export const prenatalTemplate: MedicalRecordTemplate = {
     {
       title: 'Patient Information',
       fields: [
-        { name: 'patient_name', label: 'Patient Name', type: 'text', required: true },
-        { name: 'patient_number', label: 'Patient Number', type: 'text', required: true },
-        { name: 'age', label: 'Age', type: 'number', required: true, unit: 'years' },
-        { name: 'sex', label: 'Sex', type: 'text', required: true },
-        { name: 'barangay', label: 'Barangay', type: 'text', required: true },
+        { name: 'patient_name', label: 'Patient Name', type: 'text', required: true, readonly: true },
+        { name: 'patient_number', label: 'Patient Number', type: 'text', required: true, readonly: true },
+        { name: 'age', label: 'Age', type: 'number', required: true, unit: 'years', readonly: true },
+        { name: 'sex', label: 'Sex', type: 'text', required: true, readonly: true },
+        { name: 'barangay', label: 'Barangay', type: 'text', required: true, readonly: true },
       ],
     },
     {
@@ -311,11 +311,11 @@ export const hivTemplate: MedicalRecordTemplate = {
     {
       title: 'Patient Information',
       fields: [
-        { name: 'patient_name', label: 'Patient Name', type: 'text', required: true },
-        { name: 'patient_number', label: 'Patient Number', type: 'text', required: true },
-        { name: 'age', label: 'Age', type: 'number', required: true, unit: 'years' },
-        { name: 'sex', label: 'Sex', type: 'text', required: true },
-        { name: 'barangay', label: 'Barangay', type: 'text', required: true },
+        { name: 'patient_name', label: 'Patient Name', type: 'text', required: true, readonly: true },
+        { name: 'patient_number', label: 'Patient Number', type: 'text', required: true, readonly: true },
+        { name: 'age', label: 'Age', type: 'number', required: true, unit: 'years', readonly: true },
+        { name: 'sex', label: 'Sex', type: 'text', required: true, readonly: true },
+        { name: 'barangay', label: 'Barangay', type: 'text', required: true, readonly: true },
       ],
     },
     {
@@ -418,11 +418,11 @@ export const laboratoryTemplate: MedicalRecordTemplate = {
     {
       title: 'Patient Information',
       fields: [
-        { name: 'patient_name', label: 'Patient Name', type: 'text', required: true },
-        { name: 'patient_number', label: 'Patient Number', type: 'text', required: true },
-        { name: 'age', label: 'Age', type: 'number', required: true, unit: 'years' },
-        { name: 'sex', label: 'Sex', type: 'text', required: true },
-        { name: 'barangay', label: 'Barangay', type: 'text', required: true },
+        { name: 'patient_name', label: 'Patient Name', type: 'text', required: true, readonly: true },
+        { name: 'patient_number', label: 'Patient Number', type: 'text', required: true, readonly: true },
+        { name: 'age', label: 'Age', type: 'number', required: true, unit: 'years', readonly: true },
+        { name: 'sex', label: 'Sex', type: 'text', required: true, readonly: true },
+        { name: 'barangay', label: 'Barangay', type: 'text', required: true, readonly: true },
       ],
     },
     {
