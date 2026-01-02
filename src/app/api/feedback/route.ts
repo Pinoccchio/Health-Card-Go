@@ -217,7 +217,7 @@ export async function POST(request: NextRequest) {
       // Create notifications for all super admins with appointment context
       const notifications = superAdmins.map(admin => ({
         user_id: admin.id,
-        type: 'general',
+        type: 'feedback_request',
         title: 'New Patient Feedback',
         message: `Patient submitted feedback for appointment #${appointmentData?.appointment_number || 'N/A'} (${appointmentData?.services?.name || 'Unknown Service'}) with an overall rating of ${rating}/5 stars.`,
         link: '/admin/feedback',

@@ -224,12 +224,12 @@ export async function POST(
       }
     }
 
-    // Step 3: Send notification to patient
+    // Step 3: Send notification to patient (prompt for feedback)
     await adminClient.from('notifications').insert({
       user_id: appointment.patients.user_id,
-      type: 'general',
-      title: 'Appointment Completed',
-      message: `Your appointment #${appointment.appointment_number} has been completed. You can now submit feedback.`,
+      type: 'feedback_request',
+      title: 'Appointment Completed - Share Your Feedback',
+      message: `Your appointment #${appointment.appointment_number} has been completed successfully! Please take a moment to share your experience with us.`,
       link: '/patient/feedback',
     });
 

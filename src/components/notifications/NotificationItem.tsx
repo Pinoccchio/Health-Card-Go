@@ -10,12 +10,6 @@ interface NotificationItemProps {
 }
 
 const typeConfig = {
-  approval: {
-    icon: CheckCircle,
-    color: 'text-green-600',
-    bgColor: 'bg-green-50',
-    borderColor: 'border-green-200',
-  },
   cancellation: {
     icon: XCircle,
     color: 'text-red-600',

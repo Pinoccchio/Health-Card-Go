@@ -113,7 +113,7 @@ export async function PATCH(
 
     await supabase.from('notifications').insert({
       user_id: patientUserId,
-      type: 'general',
+      type: 'feedback_request',
       title: 'Feedback Response Received',
       message: 'An administrator has responded to your feedback. Click to view the response.',
       link: '/patient/feedback',

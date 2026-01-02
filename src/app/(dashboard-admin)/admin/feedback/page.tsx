@@ -5,6 +5,7 @@ import { DashboardLayout } from '@/components/dashboard';
 import { Container, Modal } from '@/components/ui';
 import StarRating from '@/components/ui/StarRating';
 import { useFeedbackContext } from '@/lib/contexts/FeedbackContext';
+import { useToast } from '@/lib/contexts/ToastContext';
 import {
   MessageSquare,
   User,
@@ -63,6 +64,9 @@ export default function AdminFeedbackPage() {
 
   // Get refreshCount from FeedbackContext to resync badge count
   const { refreshCount } = useFeedbackContext();
+
+  // Get toast for notifications
+  const toast = useToast();
 
   useEffect(() => {
     loadFeedback();
@@ -156,11 +160,15 @@ export default function AdminFeedbackPage() {
       // Real-time subscription should handle this, but this is a fallback
       await refreshCount();
 
+      // Show success toast
+      toast.success('Response sent successfully');
+
+      // Close modal and reset form
       setSelectedFeedback(null);
       setResponseText('');
     } catch (err) {
       console.error('Error submitting response:', err);
-      alert(err instanceof Error ? err.message : 'Failed to submit response');
+      toast.error(err instanceof Error ? err.message : 'Failed to submit response');
     } finally {
       setIsSubmitting(false);
     }

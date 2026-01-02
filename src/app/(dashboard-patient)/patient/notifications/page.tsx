@@ -11,7 +11,7 @@ import { useNotificationContext } from '@/lib/contexts/NotificationContext';
 import NotificationList from '@/components/notifications/NotificationList';
 import NotificationDrawer from '@/components/notifications/NotificationDrawer';
 
-type FilterType = 'all' | 'unread' | 'approval' | 'appointment_reminder' | 'cancellation' | 'feedback_request' | 'general';
+type FilterType = 'all' | 'unread' | 'appointment_reminder' | 'cancellation' | 'feedback_request' | 'general';
 
 export default function PatientNotificationsPage() {
   const t = useTranslations('notifications');
@@ -34,13 +34,12 @@ export default function PatientNotificationsPage() {
   const statistics = useMemo(() => {
     const total = notifications.length;
     const unread = notifications.filter(n => !n.read_at).length;
-    const approvals = notifications.filter(n => n.type === 'approval').length;
     const reminders = notifications.filter(n => n.type === 'appointment_reminder').length;
     const cancellations = notifications.filter(n => n.type === 'cancellation').length;
     const feedbacks = notifications.filter(n => n.type === 'feedback_request').length;
     const general = notifications.filter(n => n.type === 'general').length;
 
-    return { total, unread, approvals, reminders, cancellations, feedbacks, general };
+    return { total, unread, reminders, cancellations, feedbacks, general };
   }, [notifications]);
 
   // Filter notifications
@@ -77,7 +76,7 @@ export default function PatientNotificationsPage() {
         {!loading && (
           <>
             {/* Statistics Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4 mb-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
               <ProfessionalCard variant="flat" className="bg-gradient-to-br from-teal-50 to-teal-100 border-l-4 border-teal-500">
                 <div className="flex items-center justify-between">
                   <div>
@@ -98,18 +97,6 @@ export default function PatientNotificationsPage() {
                   </div>
                   <div className="w-12 h-12 bg-orange-500 rounded-xl flex items-center justify-center shadow-lg">
                     <Bell className="w-6 h-6 text-white" />
-                  </div>
-                </div>
-              </ProfessionalCard>
-
-              <ProfessionalCard variant="flat" className="bg-gradient-to-br from-green-50 to-green-100 border-l-4 border-green-500">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-gray-600 mb-1">{t('statistics.approvals')}</p>
-                    <p className="text-3xl font-bold text-gray-900">{statistics.approvals}</p>
-                  </div>
-                  <div className="w-12 h-12 bg-green-500 rounded-xl flex items-center justify-center shadow-lg">
-                    <CheckCircle className="w-6 h-6 text-white" />
                   </div>
                 </div>
               </ProfessionalCard>
@@ -152,11 +139,10 @@ export default function PatientNotificationsPage() {
             </div>
 
             {/* Quick Filters */}
-            <div className="flex flex-wrap gap-2 mb-6">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
               {[
                 { id: 'all', label: t('filters.all'), count: statistics.total, color: 'teal', icon: Bell },
                 { id: 'unread', label: t('filters.unread'), count: statistics.unread, color: 'orange', icon: Bell },
-                { id: 'approval', label: t('filters.approval'), count: statistics.approvals, color: 'green', icon: CheckCircle },
                 { id: 'appointment_reminder', label: t('filters.appointment_reminder'), count: statistics.reminders, color: 'blue', icon: Calendar },
                 { id: 'cancellation', label: t('filters.cancellation'), count: statistics.cancellations, color: 'red', icon: XCircle },
                 { id: 'feedback_request', label: t('filters.feedback_request'), count: statistics.feedbacks, color: 'purple', icon: MessageSquare },
@@ -180,12 +166,12 @@ export default function PatientNotificationsPage() {
                     key={filterOption.id}
                     onClick={() => setFilter(filterOption.id as FilterType)}
                     className={`
-                      flex items-center gap-2 px-4 py-2 rounded-full font-medium text-sm transition-all
+                      flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-medium text-sm transition-all w-full
                       ${isActive ? `${colors.activeBg} ${colors.text} ring-2 ${colors.ring} shadow-md` : `${colors.bg} ${colors.text}`}
                     `}
                   >
                     <Icon className="w-4 h-4" />
-                    <span>{filterOption.label}</span>
+                    <span className="whitespace-nowrap">{filterOption.label}</span>
                     <span className={`ml-1 px-2 py-0.5 rounded-full text-xs font-bold ${isActive ? 'bg-white/80' : 'bg-white/60'}`}>
                       {filterOption.count}
                     </span>

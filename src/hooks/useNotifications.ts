@@ -4,7 +4,7 @@ import { useToast } from '@/lib/contexts/ToastContext';
 export interface Notification {
   id: string;
   user_id: string;
-  type: 'appointment_reminder' | 'approval' | 'cancellation' | 'feedback_request' | 'general';
+  type: 'appointment_reminder' | 'cancellation' | 'feedback_request' | 'general';
   title: string;
   message: string;
   link: string | null;
