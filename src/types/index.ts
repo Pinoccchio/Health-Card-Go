@@ -85,6 +85,8 @@ export interface Announcement {
     first_name: string;
     last_name: string;
   };
+  is_new?: boolean; // True if posted within 48 hours (time-based indicator)
+  is_read?: boolean; // True if user has read it (personalized tracking)
 }
 
 export interface AnnouncementFormData {
@@ -92,4 +94,12 @@ export interface AnnouncementFormData {
   content: string;
   target_audience: TargetAudience;
   is_active: boolean;
+}
+
+export interface UserAnnouncementRead {
+  id: string;
+  user_id: string;
+  announcement_id: string;
+  read_at: string;
+  created_at: string;
 }

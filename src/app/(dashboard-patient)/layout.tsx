@@ -6,6 +6,7 @@ import { NextIntlClientProvider } from 'next-intl';
 import { useAuth } from '@/lib/auth';
 import { getDashboardPath } from '@/lib/utils/roleHelpers';
 import { ToastProvider } from '@/lib/contexts/ToastContext';
+import { NotificationProvider } from '@/lib/contexts/NotificationContext';
 
 /**
  * Layout for Patient dashboard routes
@@ -88,7 +89,11 @@ export default function PatientDashboardLayout({
 
   return (
     <NextIntlClientProvider locale={locale} messages={messages}>
-      <ToastProvider>{children}</ToastProvider>
+      <ToastProvider>
+        <NotificationProvider>
+          {children}
+        </NotificationProvider>
+      </ToastProvider>
     </NextIntlClientProvider>
   );
 }

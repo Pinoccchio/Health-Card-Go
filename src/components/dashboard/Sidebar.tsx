@@ -11,6 +11,10 @@ export interface MenuItem {
   label: string;
   href: string;
   icon: LucideIcon;
+  badge?: {
+    count: number;
+    variant?: 'danger' | 'warning' | 'info' | 'success';
+  };
 }
 
 interface SidebarProps {
@@ -74,7 +78,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               key={index}
               href={item.href}
               className={cn(
-                'flex items-center gap-3 px-4 py-3 rounded-lg mb-2 transition-all duration-200 group',
+                'flex items-center gap-3 px-4 py-3 rounded-lg mb-2 transition-all duration-200 group relative',
                 isActive
                   ? 'bg-cta-orange shadow-lg'
                   : 'hover:bg-white/10 hover:translate-x-1'
@@ -84,12 +88,27 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <Icon className="w-5 h-5 flex-shrink-0" />
               <span
                 className={cn(
-                  'text-sm font-medium transition-opacity duration-300 whitespace-nowrap',
+                  'text-sm font-medium transition-opacity duration-300 whitespace-nowrap flex-1',
                   isCollapsed ? 'opacity-0 w-0' : 'opacity-100'
                 )}
               >
                 {item.label}
               </span>
+              {item.badge && item.badge.count > 0 && (
+                <span
+                  className={cn(
+                    'flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full text-xs font-semibold transition-opacity duration-300',
+                    isCollapsed ? 'absolute top-2 right-2' : '',
+                    item.badge.variant === 'danger' && 'bg-red-500 text-white',
+                    item.badge.variant === 'warning' && 'bg-yellow-500 text-gray-900',
+                    item.badge.variant === 'info' && 'bg-blue-500 text-white',
+                    item.badge.variant === 'success' && 'bg-green-500 text-white',
+                    !item.badge.variant && 'bg-red-500 text-white'
+                  )}
+                >
+                  {item.badge.count > 99 ? '99+' : item.badge.count}
+                </span>
+              )}
             </Link>
           );
         })}

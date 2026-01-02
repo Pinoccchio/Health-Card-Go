@@ -58,10 +58,20 @@ export async function GET(request: NextRequest) {
       throw error;
     }
 
+    // Add time-based "is_new" flag (posted within 48 hours)
+    const now = new Date();
+    const NEW_THRESHOLD_HOURS = 48;
+    const newCutoff = new Date(now.getTime() - NEW_THRESHOLD_HOURS * 60 * 60 * 1000);
+
+    const announcementsWithNewFlag = (announcements || []).map((announcement) => ({
+      ...announcement,
+      is_new: new Date(announcement.created_at) >= newCutoff,
+    }));
+
     return NextResponse.json({
       success: true,
-      data: announcements || [],
-      count: announcements?.length || 0,
+      data: announcementsWithNewFlag,
+      count: announcementsWithNewFlag.length,
     });
 
   } catch (error: any) {

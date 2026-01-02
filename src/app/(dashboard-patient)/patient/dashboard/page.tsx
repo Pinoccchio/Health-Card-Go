@@ -85,7 +85,7 @@ export default function PatientDashboard() {
         const medicalRecordsRes = await fetch('/api/medical-records');
         if (medicalRecordsRes.ok) {
           const medicalRecordsData = await medicalRecordsRes.json();
-          medicalRecordsCount = medicalRecordsData.data?.length || 0;
+          medicalRecordsCount = medicalRecordsData.records?.length || 0;
         }
       } catch (err) {
         console.error('Error fetching medical records:', err);
@@ -298,7 +298,7 @@ export default function PatientDashboard() {
 
         {/* Announcements Widget */}
         <div className="mb-8">
-          <AnnouncementsWidget limit={5} showViewAll={false} />
+          <AnnouncementsWidget limit={5} showViewAll={true} viewAllLink="/patient/announcements" />
         </div>
 
         {/* Quick Actions */}

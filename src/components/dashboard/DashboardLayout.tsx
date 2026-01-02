@@ -14,6 +14,7 @@ import {
 } from '@/lib/config/menuItems';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/lib/auth';
+import { useNotificationContext } from '@/lib/contexts/NotificationContext';
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -32,6 +33,18 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
   const [isLoadingMenu, setIsLoadingMenu] = useState(true);
   const { user } = useAuth();
+
+  // Get unread count from NotificationContext (only for patients)
+  // This will throw if not wrapped in NotificationProvider, but that's only for patients
+  let unreadCount = 0;
+  try {
+    if (roleId === 4) {
+      const notificationContext = useNotificationContext();
+      unreadCount = notificationContext.unreadCount;
+    }
+  } catch (error) {
+    // Not a patient or not wrapped in NotificationProvider, ignore
+  }
 
   // Load menu items dynamically for Healthcare Admins, statically for others
   useEffect(() => {
@@ -108,6 +121,27 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
       });
 
   }, [roleId, user]); // Runs EVERY time Healthcare Admin loads any dashboard page
+
+  // ✨ PATIENT NOTIFICATIONS BADGE ✨
+  // Update menu items when unread count changes (from NotificationContext)
+  // Uses optimistic updates + real-time sync for instant badge updates
+  useEffect(() => {
+    if (roleId !== 4 || menuItems.length === 0) return;
+
+    const updatedMenuItems = menuItems.map((item) => {
+      if (item.href === '/patient/notifications') {
+        return {
+          ...item,
+          badge: unreadCount > 0
+            ? { count: unreadCount, variant: 'danger' as const }
+            : undefined, // Remove badge when count is 0
+        };
+      }
+      return item;
+    });
+
+    setMenuItems(updatedMenuItems);
+  }, [unreadCount, roleId]); // Only depend on unreadCount, not menuItems
 
   // Show loading skeleton while menu loads
   if (isLoadingMenu) {

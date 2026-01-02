@@ -1,6 +1,7 @@
 import { Bell, CheckCircle, XCircle, MessageSquare, Calendar, Info, Eye } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { Notification } from '@/hooks/useNotifications';
+import { useNotificationContext } from '@/lib/contexts/NotificationContext';
 
 interface NotificationItemProps {
   notification: Notification;
@@ -43,6 +44,7 @@ const typeConfig = {
 
 export default function NotificationItem({ notification, onMarkAsRead, onViewDetails }: NotificationItemProps) {
   const t = useTranslations('notifications');
+  const { markAsRead } = useNotificationContext();
   const isUnread = !notification.read_at;
   const config = typeConfig[notification.type] || typeConfig.general;
   const Icon = config.icon;
@@ -62,10 +64,16 @@ export default function NotificationItem({ notification, onMarkAsRead, onViewDet
     return date.toLocaleDateString();
   };
 
-  const handleClick = () => {
-    // Mark as read if unread
+  const handleClick = async () => {
+    // Mark as read if unread - uses OPTIMISTIC update from context
     if (isUnread) {
-      onMarkAsRead(notification.id);
+      try {
+        await markAsRead(notification.id); // Badge updates INSTANTLY
+        onMarkAsRead(notification.id); // Update local notification list
+      } catch (error) {
+        console.error('Failed to mark notification as read:', error);
+        // Badge already rolled back in context
+      }
     }
   };
 

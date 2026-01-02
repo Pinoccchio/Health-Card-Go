@@ -153,6 +153,11 @@ export const PATIENT_MENU_ITEMS: MenuItem[] = [
     icon: Bell,
   },
   {
+    label: 'Announcements',
+    href: '/patient/announcements',
+    icon: Megaphone,
+  },
+  {
     label: 'Profile',
     href: '/patient/profile',
     icon: UserCircle,
