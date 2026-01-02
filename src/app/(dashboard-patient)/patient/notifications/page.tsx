@@ -1,12 +1,13 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useTranslations } from 'next-intl';
 import { DashboardLayout } from '@/components/dashboard';
 import { Container, Button } from '@/components/ui';
 import { ProfessionalCard } from '@/components/ui/ProfessionalCard';
 import { CheckCheck, Bell, CheckCircle, XCircle, MessageSquare, Calendar, Info } from 'lucide-react';
 import { useNotifications, Notification } from '@/hooks/useNotifications';
+import { useNotificationContext } from '@/lib/contexts/NotificationContext';
 import NotificationList from '@/components/notifications/NotificationList';
 import NotificationDrawer from '@/components/notifications/NotificationDrawer';
 
@@ -19,6 +20,15 @@ export default function PatientNotificationsPage() {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
   const { notifications, loading, error, unreadCount, markAsRead, markAllAsRead } = useNotifications();
+
+  // Get refreshCount from NotificationContext to sync sidebar badge
+  const { refreshCount } = useNotificationContext();
+
+  // Refresh sidebar badge count when page loads
+  // This ensures badge is accurate when patient visits notifications page
+  useEffect(() => {
+    refreshCount();
+  }, [refreshCount]);
 
   // Calculate statistics
   const statistics = useMemo(() => {

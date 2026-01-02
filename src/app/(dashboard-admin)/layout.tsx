@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth';
 import { getDashboardPath } from '@/lib/utils/roleHelpers';
 import { ToastProvider } from '@/lib/contexts/ToastContext';
+import { FeedbackProvider } from '@/lib/contexts/FeedbackContext';
 
 /**
  * Layout for Super Admin dashboard routes
@@ -67,7 +68,9 @@ export default function AdminDashboardLayout({
 
   return (
     <ToastProvider>
-      {children}
+      <FeedbackProvider>
+        {children}
+      </FeedbackProvider>
     </ToastProvider>
   );
 }

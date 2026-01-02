@@ -15,6 +15,7 @@ import {
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/lib/auth';
 import { useNotificationContext } from '@/lib/contexts/NotificationContext';
+import { useFeedbackContext } from '@/lib/contexts/FeedbackContext';
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -44,6 +45,17 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
     }
   } catch (error) {
     // Not a patient or not wrapped in NotificationProvider, ignore
+  }
+
+  // Get pending feedback count from FeedbackContext (only for super admins)
+  let pendingFeedbackCount = 0;
+  try {
+    if (roleId === 1) {
+      const feedbackContext = useFeedbackContext();
+      pendingFeedbackCount = feedbackContext.pendingCount;
+    }
+  } catch (error) {
+    // Not a super admin or not wrapped in FeedbackProvider, ignore
   }
 
   // Load menu items dynamically for Healthcare Admins, statically for others
@@ -125,23 +137,52 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
   // ✨ PATIENT NOTIFICATIONS BADGE ✨
   // Update menu items when unread count changes (from NotificationContext)
   // Uses optimistic updates + real-time sync for instant badge updates
+  // Fixed: Uses functional setState to prevent stale closure bugs
   useEffect(() => {
-    if (roleId !== 4 || menuItems.length === 0) return;
+    if (roleId !== 4) return;
 
-    const updatedMenuItems = menuItems.map((item) => {
-      if (item.href === '/patient/notifications') {
-        return {
-          ...item,
-          badge: unreadCount > 0
-            ? { count: unreadCount, variant: 'danger' as const }
-            : undefined, // Remove badge when count is 0
-        };
-      }
-      return item;
+    setMenuItems((prevMenuItems) => {
+      // Don't update if menu hasn't loaded yet
+      if (prevMenuItems.length === 0) return prevMenuItems;
+
+      return prevMenuItems.map((item) => {
+        if (item.href === '/patient/notifications') {
+          return {
+            ...item,
+            badge: unreadCount > 0
+              ? { count: unreadCount, variant: 'danger' as const }
+              : undefined, // Remove badge when count is 0
+          };
+        }
+        return item;
+      });
     });
+  }, [unreadCount, roleId]); // No menuItems dependency - using functional setState
 
-    setMenuItems(updatedMenuItems);
-  }, [unreadCount, roleId]); // Only depend on unreadCount, not menuItems
+  // ✨ ADMIN FEEDBACK BADGE ✨
+  // Update menu items when pending feedback count changes (from FeedbackContext)
+  // Uses real-time sync to show pending work requiring admin response
+  // Fixed: Uses functional setState to prevent stale closure bugs
+  useEffect(() => {
+    if (roleId !== 1) return;
+
+    setMenuItems((prevMenuItems) => {
+      // Don't update if menu hasn't loaded yet
+      if (prevMenuItems.length === 0) return prevMenuItems;
+
+      return prevMenuItems.map((item) => {
+        if (item.href === '/admin/feedback') {
+          return {
+            ...item,
+            badge: pendingFeedbackCount > 0
+              ? { count: pendingFeedbackCount, variant: 'warning' as const }
+              : undefined, // Remove badge when count is 0
+          };
+        }
+        return item;
+      });
+    });
+  }, [pendingFeedbackCount, roleId]); // No menuItems dependency - using functional setState
 
   // Show loading skeleton while menu loads
   if (isLoadingMenu) {

@@ -2,8 +2,9 @@
 
 import { useState, useEffect } from 'react';
 import { DashboardLayout } from '@/components/dashboard';
-import { Container } from '@/components/ui';
+import { Container, Modal } from '@/components/ui';
 import StarRating from '@/components/ui/StarRating';
+import { useFeedbackContext } from '@/lib/contexts/FeedbackContext';
 import {
   MessageSquare,
   User,
@@ -60,9 +61,15 @@ export default function AdminFeedbackPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'responded' | 'pending'>('all');
 
+  // Get refreshCount from FeedbackContext to resync badge count
+  const { refreshCount } = useFeedbackContext();
+
   useEffect(() => {
     loadFeedback();
-  }, []);
+    // Refresh badge count when page loads to ensure accuracy
+    // This prevents badge from disappearing when navigating to page
+    refreshCount();
+  }, [refreshCount]);
 
   useEffect(() => {
     filterFeedback();
@@ -142,8 +149,13 @@ export default function AdminFeedbackPage() {
         throw new Error(data.error || 'Failed to submit response');
       }
 
-      // Reload feedback
+      // Reload feedback list
       await loadFeedback();
+
+      // Refresh badge count to ensure sidebar badge updates immediately
+      // Real-time subscription should handle this, but this is a fallback
+      await refreshCount();
+
       setSelectedFeedback(null);
       setResponseText('');
     } catch (err) {
@@ -412,53 +424,56 @@ export default function AdminFeedbackPage() {
         </div>
 
         {/* Response Modal */}
-        {selectedFeedback && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-            <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-              <div className="p-6 border-b border-gray-200">
-                <h3 className="text-lg font-semibold text-gray-900">Respond to Feedback</h3>
+        <Modal
+          isOpen={!!selectedFeedback}
+          onClose={() => {
+            setSelectedFeedback(null);
+            setResponseText('');
+          }}
+          title="Respond to Feedback"
+          size="md"
+        >
+          {selectedFeedback && (
+            <>
+              {/* Patient Info */}
+              <div className="mb-4 p-4 bg-gray-50 rounded-lg">
+                <p className="text-sm font-medium text-gray-900">
+                  {selectedFeedback.patients?.profiles
+                    ? `${selectedFeedback.patients.profiles.first_name} ${selectedFeedback.patients.profiles.last_name}`
+                    : 'Unknown Patient'}
+                </p>
+                <p className="text-xs text-gray-600">
+                  {selectedFeedback.patients?.patient_number} • {selectedFeedback.patients?.profiles?.email}
+                </p>
               </div>
 
-              <div className="p-6">
-                {/* Patient Info */}
-                <div className="mb-4 p-4 bg-gray-50 rounded-lg">
-                  <p className="text-sm font-medium text-gray-900">
-                    {selectedFeedback.patients?.profiles
-                      ? `${selectedFeedback.patients.profiles.first_name} ${selectedFeedback.patients.profiles.last_name}`
-                      : 'Unknown Patient'}
-                  </p>
-                  <p className="text-xs text-gray-600">
-                    {selectedFeedback.patients?.patient_number} • {selectedFeedback.patients?.profiles?.email}
-                  </p>
-                </div>
-
-                {/* Original Feedback */}
-                <div className="mb-4">
-                  <p className="text-sm font-medium text-gray-700 mb-2">Original Feedback:</p>
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                    <p className="text-sm text-gray-700 whitespace-pre-wrap">{selectedFeedback.comments}</p>
-                  </div>
-                </div>
-
-                {/* Response Textarea */}
-                <div>
-                  <label htmlFor="response" className="block text-sm font-medium text-gray-700 mb-2">
-                    Your Response <span className="text-red-500">*</span>
-                  </label>
-                  <textarea
-                    id="response"
-                    value={responseText}
-                    onChange={(e) => setResponseText(e.target.value)}
-                    rows={6}
-                    maxLength={1000}
-                    placeholder="Write your response to the patient..."
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                  <p className="text-right text-xs text-gray-500 mt-1">{responseText.length}/1000</p>
+              {/* Original Feedback */}
+              <div className="mb-4">
+                <p className="text-sm font-medium text-gray-700 mb-2">Original Feedback:</p>
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                  <p className="text-sm text-gray-700 whitespace-pre-wrap">{selectedFeedback.comments}</p>
                 </div>
               </div>
 
-              <div className="p-6 border-t border-gray-200 flex justify-end gap-3">
+              {/* Response Textarea */}
+              <div className="mb-6">
+                <label htmlFor="response" className="block text-sm font-medium text-gray-700 mb-2">
+                  Your Response <span className="text-red-500">*</span>
+                </label>
+                <textarea
+                  id="response"
+                  value={responseText}
+                  onChange={(e) => setResponseText(e.target.value)}
+                  rows={6}
+                  maxLength={1000}
+                  placeholder="Write your response to the patient..."
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                <p className="text-right text-xs text-gray-500 mt-1">{responseText.length}/1000</p>
+              </div>
+
+              {/* Footer Buttons */}
+              <div className="flex justify-end gap-3">
                 <button
                   onClick={() => {
                     setSelectedFeedback(null);
@@ -490,9 +505,9 @@ export default function AdminFeedbackPage() {
                   )}
                 </button>
               </div>
-            </div>
-          </div>
-        )}
+            </>
+          )}
+        </Modal>
       </Container>
     </DashboardLayout>
   );
