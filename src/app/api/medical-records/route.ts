@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requiresEncryption, getTemplate, getAllTemplateTypes, type TemplateType } from '@/lib/config/medicalRecordTemplates';
 import { CreateMedicalRecordData } from '@/types/medical-records';
 import { encryptMedicalRecordData, decryptMedicalRecordData } from '@/lib/utils/encryption';
+import { logAuditAction, AUDIT_ACTIONS, AUDIT_ENTITIES } from '@/lib/utils/auditLog';
 
 /**
  * GET /api/medical-records
@@ -539,6 +540,26 @@ export async function POST(request: NextRequest) {
     // Note: Appointment completion should be done via POST /api/appointments/[id]/complete
     // This endpoint only creates medical records and links them to appointments
     // The appointment completion flow handles status updates, notifications, and history logging
+
+    // Log audit trail
+    await logAuditAction({
+      supabase,
+      userId: profile.id, // Healthcare Admin or Super Admin who created the record
+      action: AUDIT_ACTIONS.MEDICAL_RECORD_CREATED,
+      entityType: AUDIT_ENTITIES.MEDICAL_RECORD,
+      entityId: medicalRecord.id,
+      changes: {
+        before: null,
+        after: {
+          patient_id: medicalRecord.patient_id,
+          template_type: medicalRecord.template_type,
+          category: medicalRecord.category,
+          is_encrypted: medicalRecord.is_encrypted,
+          appointment_id: medicalRecord.appointment_id,
+        },
+      },
+      request,
+    });
 
     return NextResponse.json({
       success: true,

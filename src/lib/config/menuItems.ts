@@ -14,6 +14,7 @@ import {
   Briefcase,
   UserPlus,
   Map,
+  Shield,
 } from 'lucide-react';
 import { MenuItem } from '@/components/dashboard';
 import { RoleId } from '@/types/auth';
@@ -62,6 +63,16 @@ export const SUPER_ADMIN_MENU_ITEMS: MenuItem[] = [
     label: 'Barangays',
     href: '/admin/barangays',
     icon: MapPin,
+  },
+  {
+    label: 'Announcements',
+    href: '/admin/announcements',
+    icon: Megaphone,
+  },
+  {
+    label: 'Audit Logs',
+    href: '/admin/audit-logs',
+    icon: Shield,
   },
   {
     label: 'Feedback',

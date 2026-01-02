@@ -132,7 +132,7 @@ export const Drawer: React.FC<DrawerProps> = ({
           )}
 
           {/* Content Area - Scrollable with max height */}
-          <div className="max-h-[70vh] overflow-y-auto">
+          <div className="max-h-[70vh] overflow-y-auto px-6 py-4">
             {children}
           </div>
         </div>

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { logAuditAction, AUDIT_ACTIONS, AUDIT_ENTITIES } from '@/lib/utils/auditLog';
 
 /**
  * GET /api/announcements
@@ -149,6 +150,24 @@ export async function POST(request: NextRequest) {
     if (error) {
       throw error;
     }
+
+    // Log audit trail
+    await logAuditAction({
+      supabase,
+      userId: user.id,
+      action: AUDIT_ACTIONS.ANNOUNCEMENT_CREATED,
+      entityType: AUDIT_ENTITIES.ANNOUNCEMENT,
+      entityId: announcement.id,
+      changes: {
+        before: null,
+        after: {
+          title: announcement.title,
+          target_audience: announcement.target_audience,
+          is_active: announcement.is_active,
+        },
+      },
+      request,
+    });
 
     return NextResponse.json({
       success: true,

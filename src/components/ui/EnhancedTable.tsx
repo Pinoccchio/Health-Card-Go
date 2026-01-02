@@ -12,6 +12,14 @@ interface TableColumn {
   render?: (value: any, row: any) => React.ReactNode;
 }
 
+// Generic Column type for type-safe usage (matches TableColumn interface)
+export interface Column<T = any> {
+  accessor: string;
+  header: string;
+  sortable?: boolean;
+  render?: (value: any, row: T) => React.ReactNode;
+}
+
 interface EnhancedTableProps {
   columns: TableColumn[];
   data: any[];

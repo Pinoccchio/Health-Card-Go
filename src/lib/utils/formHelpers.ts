@@ -99,7 +99,6 @@ export function getTestAppointmentData(): Appointment {
   return {
     id: 'test-appointment-id',
     patient_id: 'test-patient-id',
-    doctor_id: null,
     appointment_date: appointmentDate.toISOString().split('T')[0],
     appointment_time: '08:00:00',
     appointment_number: 1,
@@ -109,13 +108,12 @@ export function getTestAppointmentData(): Appointment {
     checked_in_at: null,
     started_at: null,
     completed_at: null,
+    completed_by_id: null,
     cancellation_reason: null,
-    cancelled_at: null,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
     service_id: 1,
     patients: getTestPatientData(),
-    doctors: null,
     services: {
       id: 1,
       name: 'General Checkup',

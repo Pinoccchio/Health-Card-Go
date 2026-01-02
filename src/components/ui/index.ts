@@ -25,7 +25,7 @@ export type { ProfessionalCardProps } from './ProfessionalCard';
 export { Modal } from './Modal';
 
 export { EnhancedTable } from './EnhancedTable';
-export type { EnhancedTableProps } from './EnhancedTable';
+export type { EnhancedTableProps, Column } from './EnhancedTable';
 
 export { EmptyState } from './EmptyState';
 

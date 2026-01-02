@@ -1,6 +1,7 @@
 import { createClient, createAdminClient } from '@/lib/supabase/server';
 import { NextRequest, NextResponse } from 'next/server';
 import { revalidatePath } from 'next/cache';
+import { logAuditAction, AUDIT_ACTIONS, AUDIT_ENTITIES } from '@/lib/utils/auditLog';
 
 /**
  * POST /api/appointments/[id]/complete
@@ -235,6 +236,24 @@ export async function POST(
 
     // Revalidate the appointments page cache
     revalidatePath('/healthcare-admin/appointments');
+
+    // Log audit trail
+    await logAuditAction({
+      supabase,
+      userId: profile.id, // Healthcare Admin or Super Admin who completed the appointment
+      action: AUDIT_ACTIONS.APPOINTMENT_COMPLETED,
+      entityType: AUDIT_ENTITIES.APPOINTMENT,
+      entityId: appointment.id,
+      changes: {
+        before: { status: 'scheduled' },
+        after: {
+          status: 'completed',
+          completed_at: updatedAppointment.completed_at,
+          medical_record_created: !!createdMedicalRecord,
+        },
+      },
+      request,
+    });
 
     return NextResponse.json({
       success: true,

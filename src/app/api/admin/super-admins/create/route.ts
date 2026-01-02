@@ -1,5 +1,6 @@
 import { createClient, createAdminClient } from '@/lib/supabase/server';
 import { NextResponse } from 'next/server';
+import { logAuditAction, AUDIT_ACTIONS, AUDIT_ENTITIES } from '@/lib/utils/auditLog';
 
 /**
  * POST /api/admin/super-admins/create
@@ -125,6 +126,26 @@ export async function POST(request: Request) {
     }
 
     console.log(`✅ Super Admin created: ${email}`);
+
+    // Log audit trail
+    await logAuditAction({
+      supabase,
+      userId: user.id, // Super Admin who created the account
+      action: AUDIT_ACTIONS.USER_CREATED,
+      entityType: AUDIT_ENTITIES.SUPER_ADMIN,
+      entityId: createdAdmin.id,
+      changes: {
+        before: null,
+        after: {
+          email: createdAdmin.email,
+          first_name: createdAdmin.first_name,
+          last_name: createdAdmin.last_name,
+          role: createdAdmin.role,
+          status: createdAdmin.status,
+        },
+      },
+      request,
+    });
 
     return NextResponse.json({
       success: true,

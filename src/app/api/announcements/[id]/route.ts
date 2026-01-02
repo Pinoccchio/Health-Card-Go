@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { logAuditAction, AUDIT_ACTIONS, AUDIT_ENTITIES } from '@/lib/utils/auditLog';
 
 /**
  * GET /api/announcements/[id]
@@ -152,6 +153,20 @@ export async function PATCH(
       throw error;
     }
 
+    // Log audit trail
+    await logAuditAction({
+      supabase,
+      userId: user.id,
+      action: AUDIT_ACTIONS.ANNOUNCEMENT_UPDATED,
+      entityType: AUDIT_ENTITIES.ANNOUNCEMENT,
+      entityId: id,
+      changes: {
+        before: existingAnnouncement,
+        after: updateData,
+      },
+      request,
+    });
+
     return NextResponse.json({
       success: true,
       data: announcement,
@@ -203,10 +218,10 @@ export async function DELETE(
       );
     }
 
-    // Get existing announcement to verify ownership
+    // Get existing announcement to verify ownership and for audit log
     const { data: existingAnnouncement, error: fetchError } = await supabase
       .from('announcements')
-      .select('created_by')
+      .select('*')
       .eq('id', id)
       .single();
 
@@ -237,6 +252,24 @@ export async function DELETE(
     if (error) {
       throw error;
     }
+
+    // Log audit trail
+    await logAuditAction({
+      supabase,
+      userId: user.id,
+      action: AUDIT_ACTIONS.ANNOUNCEMENT_DELETED,
+      entityType: AUDIT_ENTITIES.ANNOUNCEMENT,
+      entityId: id,
+      changes: {
+        before: {
+          title: existingAnnouncement.title,
+          target_audience: existingAnnouncement.target_audience,
+          is_active: existingAnnouncement.is_active,
+        },
+        after: null,
+      },
+      request,
+    });
 
     return NextResponse.json({
       success: true,

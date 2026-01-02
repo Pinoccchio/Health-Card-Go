@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { createClient as createSupabaseClient } from '@supabase/supabase-js';
+import { logAuditAction, AUDIT_ACTIONS, AUDIT_ENTITIES } from '@/lib/utils/auditLog';
 
 /**
  * PATCH /api/appointments/[id]
@@ -333,6 +334,26 @@ export async function PATCH(
 
     // Revalidate the appointments page cache
     revalidatePath('/healthcare-admin/appointments');
+
+    // Log audit trail
+    const auditAction = targetStatus === 'cancelled'
+      ? AUDIT_ACTIONS.APPOINTMENT_CANCELLED
+      : targetStatus === 'checked_in'
+      ? AUDIT_ACTIONS.APPOINTMENT_CHECKED_IN
+      : AUDIT_ACTIONS.APPOINTMENT_UPDATED;
+
+    await logAuditAction({
+      supabase,
+      userId: profile.id,
+      action: auditAction,
+      entityType: AUDIT_ENTITIES.APPOINTMENT,
+      entityId: appointmentId,
+      changes: {
+        before: { status: appointment.status },
+        after: { status: targetStatus, is_reversion: isRevertOperation },
+      },
+      request,
+    });
 
     return NextResponse.json({
       success: true,
