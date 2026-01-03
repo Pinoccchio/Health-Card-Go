@@ -97,7 +97,7 @@ export default function UsersManagementPage() {
         setStaff(data.data || []);
       }
     } catch (error) {
-      console.error('Error loading users:', error);
+      // Error loading users - silently fail, UI will show empty state
     } finally {
       setLoading(false);
     }
@@ -131,7 +131,7 @@ export default function UsersManagementPage() {
         toast.error(data.error || 'Failed to delete user');
       }
     } catch (error) {
-      console.error('Error deleting user:', error);
+      // Error deleting user - toast already shows user-friendly message
       toast.error('Error deleting user');
     } finally {
       setDeleteLoading(false);

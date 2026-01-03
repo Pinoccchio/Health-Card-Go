@@ -3,14 +3,15 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '@/lib/auth';
 import { DashboardLayout } from '@/components/dashboard';
-import { Container, ConfirmDialog } from '@/components/ui';
+import { Container } from '@/components/ui';
+// Removed: ConfirmDialog - not needed for view-only mode
 import { ProfessionalCard } from '@/components/ui/ProfessionalCard';
 import { EnhancedTable } from '@/components/ui/EnhancedTable';
 import { Drawer } from '@/components/ui/Drawer';
 import { StatusHistoryModal } from '@/components/appointments/StatusHistoryModal';
 import { TimeElapsedBadge } from '@/components/appointments/TimeElapsedBadge';
-import { StatusTransitionButtons } from '@/components/appointments/StatusTransitionButtons';
-import { AppointmentCompletionModal } from '@/components/appointments/AppointmentCompletionModal';
+// Removed: StatusTransitionButtons - Super Admin is view-only
+// Removed: AppointmentCompletionModal - Super Admin is view-only
 import {
   Calendar,
   Clock,
@@ -21,7 +22,7 @@ import {
   AlertCircle,
   Download,
   History,
-  RotateCcw,
+  // Removed: RotateCcw - not needed for view-only mode
   User,
   ListChecks,
   Activity,
@@ -106,28 +107,11 @@ export default function SuperAdminAppointmentsPage() {
   // Search state
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Status history and reversion states
+  // Status history state (view-only)
   const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [selectedHistoryAppointmentId, setSelectedHistoryAppointmentId] = useState<string | null>(null);
-  const [showRevertDialog, setShowRevertDialog] = useState(false);
-  const [pendingRevert, setPendingRevert] = useState<{
-    historyId: string;
-    targetStatus: string;
-    appointmentId: string;
-    currentStatus?: string;
-  } | null>(null);
-  const [actionLoading, setActionLoading] = useState(false);
-  const [lastHistoryEntries, setLastHistoryEntries] = useState<Record<string, {
-    id: string;
-    from_status: string | null;
-  }>>({});
 
-  // Medical records check for undo validation (keyed by appointment ID)
-  const [hasMedicalRecords, setHasMedicalRecords] = useState<Record<string, boolean | null>>({});
-
-  // Completion modal state
-  const [showCompletionModal, setShowCompletionModal] = useState(false);
-  const [appointmentToComplete, setAppointmentToComplete] = useState<AdminAppointment | null>(null);
+  // Removed: Edit-related states (reversion, completion, medical records check) - Super Admin is view-only
 
   // Reset to page 1 when filters change
   useEffect(() => {
@@ -150,74 +134,8 @@ export default function SuperAdminAppointmentsPage() {
     fetchAppointments();
   }, [currentPage, dateFilter, filter]);
 
-  // Fetch last history entries when appointments change
-  useEffect(() => {
-    if (appointments.length > 0) {
-      fetchAllLastHistoryEntries();
-    }
-  }, [appointments.length]);
-
-  const fetchAllLastHistoryEntries = async () => {
-    const entries: Record<string, { id: string; from_status: string | null }> = {};
-
-    await Promise.all(
-      appointments.map(async (appointment) => {
-        try {
-          const response = await fetch(`/api/appointments/${appointment.id}/history`);
-          const data = await response.json();
-
-          if (data.success && data.data.length > 0) {
-            const lastEntry = data.data.find((entry: any) =>
-              entry.change_type === 'status_change' && entry.from_status !== null
-            );
-            if (lastEntry) {
-              entries[appointment.id] = {
-                id: lastEntry.id,
-                from_status: lastEntry.from_status,
-              };
-            }
-          }
-        } catch (err) {
-          console.error(`Failed to fetch history for appointment ${appointment.id}:`, err);
-        }
-      })
-    );
-
-    setLastHistoryEntries(entries);
-  };
-
-  // Check medical records for completed appointments
-  useEffect(() => {
-    if (appointments.length > 0) {
-      checkAllMedicalRecords();
-    }
-  }, [appointments.length]);
-
-  const checkAllMedicalRecords = async () => {
-    const records: Record<string, boolean | null> = {};
-
-    await Promise.all(
-      appointments.map(async (appointment) => {
-        if (appointment.status === 'completed') {
-          try {
-            const response = await fetch(`/api/medical-records?appointment_id=${appointment.id}`);
-            const data = await response.json();
-
-            if (data.success) {
-              records[appointment.id] = data.has_records;
-            } else {
-              records[appointment.id] = null;
-            }
-          } catch (err) {
-            console.error(`Failed to check medical records for appointment ${appointment.id}:`, err);
-            records[appointment.id] = null;
-          }
-        }
-      })
-    );
-
-    setHasMedicalRecords(records);
-  };
+  // Removed: fetchAllLastHistoryEntries and its useEffect - only needed for undo functionality
+  // Removed: checkAllMedicalRecords and its useEffect - only needed for undo validation
 
   const fetchAppointments = async () => {
     setLoading(true);
@@ -357,71 +275,11 @@ export default function SuperAdminAppointmentsPage() {
     setSelectedAppointment(null);
   };
 
-  const handleQuickUndo = (appointmentId: string) => {
-    const lastEntry = lastHistoryEntries[appointmentId];
-    if (!lastEntry) return;
-
-    const currentAppointment = filteredAppointments.find(apt => apt.id === appointmentId);
-
-    setPendingRevert({
-      historyId: lastEntry.id,
-      targetStatus: lastEntry.from_status || '',
-      appointmentId,
-      currentStatus: currentAppointment?.status,
-    });
-    setShowRevertDialog(true);
-  };
-
-  const handleConfirmRevert = async (reason?: string) => {
-    if (!pendingRevert) return;
-
-    setActionLoading(true);
-    try {
-      const response = await fetch(`/api/appointments/${pendingRevert.appointmentId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          revert_to_history_id: pendingRevert.historyId,
-          reason,
-        }),
-      });
-
-      const data = await response.json();
-
-      if (data.success) {
-        await fetchAppointments();
-        setShowRevertDialog(false);
-        setPendingRevert(null);
-        setSuccessMessage('Status reverted successfully');
-        setTimeout(() => setSuccessMessage(''), 3000);
-      } else {
-        setError(data.error || 'Failed to revert status');
-      }
-    } catch (err) {
-      setError('An unexpected error occurred');
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
-  const handleCompleteAppointment = (appointment: AdminAppointment) => {
-    setAppointmentToComplete(appointment);
-    setShowCompletionModal(true);
-  };
-
-  const handleCompletionCancel = () => {
-    setShowCompletionModal(false);
-    setAppointmentToComplete(null);
-  };
-
-  const handleCompletionSuccess = async () => {
-    setShowCompletionModal(false);
-    setAppointmentToComplete(null);
-    setSelectedAppointment(null);
-    await fetchAppointments();
-    setSuccessMessage('Appointment completed successfully');
-    setTimeout(() => setSuccessMessage(''), 3000);
-  };
+  // Removed: handleQuickUndo - Super Admin is view-only
+  // Removed: handleConfirmRevert - Super Admin is view-only
+  // Removed: handleCompleteAppointment - Super Admin is view-only
+  // Removed: handleCompletionCancel - Super Admin is view-only
+  // Removed: handleCompletionSuccess - Super Admin is view-only
 
   const exportToCSV = () => {
     const filteredData = filteredAppointments;
@@ -1126,32 +984,9 @@ export default function SuperAdminAppointmentsPage() {
                 )}
               </div>
 
-              {/* Action Buttons */}
+              {/* View-Only Action Buttons */}
               <div className="mt-6 pt-6 border-t border-gray-200 space-y-3">
-                {/* Status Transition Buttons */}
-                <StatusTransitionButtons
-                  appointmentId={selectedAppointment.id}
-                  currentStatus={selectedAppointment.status as any}
-                  appointmentDate={selectedAppointment.appointment_date}
-                  onStatusUpdate={() => {
-                    fetchAppointments();
-                    setSelectedAppointment(null);
-                  }}
-                  variant="full"
-                  className="flex-col"
-                />
-
-                {/* Complete Appointment Button */}
-                {selectedAppointment.status === 'in_progress' && (
-                  <button
-                    onClick={() => handleCompleteAppointment(selectedAppointment)}
-                    className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-green-600 text-white rounded-md hover:bg-green-700 font-medium text-sm shadow-sm transition-colors"
-                  >
-                    <CheckCircle className="w-5 h-5" />
-                    Complete Appointment
-                  </button>
-                )}
-
+                {/* View Status History - Super Admin can view but not edit */}
                 <button
                   onClick={() => handleViewHistory(selectedAppointment.id)}
                   className="w-full flex items-center justify-center gap-2 px-4 py-2 text-sm text-primary-teal hover:text-primary-teal/80 font-medium border border-primary-teal/20 rounded-md hover:bg-primary-teal/5 transition-colors"
@@ -1160,33 +995,9 @@ export default function SuperAdminAppointmentsPage() {
                   View Status History
                 </button>
 
-                {/* Undo Button */}
-                {lastHistoryEntries[selectedAppointment.id] &&
-                 lastHistoryEntries[selectedAppointment.id].from_status &&
-                 selectedAppointment.status !== lastHistoryEntries[selectedAppointment.id].from_status &&
-                 selectedAppointment.status !== 'cancelled' && (
-                  selectedAppointment.status === 'completed' ? (
-                    hasMedicalRecords[selectedAppointment.id] === false ? (
-                      <button
-                        onClick={() => handleQuickUndo(selectedAppointment.id)}
-                        disabled={actionLoading}
-                        className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-yellow-100 text-yellow-800 rounded-md hover:bg-yellow-200 font-medium text-sm border border-yellow-300 disabled:opacity-50"
-                      >
-                        <RotateCcw className="w-4 h-4" />
-                        Undo Last Action
-                      </button>
-                    ) : null
-                  ) : (
-                    <button
-                      onClick={() => handleQuickUndo(selectedAppointment.id)}
-                      disabled={actionLoading}
-                      className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-yellow-100 text-yellow-800 rounded-md hover:bg-yellow-200 font-medium text-sm border border-yellow-300 disabled:opacity-50"
-                    >
-                      <RotateCcw className="w-4 h-4" />
-                      Undo Last Action
-                    </button>
-                  )
-                )}
+                {/* Removed: StatusTransitionButtons - Super Admin is view-only */}
+                {/* Removed: Complete Appointment Button - Super Admin is view-only */}
+                {/* Removed: Undo Button - Super Admin is view-only */}
               </div>
             </div>
           </Drawer>
@@ -1200,38 +1011,8 @@ export default function SuperAdminAppointmentsPage() {
         />
 
         {/* Status Reversion Confirmation Dialog */}
-        <ConfirmDialog
-          isOpen={showRevertDialog}
-          onClose={() => setShowRevertDialog(false)}
-          onConfirm={handleConfirmRevert}
-          title="Revert Appointment Status"
-          message={
-            pendingRevert?.currentStatus === 'checked_in' || pendingRevert?.currentStatus === 'in_progress'
-              ? `Are you sure you want to revert this appointment to "${pendingRevert?.targetStatus?.replace('_', ' ')}"?\n\n⚠️ Important: This will erase the ${pendingRevert.currentStatus === 'checked_in' ? 'check-in' : 'start'} timestamp from records, which affects wait time statistics. Only proceed if this was an error or the patient needs to be rescheduled.\n\nThis action will be logged in the status history with your reason.`
-              : `Are you sure you want to revert this appointment to "${pendingRevert?.targetStatus?.replace('_', ' ')}"? This action will be logged in the status history.`
-          }
-          confirmText="Revert Status"
-          cancelText="Cancel"
-          variant="warning"
-          showReasonInput={true}
-          reasonLabel="Reason for reversion (required)"
-          reasonPlaceholder={
-            pendingRevert?.currentStatus === 'checked_in' || pendingRevert?.currentStatus === 'in_progress'
-              ? "E.g., Patient left before being seen, Wrong patient checked in, Technical error"
-              : "E.g., Accidentally changed status, need to correct error"
-          }
-          isLoading={actionLoading}
-        />
-
-        {/* Appointment Completion Modal */}
-        {appointmentToComplete && (
-          <AppointmentCompletionModal
-            isOpen={showCompletionModal}
-            onClose={handleCompletionCancel}
-            onSuccess={handleCompletionSuccess}
-            appointment={appointmentToComplete}
-          />
-        )}
+        {/* Removed: ConfirmDialog for status reversion - Super Admin is view-only */}
+        {/* Removed: AppointmentCompletionModal - Super Admin is view-only */}
       </Container>
     </DashboardLayout>
   );

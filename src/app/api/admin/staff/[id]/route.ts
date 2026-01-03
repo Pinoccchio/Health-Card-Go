@@ -1,6 +1,7 @@
 import { createClient, createAdminClient } from '@/lib/supabase/server';
 import { NextResponse } from 'next/server';
 import { revalidatePath } from 'next/cache';
+import { logAuditAction, AUDIT_ACTIONS, AUDIT_ENTITIES } from '@/lib/utils/auditLog';
 
 /**
  * GET /api/admin/staff/[id]
@@ -287,6 +288,20 @@ export async function PATCH(
 
     console.log(`✅ Staff member updated: ${updatedStaff.email}`);
 
+    // Log audit action
+    await logAuditAction({
+      supabase,
+      userId: user.id,
+      action: AUDIT_ACTIONS.USER_UPDATED,
+      entityType: AUDIT_ENTITIES.STAFF,
+      entityId: id,
+      changes: {
+        before: existingStaff,
+        after: updatedStaff,
+      },
+      request,
+    });
+
     // Revalidate the users page cache
     revalidatePath('/admin/users');
 
@@ -392,6 +407,20 @@ export async function DELETE(
     await supabase.from('profiles').delete().eq('id', id);
 
     console.log(`✅ Staff member deleted: ${existingStaff.email}`);
+
+    // Log audit action
+    await logAuditAction({
+      supabase,
+      userId: user.id,
+      action: AUDIT_ACTIONS.USER_DELETED,
+      entityType: AUDIT_ENTITIES.STAFF,
+      entityId: id,
+      changes: {
+        before: existingStaff,
+        after: null,
+      },
+      request,
+    });
 
     // Revalidate the users page cache
     revalidatePath('/admin/users');
