@@ -81,7 +81,6 @@ export default function AdminAuditLogsPage() {
       const data = await response.json();
       setLogs(data.data || []);
     } catch (err) {
-      console.error('Error fetching audit logs:', err);
       setError(err instanceof Error ? err.message : 'An error occurred');
     } finally {
       setLoading(false);

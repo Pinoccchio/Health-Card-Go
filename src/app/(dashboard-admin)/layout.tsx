@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth';
 import { getDashboardPath } from '@/lib/utils/roleHelpers';
 import { ToastProvider } from '@/lib/contexts/ToastContext';
+import { AnnouncementProvider } from '@/lib/contexts/AnnouncementContext';
 import { FeedbackProvider } from '@/lib/contexts/FeedbackContext';
 
 /**
@@ -68,9 +69,11 @@ export default function AdminDashboardLayout({
 
   return (
     <ToastProvider>
-      <FeedbackProvider>
-        {children}
-      </FeedbackProvider>
+      <AnnouncementProvider roleId={1}>
+        <FeedbackProvider>
+          {children}
+        </FeedbackProvider>
+      </AnnouncementProvider>
     </ToastProvider>
   );
 }

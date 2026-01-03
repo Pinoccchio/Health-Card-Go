@@ -192,7 +192,6 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (insertError) {
-      console.error('Error creating feedback:', insertError);
       return NextResponse.json(
         { error: 'Failed to submit feedback' },
         { status: 500 }
@@ -234,7 +233,6 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('Feedback submission error:', error);
     return NextResponse.json(
       { error: 'An unexpected error occurred' },
       { status: 500 }
@@ -356,7 +354,6 @@ export async function GET(request: NextRequest) {
     const { data: feedbackList, error: fetchError } = await query;
 
     if (fetchError) {
-      console.error('Error fetching feedback:', fetchError);
       return NextResponse.json(
         { error: 'Failed to fetch feedback' },
         { status: 500 }
@@ -370,7 +367,6 @@ export async function GET(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('Feedback fetch error:', error);
     return NextResponse.json(
       { error: 'An unexpected error occurred' },
       { status: 500 }

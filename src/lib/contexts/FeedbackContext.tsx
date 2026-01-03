@@ -37,11 +37,10 @@ export function FeedbackProvider({ children }: { children: ReactNode }) {
         const response = await fetch('/api/feedback/pending-count');
         const data = await response.json();
         if (data.success) {
-          console.log(`📬 [FeedbackContext] Initial pending feedback: ${data.pendingCount}`);
           setPendingCount(data.pendingCount);
         }
       } catch (error) {
-        console.error('❌ [FeedbackContext] Failed to fetch initial count:', error);
+        // Silently fail - non-critical feature
       }
     };
 
@@ -54,7 +53,6 @@ export function FeedbackProvider({ children }: { children: ReactNode }) {
     event: 'INSERT',
     enabled: !!user?.id,
     onInsert: (payload) => {
-      console.log('📝 [FeedbackContext] New feedback submitted via Realtime');
       setPendingCount(prev => prev + 1);
     },
   });
@@ -70,7 +68,6 @@ export function FeedbackProvider({ children }: { children: ReactNode }) {
       const isNowResponded = !!payload.new?.admin_response;
 
       if (wasPending && isNowResponded) {
-        console.log('✅ [FeedbackContext] Feedback responded via Realtime');
         setPendingCount(prev => Math.max(0, prev - 1));
       }
     },
@@ -84,11 +81,10 @@ export function FeedbackProvider({ children }: { children: ReactNode }) {
       const response = await fetch('/api/feedback/pending-count');
       const data = await response.json();
       if (data.success) {
-        console.log(`🔄 [FeedbackContext] Refreshed count: ${data.pendingCount}`);
         setPendingCount(data.pendingCount);
       }
     } catch (error) {
-      console.error('❌ [FeedbackContext] Failed to refresh count:', error);
+      // Silently fail - non-critical feature
     }
   }, []);
 

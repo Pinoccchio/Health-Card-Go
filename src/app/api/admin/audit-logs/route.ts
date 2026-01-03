@@ -65,7 +65,6 @@ export async function GET(request: NextRequest) {
       .order('created_at', { ascending: false });
 
     if (logsError) {
-      console.error('Error fetching audit logs:', logsError);
       return NextResponse.json(
         { error: 'Failed to fetch audit logs', details: logsError.message },
         { status: 500 }
@@ -77,7 +76,6 @@ export async function GET(request: NextRequest) {
       data: logs || [],
     });
   } catch (error) {
-    console.error('Unexpected error in GET /api/admin/audit-logs:', error);
     return NextResponse.json(
       {
         error: 'Internal server error',

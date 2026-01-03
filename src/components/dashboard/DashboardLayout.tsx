@@ -59,12 +59,12 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
     // Not a super admin or not wrapped in FeedbackProvider, ignore
   }
 
-  // Get recent announcements count from AnnouncementContext (for patients, staff, healthcare admins)
+  // Get recent announcements count from AnnouncementContext (for super admins, patients, staff, healthcare admins)
   // This will throw if not wrapped in AnnouncementProvider
   let recentAnnouncementsCount = 0;
   let announcementsLoading = false;
   try {
-    if (roleId === 4 || roleId === 2 || roleId === 5) {
+    if (roleId === 1 || roleId === 4 || roleId === 2 || roleId === 5) {
       const announcementContext = useAnnouncementContext();
       recentAnnouncementsCount = announcementContext.recentCount;
       announcementsLoading = announcementContext.isLoading;
@@ -244,8 +244,8 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
   // Context provides persistent state across navigation - no flickering
   // Triggers when: count changes OR when menu finishes loading
   useEffect(() => {
-    // Only for roles wrapped in AnnouncementProvider (Patient, Staff, Healthcare Admin)
-    if (roleId !== 4 && roleId !== 5 && roleId !== 2) {
+    // Only for roles wrapped in AnnouncementProvider (Super Admin, Patient, Staff, Healthcare Admin)
+    if (roleId !== 1 && roleId !== 4 && roleId !== 5 && roleId !== 2) {
       return;
     }
 
@@ -273,7 +273,9 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
             ? '/patient/announcements'
             : roleId === 5
             ? '/staff/announcements'
-            : '/healthcare-admin/announcements';
+            : roleId === 2
+            ? '/healthcare-admin/announcements'
+            : '/admin/announcements'; // Super Admin (roleId === 1)
 
         if (item.href === announcementHref) {
           return {

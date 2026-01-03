@@ -359,7 +359,7 @@ export default function HealthcareAdminAnnouncementsPage() {
           staff: { label: 'Staff', color: 'cyan', icon: Activity },
         };
 
-        const config = audienceConfig[row.target_audience];
+        const config = audienceConfig[row.target_audience] || { label: row.target_audience || 'Unknown', color: 'purple', icon: Users };
         const Icon = config.icon;
 
         const colorClasses = {

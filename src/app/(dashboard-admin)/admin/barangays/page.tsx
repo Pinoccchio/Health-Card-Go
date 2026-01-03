@@ -128,7 +128,6 @@ export default function AdminBarangaysPage() {
       setBarangays(result.data || []);
       calculateStats(result.data || []);
     } catch (err) {
-      console.error('[ADMIN BARANGAYS] Error fetching barangays:', err);
       showToast(err instanceof Error ? err.message : 'Failed to load barangays', 'error');
     } finally {
       setLoading(false);
@@ -182,7 +181,6 @@ export default function AdminBarangaysPage() {
       setFormErrors({});
       fetchBarangays();
     } catch (err) {
-      console.error('[ADMIN BARANGAYS] Error creating barangay:', err);
       showToast(err instanceof Error ? err.message : 'Failed to create barangay', 'error');
     } finally {
       setActionLoading(false);
@@ -219,7 +217,6 @@ export default function AdminBarangaysPage() {
       setFormErrors({});
       fetchBarangays();
     } catch (err) {
-      console.error('[ADMIN BARANGAYS] Error updating barangay:', err);
       showToast(err instanceof Error ? err.message : 'Failed to update barangay', 'error');
     } finally {
       setActionLoading(false);
@@ -247,7 +244,6 @@ export default function AdminBarangaysPage() {
       setBarangayToDelete(null);
       fetchBarangays();
     } catch (err) {
-      console.error('[ADMIN BARANGAYS] Error deleting barangay:', err);
       showToast(err instanceof Error ? err.message : 'Failed to delete barangay', 'error');
     } finally {
       setActionLoading(false);

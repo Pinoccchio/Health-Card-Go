@@ -15,8 +15,6 @@ import { createClient } from '@/lib/supabase/server';
  * @returns {Object} { success: true, unreadCount: number, totalCount: number }
  */
 export async function GET() {
-  console.log('🔔 [API] /announcements/unread-count - Request received');
-
   try {
     const supabase = await createClient();
 
@@ -27,11 +25,8 @@ export async function GET() {
     } = await supabase.auth.getUser();
 
     if (authError || !user) {
-      console.error('❌ [API] Auth error:', authError);
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-
-    console.log('👤 [API] User authenticated:', user.id);
 
     // Get user profile to check role
     const { data: profile, error: profileError } = await supabase
@@ -41,11 +36,8 @@ export async function GET() {
       .single();
 
     if (profileError || !profile) {
-      console.error('❌ [API] Profile error:', profileError);
       return NextResponse.json({ error: 'Profile not found' }, { status: 404 });
     }
-
-    console.log('👤 [API] User role:', profile.role);
 
     // Determine target audience based on role
     let targetAudience: string;
@@ -66,8 +58,6 @@ export async function GET() {
         targetAudience = 'all';
     }
 
-    console.log('🎯 [API] Target audience:', targetAudience);
-
     // Get all active announcements targeted to this user's role or 'all'
     // BUG FIX: Added 'created_at' to select (was missing, causing recentCount to fail)
     const { data: allAnnouncements, error: announcementsError } = await supabase
@@ -78,7 +68,6 @@ export async function GET() {
       .order('created_at', { ascending: false });
 
     if (announcementsError) {
-      console.error('❌ [API] Error fetching announcements:', announcementsError);
       return NextResponse.json(
         { error: 'Failed to fetch announcements' },
         { status: 500 }
@@ -86,11 +75,9 @@ export async function GET() {
     }
 
     const totalCount = allAnnouncements?.length || 0;
-    console.log('📊 [API] Fetched announcements:', totalCount);
 
     // If no announcements, return early
     if (totalCount === 0) {
-      console.log('⚠️ [API] No announcements found, returning zeros');
       return NextResponse.json({
         success: true,
         unreadCount: 0,
@@ -128,12 +115,10 @@ export async function GET() {
     const now = new Date();
     const NEW_THRESHOLD_HOURS = 48;
     const newCutoff = new Date(now.getTime() - NEW_THRESHOLD_HOURS * 60 * 60 * 1000);
-    console.log('⏰ [API] Calculating recent announcements (48h cutoff):', newCutoff.toISOString());
 
     const recentCount = allAnnouncements.filter(
       (announcement) => new Date(announcement.created_at) >= newCutoff
     ).length;
-    console.log('📢 [API] Recent count (within 48h):', recentCount);
 
     // Badge count = unread + recent (deduplicated)
     // If announcement is both recent AND unread, count it once
@@ -144,13 +129,6 @@ export async function GET() {
         return isNew || isUnread;
       }
     ).length;
-
-    console.log('✅ [API] Returning counts:', {
-      unreadCount,
-      recentCount,
-      badgeCount,
-      totalCount,
-    });
 
     return NextResponse.json({
       success: true,

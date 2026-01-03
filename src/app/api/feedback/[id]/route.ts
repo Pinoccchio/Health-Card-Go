@@ -100,7 +100,6 @@ export async function PATCH(
       .single();
 
     if (updateError) {
-      console.error('Error updating feedback:', updateError);
       return NextResponse.json(
         { error: 'Failed to submit response' },
         { status: 500 }
@@ -129,7 +128,6 @@ export async function PATCH(
     });
 
   } catch (error) {
-    console.error('Feedback response error:', error);
     return NextResponse.json(
       { error: 'An unexpected error occurred' },
       { status: 500 }

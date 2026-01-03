@@ -93,7 +93,6 @@ export default function AdminFeedbackPage() {
         throw new Error(data.error || 'Failed to load feedback');
       }
     } catch (err) {
-      console.error('Error loading feedback:', err);
       setError(err instanceof Error ? err.message : 'Failed to load feedback');
     } finally {
       setLoading(false);
@@ -167,7 +166,6 @@ export default function AdminFeedbackPage() {
       setSelectedFeedback(null);
       setResponseText('');
     } catch (err) {
-      console.error('Error submitting response:', err);
       toast.error(err instanceof Error ? err.message : 'Failed to submit response');
     } finally {
       setIsSubmitting(false);
