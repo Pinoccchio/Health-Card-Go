@@ -201,6 +201,11 @@ export const STAFF_MENU_ITEMS: MenuItem[] = [
     href: '/staff/analytics',
     icon: Activity,
   },
+  {
+    label: 'Announcements',
+    href: '/staff/announcements',
+    icon: Megaphone,
+  },
 ];
 
 /**

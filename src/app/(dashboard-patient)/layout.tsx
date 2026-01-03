@@ -7,6 +7,7 @@ import { useAuth } from '@/lib/auth';
 import { getDashboardPath } from '@/lib/utils/roleHelpers';
 import { ToastProvider } from '@/lib/contexts/ToastContext';
 import { NotificationProvider } from '@/lib/contexts/NotificationContext';
+import { AnnouncementProvider } from '@/lib/contexts/AnnouncementContext';
 
 /**
  * Layout for Patient dashboard routes
@@ -90,9 +91,11 @@ export default function PatientDashboardLayout({
   return (
     <NextIntlClientProvider locale={locale} messages={messages}>
       <ToastProvider>
-        <NotificationProvider>
-          {children}
-        </NotificationProvider>
+        <AnnouncementProvider roleId={4}>
+          <NotificationProvider>
+            {children}
+          </NotificationProvider>
+        </AnnouncementProvider>
       </ToastProvider>
     </NextIntlClientProvider>
   );

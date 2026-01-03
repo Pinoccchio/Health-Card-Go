@@ -1,14 +1,14 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import Link from 'next/link';
 import { useAuth } from '@/lib/auth';
 import { DashboardLayout } from '@/components/dashboard';
 import { Container } from '@/components/ui';
-import { Megaphone, Clock, Users, Shield, Settings, AlertCircle, RefreshCw } from 'lucide-react';
+import { Megaphone, Clock, Users, AlertCircle, RefreshCw, ArrowLeft } from 'lucide-react';
 import { Announcement } from '@/types';
+import Link from 'next/link';
 
-export default function HealthcareAdminAnnouncementsViewPage() {
+export default function StaffAnnouncementsPage() {
   const { user } = useAuth();
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [loading, setLoading] = useState(true);
@@ -23,9 +23,9 @@ export default function HealthcareAdminAnnouncementsViewPage() {
       setLoading(true);
       setError(null);
 
-      // Fetch announcements targeted to healthcare_admin or all
+      // Fetch announcements targeted to staff or all
       const params = new URLSearchParams({
-        target_audience: 'healthcare_admin',
+        target_audience: 'staff',
         limit: '1000',
       });
 
@@ -36,12 +36,36 @@ export default function HealthcareAdminAnnouncementsViewPage() {
         throw new Error(result.error || 'Failed to fetch announcements');
       }
 
-      setAnnouncements(result.data || []);
+      const fetchedAnnouncements = result.data || [];
+      setAnnouncements(fetchedAnnouncements);
+
+      // Mark all announcements as read (background operation)
+      if (fetchedAnnouncements.length > 0) {
+        markAnnouncementsAsRead(fetchedAnnouncements.map((a: Announcement) => a.id));
+      }
     } catch (err) {
       console.error('Error fetching announcements:', err);
       setError(err instanceof Error ? err.message : 'Failed to load announcements');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const markAnnouncementsAsRead = async (announcementIds: string[]) => {
+    // Mark announcements as read in the background (non-blocking)
+    // This updates the user_announcement_reads table to clear the badge
+    try {
+      await Promise.allSettled(
+        announcementIds.map((id) =>
+          fetch(`/api/announcements/${id}/mark-read`, {
+            method: 'POST',
+          })
+        )
+      );
+      console.log(`✅ Marked ${announcementIds.length} announcements as read`);
+    } catch (error) {
+      console.error('Error marking announcements as read:', error);
+      // Silent failure - doesn't affect user experience
     }
   };
 
@@ -70,12 +94,6 @@ export default function HealthcareAdminAnnouncementsViewPage() {
     switch (targetAudience) {
       case 'all':
         return 'All Users';
-      case 'healthcare_admin':
-        return 'Healthcare Admins';
-      case 'super_admin':
-        return 'Super Admins';
-      case 'patients':
-        return 'Patients';
       case 'staff':
         return 'Staff';
       default:
@@ -83,22 +101,11 @@ export default function HealthcareAdminAnnouncementsViewPage() {
     }
   };
 
-  const getAudienceIcon = (targetAudience: string) => {
-    switch (targetAudience) {
-      case 'all':
-        return Users;
-      case 'healthcare_admin':
-        return Shield;
-      default:
-        return Megaphone;
-    }
-  };
-
   return (
     <DashboardLayout
-      roleId={user?.role_id || 2}
+      roleId={5}
       pageTitle="Announcements"
-      pageDescription="View announcements and updates"
+      pageDescription="View announcements and important updates"
     >
       <Container size="full">
         {/* Header */}
@@ -109,10 +116,17 @@ export default function HealthcareAdminAnnouncementsViewPage() {
             </div>
             <div>
               <h1 className="text-2xl font-bold text-gray-900">Announcements</h1>
-              <p className="text-sm text-gray-600">Stay updated with important information</p>
+              <p className="text-sm text-gray-600">Stay updated with important information from the City Health Office</p>
             </div>
           </div>
           <div className="flex items-center gap-3">
+            <Link
+              href="/staff/dashboard"
+              className="flex items-center gap-2 px-4 py-2 text-gray-600 hover:text-gray-900 transition-colors"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              Back to Dashboard
+            </Link>
             <button
               onClick={fetchAnnouncements}
               disabled={loading}
@@ -121,13 +135,6 @@ export default function HealthcareAdminAnnouncementsViewPage() {
               <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
               Refresh
             </button>
-            <Link
-              href="/healthcare-admin/announcements/manage"
-              className="flex items-center gap-2 px-4 py-2 bg-primary-teal text-white rounded-md hover:bg-primary-teal-dark transition-colors"
-            >
-              <Settings className="w-4 h-4" />
-              Manage Announcements
-            </Link>
           </div>
         </div>
 
@@ -153,20 +160,18 @@ export default function HealthcareAdminAnnouncementsViewPage() {
           <div className="bg-white rounded-lg shadow p-12 text-center">
             <Megaphone className="w-16 h-16 text-gray-400 mx-auto mb-4" />
             <h3 className="text-lg font-semibold text-gray-900 mb-2">No Announcements</h3>
-            <p className="text-gray-600 mb-6">There are no announcements at this time.</p>
+            <p className="text-gray-600 mb-6">There are no announcements at this time. Check back later for updates.</p>
             <Link
-              href="/healthcare-admin/announcements/manage"
+              href="/staff/dashboard"
               className="inline-flex items-center gap-2 px-4 py-2 bg-primary-teal text-white rounded-md hover:bg-primary-teal-dark transition-colors"
             >
-              <Settings className="w-4 h-4" />
-              Create New Announcement
+              <ArrowLeft className="w-4 h-4" />
+              Return to Dashboard
             </Link>
           </div>
         ) : (
           <div className="space-y-4">
             {announcements.map((announcement) => {
-              const AudienceIcon = getAudienceIcon(announcement.target_audience);
-
               return (
                 <div
                   key={announcement.id}
@@ -192,14 +197,9 @@ export default function HealthcareAdminAnnouncementsViewPage() {
                             <span>{formatDate(announcement.created_at)}</span>
                           </div>
                           <div className="flex items-center gap-1">
-                            <AudienceIcon className="w-4 h-4" />
+                            <Users className="w-4 h-4" />
                             <span>{getAudienceLabel(announcement.target_audience)}</span>
                           </div>
-                          {announcement.profiles && (
-                            <span className="text-gray-500">
-                              By {announcement.profiles.first_name} {announcement.profiles.last_name}
-                            </span>
-                          )}
                         </div>
                       </div>
                     </div>
@@ -219,13 +219,10 @@ export default function HealthcareAdminAnnouncementsViewPage() {
 
         {/* Footer Info */}
         {!loading && !error && announcements.length > 0 && (
-          <div className="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
-            <p className="text-sm text-blue-800">
-              <strong>Showing {announcements.length} announcement{announcements.length !== 1 ? 's' : ''}</strong> targeted to healthcare administrators.
-              {' '}To create or manage announcements, visit the{' '}
-              <Link href="/healthcare-admin/announcements/manage" className="font-semibold underline hover:text-blue-900">
-                management page
-              </Link>.
+          <div className="mt-6 bg-teal-50 border border-teal-200 rounded-lg p-4">
+            <p className="text-sm text-teal-800">
+              <strong>Showing {announcements.length} announcement{announcements.length !== 1 ? 's' : ''}</strong> from the City Health Office.
+              {' '}For questions or concerns, please contact the office during operating hours.
             </p>
           </div>
         )}

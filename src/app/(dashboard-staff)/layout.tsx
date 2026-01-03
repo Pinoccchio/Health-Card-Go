@@ -6,6 +6,7 @@ import { NextIntlClientProvider } from 'next-intl';
 import { useAuth } from '@/lib/auth';
 import { getDashboardPath } from '@/lib/utils/roleHelpers';
 import { ToastProvider } from '@/lib/contexts/ToastContext';
+import { AnnouncementProvider } from '@/lib/contexts/AnnouncementContext';
 
 /**
  * Layout for Staff dashboard routes
@@ -90,7 +91,9 @@ export default function StaffDashboardLayout({
   return (
     <NextIntlClientProvider locale={locale} messages={messages}>
       <ToastProvider>
-        {children}
+        <AnnouncementProvider roleId={5}>
+          {children}
+        </AnnouncementProvider>
       </ToastProvider>
     </NextIntlClientProvider>
   );

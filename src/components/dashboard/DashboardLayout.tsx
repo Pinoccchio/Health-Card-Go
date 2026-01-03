@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Sidebar, MenuItem } from './Sidebar';
 import { AppBar } from './AppBar';
 import { RoleId } from '@/types/auth';
@@ -16,6 +16,7 @@ import { cn } from '@/lib/utils';
 import { useAuth } from '@/lib/auth';
 import { useNotificationContext } from '@/lib/contexts/NotificationContext';
 import { useFeedbackContext } from '@/lib/contexts/FeedbackContext';
+import { useAnnouncementContext } from '@/lib/contexts/AnnouncementContext';
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -58,17 +59,69 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
     // Not a super admin or not wrapped in FeedbackProvider, ignore
   }
 
+  // Get recent announcements count from AnnouncementContext (for patients, staff, healthcare admins)
+  // This will throw if not wrapped in AnnouncementProvider
+  let recentAnnouncementsCount = 0;
+  let announcementsLoading = false;
+  try {
+    if (roleId === 4 || roleId === 2 || roleId === 5) {
+      const announcementContext = useAnnouncementContext();
+      recentAnnouncementsCount = announcementContext.recentCount;
+      announcementsLoading = announcementContext.isLoading;
+    }
+  } catch (error) {
+    // Not wrapped in AnnouncementProvider, ignore
+  }
+
+  // Memoize assigned_service_id to prevent unnecessary re-renders
+  // Extracts primitive value from user object to avoid reference equality issues
+  // Only updates when the actual service ID value changes, not when user object reference changes
+  const assignedServiceId = useMemo(() => user?.assigned_service_id, [user?.assigned_service_id]);
+
+  // Helper function to preserve badges when updating menu items
+  // Merges existing badges from current menu into new menu items
+  // Critical for Healthcare Admin where async menu loading can overwrite badges
+  const mergeBadgesIntoMenu = (currentMenu: MenuItem[], newMenu: MenuItem[]): MenuItem[] => {
+    return newMenu.map(newItem => {
+      // Find matching item in current menu by href
+      const existingItem = currentMenu.find(curr => curr.href === newItem.href);
+      // Preserve badge if it exists in current menu
+      if (existingItem?.badge) {
+        return { ...newItem, badge: existingItem.badge };
+      }
+      return newItem;
+    });
+  };
+
   // Load menu items dynamically for Healthcare Admins, statically for others
   useEffect(() => {
     async function loadMenuItems() {
+      // CRITICAL FIX: Skip menu loading if menu already exists
+      // Prevents sidebar skeleton from showing on navigation for Healthcare Admin
+      // Only load menu on first mount, preserve existing menu on subsequent page changes
+      if (menuItems.length > 0) {
+        console.log('✅ [Menu Loading] Menu already loaded, skipping reload on navigation');
+        return;
+      }
+
       setIsLoadingMenu(true);
 
       try {
-        if (roleId === 2 && user?.assigned_service_id) {
+        if (roleId === 2 && assignedServiceId) {
           // Healthcare Admin - fetch dynamic menu based on assigned service
-          console.log('📋 Loading dynamic menu for Healthcare Admin with service:', user.assigned_service_id);
-          const dynamicMenuItems = await getHealthcareAdminMenuItems(user.assigned_service_id);
-          setMenuItems(dynamicMenuItems);
+          console.log('📋 Loading dynamic menu for Healthcare Admin with service:', assignedServiceId);
+          const dynamicMenuItems = await getHealthcareAdminMenuItems(assignedServiceId);
+
+          // CRITICAL FIX: Preserve existing badges when updating menu
+          // Use functional setState to merge badges from current menu into new menu
+          // This prevents async menu loading from overwriting announcement badges
+          setMenuItems(prevItems => {
+            if (prevItems.length > 0) {
+              console.log('🔄 [Menu Loading] Merging badges from previous menu into new menu');
+              return mergeBadgesIntoMenu(prevItems, dynamicMenuItems);
+            }
+            return dynamicMenuItems;
+          });
         } else {
           // Static menus for other roles
           const staticMenuItems =
@@ -99,7 +152,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
     }
 
     loadMenuItems();
-  }, [roleId, user?.assigned_service_id]);
+  }, [roleId, assignedServiceId]);
 
   // ✨ VISITOR-TRIGGERED AUTOMATIC NO-SHOW DETECTION ✨
   // When Healthcare Admin visits dashboard → automatically check for overdue appointments
@@ -183,6 +236,57 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
       });
     });
   }, [pendingFeedbackCount, roleId]); // No menuItems dependency - using functional setState
+
+  // ✨ ANNOUNCEMENTS "NEW" TEXT BADGE ✨
+  // Update menu items when recent announcements count changes (from AnnouncementContext)
+  // Shows "NEW" text instead of count number (announcements are broadcast, not tracked per-user)
+  // Uses 48-hour time threshold (recentCount from API)
+  // Context provides persistent state across navigation - no flickering
+  // Triggers when: count changes OR when menu finishes loading
+  useEffect(() => {
+    // Only for roles wrapped in AnnouncementProvider (Patient, Staff, Healthcare Admin)
+    if (roleId !== 4 && roleId !== 5 && roleId !== 2) {
+      return;
+    }
+
+    // CRITICAL FIX: Wait for menu to load before updating badge
+    // Prevents race condition with Healthcare Admin's dynamic menu loading
+    // Patient/Staff have static menus (load instantly), Healthcare Admin uses async API call
+    if (menuItems.length === 0) {
+      console.log('⏳ [Announcements Badge] Menu not loaded yet, deferring badge update');
+      return;
+    }
+
+    // CRITICAL FIX: Wait for announcement data to load before updating badge
+    // Prevents race condition where menu loads before API call completes
+    // Badge would be set to undefined with count=0, then never reappears
+    if (announcementsLoading) {
+      console.log('⏳ [Announcements Badge] Data still loading, deferring badge update');
+      return;
+    }
+
+    setMenuItems((prevMenuItems) => {
+      return prevMenuItems.map((item) => {
+        // Determine announcement href based on role
+        const announcementHref =
+          roleId === 4
+            ? '/patient/announcements'
+            : roleId === 5
+            ? '/staff/announcements'
+            : '/healthcare-admin/announcements';
+
+        if (item.href === announcementHref) {
+          return {
+            ...item,
+            badge: recentAnnouncementsCount > 0
+              ? { text: 'NEW', variant: 'success' as const }
+              : undefined,
+          };
+        }
+        return item;
+      });
+    });
+  }, [recentAnnouncementsCount, roleId, menuItems.length, announcementsLoading]); // Runs when count/loading changes OR menu loads
 
   // Show loading skeleton while menu loads
   if (isLoadingMenu) {

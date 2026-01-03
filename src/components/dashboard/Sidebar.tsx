@@ -12,7 +12,8 @@ export interface MenuItem {
   href: string;
   icon: LucideIcon;
   badge?: {
-    count: number;
+    count?: number;  // Numeric count (e.g., notifications: 5, feedback: 3)
+    text?: string;   // Text label (e.g., announcements: "NEW")
     variant?: 'danger' | 'warning' | 'info' | 'success';
   };
 }
@@ -94,7 +95,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               >
                 {item.label}
               </span>
-              {item.badge && item.badge.count > 0 && (
+              {item.badge && (item.badge.count || item.badge.text) && (
                 <span
                   className={cn(
                     'flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full text-xs font-semibold transition-opacity duration-300',
@@ -106,7 +107,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     !item.badge.variant && 'bg-red-500 text-white'
                   )}
                 >
-                  {item.badge.count > 99 ? '99+' : item.badge.count}
+                  {item.badge.text || (item.badge.count && item.badge.count > 99 ? '99+' : item.badge.count)}
                 </span>
               )}
             </Link>
