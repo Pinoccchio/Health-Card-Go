@@ -4,6 +4,8 @@ import BaseLineChart from './BaseLineChart';
 import BasePieChart from './BasePieChart';
 import BaseBarChart from './BaseBarChart';
 import { ensureArray, safeNumber } from '@/lib/utils/reportHelpers';
+import { getDiseaseColor } from '@/lib/utils/colorUtils';
+import { formatDiseaseType } from '@/lib/utils/chartDataTransformers';
 
 interface DiseaseChartsProps {
   data: any;
@@ -16,29 +18,20 @@ export function DiseaseDistributionChart({ data }: DiseaseChartsProps) {
     return <div className="text-center text-gray-500 py-12">No disease data available</div>;
   }
 
-  const diseaseColors: Record<string, string> = {
-    hiv_aids: '#ef4444',
-    dengue: '#f59e0b',
-    malaria: '#14b8a6',
-    measles: '#8b5cf6',
-    rabies: '#ec4899',
-    pregnancy_complications: '#f97316',
-  };
-
   const chartData = {
-    labels: byDiseaseType.map((d: any) =>
-      (d.disease_type || 'Unknown').replace(/_/g, ' ').toUpperCase()
-    ),
+    labels: byDiseaseType.map((d: any) => {
+      // Format label using custom disease name if available
+      return formatDiseaseType(d.disease_type || 'Unknown', d.custom_disease_name);
+    }),
     datasets: [
       {
         data: byDiseaseType.map((d: any) => safeNumber(d.count, 0)),
-        backgroundColor: byDiseaseType.map(
-          (d: any) => diseaseColors[d.disease_type] || '#6b7280'
+        backgroundColor: byDiseaseType.map((d: any) =>
+          getDiseaseColor(d.disease_type || 'other', d.custom_disease_name)
         ),
-        borderColor: byDiseaseType.map((d: any) => {
-          const color = diseaseColors[d.disease_type] || '#6b7280';
-          return color.replace('0.8', '1');
-        }),
+        borderColor: byDiseaseType.map((d: any) =>
+          getDiseaseColor(d.disease_type || 'other', d.custom_disease_name)
+        ),
         borderWidth: 1,
       },
     ],

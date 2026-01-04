@@ -1,4 +1,5 @@
 import { format, subMonths, startOfMonth, getMonth, getYear, differenceInMonths } from 'date-fns';
+import { getDiseaseColor } from './colorUtils';
 
 // Type definitions for historical chart data
 export interface HistoricalMonthlyData {
@@ -10,13 +11,7 @@ export interface HistoricalMonthlyData {
 export interface HistoricalMonthlyByDiseaseData {
   month: string;
   date: Date;
-  dengue: number;
-  hiv_aids: number;
-  pregnancy_complications: number;
-  measles: number;
-  rabies: number;
-  malaria: number;
-  other: number;
+  [key: string]: number | string | Date; // Dynamic properties for each disease
 }
 
 export interface HistoricalBarangayData {
@@ -37,17 +32,6 @@ interface Barangay {
   name: string;
   code?: string;
 }
-
-// Disease color mapping (same as individual cases for consistency)
-const DISEASE_COLORS: Record<string, string> = {
-  hiv_aids: '#ef4444',
-  dengue: '#f59e0b',
-  malaria: '#14b8a6',
-  measles: '#8b5cf6',
-  rabies: '#ec4899',
-  pregnancy_complications: '#f97316',
-  other: '#6b7280', // gray for custom diseases
-};
 
 /**
  * Aggregate historical disease statistics by month
@@ -111,6 +95,8 @@ function calculateHistoricalMonthsSinceEarliest(statistics: any[]): number {
  *
  * Key difference from aggregateHistoricalByMonth: Creates separate property for EACH disease
  * instead of summing to a single totalCases value
+ *
+ * UPDATED: Now dynamically handles custom diseases - creates properties for each unique disease
  */
 export function aggregateHistoricalByMonthAndDisease(
   statistics: any[],
@@ -121,21 +107,34 @@ export function aggregateHistoricalByMonthAndDisease(
     ? calculateHistoricalMonthsSinceEarliest(statistics)
     : monthsBack - 1;
 
+  // First pass: identify all unique disease keys (including custom diseases)
+  const diseaseKeys = new Set<string>();
+  statistics.forEach((stat) => {
+    if (!stat.disease_type) return;
+
+    // For custom diseases, use custom_disease_name as the key
+    if (stat.disease_type === 'other' && stat.custom_disease_name) {
+      diseaseKeys.add(stat.custom_disease_name);
+    } else {
+      diseaseKeys.add(stat.disease_type);
+    }
+  });
+
   // Generate month range with all disease types initialized to 0
   const months: HistoricalMonthlyByDiseaseData[] = [];
   for (let i = monthCount; i >= 0; i--) {
     const date = subMonths(new Date(), i);
-    months.push({
+    const monthData: HistoricalMonthlyByDiseaseData = {
       month: format(date, 'MMM yyyy'),
       date: startOfMonth(date),
-      dengue: 0,
-      hiv_aids: 0,
-      pregnancy_complications: 0,
-      measles: 0,
-      rabies: 0,
-      malaria: 0,
-      other: 0,
+    };
+
+    // Initialize all disease keys to 0
+    diseaseKeys.forEach((key) => {
+      monthData[key] = 0;
     });
+
+    months.push(monthData);
   }
 
   // Sum case_count by month AND disease type
@@ -149,10 +148,15 @@ export function aggregateHistoricalByMonthAndDisease(
     );
 
     if (monthIndex !== -1) {
-      const diseaseType = stat.disease_type;
+      // Determine the key for this disease (custom name or disease type)
+      const diseaseKey = stat.disease_type === 'other' && stat.custom_disease_name
+        ? stat.custom_disease_name
+        : stat.disease_type;
+
       // Add case_count to the appropriate disease property
-      if (diseaseType in months[monthIndex]) {
-        (months[monthIndex] as any)[diseaseType] += stat.case_count;
+      if (diseaseKey && diseaseKey in months[monthIndex]) {
+        (months[monthIndex] as any)[diseaseKey] =
+          ((months[monthIndex] as any)[diseaseKey] || 0) + stat.case_count;
       }
     }
   });
@@ -265,7 +269,7 @@ export function aggregateHistoricalByDiseaseType(
       type: formatDiseaseType(data.rawType, data.customName),
       totalCases: data.totalCases,
       percentage: total > 0 ? (data.totalCases / total) * 100 : 0,
-      color: DISEASE_COLORS[data.rawType] || DISEASE_COLORS.other,
+      color: getDiseaseColor(data.rawType, data.customName),
     }))
     .sort((a, b) => b.totalCases - a.totalCases);
 }

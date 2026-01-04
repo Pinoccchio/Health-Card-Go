@@ -15,7 +15,8 @@ import {
   ChartOptions,
 } from 'chart.js';
 import { TrendingUp, RefreshCw } from 'lucide-react';
-import { aggregateHistoricalByMonthAndDisease, formatNumber } from '@/lib/utils/historicalChartDataTransformers';
+import { aggregateHistoricalByMonthAndDisease, formatNumber, formatDiseaseType } from '@/lib/utils/historicalChartDataTransformers';
+import { getDiseaseColor } from '@/lib/utils/colorUtils';
 
 // Register Chart.js components
 ChartJS.register(
@@ -49,31 +50,66 @@ export default function HistoricalTrendChart({
 
     const aggregated = aggregateHistoricalByMonthAndDisease(data, timeRangeMonths);
 
-    // Disease configurations with colors and labels
-    const diseases = [
-      { key: 'dengue', label: 'Dengue', color: '#f59e0b', bgColor: 'rgba(245, 158, 11, 0.1)' },
-      { key: 'hiv_aids', label: 'HIV/AIDS', color: '#ef4444', bgColor: 'rgba(239, 68, 68, 0.1)' },
-      { key: 'pregnancy_complications', label: 'Pregnancy Complications', color: '#f97316', bgColor: 'rgba(249, 115, 22, 0.1)' },
-      { key: 'measles', label: 'Measles', color: '#8b5cf6', bgColor: 'rgba(139, 92, 246, 0.1)' },
-      { key: 'malaria', label: 'Malaria', color: '#14b8a6', bgColor: 'rgba(20, 184, 166, 0.1)' },
-      { key: 'rabies', label: 'Rabies', color: '#ec4899', bgColor: 'rgba(236, 72, 153, 0.1)' },
-      { key: 'other', label: 'Other Diseases', color: '#6b7280', bgColor: 'rgba(107, 114, 128, 0.1)' },
-    ];
+    // Extract all disease keys from the aggregated data (excluding month and date properties)
+    const diseaseKeys = new Set<string>();
+    aggregated.forEach((monthData) => {
+      Object.keys(monthData).forEach((key) => {
+        if (key !== 'month' && key !== 'date') {
+          diseaseKeys.add(key);
+        }
+      });
+    });
 
-    return {
-      labels: aggregated.map((d) => d.month),
-      datasets: diseases.map((disease) => ({
-        label: disease.label,
-        data: aggregated.map((d) => (d as any)[disease.key]),
-        borderColor: disease.color,
-        backgroundColor: disease.bgColor,
+    // Helper function to convert hex color to rgba
+    const hexToRgba = (hex: string, alpha: number): string => {
+      // Handle HSL colors
+      if (hex.startsWith('hsl')) {
+        const match = hex.match(/hsl\((\d+),\s*(\d+)%,\s*(\d+)%\)/);
+        if (match) {
+          const h = parseInt(match[1]);
+          const s = parseInt(match[2]);
+          const l = parseInt(match[3]);
+          return `hsla(${h}, ${s}%, ${l}%, ${alpha})`;
+        }
+        return hex;
+      }
+
+      // Handle hex colors
+      const r = parseInt(hex.slice(1, 3), 16);
+      const g = parseInt(hex.slice(3, 5), 16);
+      const b = parseInt(hex.slice(5, 7), 16);
+      return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+    };
+
+    // Create datasets dynamically for each disease
+    const datasets = Array.from(diseaseKeys).map((diseaseKey) => {
+      // Determine if this is a standard disease or custom disease
+      const isStandardDisease = ['dengue', 'hiv_aids', 'pregnancy_complications', 'measles', 'malaria', 'rabies'].includes(diseaseKey);
+
+      // Get color (standard or generated for custom diseases)
+      const color = getDiseaseColor(isStandardDisease ? diseaseKey : 'other', !isStandardDisease ? diseaseKey : undefined);
+      const bgColor = hexToRgba(color, 0.1);
+
+      // Format label
+      const label = formatDiseaseType(isStandardDisease ? diseaseKey : 'other', !isStandardDisease ? diseaseKey : undefined);
+
+      return {
+        label,
+        data: aggregated.map((d) => (d as any)[diseaseKey] || 0),
+        borderColor: color,
+        backgroundColor: bgColor,
         fill: true,
         tension: 0.4,
         borderWidth: 2,
         pointRadius: 3,
         pointHoverRadius: 5,
         spanGaps: true,
-      })),
+      };
+    });
+
+    return {
+      labels: aggregated.map((d) => d.month),
+      datasets,
     };
   }, [data, timeRangeMonths]);
 

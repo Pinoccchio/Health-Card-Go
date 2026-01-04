@@ -1,4 +1,5 @@
 import { format, subMonths, startOfMonth, getMonth, getYear, differenceInMonths } from 'date-fns';
+import { getDiseaseColor } from './colorUtils';
 
 // Type definitions for chart data
 export interface MonthlyTrendData {
@@ -27,17 +28,6 @@ interface Barangay {
   name: string;
   code?: string;
 }
-
-// Disease color mapping
-const DISEASE_COLORS: Record<string, string> = {
-  hiv_aids: '#ef4444',
-  dengue: '#f59e0b',
-  malaria: '#14b8a6',
-  measles: '#8b5cf6',
-  rabies: '#ec4899',
-  pregnancy_complications: '#f97316',
-  other: '#6b7280', // gray for custom diseases
-};
 
 /**
  * Generate labels for the last 12 months
@@ -222,7 +212,7 @@ export function aggregateByDiseaseType(
       type: formatDiseaseType(data.rawType, data.customName),
       count: data.count,
       percentage: total > 0 ? (data.count / total) * 100 : 0,
-      color: DISEASE_COLORS[data.rawType] || DISEASE_COLORS.other,
+      color: getDiseaseColor(data.rawType, data.customName),
     }))
     .sort((a, b) => b.count - a.count);
 }
