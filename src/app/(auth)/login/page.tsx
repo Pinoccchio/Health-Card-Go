@@ -9,7 +9,6 @@ import {
   AuthCard,
   FormField,
   PasswordInput,
-  Checkbox,
   Alert,
 } from '@/components/auth';
 import { Button } from '@/components/ui';
@@ -23,7 +22,6 @@ export default function LoginPage() {
   const [formData, setFormData] = useState<LoginCredentials>({
     email: '',
     password: '',
-    rememberMe: false,
   });
 
   const [errors, setErrors] = useState<Partial<LoginCredentials>>({});
@@ -147,16 +145,8 @@ export default function LoginPage() {
             />
           </div>
 
-          {/* Remember Me & Forgot Password */}
-          <div className="flex items-center justify-between">
-            <Checkbox
-              id="rememberMe"
-              label="Remember me"
-              checked={formData.rememberMe}
-              onChange={(e) => handleChange('rememberMe', e.target.checked)}
-              disabled={loading}
-            />
-
+          {/* Forgot Password */}
+          <div className="flex justify-end">
             <Link
               href="/forgot-password"
               className="text-sm font-medium text-primary-teal hover:text-primary-teal-dark transition-colors"
