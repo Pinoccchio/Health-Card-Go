@@ -1,34 +1,99 @@
 'use client';
 
 import { useState, FormEvent, useEffect, Suspense } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Lock, CheckCircle } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { AuthCard, PasswordInput, Alert } from '@/components/auth';
 import { Button } from '@/components/ui';
+import { createClient } from '@/lib/supabase/client';
 
 function ResetPasswordForm() {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const { resetPassword, loading } = useAuth();
+  const supabase = createClient();
 
-  const [token, setToken] = useState<string | null>(null);
+  const [isValidating, setIsValidating] = useState(true);
+  const [sessionEstablished, setSessionEstablished] = useState(false);
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [serverError, setServerError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
 
-  // Get token from URL
+  /**
+   * Extract tokens from hash fragment and establish session
+   * Supabase sends tokens in URL hash: #access_token=...&refresh_token=...&type=recovery
+   */
   useEffect(() => {
-    const tokenParam = searchParams.get('token');
-    if (!tokenParam) {
-      setServerError('Invalid or missing reset token');
-    } else {
-      setToken(tokenParam);
-    }
-  }, [searchParams]);
+    const handlePasswordRecovery = async () => {
+      try {
+        setIsValidating(true);
+
+        // Hash fragments are available in window.location.hash
+        const hashParams = new URLSearchParams(window.location.hash.substring(1));
+        const access_token = hashParams.get('access_token');
+        const refresh_token = hashParams.get('refresh_token');
+        const type = hashParams.get('type');
+
+        console.log('Password recovery - Hash params:', {
+          hasAccessToken: !!access_token,
+          hasRefreshToken: !!refresh_token,
+          type,
+        });
+
+        // Check if this is a password recovery flow
+        if (type !== 'recovery') {
+          console.error('Invalid recovery type:', type);
+          setServerError('Invalid recovery link type');
+          setIsValidating(false);
+          return;
+        }
+
+        if (!access_token) {
+          console.error('No access token found in hash');
+          setServerError('Invalid or missing reset token');
+          setIsValidating(false);
+          return;
+        }
+
+        // Exchange hash tokens for session
+        console.log('Establishing session with tokens...');
+        const { data: sessionData, error: sessionError } = await supabase.auth.setSession({
+          access_token,
+          refresh_token: refresh_token || '',
+        });
+
+        if (sessionError) {
+          console.error('Session error:', sessionError);
+          setServerError('This password reset link is invalid or has expired');
+          setIsValidating(false);
+          return;
+        }
+
+        if (!sessionData.session) {
+          console.error('No session data returned');
+          setServerError('Failed to establish session');
+          setIsValidating(false);
+          return;
+        }
+
+        console.log('Session established successfully for user:', sessionData.session.user.email);
+        setSessionEstablished(true);
+        setIsValidating(false);
+
+        // Clean up URL (remove hash)
+        window.history.replaceState(null, '', window.location.pathname);
+      } catch (err) {
+        console.error('Recovery error:', err);
+        setServerError('An error occurred while validating your reset link');
+        setIsValidating(false);
+      }
+    };
+
+    handlePasswordRecovery();
+  }, [supabase.auth]);
 
   /**
    * Validate form
@@ -60,15 +125,15 @@ function ResetPasswordForm() {
     setServerError('');
     setSuccessMessage('');
 
-    if (!token) {
-      setServerError('Invalid reset token');
+    if (!sessionEstablished) {
+      setServerError('Invalid session. Please request a new reset link.');
       return;
     }
 
     if (!validate()) return;
 
     try {
-      await resetPassword({ password, confirmPassword, token });
+      await resetPassword({ password, confirmPassword });
       setSuccessMessage(
         'Password reset successful! Redirecting to login...'
       );
@@ -86,8 +151,22 @@ function ResetPasswordForm() {
     }
   };
 
-  // If no token, show error state
-  if (!token && !loading) {
+  // Show loading state while validating
+  if (isValidating) {
+    return (
+      <div className="flex justify-center">
+        <AuthCard title="Reset Password" subtitle="Validating your reset link...">
+          <div className="text-center py-8">
+            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary-teal"></div>
+            <p className="mt-4 text-sm text-gray-600">Please wait...</p>
+          </div>
+        </AuthCard>
+      </div>
+    );
+  }
+
+  // If session not established, show error state
+  if (!sessionEstablished) {
     return (
       <div className="flex justify-center">
         <AuthCard title="Invalid Link" subtitle="This password reset link is invalid or has expired">
@@ -95,7 +174,7 @@ function ResetPasswordForm() {
             <Alert
               variant="error"
               title="Invalid Reset Link"
-              message="This password reset link is invalid or has expired. Please request a new one."
+              message={serverError || "This password reset link is invalid or has expired. Please request a new one."}
             />
 
             <Link href="/forgot-password">
@@ -125,6 +204,7 @@ function ResetPasswordForm() {
     );
   }
 
+  // Show password reset form
   return (
     <div className="flex justify-center">
       <AuthCard
