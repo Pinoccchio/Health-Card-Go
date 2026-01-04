@@ -1,442 +1,1049 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { DashboardLayout } from '@/components/dashboard';
 import { Container } from '@/components/ui';
-import OutbreakAlerts from '@/components/disease-surveillance/OutbreakAlerts';
+import { ProfessionalCard } from '@/components/ui/ProfessionalCard';
 import DiseaseHeatmap from '@/components/disease-surveillance/DiseaseHeatmap';
 import SARIMAChart from '@/components/disease-surveillance/SARIMAChart';
+import OutbreakAlerts from '@/components/disease-surveillance/OutbreakAlerts';
+import { DiseaseChartsSection } from '@/components/staff/DiseaseChartsSection';
+import { HistoricalChartsSection } from '@/components/staff/HistoricalChartsSection';
+import { interpretMAPE, getMAPEColor } from '@/lib/utils/sarimaMetrics';
 import {
   Activity,
-  MapPin,
-  TrendingUp,
   AlertTriangle,
-  Users,
-  RefreshCw,
-  Filter,
+  TrendingUp,
+  MapPin,
   Calendar,
-  Download,
+  BarChart3,
+  Database,
+  LineChart,
+  Sparkles,
+  RefreshCw,
+  CheckCircle2,
+  XCircle,
+  Info,
+  CreditCard,
+  UtensilsCrossed,
+  Users,
 } from 'lucide-react';
 
-interface HeatmapData {
-  barangay_id: number;
-  barangay_name: string;
-  coordinates: any;
-  statistics: {
-    total_cases: number;
-    active_cases: number;
-    critical_cases: number;
-    severe_cases: number;
-    recovered_cases: number;
-  };
-  diseases: Array<{
-    disease_type: string;
-    custom_disease_name: string | null;
-    total_count: number;
-    active_count: number;
-    critical_count: number;
-  }>;
-  intensity: number;
-  risk_level: 'low' | 'medium' | 'high' | 'critical';
-}
+type DiseaseType = 'all' | 'dengue' | 'hiv_aids' | 'pregnancy_complications' | 'malaria' | 'measles' | 'rabies' | 'other';
+type TabType = 'individual-cases' | 'historical-statistics' | 'predictions';
+type TimeRange = 6 | 12 | 24 | 'all';
 
 interface SummaryStats {
-  totalActiveCases: number;
-  criticalCases: number;
-  activeOutbreaks: number;
-  predictionAccuracy: number | null;
-}
-
-interface Barangay {
-  id: number;
-  name: string;
+  individualCases: {
+    total: number;
+    thisMonth: number;
+    active: number;
+    recovered: number;
+  };
+  historicalStats: {
+    totalRecords: number;
+    totalCases: number;
+    dateRange: string;
+  };
 }
 
 export default function AdminDiseaseSurveillancePage() {
-  // State
-  const [loading, setLoading] = useState(true);
-  const [heatmapData, setHeatmapData] = useState<HeatmapData[]>([]);
-  const [summaryStats, setSummaryStats] = useState<SummaryStats>({
-    totalActiveCases: 0,
-    criticalCases: 0,
-    activeOutbreaks: 0,
-    predictionAccuracy: null,
+  // Tab and filter states
+  const [activeTab, setActiveTab] = useState<TabType>('predictions');
+  // FIX: Tab-specific disease filters to prevent cross-tab filter sharing
+  const [diseaseFilterByTab, setDiseaseFilterByTab] = useState<Record<TabType, DiseaseType>>({
+    'predictions': 'all',
+    'individual-cases': 'all',
+    'historical-statistics': 'all'
   });
-  const [barangays, setBarangays] = useState<Barangay[]>([]);
-  const [refreshing, setRefreshing] = useState(false);
-  const [lastRefreshed, setLastRefreshed] = useState<Date | null>(null);
+  // Tab-specific barangay filters (null = all barangays)
+  const [barangayFilterByTab, setBarangayFilterByTab] = useState<Record<TabType, number | null>>({
+    'predictions': null,
+    'individual-cases': null,
+    'historical-statistics': null
+  });
+  const [timeRange, setTimeRange] = useState<TimeRange>(24);
 
-  // Filters
-  const [selectedDiseaseType, setSelectedDiseaseType] = useState<string>('all');
-  const [selectedBarangay, setSelectedBarangay] = useState<number | null>(null);
-  const [selectedTab, setSelectedTab] = useState<'heatmap' | 'predictions'>('heatmap');
+  // Data states
+  const [heatmapData, setHeatmapData] = useState<any>(null);
+  const [diseases, setDiseases] = useState<any[]>([]);
+  const [historicalData, setHistoricalData] = useState<any[]>([]);
+  const [barangays, setBarangays] = useState<any[]>([]);
+  const [stats, setStats] = useState<SummaryStats>({
+    individualCases: { total: 0, thisMonth: 0, active: 0, recovered: 0 },
+    historicalStats: { totalRecords: 0, totalCases: 0, dateRange: '-' },
+  });
 
-  // Disease types for filtering
-  const diseaseTypes = [
-    { value: 'all', label: 'All Diseases' },
-    { value: 'dengue', label: 'Dengue' },
-    { value: 'hiv_aids', label: 'HIV/AIDS' },
-    { value: 'pregnancy_complications', label: 'Pregnancy Complications' },
-    { value: 'malaria', label: 'Malaria' },
-    { value: 'measles', label: 'Measles' },
-    { value: 'rabies', label: 'Rabies' },
-    { value: 'other', label: 'Other Diseases' },
-  ];
+  // Loading and error states
+  const [loading, setLoading] = useState(true);
+  const [chartsLoading, setChartsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  // Load initial data
+  // Prediction generation states
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [generationStatus, setGenerationStatus] = useState<{
+    type: 'idle' | 'success' | 'error';
+    message?: string;
+    details?: any; // Full API response for detailed display
+  }>({ type: 'idle' });
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  // FIX: Helper to get current tab's selected disease filter
+  const selectedDisease = diseaseFilterByTab[activeTab];
+  // Helper to get current tab's selected barangay filter
+  const selectedBarangay = barangayFilterByTab[activeTab];
+
+  // OPTIMIZATION: Load data based on active tab instead of all at once
   useEffect(() => {
-    loadAllData();
-    loadBarangays();
-  }, []);
+    setLoading(true); // CRITICAL FIX: Set loading state before fetching data
+    loadBarangays(); // Always load barangays for dropdowns
 
-  // Reload data when filters change
+    if (activeTab === 'predictions') {
+      loadHeatmapData();
+    } else if (activeTab === 'individual-cases' || activeTab === 'historical-statistics') {
+      loadChartsData();
+    }
+  }, [activeTab]);
+
+  // FIX: Reload data when TAB-SPECIFIC filters change (not shared across tabs)
   useEffect(() => {
-    loadHeatmapData();
-  }, [selectedDiseaseType, selectedBarangay]);
+    if (activeTab === 'predictions') {
+      loadHeatmapData();
+    } else if (activeTab === 'individual-cases' || activeTab === 'historical-statistics') {
+      loadChartsData();
+    }
+  }, [diseaseFilterByTab[activeTab], barangayFilterByTab[activeTab], timeRange]); // NEW: Watch barangay filter changes
+
+  const loadHeatmapData = async () => {
+    setLoading(true); // CRITICAL FIX: Show loading indicator when heatmap data is being fetched
+    setError(null);
+
+    try {
+      const params = new URLSearchParams();
+      if (selectedDisease !== 'all') {
+        params.append('disease_type', selectedDisease); // FIX: Changed from 'type' to 'disease_type' to match API expectation
+      }
+      if (selectedBarangay !== null) {
+        params.append('barangay_id', selectedBarangay.toString()); // NEW: Add barangay filter
+      }
+
+      const response = await fetch(`/api/diseases/heatmap-data?${params.toString()}`);
+      const data = await response.json();
+
+      if (data.success) {
+        setHeatmapData(data);
+      } else {
+        setError(data.error || 'Failed to load heatmap data');
+      }
+    } catch (err) {
+      console.error('Error loading heatmap data:', err);
+      setError('An unexpected error occurred');
+    } finally {
+      setLoading(false); // CRITICAL FIX: Ensure loading state is always reset
+    }
+  };
+
+  const loadChartsData = async () => {
+    setChartsLoading(true);
+    setError(null);
+
+    try {
+      // FIX: Build disease filter parameters for Individual Cases API
+      const diseaseParams = new URLSearchParams();
+      if (selectedDisease !== 'all') {
+        diseaseParams.append('type', selectedDisease); // Note: /api/diseases uses 'type' parameter
+      }
+      if (selectedBarangay !== null) {
+        diseaseParams.append('barangay_id', selectedBarangay.toString()); // NEW: Add barangay filter
+      }
+
+      // Fetch individual cases WITH disease filter
+      const diseasesRes = await fetch(`/api/diseases?${diseaseParams.toString()}`);
+      const diseasesData = await diseasesRes.json();
+      const allDiseases = diseasesData.data || [];
+
+      // Apply time range filter
+      const filteredDiseases = filterByTimeRange(allDiseases);
+      setDiseases(filteredDiseases);
+
+      // Calculate individual cases stats
+      const now = new Date();
+      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+      const thisMonthCases = filteredDiseases.filter((d: any) => {
+        const diagnosisDate = new Date(d.diagnosis_date);
+        return diagnosisDate >= startOfMonth;
+      }).length;
+
+      const activeCases = filteredDiseases.filter((d: any) =>
+        d.status === 'active' || d.status === 'ongoing_treatment'
+      ).length;
+
+      const recoveredCases = filteredDiseases.filter((d: any) =>
+        d.status === 'recovered'
+      ).length;
+
+      // FIX: Build disease filter parameters for Historical Statistics API
+      const historicalParams = new URLSearchParams();
+      if (selectedDisease !== 'all') {
+        historicalParams.append('disease_type', selectedDisease); // Note: /api/diseases/historical uses 'disease_type' parameter
+      }
+      if (selectedBarangay !== null) {
+        historicalParams.append('barangay_id', selectedBarangay.toString()); // NEW: Add barangay filter
+      }
+
+      // Fetch historical statistics WITH disease filter
+      const historicalRes = await fetch(`/api/diseases/historical?${historicalParams.toString()}`);
+      const historicalResData = await historicalRes.json();
+      const allHistorical = historicalResData.data || [];
+      const summary = historicalResData.summary || {};
+
+      // Apply time range filter to historical data
+      const filteredHistorical = filterByTimeRange(allHistorical, 'record_date');
+      setHistoricalData(filteredHistorical);
+
+      // Calculate summary stats
+      const totalHistoricalCases = filteredHistorical.reduce((sum: number, record: any) => {
+        return sum + (record.case_count || 0);
+      }, 0);
+
+      setStats({
+        individualCases: {
+          total: filteredDiseases.length,
+          thisMonth: thisMonthCases,
+          active: activeCases,
+          recovered: recoveredCases,
+        },
+        historicalStats: {
+          totalRecords: filteredHistorical.length,
+          totalCases: totalHistoricalCases,
+          dateRange: summary.earliestDate && summary.latestDate
+            ? `${new Date(summary.earliestDate).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })} - ${new Date(summary.latestDate).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}`
+            : '-',
+        },
+      });
+    } catch (err) {
+      console.error('Error loading charts data:', err);
+      setError('Failed to load charts data');
+    } finally {
+      setChartsLoading(false);
+    }
+  };
 
   const loadBarangays = async () => {
     try {
       const response = await fetch('/api/barangays');
-      const result = await response.json();
-      if (result.success) {
-        setBarangays(result.data || []);
+      const data = await response.json();
+      if (data.success) {
+        setBarangays(data.data || []);
       }
-    } catch (error) {
-      console.error('Error loading barangays:', error);
+    } catch (err) {
+      console.error('Error loading barangays:', err);
     }
   };
 
-  const loadAllData = async () => {
-    setLoading(true);
-    await Promise.all([loadHeatmapData(), loadSummaryStats()]);
-    setLastRefreshed(new Date());
-    setLoading(false);
+  const filterByTimeRange = (data: any[], dateField: string = 'diagnosis_date') => {
+    if (timeRange === 'all') return data;
+
+    const now = new Date();
+    const cutoffDate = new Date();
+    cutoffDate.setMonth(now.getMonth() - timeRange);
+
+    return data.filter((item: any) => {
+      const itemDate = new Date(item[dateField]);
+      return itemDate >= cutoffDate;
+    });
   };
 
-  const loadHeatmapData = async () => {
+  const handleGeneratePredictions = async () => {
+    setIsGenerating(true);
+    setGenerationStatus({ type: 'idle' });
+    setError(null);
+
     try {
-      const params = new URLSearchParams();
-      if (selectedDiseaseType !== 'all') {
-        params.append('disease_type', selectedDiseaseType);
-      }
-      if (selectedBarangay) {
-        params.append('barangay_id', selectedBarangay.toString());
-      }
+      const response = await fetch('/api/diseases/generate-predictions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          diseaseType: selectedDisease,
+          // Removed barangayId - SARIMA predictions are system-wide for better accuracy
+          daysForecast: 30,
+        }),
+      });
 
-      const response = await fetch(`/api/diseases/heatmap-data?${params.toString()}`);
-      const result = await response.json();
+      const data = await response.json();
 
-      if (result.success) {
-        setHeatmapData(result.data || []);
-      }
-    } catch (error) {
-      console.error('Error loading heatmap data:', error);
-    }
-  };
+      if (data.success) {
+        setGenerationStatus({
+          type: 'success',
+          message: data.message || 'Predictions generated successfully',
+          details: data, // Store full response for detailed display
+        });
+        // Force SARIMAChart to reload by changing key
+        setRefreshKey((prev) => prev + 1);
+        // Don't auto-hide - let user dismiss manually
+      } else {
+        // Check if error is quota-related
+        const isQuotaError = data.error?.includes('quota') || data.error?.includes('429') || data.error?.includes('Too Many Requests');
+        const errorMessage = isQuotaError
+          ? 'System temporarily busy. Displaying cached predictions. Please wait a moment and try again, or try generating predictions for a single disease instead of "All Diseases".'
+          : data.error || 'Failed to generate predictions';
 
-  const loadSummaryStats = async () => {
-    try {
-      // Get total active cases
-      const diseasesResponse = await fetch('/api/diseases');
-      const diseasesResult = await diseasesResponse.json();
-
-      if (diseasesResult.success) {
-        const diseases = diseasesResult.data || [];
-        const activeCases = diseases.filter((d: any) => d.status === 'active' || d.status === 'ongoing_treatment');
-        const critical = diseases.filter((d: any) => d.severity === 'critical');
-
-        // Get active outbreaks
-        const outbreaksResponse = await fetch('/api/diseases/outbreak-detection');
-        const outbreaksResult = await outbreaksResponse.json();
-        const activeOutbreaks = outbreaksResult.success ? (outbreaksResult.data?.length || 0) : 0;
-
-        // Get latest prediction accuracy (if available)
-        const predictionsResponse = await fetch('/api/diseases/predictions?limit=1');
-        const predictionsResult = await predictionsResponse.json();
-        const predictionAccuracy =
-          predictionsResult.success && predictionsResult.data?.length > 0
-            ? predictionsResult.data[0].accuracy_r_squared
-            : null;
-
-        setSummaryStats({
-          totalActiveCases: activeCases.length,
-          criticalCases: critical.length,
-          activeOutbreaks,
-          predictionAccuracy,
+        setGenerationStatus({
+          type: 'error',
+          message: errorMessage,
         });
       }
-    } catch (error) {
-      console.error('Error loading summary stats:', error);
+    } catch (err) {
+      console.error('Error generating predictions:', err);
+      setGenerationStatus({
+        type: 'error',
+        message: 'An unexpected error occurred while generating predictions',
+      });
+    } finally {
+      setIsGenerating(false);
     }
   };
 
-  const handleRefresh = async () => {
-    setRefreshing(true);
-    await loadAllData();
-    setRefreshing(false);
-  };
+  // OPTIMIZATION: Memoize disease options to prevent re-creation on every render
+  const diseaseOptions = useMemo(() => [
+    { id: 'all', label: 'All Diseases', color: 'blue' },
+    { id: 'dengue', label: 'Dengue', color: 'red' },
+    { id: 'hiv_aids', label: 'HIV/AIDS', color: 'purple' },
+    { id: 'pregnancy_complications', label: 'Pregnancy', color: 'pink' },
+    { id: 'malaria', label: 'Malaria', color: 'yellow' },
+    { id: 'measles', label: 'Measles', color: 'orange' },
+    { id: 'rabies', label: 'Rabies', color: 'gray' },
+    { id: 'other', label: 'Other (Custom Diseases)', color: 'slate' },
+  ], []);
 
-  const handleExport = () => {
-    // Export current view data (future enhancement)
-    alert('Export functionality coming soon. This will export disease data to CSV/Excel.');
-  };
+  // OPTIMIZATION: Memoize selected disease label to prevent lookups on every render
+  const selectedDiseaseLabel = useMemo(() =>
+    diseaseOptions.find(d => d.id === selectedDisease)?.label ?? 'All Diseases',
+    [selectedDisease, diseaseOptions]
+  );
+
+  // OPTIMIZATION: Memoize selected barangay label to prevent lookups on every render
+  const selectedBarangayLabel = useMemo(() => {
+    if (selectedBarangay === null) {
+      return 'across barangays';
+    }
+    const barangay = barangays.find(b => b.id === selectedBarangay);
+    return barangay ? `in ${barangay.name}` : 'across barangays';
+  }, [selectedBarangay, barangays]);
 
   return (
     <DashboardLayout
       roleId={1}
-      pageTitle="Disease Surveillance"
-      pageDescription="Real-time disease tracking, outbreak detection, and predictive analytics"
+      pageTitle="Disease Surveillance & Analytics"
+      pageDescription="Comprehensive disease surveillance with predictive analytics and outbreak detection"
     >
       <Container size="full">
-        {/* Header Actions */}
-        <div className="mb-6 flex items-center justify-between">
-          <div className="flex items-center gap-4">
+        {/* Error Alert */}
+        {error && (
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+            <div className="flex items-start">
+              <AlertTriangle className="w-5 h-5 text-red-600 mt-0.5 mr-3 flex-shrink-0" />
+              <p className="text-red-800">{error}</p>
+            </div>
+          </div>
+        )}
+
+        {/* Tab Navigation */}
+        <div className="mb-6 border-b border-gray-200">
+          <nav className="-mb-px flex space-x-8" aria-label="Tabs">
             <button
-              onClick={handleRefresh}
-              disabled={refreshing}
-              className="flex items-center gap-2 px-4 py-2 text-sm bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              onClick={() => setActiveTab('predictions')}
+              className={`
+                whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors
+                ${
+                  activeTab === 'predictions'
+                    ? 'border-primary-teal text-primary-teal'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }
+              `}
             >
-              <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
-              {refreshing ? 'Refreshing...' : 'Refresh Data'}
+              <div className="flex items-center gap-2">
+                <TrendingUp className="w-4 h-4" />
+                Predictions & Forecasts
+              </div>
             </button>
-            {lastRefreshed && (
-              <span className="text-sm text-gray-500">
-                Last updated: {lastRefreshed.toLocaleTimeString()}
-              </span>
+            <button
+              onClick={() => setActiveTab('individual-cases')}
+              className={`
+                whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors
+                ${
+                  activeTab === 'individual-cases'
+                    ? 'border-primary-teal text-primary-teal'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }
+              `}
+            >
+              <div className="flex items-center gap-2">
+                <Activity className="w-4 h-4" />
+                Individual Cases
+              </div>
+            </button>
+            <button
+              onClick={() => setActiveTab('historical-statistics')}
+              className={`
+                whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors
+                ${
+                  activeTab === 'historical-statistics'
+                    ? 'border-primary-teal text-primary-teal'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }
+              `}
+            >
+              <div className="flex items-center gap-2">
+                <Database className="w-4 h-4" />
+                Historical Statistics
+              </div>
+            </button>
+          </nav>
+        </div>
+
+        {/* FIX: Removed global disease filter - now each tab has its own filter */}
+
+        {/* TAB CONTENT: Individual Cases */}
+        {activeTab === 'individual-cases' && (
+          <>
+            {/* Disease Type, Time Range & Barangay Filters */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
+              {/* Disease Type Selector */}
+              <div className="bg-white rounded-lg shadow p-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <BarChart3 className="w-5 h-5 text-primary-teal" />
+                  <h3 className="text-sm font-medium text-gray-700">Disease Type</h3>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {diseaseOptions.map((disease) => (
+                    <button
+                      key={disease.id}
+                      onClick={() => {
+                        setDiseaseFilterByTab(prev => ({
+                          ...prev,
+                          'individual-cases': disease.id as DiseaseType
+                        }));
+                      }}
+                      className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
+                        diseaseFilterByTab['individual-cases'] === disease.id
+                          ? 'bg-primary-teal text-white shadow-md'
+                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      }`}
+                    >
+                      {disease.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Time Range Selector */}
+              <div className="bg-white rounded-lg shadow p-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <Calendar className="w-5 h-5 text-primary-teal" />
+                  <h3 className="text-sm font-medium text-gray-700">Time Range</h3>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {[
+                    { value: 6, label: '6 Months' },
+                    { value: 12, label: '12 Months' },
+                    { value: 24, label: '24 Months' },
+                    { value: 'all', label: 'All Time' },
+                  ].map((option) => (
+                    <button
+                      key={option.value}
+                      onClick={() => setTimeRange(option.value as TimeRange)}
+                      className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
+                        timeRange === option.value
+                          ? 'bg-primary-teal text-white shadow-md'
+                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      }`}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Barangay Selector */}
+              <div className="bg-white rounded-lg shadow p-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <MapPin className="w-5 h-5 text-primary-teal" />
+                  <h3 className="text-sm font-medium text-gray-700">Barangay</h3>
+                </div>
+                <select
+                  value={barangayFilterByTab['individual-cases'] || ''}
+                  onChange={(e) => {
+                    setBarangayFilterByTab(prev => ({
+                      ...prev,
+                      'individual-cases': e.target.value ? Number(e.target.value) : null
+                    }));
+                  }}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-teal focus:border-transparent"
+                >
+                  <option value="">All Barangays</option>
+                  {barangays.map((barangay: any) => (
+                    <option key={barangay.id} value={barangay.id}>
+                      {barangay.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          </>
+        )}
+
+        {/* Statistics Cards - Individual Cases Tab */}
+        {activeTab === 'individual-cases' && !chartsLoading && (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            <ProfessionalCard variant="flat" className="bg-gradient-to-br from-blue-50 to-blue-100 border-l-4 border-blue-500">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-600 mb-1">Total Cases</p>
+                  <p className="text-3xl font-bold text-gray-900">{stats.individualCases.total}</p>
+                </div>
+                <div className="w-12 h-12 bg-blue-500 rounded-xl flex items-center justify-center shadow-lg">
+                  <Activity className="w-6 h-6 text-white" />
+                </div>
+              </div>
+            </ProfessionalCard>
+
+            <ProfessionalCard variant="flat" className="bg-gradient-to-br from-purple-50 to-purple-100 border-l-4 border-purple-500">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-600 mb-1">This Month</p>
+                  <p className="text-3xl font-bold text-gray-900">{stats.individualCases.thisMonth}</p>
+                </div>
+                <div className="w-12 h-12 bg-purple-500 rounded-xl flex items-center justify-center shadow-lg">
+                  <Calendar className="w-6 h-6 text-white" />
+                </div>
+              </div>
+            </ProfessionalCard>
+
+            <ProfessionalCard variant="flat" className="bg-gradient-to-br from-orange-50 to-orange-100 border-l-4 border-orange-500">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-600 mb-1">Active Cases</p>
+                  <p className="text-3xl font-bold text-gray-900">{stats.individualCases.active}</p>
+                </div>
+                <div className="w-12 h-12 bg-orange-500 rounded-xl flex items-center justify-center shadow-lg">
+                  <AlertTriangle className="w-6 h-6 text-white" />
+                </div>
+              </div>
+            </ProfessionalCard>
+
+            <ProfessionalCard variant="flat" className="bg-gradient-to-br from-green-50 to-green-100 border-l-4 border-green-500">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-600 mb-1">Recovered</p>
+                  <p className="text-3xl font-bold text-gray-900">{stats.individualCases.recovered}</p>
+                </div>
+                <div className="w-12 h-12 bg-green-500 rounded-xl flex items-center justify-center shadow-lg">
+                  <TrendingUp className="w-6 h-6 text-white" />
+                </div>
+              </div>
+            </ProfessionalCard>
+          </div>
+        )}
+
+        {/* Statistics Cards - Historical Statistics Tab */}
+        {activeTab === 'historical-statistics' && !chartsLoading && (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+            <ProfessionalCard variant="flat" className="bg-gradient-to-br from-blue-50 to-blue-100 border-l-4 border-blue-500">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-600 mb-1">Total Records</p>
+                  <p className="text-3xl font-bold text-gray-900">{stats.historicalStats.totalRecords}</p>
+                </div>
+                <div className="w-12 h-12 bg-blue-500 rounded-xl flex items-center justify-center shadow-lg">
+                  <Database className="w-6 h-6 text-white" />
+                </div>
+              </div>
+            </ProfessionalCard>
+
+            <ProfessionalCard variant="flat" className="bg-gradient-to-br from-purple-50 to-purple-100 border-l-4 border-purple-500">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-600 mb-1">Total Cases</p>
+                  <p className="text-3xl font-bold text-gray-900">{stats.historicalStats.totalCases}</p>
+                </div>
+                <div className="w-12 h-12 bg-purple-500 rounded-xl flex items-center justify-center shadow-lg">
+                  <Activity className="w-6 h-6 text-white" />
+                </div>
+              </div>
+            </ProfessionalCard>
+
+            <ProfessionalCard variant="flat" className="bg-gradient-to-br from-green-50 to-green-100 border-l-4 border-green-500">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-600 mb-1">Date Range</p>
+                  <p className="text-sm font-bold text-gray-900">{stats.historicalStats.dateRange}</p>
+                </div>
+                <div className="w-12 h-12 bg-green-500 rounded-xl flex items-center justify-center shadow-lg">
+                  <Calendar className="w-6 h-6 text-white" />
+                </div>
+              </div>
+            </ProfessionalCard>
+          </div>
+        )}
+
+        {/* Statistics Cards - Predictions Tab */}
+        {activeTab === 'predictions' && !loading && heatmapData?.metadata && (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            <ProfessionalCard variant="flat" className="bg-gradient-to-br from-blue-50 to-blue-100 border-l-4 border-blue-500">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-600 mb-1">Total Cases</p>
+                  <p className="text-3xl font-bold text-gray-900">{heatmapData.metadata.total_cases}</p>
+                </div>
+                <div className="w-12 h-12 bg-blue-500 rounded-xl flex items-center justify-center shadow-lg">
+                  <Activity className="w-6 h-6 text-white" />
+                </div>
+              </div>
+            </ProfessionalCard>
+
+            <ProfessionalCard variant="flat" className="bg-gradient-to-br from-orange-50 to-orange-100 border-l-4 border-orange-500">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-600 mb-1">Affected Barangays</p>
+                  <p className="text-3xl font-bold text-gray-900">{heatmapData.metadata.total_barangays_affected}</p>
+                </div>
+                <div className="w-12 h-12 bg-orange-500 rounded-xl flex items-center justify-center shadow-lg">
+                  <MapPin className="w-6 h-6 text-white" />
+                </div>
+              </div>
+            </ProfessionalCard>
+
+            <ProfessionalCard variant="flat" className="bg-gradient-to-br from-green-50 to-green-100 border-l-4 border-green-500">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-600 mb-1">Most Affected</p>
+                  <p className="text-lg font-bold text-gray-900">
+                    {heatmapData.metadata.most_affected_barangay || 'N/A'}
+                  </p>
+                  <p className="text-xs text-gray-600 mt-1">
+                    {heatmapData.metadata.highest_case_count || 0} cases
+                  </p>
+                </div>
+                <div className="w-12 h-12 bg-green-500 rounded-xl flex items-center justify-center shadow-lg">
+                  <AlertTriangle className="w-6 h-6 text-white" />
+                </div>
+              </div>
+            </ProfessionalCard>
+
+            <ProfessionalCard variant="flat" className="bg-gradient-to-br from-purple-50 to-purple-100 border-l-4 border-purple-500">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-600 mb-1">Latest Case</p>
+                  <p className="text-sm font-bold text-gray-900">
+                    {heatmapData.metadata.latest_case_date
+                      ? new Date(heatmapData.metadata.latest_case_date).toLocaleDateString()
+                      : 'N/A'}
+                  </p>
+                </div>
+                <div className="w-12 h-12 bg-purple-500 rounded-xl flex items-center justify-center shadow-lg">
+                  <Calendar className="w-6 h-6 text-white" />
+                </div>
+              </div>
+            </ProfessionalCard>
+          </div>
+        )}
+
+        {/* TAB CONTENT: Individual Cases */}
+        {activeTab === 'individual-cases' && (
+          <div>
+            {chartsLoading ? (
+              <div className="py-12 text-center bg-white rounded-lg shadow">
+                <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary-teal"></div>
+                <p className="mt-2 text-sm text-gray-500">Loading charts...</p>
+              </div>
+            ) : (
+              <DiseaseChartsSection
+                individualCases={diseases}
+                barangays={barangays}
+                isLoading={chartsLoading}
+                timeRangeMonths={timeRange}
+              />
             )}
           </div>
-          <button
-            onClick={handleExport}
-            className="flex items-center gap-2 px-4 py-2 text-sm bg-primary-teal text-white rounded-md hover:bg-primary-teal/90 transition-colors"
-          >
-            <Download className="w-4 h-4" />
-            Export Data
-          </button>
-        </div>
+        )}
 
-        {/* Summary Statistics Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          {/* Total Active Cases */}
-          <div className="bg-white rounded-lg shadow p-6 border-l-4 border-blue-500">
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="text-sm font-medium text-gray-600">Total Active Cases</h3>
-              <Users className="w-5 h-5 text-blue-600" />
+        {/* TAB CONTENT: Historical Statistics */}
+        {activeTab === 'historical-statistics' && (
+          <>
+            {/* Disease Type, Time Range & Barangay Filters */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
+              {/* Disease Type Selector */}
+              <div className="bg-white rounded-lg shadow p-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <BarChart3 className="w-5 h-5 text-primary-teal" />
+                  <h3 className="text-sm font-medium text-gray-700">Disease Type</h3>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {diseaseOptions.map((disease) => (
+                    <button
+                      key={disease.id}
+                      onClick={() => {
+                        setDiseaseFilterByTab(prev => ({
+                          ...prev,
+                          'historical-statistics': disease.id as DiseaseType
+                        }));
+                      }}
+                      className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
+                        diseaseFilterByTab['historical-statistics'] === disease.id
+                          ? 'bg-primary-teal text-white shadow-md'
+                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      }`}
+                    >
+                      {disease.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Time Range Selector */}
+              <div className="bg-white rounded-lg shadow p-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <Calendar className="w-5 h-5 text-primary-teal" />
+                  <h3 className="text-sm font-medium text-gray-700">Time Range</h3>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {[
+                    { value: 6, label: '6 Months' },
+                    { value: 12, label: '12 Months' },
+                    { value: 24, label: '24 Months' },
+                    { value: 'all', label: 'All Time' },
+                  ].map((option) => (
+                    <button
+                      key={option.value}
+                      onClick={() => setTimeRange(option.value as TimeRange)}
+                      className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
+                        timeRange === option.value
+                          ? 'bg-primary-teal text-white shadow-md'
+                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      }`}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Barangay Selector */}
+              <div className="bg-white rounded-lg shadow p-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <MapPin className="w-5 h-5 text-primary-teal" />
+                  <h3 className="text-sm font-medium text-gray-700">Barangay</h3>
+                </div>
+                <select
+                  value={barangayFilterByTab['historical-statistics'] || ''}
+                  onChange={(e) => {
+                    setBarangayFilterByTab(prev => ({
+                      ...prev,
+                      'historical-statistics': e.target.value ? Number(e.target.value) : null
+                    }));
+                  }}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-teal focus:border-transparent"
+                >
+                  <option value="">All Barangays</option>
+                  {barangays.map((barangay: any) => (
+                    <option key={barangay.id} value={barangay.id}>
+                      {barangay.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
-            <p className="text-3xl font-bold text-gray-900">{summaryStats.totalActiveCases}</p>
-            <p className="text-xs text-gray-500 mt-1">Across all barangays</p>
-          </div>
 
-          {/* Critical Cases */}
-          <div className="bg-white rounded-lg shadow p-6 border-l-4 border-red-500">
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="text-sm font-medium text-gray-600">Critical Cases</h3>
-              <AlertTriangle className="w-5 h-5 text-red-600" />
-            </div>
-            <p className="text-3xl font-bold text-gray-900">{summaryStats.criticalCases}</p>
-            <p className="text-xs text-gray-500 mt-1">Requiring immediate attention</p>
-          </div>
-
-          {/* Active Outbreaks */}
-          <div className="bg-white rounded-lg shadow p-6 border-l-4 border-orange-500">
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="text-sm font-medium text-gray-600">Active Outbreaks</h3>
-              <Activity className="w-5 h-5 text-orange-600" />
-            </div>
-            <p className="text-3xl font-bold text-gray-900">{summaryStats.activeOutbreaks}</p>
-            <p className="text-xs text-gray-500 mt-1">Above threshold levels</p>
-          </div>
-
-          {/* Prediction Accuracy */}
-          <div className="bg-white rounded-lg shadow p-6 border-l-4 border-green-500">
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="text-sm font-medium text-gray-600">Prediction Accuracy</h3>
-              <TrendingUp className="w-5 h-5 text-green-600" />
-            </div>
-            <p className="text-3xl font-bold text-gray-900">
-              {summaryStats.predictionAccuracy
-                ? `${(summaryStats.predictionAccuracy * 100).toFixed(1)}%`
-                : 'N/A'}
-            </p>
-            <p className="text-xs text-gray-500 mt-1">
-              {summaryStats.predictionAccuracy
-                ? summaryStats.predictionAccuracy >= 0.8
-                  ? 'Excellent model accuracy'
-                  : summaryStats.predictionAccuracy >= 0.6
-                  ? 'Good model accuracy'
-                  : 'Fair model accuracy'
-                : 'No predictions yet'}
-            </p>
-          </div>
-        </div>
-
-        {/* Outbreak Alerts Section */}
-        <div className="mb-8">
-          <OutbreakAlerts autoNotify={true} refreshInterval={300000} />
-        </div>
-
-        {/* Filter Controls */}
-        <div className="bg-white rounded-lg shadow p-6 mb-8">
-          <div className="flex items-center gap-2 mb-4">
-            <Filter className="w-5 h-5 text-gray-600" />
-            <h3 className="text-lg font-semibold text-gray-900">Filters</h3>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Disease Type Filter */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Disease Type</label>
-              <select
-                value={selectedDiseaseType}
-                onChange={(e) => setSelectedDiseaseType(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-teal focus:border-transparent"
-              >
-                {diseaseTypes.map((type) => (
-                  <option key={type.value} value={type.value}>
-                    {type.label}
-                  </option>
+              {chartsLoading ? (
+              <div className="py-12 text-center bg-white rounded-lg shadow">
+                <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary-teal"></div>
+                <p className="mt-2 text-sm text-gray-500">Loading charts...</p>
+              </div>
+            ) : (
+              <HistoricalChartsSection
+                historicalStatistics={historicalData}
+                barangays={barangays}
+                isLoading={chartsLoading}
+                timeRangeMonths={timeRange}
+              />
+            )}
+            </div>
+          </>
+        )}
+
+        {/* TAB CONTENT: Predictions & Forecasts */}
+        {activeTab === 'predictions' && (
+          <div>
+            {/* Outbreak Alerts */}
+            <div className="mb-6">
+              <OutbreakAlerts diseaseType={selectedDisease !== 'all' ? selectedDisease : undefined} />
+            </div>
+
+            {/* Disease Type Filter (below Outbreak Alerts - matches admin page layout) */}
+            <div className="bg-white rounded-lg shadow p-4 mb-6">
+              <div className="flex items-center gap-2 mb-3">
+                <BarChart3 className="w-5 h-5 text-primary-teal" />
+                <h3 className="text-sm font-medium text-gray-700">Disease Type</h3>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {diseaseOptions.map((disease) => (
+                  <button
+                    key={disease.id}
+                    onClick={() => {
+                      setDiseaseFilterByTab(prev => ({
+                        ...prev,
+                        'predictions': disease.id as DiseaseType
+                      }));
+                    }}
+                    className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
+                      diseaseFilterByTab['predictions'] === disease.id
+                        ? 'bg-primary-teal text-white shadow-md'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
+                  >
+                    {disease.label}
+                  </button>
                 ))}
-              </select>
+              </div>
             </div>
 
             {/* Barangay Filter */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Barangay</label>
+            <div className="bg-white rounded-lg shadow p-6 mb-6">
+              <h4 className="text-sm font-medium text-gray-700 mb-3">Filter by Barangay</h4>
               <select
-                value={selectedBarangay || ''}
-                onChange={(e) => setSelectedBarangay(e.target.value ? Number(e.target.value) : null)}
+                value={barangayFilterByTab['predictions'] || ''}
+                onChange={(e) => {
+                  setBarangayFilterByTab(prev => ({
+                    ...prev,
+                    'predictions': e.target.value ? Number(e.target.value) : null
+                  }));
+                }}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-teal focus:border-transparent"
               >
                 <option value="">All Barangays</option>
-                {barangays.map((barangay) => (
+                {barangays.map((barangay: any) => (
                   <option key={barangay.id} value={barangay.id}>
                     {barangay.name}
                   </option>
                 ))}
               </select>
             </div>
-          </div>
-        </div>
 
-        {/* Tab Navigation */}
-        <div className="mb-6">
-          <div className="border-b border-gray-200">
-            <nav className="-mb-px flex space-x-8">
-              <button
-                onClick={() => setSelectedTab('heatmap')}
-                className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
-                  selectedTab === 'heatmap'
-                    ? 'border-primary-teal text-primary-teal'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                }`}
-              >
-                <div className="flex items-center gap-2">
-                  <MapPin className="w-4 h-4" />
-                  Disease Heatmap
-                </div>
-              </button>
-              <button
-                onClick={() => setSelectedTab('predictions')}
-                className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
-                  selectedTab === 'predictions'
-                    ? 'border-primary-teal text-primary-teal'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                }`}
-              >
-                <div className="flex items-center gap-2">
-                  <TrendingUp className="w-4 h-4" />
-                  SARIMA Predictions
-                </div>
-              </button>
-            </nav>
-          </div>
-        </div>
-
-        {/* Tab Content */}
-        {selectedTab === 'heatmap' && (
-          <div className="bg-white rounded-lg shadow p-6 mb-8">
-            <div className="flex items-center justify-between mb-6">
-              <div>
-                <h3 className="text-lg font-semibold text-gray-900">Disease Distribution Map</h3>
-                <p className="text-sm text-gray-600 mt-1">
-                  Interactive map showing disease cases across all barangays in Panabo City
-                </p>
-              </div>
-            </div>
-            {loading ? (
-              <div className="flex items-center justify-center h-96">
-                <div className="text-center">
-                  <RefreshCw className="w-8 h-8 text-primary-teal animate-spin mx-auto mb-4" />
-                  <p className="text-gray-600">Loading heatmap data...</p>
-                </div>
-              </div>
-            ) : heatmapData.length === 0 ? (
-              <div className="flex items-center justify-center h-96 bg-gray-50 rounded-lg">
-                <div className="text-center">
-                  <MapPin className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                  <p className="text-gray-600">No disease cases found with current filters</p>
-                  <p className="text-sm text-gray-500 mt-2">
-                    Try adjusting your filter selections or refresh the data
-                  </p>
-                </div>
-              </div>
-            ) : (
-              <div className="h-[600px]">
-                <DiseaseHeatmap data={heatmapData} diseaseType={selectedDiseaseType} />
-              </div>
-            )}
-          </div>
-        )}
-
-        {selectedTab === 'predictions' && (
-          <div className="space-y-6">
-            {/* Disease Type Tabs for Predictions */}
-            <div className="bg-white rounded-lg shadow p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-6">
-                Disease Case Predictions (SARIMA Model)
-              </h3>
-              <div className="space-y-8">
-                {diseaseTypes
-                  .filter((dt) => dt.value !== 'all')
-                  .map((diseaseType) => (
-                    <div key={diseaseType.value} className="border-t pt-6 first:border-t-0 first:pt-0">
-                      <h4 className="text-md font-semibold text-gray-800 mb-4">{diseaseType.label}</h4>
-                      <SARIMAChart
-                        diseaseType={diseaseType.value}
-                        barangayId={selectedBarangay || undefined}
-                      />
-                    </div>
-                  ))}
-              </div>
-            </div>
-
-            {/* Health Card Predictions (Existing) */}
-            <div className="bg-white rounded-lg shadow p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                Health Card Issuance Predictions
-              </h3>
-              <p className="text-sm text-gray-600 mb-6">
-                SARIMA forecasts for Food Handler and Non-Food health card demand (used for resource planning)
-              </p>
-              <div className="space-y-8">
+            {/* Disease Heatmap */}
+            <div className="bg-white rounded-lg shadow p-6 mb-6">
+              <div className="flex items-center justify-between mb-4">
                 <div>
-                  <h4 className="text-md font-semibold text-gray-800 mb-4">Food Handler Health Cards</h4>
-                  <p className="text-sm text-gray-500 mb-4">
-                    Predictions for Services 12 (Processing) and 13 (Renewal) combined
+                  <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                    <MapPin className="w-5 h-5 text-primary-teal" />
+                    Disease Distribution Heatmap
+                  </h3>
+                  <p className="text-sm text-gray-600 mt-1">
+                    Geographic distribution of {selectedDiseaseLabel} cases {selectedBarangayLabel}
                   </p>
-                  {/* Placeholder for health card predictions - to be implemented */}
-                  <div className="bg-gray-50 rounded-lg p-8 text-center">
-                    <TrendingUp className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                    <p className="text-gray-600">Health card prediction integration coming soon</p>
+                </div>
+              </div>
+
+              {loading ? (
+                <div className="py-12 text-center">
+                  <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary-teal"></div>
+                  <p className="mt-2 text-sm text-gray-500">Loading heatmap...</p>
+                </div>
+              ) : (
+                <DiseaseHeatmap
+                  diseaseType={selectedDisease}
+                  data={heatmapData?.data || []}
+                />
+              )}
+            </div>
+
+            {/* SARIMA Prediction Chart */}
+            <div className="bg-white rounded-lg shadow p-6 mb-6">
+              {/* Header with Generate Button */}
+              <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-4">
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                    <TrendingUp className="w-5 h-5 text-primary-teal" />
+                    SARIMA Predictive Model with Error Metrics
+                  </h3>
+                  <p className="text-sm text-gray-600 mt-1">
+                    Seasonal Auto-Regressive Integrated Moving Average predictions for {selectedDiseaseLabel} {selectedBarangayLabel}
+                  </p>
+                </div>
+                <button
+                  onClick={handleGeneratePredictions}
+                  disabled={isGenerating}
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-primary-teal to-teal-600 text-white rounded-lg hover:from-primary-teal/90 hover:to-teal-600/90 transition-all shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isGenerating ? (
+                    <>
+                      <RefreshCw className="w-4 h-4 animate-spin" />
+                      Generating...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="w-4 h-4" />
+                      Generate Predictions
+                    </>
+                  )}
+                </button>
+              </div>
+
+              {/* Generation Status Messages */}
+
+              {/* Progress Indicator (Option C) */}
+              {isGenerating && (
+                <div className="mb-4 bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <div className="flex items-start gap-3">
+                    <RefreshCw className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0 animate-spin" />
+                    <div className="flex-1">
+                      <h4 className="text-sm font-semibold text-blue-900">Generating Predictions...</h4>
+                      <p className="text-sm text-blue-800 mt-1">
+                        This may take up to 60 seconds for all diseases. Using local SARIMA model.
+                      </p>
+                      <div className="mt-2">
+                        <div className="h-2 bg-blue-200 rounded-full overflow-hidden">
+                          <div className="h-full bg-blue-600 rounded-full animate-pulse" style={{ width: '100%' }}></div>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
-                <div className="border-t pt-6">
-                  <h4 className="text-md font-semibold text-gray-800 mb-4">Non-Food Health Cards</h4>
-                  <p className="text-sm text-gray-500 mb-4">
-                    Predictions for Services 14 (Processing) and 15 (Renewal) combined
-                  </p>
-                  {/* Placeholder for health card predictions - to be implemented */}
-                  <div className="bg-gray-50 rounded-lg p-8 text-center">
-                    <TrendingUp className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                    <p className="text-gray-600">Health card prediction integration coming soon</p>
+              )}
+
+              {/* Enhanced Success Message (Option A) */}
+              {generationStatus.type === 'success' && generationStatus.details && (
+                <div className="mb-4 bg-green-50 border border-green-200 rounded-lg p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-start gap-3 flex-1">
+                      <CheckCircle2 className="w-5 h-5 text-green-600 mt-0.5 flex-shrink-0" />
+                      <div className="flex-1">
+                        <h4 className="text-sm font-semibold text-green-900">Prediction Generation Complete</h4>
+                        <p className="text-sm text-green-800 mt-1">
+                          Successfully generated predictions for {generationStatus.details.summary.successful}/{generationStatus.details.summary.total_diseases} disease(s)
+                        </p>
+
+                        {/* Disease Results List */}
+                        {generationStatus.details.results && generationStatus.details.results.length > 0 && (
+                          <div className="mt-3 space-y-1.5">
+                            {generationStatus.details.results.map((result: any, index: number) => (
+                              <div key={index} className={`flex items-center justify-between text-xs ${result.success ? 'text-green-700' : 'text-red-700'}`}>
+                                <div className="flex items-center gap-2">
+                                  {result.success ? (
+                                    <CheckCircle2 className="w-3.5 h-3.5" />
+                                  ) : (
+                                    <XCircle className="w-3.5 h-3.5" />
+                                  )}
+                                  <span className="font-medium capitalize">
+                                    {result.disease_type.replace(/_/g, ' ')}
+                                  </span>
+                                </div>
+                                {result.success && (
+                                  <div className="flex items-center gap-3 text-xs">
+                                    <span>{result.predictions_count} predictions</span>
+                                    <span className="text-gray-500">•</span>
+                                    {/* Conditional Metric Display: MAPE for low-variance, R² for high-variance */}
+                                    {result.test_variance !== undefined && result.test_variance < 5.0 ? (
+                                      // Low-variance disease: Show MAPE (primary metric for surveillance)
+                                      <span className={`font-medium ${
+                                        result.accuracy_mape !== undefined
+                                          ? getMAPEColor(result.accuracy_mape)
+                                          : 'text-gray-600'
+                                      }`} title={`Low variance data (${result.test_variance?.toFixed(2)}) - MAPE is primary metric`}>
+                                        MAPE: {result.accuracy_mape?.toFixed(1)}% ({interpretMAPE(result.accuracy_mape || 50)})
+                                      </span>
+                                    ) : (
+                                      // High-variance disease: Show R² (traditional metric for trending data)
+                                      <span className={`font-medium ${
+                                        result.accuracy_r_squared !== undefined && result.accuracy_r_squared >= 0.7
+                                          ? 'text-green-600'
+                                          : result.accuracy_r_squared !== undefined && result.accuracy_r_squared >= 0.5
+                                          ? 'text-blue-600'
+                                          : result.accuracy_r_squared !== undefined && result.accuracy_r_squared >= 0.3
+                                          ? 'text-yellow-600'
+                                          : 'text-red-600'
+                                      }`} title={result.test_variance !== undefined ? `High variance data (${result.test_variance?.toFixed(2)}) - R² is primary metric` : 'Model accuracy metric'}>
+                                        R²: {result.accuracy_r_squared?.toFixed(2) || 'N/A'}
+                                      </span>
+                                    )}
+                                    <span className="text-gray-500">•</span>
+                                    <span className="capitalize">{result.data_quality} Quality</span>
+                                    {result.cached && result.cache_age_hours !== undefined && (
+                                      <>
+                                        <span className="text-gray-500">•</span>
+                                        <span className="text-blue-600 font-medium">
+                                          Cached ({result.cache_age_hours}h ago)
+                                        </span>
+                                      </>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* Summary Stats */}
+                        <div className="mt-3 pt-3 border-t border-green-200 text-xs text-green-700 flex items-center gap-4">
+                          <span className="font-semibold">Total: {generationStatus.details.summary.total_predictions} predictions</span>
+                        </div>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => setGenerationStatus({ type: 'idle' })}
+                      className="text-green-600 hover:text-green-800 transition-colors"
+                      title="Dismiss"
+                    >
+                      <XCircle className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {generationStatus.type === 'error' && (
+                <div className="mb-4 bg-red-50 border border-red-200 rounded-lg p-4">
+                  <div className="flex items-start gap-3">
+                    <XCircle className="w-5 h-5 text-red-600 mt-0.5 flex-shrink-0" />
+                    <div>
+                      <h4 className="text-sm font-semibold text-red-900">Error</h4>
+                      <p className="text-sm text-red-800 mt-1">{generationStatus.message}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Chart */}
+              {loading ? (
+                <div className="py-12 text-center">
+                  <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary-teal"></div>
+                  <p className="mt-2 text-sm text-gray-500">Loading predictions...</p>
+                </div>
+              ) : (
+                <SARIMAChart
+                  key={refreshKey}
+                  diseaseType={selectedDisease}
+                  barangayId={selectedBarangay || undefined}
+                />
+              )}
+            </div>
+
+            {/* Information Panel */}
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
+              <div className="flex items-start gap-3">
+                <Activity className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
+                <div>
+                  <h4 className="text-sm font-medium text-blue-900 mb-2">About Disease Analytics & Predictions</h4>
+                  <div className="text-sm text-blue-800 space-y-1">
+                    <p>• The heatmap visualizes disease distribution across all 41 barangays in Panabo City</p>
+                    <p>• Darker colors indicate higher case concentrations in specific areas</p>
+                    <p>• SARIMA predictions use historical data to forecast future disease trends</p>
+                    <p>• <strong>MAPE (Mean Absolute Percentage Error)</strong> is shown for low-variance diseases (sporadic patterns like Rabies, HIV) - industry standard for disease surveillance</p>
+                    <p>• <strong>R² (Coefficient of Determination)</strong> is shown for high-variance diseases (seasonal patterns like Dengue, Malaria) - traditional accuracy metric</p>
+                    <p>• MAPE Quality: &lt;10% Excellent, 10-20% Good, 20-50% Fair, &gt;50% Poor</p>
+                    <p>• Confidence intervals indicate the range of uncertainty in predictions</p>
+                    <p>• Outbreak alerts automatically detect unusual disease pattern spikes</p>
+                    <p>• Use this data to identify high-risk areas and allocate resources effectively</p>
                   </div>
                 </div>
               </div>
@@ -444,17 +1051,36 @@ export default function AdminDiseaseSurveillancePage() {
           </div>
         )}
 
-        {/* View-Only Notice */}
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mt-6">
-          <div className="flex items-start gap-3">
-            <Activity className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
-            <div>
-              <h4 className="text-sm font-semibold text-blue-900 mb-1">Super Admin View-Only Mode</h4>
-              <p className="text-sm text-blue-700">
-                This dashboard provides comprehensive disease surveillance analytics for oversight purposes. Disease
-                case data entry is managed by Staff members via their disease surveillance page. Healthcare Admins
-                automatically contribute data when creating medical records with diagnoses.
-              </p>
+        {/* Health Card Issuance Predictions - Coming Soon */}
+        <div className="mt-8 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-6">
+          <div className="flex items-center gap-3 mb-4">
+            <CreditCard className="w-6 h-6 text-blue-600" />
+            <h3 className="text-xl font-semibold text-gray-900">Health Card Issuance Predictions</h3>
+            <span className="px-3 py-1 bg-blue-600 text-white text-xs font-medium rounded-full">
+              Integration Coming Soon
+            </span>
+          </div>
+          <p className="text-sm text-gray-600 mb-6">
+            Predictive analytics for health card issuance patterns and demand forecasting will be available in the next release.
+          </p>
+
+          {/* Food Handler Section */}
+          <div className="grid md:grid-cols-2 gap-4 mb-4">
+            <div className="bg-white rounded-lg border border-gray-200 p-4">
+              <h4 className="font-medium text-gray-900 mb-2 flex items-center gap-2">
+                <UtensilsCrossed className="w-4 h-4 text-orange-600" />
+                Food Handler Health Cards
+              </h4>
+              <p className="text-xs text-gray-500">SARIMA-based prediction models for food handler certification trends</p>
+            </div>
+
+            {/* Non-Food Section */}
+            <div className="bg-white rounded-lg border border-gray-200 p-4">
+              <h4 className="font-medium text-gray-900 mb-2 flex items-center gap-2">
+                <Users className="w-4 h-4 text-green-600" />
+                Non-Food Handler Health Cards
+              </h4>
+              <p className="text-xs text-gray-500">Demand forecasting for general health card issuance</p>
             </div>
           </div>
         </div>
