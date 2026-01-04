@@ -13,17 +13,21 @@
  */
 
 import React from 'react';
-import { ModelAccuracy } from '@/types/healthcard';
-import { CheckCircle2, AlertTriangle, Info, TrendingUp } from 'lucide-react';
+import { ModelAccuracy, DataQuality } from '@/types/healthcard';
+import { CheckCircle2, AlertTriangle, Info, TrendingUp, Database } from 'lucide-react';
 
 interface HealthCardSARIMAMetricsProps {
   metrics: ModelAccuracy | null;
   showDetails?: boolean;
+  dataPointsCount?: number; // Optional: historical data points count
+  dataQuality?: DataQuality; // Optional: overall data quality assessment
 }
 
 export default function HealthCardSARIMAMetrics({
   metrics,
   showDetails = true,
+  dataPointsCount,
+  dataQuality,
 }: HealthCardSARIMAMetricsProps) {
   // Component will not render if metrics is null (handled by parent)
   // This ensures we only display when real metrics exist
@@ -132,6 +136,52 @@ export default function HealthCardSARIMAMetrics({
           </div>
         </div>
       </div>
+
+      {/* Data Quality Summary (if available) */}
+      {dataPointsCount !== undefined && (
+        <div className={`p-4 rounded-lg border ${
+          (dataQuality === 'insufficient' || (dataPointsCount < 30))
+            ? 'bg-yellow-50 border-yellow-200'
+            : dataQuality === 'moderate'
+            ? 'bg-blue-50 border-blue-200'
+            : 'bg-green-50 border-green-200'
+        }`}>
+          <div className="flex items-center gap-3">
+            <Database className={`h-5 w-5 ${
+              (dataQuality === 'insufficient' || (dataPointsCount < 30))
+                ? 'text-yellow-600'
+                : dataQuality === 'moderate'
+                ? 'text-blue-600'
+                : 'text-green-600'
+            }`} />
+            <div className="flex-1">
+              <h5 className={`font-semibold text-sm ${
+                (dataQuality === 'insufficient' || (dataPointsCount < 30))
+                  ? 'text-yellow-900'
+                  : dataQuality === 'moderate'
+                  ? 'text-blue-900'
+                  : 'text-green-900'
+              }`}>
+                Training Data: {dataPointsCount} historical data points
+              </h5>
+              <p className={`text-xs mt-1 ${
+                (dataQuality === 'insufficient' || (dataPointsCount < 30))
+                  ? 'text-yellow-800'
+                  : dataQuality === 'moderate'
+                  ? 'text-blue-800'
+                  : 'text-green-800'
+              }`}>
+                {dataPointsCount < 30
+                  ? `Limited data available. SARIMA models perform best with 30-50+ data points. Predictions will improve as more appointments are completed.`
+                  : dataPointsCount < 50
+                  ? `Moderate data availability. Model accuracy should be good.`
+                  : `Sufficient data for reliable predictions.`
+                }
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Detailed Metrics */}
       {showDetails && (

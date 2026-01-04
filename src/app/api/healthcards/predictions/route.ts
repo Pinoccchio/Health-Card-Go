@@ -267,6 +267,34 @@ export async function GET(request: NextRequest) {
     );
 
     // ========================================================================
+    // Calculate Data Quality Metrics
+    // ========================================================================
+
+    // Count historical data points (total appointments, not unique date combinations)
+    const dataPointsCount = appointments?.length || 0;
+
+    // Determine data quality based on data points count
+    let dataQuality: 'high' | 'moderate' | 'insufficient';
+    if (dataPointsCount >= 50) {
+      dataQuality = 'high';
+    } else if (dataPointsCount >= 30) {
+      dataQuality = 'moderate';
+    } else {
+      dataQuality = 'insufficient';
+    }
+
+    // Check if predictions show variance (not all the same value)
+    let varianceDetected = false;
+    if (predictions && predictions.length > 1) {
+      const predictionValues = predictions.map((p) => p.predicted_cards);
+      const uniqueValues = new Set(predictionValues);
+      varianceDetected = uniqueValues.size > 1;
+    }
+
+    // Determine if there's sufficient data
+    const hasSufficientData = dataPointsCount >= 30;
+
+    // ========================================================================
     // Build Response
     // ========================================================================
 
@@ -281,6 +309,11 @@ export async function GET(request: NextRequest) {
         days_forecast: daysForecast,
         total_data_points: transformedData.dates.length,
         model_version: predictions?.[0]?.model_version || 'SARIMA(1,1,1)(1,1,1,7)',
+        // Data quality indicators
+        data_points_count: dataPointsCount,
+        data_quality: dataQuality,
+        variance_detected: varianceDetected,
+        has_sufficient_data: hasSufficientData,
       },
     };
 

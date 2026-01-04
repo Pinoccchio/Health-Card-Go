@@ -28,13 +28,14 @@ import {
   HealthCardSARIMAData,
   HealthCardType,
   HealthCardPredictionsResponse,
+  DataQuality,
 } from '@/types/healthcard';
 import {
   getHealthCardTypeLabel,
   getHealthCardTypePrimaryColor,
   getHealthCardTypeLightColor,
 } from '@/lib/utils/healthcardHelpers';
-import { AlertCircle, TrendingUp, Calendar, MapPin } from 'lucide-react';
+import { AlertCircle, TrendingUp, Calendar, MapPin, AlertTriangle, Info } from 'lucide-react';
 
 // Register Chart.js components
 ChartJS.register(
@@ -66,8 +67,23 @@ export default function HealthCardSARIMAChart({
   height = 400,
 }: HealthCardSARIMAChartProps) {
   const [chartData, setChartData] = useState<HealthCardSARIMAData | null>(null);
+  const [metadata, setMetadata] = useState<HealthCardPredictionsResponse['metadata'] | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Helper: Get data quality color and label
+  const getDataQualityInfo = (quality: DataQuality | undefined) => {
+    switch (quality) {
+      case 'high':
+        return { color: 'green', label: 'High Quality', icon: Info };
+      case 'moderate':
+        return { color: 'yellow', label: 'Moderate Quality', icon: AlertCircle };
+      case 'insufficient':
+        return { color: 'red', label: 'Insufficient Data', icon: AlertTriangle };
+      default:
+        return { color: 'gray', label: 'Unknown', icon: Info };
+    }
+  };
 
   // Fetch predictions data
   useEffect(() => {
@@ -100,6 +116,7 @@ export default function HealthCardSARIMAChart({
         }
 
         setChartData(result.data);
+        setMetadata(result.metadata);
       } catch (err) {
         console.error('[HealthCardSARIMAChart] Error:', err);
         setError(err instanceof Error ? err.message : 'Failed to load chart data');
@@ -316,8 +333,54 @@ export default function HealthCardSARIMAChart({
   const chartConfig = getChartConfig();
   if (!chartConfig) return null;
 
+  const qualityInfo = getDataQualityInfo(metadata?.data_quality);
+  const hasInsufficientData = metadata?.data_quality === 'insufficient' || !metadata?.has_sufficient_data;
+  const noVariance = metadata?.variance_detected === false;
+
   return (
     <div className="space-y-4">
+      {/* Data Quality Warning Banner */}
+      {hasInsufficientData && (
+        <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded-r-lg">
+          <div className="flex items-start">
+            <AlertTriangle className="h-5 w-5 text-yellow-600 mt-0.5 mr-3 flex-shrink-0" />
+            <div className="flex-1">
+              <h3 className="text-sm font-semibold text-yellow-900 mb-1">
+                Limited Historical Data
+              </h3>
+              <p className="text-sm text-yellow-800 mb-2">
+                Predictions are based on only {metadata?.data_points_count || 0} historical data points.
+                SARIMA models typically require 30-50+ data points for reliable forecasting.
+              </p>
+              <ul className="text-xs text-yellow-700 space-y-1 list-disc list-inside">
+                <li>Current predictions may show limited variance or constant values</li>
+                <li>Accuracy will improve as more appointments are completed</li>
+                <li>Use these forecasts as rough estimates only</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Zero Variance Warning */}
+      {noVariance && !hasInsufficientData && (
+        <div className="bg-blue-50 border-l-4 border-blue-400 p-4 rounded-r-lg">
+          <div className="flex items-start">
+            <Info className="h-5 w-5 text-blue-600 mt-0.5 mr-3 flex-shrink-0" />
+            <div className="flex-1">
+              <h3 className="text-sm font-semibold text-blue-900 mb-1">
+                Stable Prediction Pattern
+              </h3>
+              <p className="text-sm text-blue-800">
+                The model detected a stable trend with minimal variance in historical data,
+                resulting in consistent prediction values. This is expected when health card
+                issuance patterns are regular.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Summary Statistics */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
         <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
@@ -350,9 +413,24 @@ export default function HealthCardSARIMAChart({
         </div>
 
         <div className="bg-orange-50 p-4 rounded-lg border border-orange-200">
-          <div className="flex items-center gap-2 mb-1">
-            <AlertCircle className="h-4 w-4 text-orange-600" />
-            <span className="text-xs font-medium text-orange-900">Card Type</span>
+          <div className="flex items-center justify-between gap-2 mb-1">
+            <div className="flex items-center gap-2">
+              <AlertCircle className="h-4 w-4 text-orange-600" />
+              <span className="text-xs font-medium text-orange-900">Card Type</span>
+            </div>
+            {metadata?.data_quality && (
+              <span
+                className={`px-2 py-0.5 text-xs font-semibold rounded-full ${
+                  qualityInfo.color === 'green'
+                    ? 'bg-green-100 text-green-800'
+                    : qualityInfo.color === 'yellow'
+                    ? 'bg-yellow-100 text-yellow-800'
+                    : 'bg-red-100 text-red-800'
+                }`}
+              >
+                {metadata.data_points_count || 0} pts
+              </span>
+            )}
           </div>
           <p className="text-sm font-bold text-orange-900">
             {getHealthCardTypeLabel(healthcardType)}

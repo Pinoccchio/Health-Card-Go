@@ -10,6 +10,8 @@ import OutbreakAlerts from '@/components/disease-surveillance/OutbreakAlerts';
 import { DiseaseChartsSection } from '@/components/staff/DiseaseChartsSection';
 import { HistoricalChartsSection } from '@/components/staff/HistoricalChartsSection';
 import { interpretMAPE, getMAPEColor } from '@/lib/utils/sarimaMetrics';
+import HealthCardSARIMAChart from '@/components/healthcare-admin/HealthCardSARIMAChart';
+import HealthCardSARIMAMetrics from '@/components/healthcare-admin/HealthCardSARIMAMetrics';
 import {
   Activity,
   AlertTriangle,
@@ -79,7 +81,7 @@ export default function AdminDiseaseSurveillancePage() {
   const [chartsLoading, setChartsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Prediction generation states
+  // Prediction generation states (Disease)
   const [isGenerating, setIsGenerating] = useState(false);
   const [generationStatus, setGenerationStatus] = useState<{
     type: 'idle' | 'success' | 'error';
@@ -87,6 +89,20 @@ export default function AdminDiseaseSurveillancePage() {
     details?: any; // Full API response for detailed display
   }>({ type: 'idle' });
   const [refreshKey, setRefreshKey] = useState(0);
+
+  // Health Card prediction generation states - separate for each type
+  const [isGeneratingFoodHandler, setIsGeneratingFoodHandler] = useState(false);
+  const [isGeneratingNonFood, setIsGeneratingNonFood] = useState(false);
+  const [foodHandlerGenStatus, setFoodHandlerGenStatus] = useState<{
+    type: 'idle' | 'success' | 'error';
+    message?: string;
+  }>({ type: 'idle' });
+  const [nonFoodGenStatus, setNonFoodGenStatus] = useState<{
+    type: 'idle' | 'success' | 'error';
+    message?: string;
+  }>({ type: 'idle' });
+  const [foodHandlerRefreshKey, setFoodHandlerRefreshKey] = useState(0);
+  const [nonFoodRefreshKey, setNonFoodRefreshKey] = useState(0);
 
   // FIX: Helper to get current tab's selected disease filter
   const selectedDisease = diseaseFilterByTab[activeTab];
@@ -298,6 +314,55 @@ export default function AdminDiseaseSurveillancePage() {
       setGenerationStatus({
         type: 'error',
         message: 'An unexpected error occurred while generating predictions',
+      });
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  // Health Card Predictions Generation Handler - parameterized for each type
+  const handleGenerateHealthCardPrediction = async (healthcardType: 'food_handler' | 'non_food') => {
+    const isFoodHandler = healthcardType === 'food_handler';
+    const setIsGenerating = isFoodHandler ? setIsGeneratingFoodHandler : setIsGeneratingNonFood;
+    const setGenStatus = isFoodHandler ? setFoodHandlerGenStatus : setNonFoodGenStatus;
+    const setRefreshKey = isFoodHandler ? setFoodHandlerRefreshKey : setNonFoodRefreshKey;
+
+    setIsGenerating(true);
+    setGenStatus({ type: 'idle' });
+    setError(null);
+
+    try {
+      const response = await fetch('/api/healthcards/generate-predictions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          healthcard_type: healthcardType,
+          barangay_id: selectedBarangay,
+          days_forecast: 30,
+          auto_save: true,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.success || response.ok) {
+        setGenStatus({
+          type: 'success',
+          message: data.message || `${isFoodHandler ? 'Food Handler' : 'Non-Food Handler'} predictions generated successfully!`,
+        });
+        // Force chart to reload with new predictions
+        setRefreshKey((prev) => prev + 1);
+      } else {
+        setGenStatus({
+          type: 'error',
+          message: data.error || `Failed to generate ${isFoodHandler ? 'Food Handler' : 'Non-Food Handler'} predictions`,
+        });
+      }
+    } catch (err) {
+      console.error(`Error generating ${healthcardType} predictions:`, err);
+      setGenStatus({
+        type: 'error',
+        message: 'Network error. Please check your connection and try again.',
       });
     } finally {
       setIsGenerating(false);
@@ -1051,37 +1116,223 @@ export default function AdminDiseaseSurveillancePage() {
           </div>
         )}
 
-        {/* Health Card Issuance Predictions - Coming Soon */}
+        {/* Health Card Issuance Predictions */}
         <div className="mt-8 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-6">
           <div className="flex items-center gap-3 mb-4">
             <CreditCard className="w-6 h-6 text-blue-600" />
             <h3 className="text-xl font-semibold text-gray-900">Health Card Issuance Predictions</h3>
-            <span className="px-3 py-1 bg-blue-600 text-white text-xs font-medium rounded-full">
-              Integration Coming Soon
+            <span className="px-3 py-1 bg-blue-600 text-white text-xs font-medium rounded-full flex items-center gap-1">
+              <Sparkles className="w-3 h-3" />
+              SARIMA Forecasting
             </span>
           </div>
           <p className="text-sm text-gray-600 mb-6">
-            Predictive analytics for health card issuance patterns and demand forecasting will be available in the next release.
+            SARIMA-based predictive analytics for health card issuance patterns and demand forecasting.
+            Use these insights to optimize staffing and resource allocation for health card services.
           </p>
 
-          {/* Food Handler Section */}
-          <div className="grid md:grid-cols-2 gap-4 mb-4">
-            <div className="bg-white rounded-lg border border-gray-200 p-4">
-              <h4 className="font-medium text-gray-900 mb-2 flex items-center gap-2">
-                <UtensilsCrossed className="w-4 h-4 text-orange-600" />
-                Food Handler Health Cards
-              </h4>
-              <p className="text-xs text-gray-500">SARIMA-based prediction models for food handler certification trends</p>
+
+          {/* Vertical Stack: Food Handler and Non-Food Health Cards */}
+          <div className="space-y-6">
+            {/* Food Handler Health Cards Section - Full Width */}
+            <div className="bg-white rounded-lg border border-orange-200 p-4">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h4 className="font-semibold text-gray-900 flex items-center gap-2">
+                    <UtensilsCrossed className="w-5 h-5 text-orange-600" />
+                    Food Handler Health Cards
+                  </h4>
+                  <p className="text-xs text-gray-600 mt-1">
+                    SARIMA predictions for Services 12-13 (Food Handler Processing & Renewal)
+                  </p>
+                </div>
+                <button
+                  onClick={() => handleGenerateHealthCardPrediction('food_handler')}
+                  disabled={isGeneratingFoodHandler}
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-lg hover:from-orange-600 hover:to-orange-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-md hover:shadow-lg whitespace-nowrap text-sm"
+                >
+                  {isGeneratingFoodHandler ? (
+                    <>
+                      <RefreshCw className="w-4 h-4 animate-spin" />
+                      Generating...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="w-4 h-4" />
+                      Generate Predictions
+                    </>
+                  )}
+                </button>
+              </div>
+
+              {/* Food Handler Loading State */}
+              {isGeneratingFoodHandler && (
+                <div className="bg-orange-50 border border-orange-200 rounded-lg p-3 mb-4">
+                  <div className="flex items-center gap-2">
+                    <RefreshCw className="w-4 h-4 text-orange-600 animate-spin" />
+                    <p className="text-sm text-orange-800">
+                      Generating Food Handler predictions...
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* Food Handler Success Message */}
+              {foodHandlerGenStatus.type === 'success' && (
+                <div className="bg-green-50 border border-green-200 rounded-lg p-3 mb-4">
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-start gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-green-600 mt-0.5" />
+                      <p className="text-sm text-green-800">{foodHandlerGenStatus.message}</p>
+                    </div>
+                    <button
+                      onClick={() => setFoodHandlerGenStatus({ type: 'idle' })}
+                      className="text-green-600 hover:text-green-800"
+                    >
+                      <XCircle className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Food Handler Error Message */}
+              {foodHandlerGenStatus.type === 'error' && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4">
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-start gap-2">
+                      <AlertTriangle className="w-4 h-4 text-red-600 mt-0.5" />
+                      <div>
+                        <p className="text-sm text-red-800">{foodHandlerGenStatus.message}</p>
+                        <p className="text-xs text-red-700 mt-1">
+                          Ensure sufficient historical data (minimum 7 days).
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => setFoodHandlerGenStatus({ type: 'idle' })}
+                      className="text-red-600 hover:text-red-800"
+                    >
+                      <XCircle className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              <HealthCardSARIMAChart
+                key={`food-handler-${foodHandlerRefreshKey}`}
+                healthcardType="food_handler"
+                barangayId={selectedBarangay}
+                daysBack={30}
+                daysForecast={30}
+                showTitle={false}
+                height={400}
+              />
             </div>
 
-            {/* Non-Food Section */}
-            <div className="bg-white rounded-lg border border-gray-200 p-4">
-              <h4 className="font-medium text-gray-900 mb-2 flex items-center gap-2">
-                <Users className="w-4 h-4 text-green-600" />
-                Non-Food Handler Health Cards
-              </h4>
-              <p className="text-xs text-gray-500">Demand forecasting for general health card issuance</p>
+            {/* Non-Food Health Cards Section - Full Width */}
+            <div className="bg-white rounded-lg border border-green-200 p-4">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h4 className="font-semibold text-gray-900 flex items-center gap-2">
+                    <Users className="w-5 h-5 text-green-600" />
+                    Non-Food Handler Health Cards
+                  </h4>
+                  <p className="text-xs text-gray-600 mt-1">
+                    SARIMA predictions for Services 14-15 (Non-Food Processing & Renewal)
+                  </p>
+                </div>
+                <button
+                  onClick={() => handleGenerateHealthCardPrediction('non_food')}
+                  disabled={isGeneratingNonFood}
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-lg hover:from-green-600 hover:to-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-md hover:shadow-lg whitespace-nowrap text-sm"
+                >
+                  {isGeneratingNonFood ? (
+                    <>
+                      <RefreshCw className="w-4 h-4 animate-spin" />
+                      Generating...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="w-4 h-4" />
+                      Generate Predictions
+                    </>
+                  )}
+                </button>
+              </div>
+
+              {/* Non-Food Loading State */}
+              {isGeneratingNonFood && (
+                <div className="bg-green-50 border border-green-200 rounded-lg p-3 mb-4">
+                  <div className="flex items-center gap-2">
+                    <RefreshCw className="w-4 h-4 text-green-600 animate-spin" />
+                    <p className="text-sm text-green-800">
+                      Generating Non-Food Handler predictions...
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* Non-Food Success Message */}
+              {nonFoodGenStatus.type === 'success' && (
+                <div className="bg-green-50 border border-green-200 rounded-lg p-3 mb-4">
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-start gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-green-600 mt-0.5" />
+                      <p className="text-sm text-green-800">{nonFoodGenStatus.message}</p>
+                    </div>
+                    <button
+                      onClick={() => setNonFoodGenStatus({ type: 'idle' })}
+                      className="text-green-600 hover:text-green-800"
+                    >
+                      <XCircle className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Non-Food Error Message */}
+              {nonFoodGenStatus.type === 'error' && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4">
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-start gap-2">
+                      <AlertTriangle className="w-4 h-4 text-red-600 mt-0.5" />
+                      <div>
+                        <p className="text-sm text-red-800">{nonFoodGenStatus.message}</p>
+                        <p className="text-xs text-red-700 mt-1">
+                          Ensure sufficient historical data (minimum 7 days).
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => setNonFoodGenStatus({ type: 'idle' })}
+                      className="text-red-600 hover:text-red-800"
+                    >
+                      <XCircle className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              <HealthCardSARIMAChart
+                key={`non-food-${nonFoodRefreshKey}`}
+                healthcardType="non_food"
+                barangayId={selectedBarangay}
+                daysBack={30}
+                daysForecast={30}
+                showTitle={false}
+                height={400}
+              />
             </div>
+          </div>
+
+          {/* Info note */}
+          <div className="mt-6 bg-white/50 rounded-lg p-4">
+            <p className="text-xs text-gray-600">
+              <strong>Note:</strong> Health card issuance data is automatically collected from completed appointments (Services 12-15).
+              Predictions are generated using Local SARIMA models with 95% confidence intervals.
+              {selectedBarangay && ' Currently filtered by selected barangay.'}
+              {' '}Click "Generate Predictions" to create new forecasts based on the latest appointment data.
+            </p>
           </div>
         </div>
       </Container>

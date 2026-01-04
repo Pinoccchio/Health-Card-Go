@@ -171,6 +171,11 @@ export interface HealthCardStatisticsResponse {
 }
 
 /**
+ * Data quality level for predictions
+ */
+export type DataQuality = 'high' | 'moderate' | 'insufficient';
+
+/**
  * Response from /api/healthcards/predictions
  */
 export interface HealthCardPredictionsResponse {
@@ -184,6 +189,11 @@ export interface HealthCardPredictionsResponse {
     days_forecast: number;
     total_data_points: number;
     model_version: string;
+    // Data quality indicators
+    data_points_count?: number; // Historical data points used for training
+    data_quality?: DataQuality; // Overall quality assessment
+    variance_detected?: boolean; // Whether predictions show variance
+    has_sufficient_data?: boolean; // >= 30 data points
   };
 }
 

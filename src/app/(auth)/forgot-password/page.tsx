@@ -119,7 +119,7 @@ export default function ForgotPasswordPage() {
               variant="ghost"
               size="lg"
               className="w-full"
-              iconLeft={ArrowLeft}
+              icon={ArrowLeft}
               disabled={loading}
             >
               Back to Login
