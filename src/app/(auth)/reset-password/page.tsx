@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, FormEvent, useEffect, Suspense } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Lock, CheckCircle } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
@@ -11,6 +11,7 @@ import { createClient } from '@/lib/supabase/client';
 
 function ResetPasswordForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { resetPassword, loading } = useAuth();
   const supabase = createClient();
 
@@ -23,77 +24,58 @@ function ResetPasswordForm() {
   const [successMessage, setSuccessMessage] = useState('');
 
   /**
-   * Extract tokens from hash fragment and establish session
-   * Supabase sends tokens in URL hash: #access_token=...&refresh_token=...&type=recovery
+   * Check if session is already established (from /auth/confirm route)
+   * The /auth/confirm route verifies the token_hash and establishes the session
+   * before redirecting here.
    */
   useEffect(() => {
-    const handlePasswordRecovery = async () => {
+    const checkSession = async () => {
       try {
         setIsValidating(true);
 
-        // Hash fragments are available in window.location.hash
-        const hashParams = new URLSearchParams(window.location.hash.substring(1));
-        const access_token = hashParams.get('access_token');
-        const refresh_token = hashParams.get('refresh_token');
-        const type = hashParams.get('type');
+        // Check for error from /auth/confirm callback
+        const error = searchParams.get('error');
+        if (error) {
+          const errorMessages: Record<string, string> = {
+            'invalid_link': 'This password reset link is invalid or has expired',
+            'verification_failed': 'Failed to verify reset link. Please try again',
+            'missing_params': 'Invalid reset link. Please request a new one',
+          };
 
-        console.log('Password recovery - Hash params:', {
-          hasAccessToken: !!access_token,
-          hasRefreshToken: !!refresh_token,
-          type,
-        });
-
-        // Check if this is a password recovery flow
-        if (type !== 'recovery') {
-          console.error('Invalid recovery type:', type);
-          setServerError('Invalid recovery link type');
+          console.error('Error from auth/confirm:', error);
+          setServerError(errorMessages[error] || 'An error occurred. Please request a new reset link.');
           setIsValidating(false);
           return;
         }
 
-        if (!access_token) {
-          console.error('No access token found in hash');
-          setServerError('Invalid or missing reset token');
-          setIsValidating(false);
-          return;
-        }
-
-        // Exchange hash tokens for session
-        console.log('Establishing session with tokens...');
-        const { data: sessionData, error: sessionError } = await supabase.auth.setSession({
-          access_token,
-          refresh_token: refresh_token || '',
-        });
+        // Check if user has active session (established by /auth/confirm)
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
 
         if (sessionError) {
           console.error('Session error:', sessionError);
-          setServerError('This password reset link is invalid or has expired');
+          setServerError('Unable to verify reset link. Please request a new one.');
           setIsValidating(false);
           return;
         }
 
-        if (!sessionData.session) {
-          console.error('No session data returned');
-          setServerError('Failed to establish session');
-          setIsValidating(false);
-          return;
+        if (session?.user) {
+          console.log('Session established for user:', session.user.email);
+          setSessionEstablished(true);
+        } else {
+          console.error('No active session found');
+          setServerError('No active session. Please click the link in your email again.');
         }
 
-        console.log('Session established successfully for user:', sessionData.session.user.email);
-        setSessionEstablished(true);
         setIsValidating(false);
-
-        // Clean up URL (remove hash)
-        window.history.replaceState(null, '', window.location.pathname);
       } catch (err) {
-        console.error('Recovery error:', err);
-        setServerError('An error occurred while validating your reset link');
+        console.error('Validation error:', err);
+        setServerError('An error occurred. Please try again.');
         setIsValidating(false);
       }
     };
 
-    handlePasswordRecovery();
-  }, [supabase.auth]);
+    checkSession();
+  }, [searchParams, supabase.auth]);
 
   /**
    * Validate form
