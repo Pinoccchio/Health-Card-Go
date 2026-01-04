@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { DashboardLayout } from '@/components/dashboard';
 import { Container } from '@/components/ui';
 import { ProfessionalCard } from '@/components/ui/ProfessionalCard';
@@ -9,6 +9,7 @@ import SARIMAChart from '@/components/disease-surveillance/SARIMAChart';
 import OutbreakAlerts from '@/components/disease-surveillance/OutbreakAlerts';
 import { DiseaseChartsSection } from '@/components/staff/DiseaseChartsSection';
 import { HistoricalChartsSection } from '@/components/staff/HistoricalChartsSection';
+import { interpretMAPE, getMAPEColor } from '@/lib/utils/sarimaMetrics';
 import {
   Activity,
   AlertTriangle,
@@ -22,6 +23,7 @@ import {
   RefreshCw,
   CheckCircle2,
   XCircle,
+  Info,
 } from 'lucide-react';
 
 type DiseaseType = 'all' | 'dengue' | 'hiv_aids' | 'pregnancy_complications' | 'malaria' | 'measles' | 'rabies' | 'other';
@@ -45,7 +47,18 @@ interface SummaryStats {
 export default function StaffAnalyticsPage() {
   // Tab and filter states
   const [activeTab, setActiveTab] = useState<TabType>('predictions');
-  const [selectedDisease, setSelectedDisease] = useState<DiseaseType>('all');
+  // FIX: Tab-specific disease filters to prevent cross-tab filter sharing
+  const [diseaseFilterByTab, setDiseaseFilterByTab] = useState<Record<TabType, DiseaseType>>({
+    'predictions': 'all',
+    'individual-cases': 'all',
+    'historical-statistics': 'all'
+  });
+  // Tab-specific barangay filters (null = all barangays)
+  const [barangayFilterByTab, setBarangayFilterByTab] = useState<Record<TabType, number | null>>({
+    'predictions': null,
+    'individual-cases': null,
+    'historical-statistics': null
+  });
   const [timeRange, setTimeRange] = useState<TimeRange>(24);
 
   // Data states
@@ -70,40 +83,45 @@ export default function StaffAnalyticsPage() {
     message?: string;
     details?: any; // Full API response for detailed display
   }>({ type: 'idle' });
-  const [selectedBarangay, setSelectedBarangay] = useState<number | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
 
-  // Load all data on mount
-  useEffect(() => {
-    loadAllData();
-  }, []);
+  // FIX: Helper to get current tab's selected disease filter
+  const selectedDisease = diseaseFilterByTab[activeTab];
+  // Helper to get current tab's selected barangay filter
+  const selectedBarangay = barangayFilterByTab[activeTab];
 
-  // Reload data when filters change
+  // OPTIMIZATION: Load data based on active tab instead of all at once
+  useEffect(() => {
+    setLoading(true); // CRITICAL FIX: Set loading state before fetching data
+    loadBarangays(); // Always load barangays for dropdowns
+
+    if (activeTab === 'predictions') {
+      loadHeatmapData();
+    } else if (activeTab === 'individual-cases' || activeTab === 'historical-statistics') {
+      loadChartsData();
+    }
+  }, [activeTab]);
+
+  // FIX: Reload data when TAB-SPECIFIC filters change (not shared across tabs)
   useEffect(() => {
     if (activeTab === 'predictions') {
       loadHeatmapData();
     } else if (activeTab === 'individual-cases' || activeTab === 'historical-statistics') {
       loadChartsData();
     }
-  }, [selectedDisease, timeRange, activeTab]);
-
-  const loadAllData = async () => {
-    setLoading(true);
-    await Promise.all([
-      loadHeatmapData(),
-      loadChartsData(),
-      loadBarangays(),
-    ]);
-    setLoading(false);
-  };
+  }, [diseaseFilterByTab[activeTab], barangayFilterByTab[activeTab], timeRange]); // NEW: Watch barangay filter changes
 
   const loadHeatmapData = async () => {
+    setLoading(true); // CRITICAL FIX: Show loading indicator when heatmap data is being fetched
     setError(null);
 
     try {
       const params = new URLSearchParams();
       if (selectedDisease !== 'all') {
-        params.append('type', selectedDisease);
+        params.append('disease_type', selectedDisease); // FIX: Changed from 'type' to 'disease_type' to match API expectation
+      }
+      if (selectedBarangay !== null) {
+        params.append('barangay_id', selectedBarangay.toString()); // NEW: Add barangay filter
       }
 
       const response = await fetch(`/api/diseases/heatmap-data?${params.toString()}`);
@@ -117,6 +135,8 @@ export default function StaffAnalyticsPage() {
     } catch (err) {
       console.error('Error loading heatmap data:', err);
       setError('An unexpected error occurred');
+    } finally {
+      setLoading(false); // CRITICAL FIX: Ensure loading state is always reset
     }
   };
 
@@ -125,8 +145,17 @@ export default function StaffAnalyticsPage() {
     setError(null);
 
     try {
-      // Fetch individual cases
-      const diseasesRes = await fetch('/api/diseases');
+      // FIX: Build disease filter parameters for Individual Cases API
+      const diseaseParams = new URLSearchParams();
+      if (selectedDisease !== 'all') {
+        diseaseParams.append('type', selectedDisease); // Note: /api/diseases uses 'type' parameter
+      }
+      if (selectedBarangay !== null) {
+        diseaseParams.append('barangay_id', selectedBarangay.toString()); // NEW: Add barangay filter
+      }
+
+      // Fetch individual cases WITH disease filter
+      const diseasesRes = await fetch(`/api/diseases?${diseaseParams.toString()}`);
       const diseasesData = await diseasesRes.json();
       const allDiseases = diseasesData.data || [];
 
@@ -150,8 +179,17 @@ export default function StaffAnalyticsPage() {
         d.status === 'recovered'
       ).length;
 
-      // Fetch historical statistics
-      const historicalRes = await fetch('/api/diseases/historical');
+      // FIX: Build disease filter parameters for Historical Statistics API
+      const historicalParams = new URLSearchParams();
+      if (selectedDisease !== 'all') {
+        historicalParams.append('disease_type', selectedDisease); // Note: /api/diseases/historical uses 'disease_type' parameter
+      }
+      if (selectedBarangay !== null) {
+        historicalParams.append('barangay_id', selectedBarangay.toString()); // NEW: Add barangay filter
+      }
+
+      // Fetch historical statistics WITH disease filter
+      const historicalRes = await fetch(`/api/diseases/historical?${historicalParams.toString()}`);
       const historicalResData = await historicalRes.json();
       const allHistorical = historicalResData.data || [];
       const summary = historicalResData.summary || {};
@@ -224,7 +262,7 @@ export default function StaffAnalyticsPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           diseaseType: selectedDisease,
-          barangayId: selectedBarangay,
+          // Removed barangayId - SARIMA predictions are system-wide for better accuracy
           daysForecast: 30,
         }),
       });
@@ -244,7 +282,7 @@ export default function StaffAnalyticsPage() {
         // Check if error is quota-related
         const isQuotaError = data.error?.includes('quota') || data.error?.includes('429') || data.error?.includes('Too Many Requests');
         const errorMessage = isQuotaError
-          ? 'Gemini API quota exceeded. Displaying cached predictions. Please wait ~40 seconds and try again, or try generating predictions for a single disease instead of "All Diseases".'
+          ? 'System temporarily busy. Displaying cached predictions. Please wait a moment and try again, or try generating predictions for a single disease instead of "All Diseases".'
           : data.error || 'Failed to generate predictions';
 
         setGenerationStatus({
@@ -263,7 +301,8 @@ export default function StaffAnalyticsPage() {
     }
   };
 
-  const diseaseOptions = [
+  // OPTIMIZATION: Memoize disease options to prevent re-creation on every render
+  const diseaseOptions = useMemo(() => [
     { id: 'all', label: 'All Diseases', color: 'blue' },
     { id: 'dengue', label: 'Dengue', color: 'red' },
     { id: 'hiv_aids', label: 'HIV/AIDS', color: 'purple' },
@@ -272,7 +311,22 @@ export default function StaffAnalyticsPage() {
     { id: 'measles', label: 'Measles', color: 'orange' },
     { id: 'rabies', label: 'Rabies', color: 'gray' },
     { id: 'other', label: 'Other (Custom Diseases)', color: 'slate' },
-  ];
+  ], []);
+
+  // OPTIMIZATION: Memoize selected disease label to prevent lookups on every render
+  const selectedDiseaseLabel = useMemo(() =>
+    diseaseOptions.find(d => d.id === selectedDisease)?.label ?? 'All Diseases',
+    [selectedDisease, diseaseOptions]
+  );
+
+  // OPTIMIZATION: Memoize selected barangay label to prevent lookups on every render
+  const selectedBarangayLabel = useMemo(() => {
+    if (selectedBarangay === null) {
+      return 'across barangays';
+    }
+    const barangay = barangays.find(b => b.id === selectedBarangay);
+    return barangay ? `in ${barangay.name}` : 'across barangays';
+  }, [selectedBarangay, barangays]);
 
   return (
     <DashboardLayout
@@ -345,61 +399,96 @@ export default function StaffAnalyticsPage() {
           </nav>
         </div>
 
-        {/* Time Range Selector & Disease Type Selector */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
-          {/* Disease Type Selector */}
-          <div className="bg-white rounded-lg shadow p-4">
-            <div className="flex items-center gap-2 mb-3">
-              <BarChart3 className="w-5 h-5 text-primary-teal" />
-              <h3 className="text-sm font-medium text-gray-700">Disease Type</h3>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {diseaseOptions.map((disease) => (
-                <button
-                  key={disease.id}
-                  onClick={() => setSelectedDisease(disease.id as DiseaseType)}
-                  className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
-                    selectedDisease === disease.id
-                      ? 'bg-primary-teal text-white shadow-md'
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                  }`}
-                >
-                  {disease.label}
-                </button>
-              ))}
-            </div>
-          </div>
+        {/* FIX: Removed global disease filter - now each tab has its own filter */}
 
-          {/* Time Range Selector (hidden for predictions tab) */}
-          {activeTab !== 'predictions' && (
-            <div className="bg-white rounded-lg shadow p-4">
-              <div className="flex items-center gap-2 mb-3">
-                <Calendar className="w-5 h-5 text-primary-teal" />
-                <h3 className="text-sm font-medium text-gray-700">Time Range</h3>
+        {/* TAB CONTENT: Individual Cases */}
+        {activeTab === 'individual-cases' && (
+          <>
+            {/* Disease Type, Time Range & Barangay Filters */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
+              {/* Disease Type Selector */}
+              <div className="bg-white rounded-lg shadow p-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <BarChart3 className="w-5 h-5 text-primary-teal" />
+                  <h3 className="text-sm font-medium text-gray-700">Disease Type</h3>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {diseaseOptions.map((disease) => (
+                    <button
+                      key={disease.id}
+                      onClick={() => {
+                        setDiseaseFilterByTab(prev => ({
+                          ...prev,
+                          'individual-cases': disease.id as DiseaseType
+                        }));
+                      }}
+                      className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
+                        diseaseFilterByTab['individual-cases'] === disease.id
+                          ? 'bg-primary-teal text-white shadow-md'
+                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      }`}
+                    >
+                      {disease.label}
+                    </button>
+                  ))}
+                </div>
               </div>
-              <div className="flex flex-wrap gap-2">
-                {[
-                  { value: 6, label: '6 Months' },
-                  { value: 12, label: '12 Months' },
-                  { value: 24, label: '24 Months' },
-                  { value: 'all', label: 'All Time' },
-                ].map((option) => (
-                  <button
-                    key={option.value}
-                    onClick={() => setTimeRange(option.value as TimeRange)}
-                    className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
-                      timeRange === option.value
-                        ? 'bg-primary-teal text-white shadow-md'
-                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                    }`}
-                  >
-                    {option.label}
-                  </button>
-                ))}
+
+              {/* Time Range Selector */}
+              <div className="bg-white rounded-lg shadow p-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <Calendar className="w-5 h-5 text-primary-teal" />
+                  <h3 className="text-sm font-medium text-gray-700">Time Range</h3>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {[
+                    { value: 6, label: '6 Months' },
+                    { value: 12, label: '12 Months' },
+                    { value: 24, label: '24 Months' },
+                    { value: 'all', label: 'All Time' },
+                  ].map((option) => (
+                    <button
+                      key={option.value}
+                      onClick={() => setTimeRange(option.value as TimeRange)}
+                      className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
+                        timeRange === option.value
+                          ? 'bg-primary-teal text-white shadow-md'
+                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      }`}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Barangay Selector */}
+              <div className="bg-white rounded-lg shadow p-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <MapPin className="w-5 h-5 text-primary-teal" />
+                  <h3 className="text-sm font-medium text-gray-700">Barangay</h3>
+                </div>
+                <select
+                  value={barangayFilterByTab['individual-cases'] || ''}
+                  onChange={(e) => {
+                    setBarangayFilterByTab(prev => ({
+                      ...prev,
+                      'individual-cases': e.target.value ? Number(e.target.value) : null
+                    }));
+                  }}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-teal focus:border-transparent"
+                >
+                  <option value="">All Barangays</option>
+                  {barangays.map((barangay: any) => (
+                    <option key={barangay.id} value={barangay.id}>
+                      {barangay.name}
+                    </option>
+                  ))}
+                </select>
               </div>
             </div>
-          )}
-        </div>
+          </>
+        )}
 
         {/* Statistics Cards - Individual Cases Tab */}
         {activeTab === 'individual-cases' && !chartsLoading && (
@@ -578,8 +667,93 @@ export default function StaffAnalyticsPage() {
 
         {/* TAB CONTENT: Historical Statistics */}
         {activeTab === 'historical-statistics' && (
-          <div>
-            {chartsLoading ? (
+          <>
+            {/* Disease Type, Time Range & Barangay Filters */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
+              {/* Disease Type Selector */}
+              <div className="bg-white rounded-lg shadow p-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <BarChart3 className="w-5 h-5 text-primary-teal" />
+                  <h3 className="text-sm font-medium text-gray-700">Disease Type</h3>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {diseaseOptions.map((disease) => (
+                    <button
+                      key={disease.id}
+                      onClick={() => {
+                        setDiseaseFilterByTab(prev => ({
+                          ...prev,
+                          'historical-statistics': disease.id as DiseaseType
+                        }));
+                      }}
+                      className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
+                        diseaseFilterByTab['historical-statistics'] === disease.id
+                          ? 'bg-primary-teal text-white shadow-md'
+                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      }`}
+                    >
+                      {disease.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Time Range Selector */}
+              <div className="bg-white rounded-lg shadow p-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <Calendar className="w-5 h-5 text-primary-teal" />
+                  <h3 className="text-sm font-medium text-gray-700">Time Range</h3>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {[
+                    { value: 6, label: '6 Months' },
+                    { value: 12, label: '12 Months' },
+                    { value: 24, label: '24 Months' },
+                    { value: 'all', label: 'All Time' },
+                  ].map((option) => (
+                    <button
+                      key={option.value}
+                      onClick={() => setTimeRange(option.value as TimeRange)}
+                      className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
+                        timeRange === option.value
+                          ? 'bg-primary-teal text-white shadow-md'
+                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      }`}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Barangay Selector */}
+              <div className="bg-white rounded-lg shadow p-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <MapPin className="w-5 h-5 text-primary-teal" />
+                  <h3 className="text-sm font-medium text-gray-700">Barangay</h3>
+                </div>
+                <select
+                  value={barangayFilterByTab['historical-statistics'] || ''}
+                  onChange={(e) => {
+                    setBarangayFilterByTab(prev => ({
+                      ...prev,
+                      'historical-statistics': e.target.value ? Number(e.target.value) : null
+                    }));
+                  }}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-teal focus:border-transparent"
+                >
+                  <option value="">All Barangays</option>
+                  {barangays.map((barangay: any) => (
+                    <option key={barangay.id} value={barangay.id}>
+                      {barangay.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div>
+              {chartsLoading ? (
               <div className="py-12 text-center bg-white rounded-lg shadow">
                 <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary-teal"></div>
                 <p className="mt-2 text-sm text-gray-500">Loading charts...</p>
@@ -592,7 +766,8 @@ export default function StaffAnalyticsPage() {
                 timeRangeMonths={timeRange}
               />
             )}
-          </div>
+            </div>
+          </>
         )}
 
         {/* TAB CONTENT: Predictions & Forecasts */}
@@ -601,6 +776,56 @@ export default function StaffAnalyticsPage() {
             {/* Outbreak Alerts */}
             <div className="mb-6">
               <OutbreakAlerts diseaseType={selectedDisease !== 'all' ? selectedDisease : undefined} />
+            </div>
+
+            {/* Disease Type Filter (below Outbreak Alerts - matches admin page layout) */}
+            <div className="bg-white rounded-lg shadow p-4 mb-6">
+              <div className="flex items-center gap-2 mb-3">
+                <BarChart3 className="w-5 h-5 text-primary-teal" />
+                <h3 className="text-sm font-medium text-gray-700">Disease Type</h3>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {diseaseOptions.map((disease) => (
+                  <button
+                    key={disease.id}
+                    onClick={() => {
+                      setDiseaseFilterByTab(prev => ({
+                        ...prev,
+                        'predictions': disease.id as DiseaseType
+                      }));
+                    }}
+                    className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
+                      diseaseFilterByTab['predictions'] === disease.id
+                        ? 'bg-primary-teal text-white shadow-md'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
+                  >
+                    {disease.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Barangay Filter */}
+            <div className="bg-white rounded-lg shadow p-6 mb-6">
+              <h4 className="text-sm font-medium text-gray-700 mb-3">Filter by Barangay</h4>
+              <select
+                value={barangayFilterByTab['predictions'] || ''}
+                onChange={(e) => {
+                  setBarangayFilterByTab(prev => ({
+                    ...prev,
+                    'predictions': e.target.value ? Number(e.target.value) : null
+                  }));
+                }}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-teal focus:border-transparent"
+              >
+                <option value="">All Barangays</option>
+                {barangays.map((barangay: any) => (
+                  <option key={barangay.id} value={barangay.id}>
+                    {barangay.name}
+                  </option>
+                ))}
+              </select>
             </div>
 
             {/* Disease Heatmap */}
@@ -612,7 +837,7 @@ export default function StaffAnalyticsPage() {
                     Disease Distribution Heatmap
                   </h3>
                   <p className="text-sm text-gray-600 mt-1">
-                    Geographic distribution of {diseaseOptions.find(d => d.id === selectedDisease)?.label || 'disease'} cases across barangays
+                    Geographic distribution of {selectedDiseaseLabel} cases {selectedBarangayLabel}
                   </p>
                 </div>
               </div>
@@ -640,7 +865,7 @@ export default function StaffAnalyticsPage() {
                     SARIMA Predictive Model with Error Metrics
                   </h3>
                   <p className="text-sm text-gray-600 mt-1">
-                    Seasonal Auto-Regressive Integrated Moving Average predictions for {diseaseOptions.find(d => d.id === selectedDisease)?.label || 'disease'}
+                    Seasonal Auto-Regressive Integrated Moving Average predictions for {selectedDiseaseLabel} {selectedBarangayLabel}
                   </p>
                 </div>
                 <button
@@ -662,26 +887,6 @@ export default function StaffAnalyticsPage() {
                 </button>
               </div>
 
-              {/* Barangay Filter */}
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Filter by Barangay (Optional)
-                </label>
-                <select
-                  value={selectedBarangay || ''}
-                  onChange={(e) => setSelectedBarangay(e.target.value ? parseInt(e.target.value) : null)}
-                  className="w-full lg:w-64 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-teal focus:border-transparent"
-                  disabled={isGenerating}
-                >
-                  <option value="">All Barangays (System-Wide)</option>
-                  {barangays.map((barangay) => (
-                    <option key={barangay.id} value={barangay.id}>
-                      {barangay.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
               {/* Generation Status Messages */}
 
               {/* Progress Indicator (Option C) */}
@@ -692,7 +897,7 @@ export default function StaffAnalyticsPage() {
                     <div className="flex-1">
                       <h4 className="text-sm font-semibold text-blue-900">Generating Predictions...</h4>
                       <p className="text-sm text-blue-800 mt-1">
-                        This may take up to 60 seconds for all diseases. Using Gemini AI (gemini-2.5-flash-lite).
+                        This may take up to 60 seconds for all diseases. Using local SARIMA model.
                       </p>
                       <div className="mt-2">
                         <div className="h-2 bg-blue-200 rounded-full overflow-hidden">
@@ -735,7 +940,30 @@ export default function StaffAnalyticsPage() {
                                   <div className="flex items-center gap-3 text-xs">
                                     <span>{result.predictions_count} predictions</span>
                                     <span className="text-gray-500">•</span>
-                                    <span>R²: {result.accuracy_r_squared?.toFixed(2) || 'N/A'}</span>
+                                    {/* Conditional Metric Display: MAPE for low-variance, R² for high-variance */}
+                                    {result.test_variance !== undefined && result.test_variance < 5.0 ? (
+                                      // Low-variance disease: Show MAPE (primary metric for surveillance)
+                                      <span className={`font-medium ${
+                                        result.accuracy_mape !== undefined
+                                          ? getMAPEColor(result.accuracy_mape)
+                                          : 'text-gray-600'
+                                      }`} title={`Low variance data (${result.test_variance?.toFixed(2)}) - MAPE is primary metric`}>
+                                        MAPE: {result.accuracy_mape?.toFixed(1)}% ({interpretMAPE(result.accuracy_mape || 50)})
+                                      </span>
+                                    ) : (
+                                      // High-variance disease: Show R² (traditional metric for trending data)
+                                      <span className={`font-medium ${
+                                        result.accuracy_r_squared !== undefined && result.accuracy_r_squared >= 0.7
+                                          ? 'text-green-600'
+                                          : result.accuracy_r_squared !== undefined && result.accuracy_r_squared >= 0.5
+                                          ? 'text-blue-600'
+                                          : result.accuracy_r_squared !== undefined && result.accuracy_r_squared >= 0.3
+                                          ? 'text-yellow-600'
+                                          : 'text-red-600'
+                                      }`} title={result.test_variance !== undefined ? `High variance data (${result.test_variance?.toFixed(2)}) - R² is primary metric` : 'Model accuracy metric'}>
+                                        R²: {result.accuracy_r_squared?.toFixed(2) || 'N/A'}
+                                      </span>
+                                    )}
                                     <span className="text-gray-500">•</span>
                                     <span className="capitalize">{result.data_quality} Quality</span>
                                     {result.cached && result.cache_age_hours !== undefined && (
@@ -789,7 +1017,11 @@ export default function StaffAnalyticsPage() {
                   <p className="mt-2 text-sm text-gray-500">Loading predictions...</p>
                 </div>
               ) : (
-                <SARIMAChart key={refreshKey} diseaseType={selectedDisease} />
+                <SARIMAChart
+                  key={refreshKey}
+                  diseaseType={selectedDisease}
+                  barangayId={selectedBarangay || undefined}
+                />
               )}
             </div>
 
@@ -803,7 +1035,9 @@ export default function StaffAnalyticsPage() {
                     <p>• The heatmap visualizes disease distribution across all 41 barangays in Panabo City</p>
                     <p>• Darker colors indicate higher case concentrations in specific areas</p>
                     <p>• SARIMA predictions use historical data to forecast future disease trends</p>
-                    <p>• Error metrics (MSE, RMSE, R²) show model accuracy and reliability</p>
+                    <p>• <strong>MAPE (Mean Absolute Percentage Error)</strong> is shown for low-variance diseases (sporadic patterns like Rabies, HIV) - industry standard for disease surveillance</p>
+                    <p>• <strong>R² (Coefficient of Determination)</strong> is shown for high-variance diseases (seasonal patterns like Dengue, Malaria) - traditional accuracy metric</p>
+                    <p>• MAPE Quality: &lt;10% Excellent, 10-20% Good, 20-50% Fair, &gt;50% Poor</p>
                     <p>• Confidence intervals indicate the range of uncertainty in predictions</p>
                     <p>• Outbreak alerts automatically detect unusual disease pattern spikes</p>
                     <p>• Use this data to identify high-risk areas and allocate resources effectively</p>

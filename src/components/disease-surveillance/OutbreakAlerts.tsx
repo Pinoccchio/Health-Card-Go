@@ -18,6 +18,7 @@ interface Outbreak {
   case_count: number;
   critical_cases: number;
   severe_cases: number;
+  moderate_cases: number; // FIX: Add moderate cases count to interface
   days_window: number;
   threshold: number;
   threshold_description: string;
@@ -383,7 +384,7 @@ export default function OutbreakAlerts({ autoNotify = true, refreshInterval = 30
                 </div>
 
                 {/* Statistics */}
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-3">
                   <div>
                     <p className="text-xs text-gray-600">Total Cases</p>
                     <p className="text-lg font-bold text-gray-900">{outbreak.case_count}</p>
@@ -395,6 +396,10 @@ export default function OutbreakAlerts({ autoNotify = true, refreshInterval = 30
                   <div>
                     <p className="text-xs text-gray-600">Severe</p>
                     <p className="text-lg font-bold text-orange-600">{outbreak.severe_cases}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-600">Moderate</p>
+                    <p className="text-lg font-bold text-yellow-600">{outbreak.moderate_cases}</p>
                   </div>
                   <div>
                     <p className="text-xs text-gray-600">Time Window</p>

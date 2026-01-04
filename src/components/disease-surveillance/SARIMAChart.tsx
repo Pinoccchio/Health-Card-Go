@@ -109,7 +109,7 @@ export default function SARIMAChart({ diseaseType, barangayId }: SARIMAChartProp
     try {
       const params = new URLSearchParams();
       if (diseaseType !== 'all') {
-        params.append('type', diseaseType);
+        params.append('disease_type', diseaseType); // FIX: Changed from 'type' to 'disease_type' to match API expectation
       }
       if (barangayId) {
         params.append('barangay_id', barangayId.toString());

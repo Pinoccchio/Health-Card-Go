@@ -20,13 +20,16 @@ export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
     const diseaseType = searchParams.get('disease_type');
+    const barangayId = searchParams.get('barangay_id'); // NEW: Support barangay filtering
     const startDate = searchParams.get('start_date');
     const endDate = searchParams.get('end_date');
 
-    // Fetch barangays with coordinates
-    const { data: barangays, error: barangayError } = await supabase
-      .from('barangays')
-      .select('*');
+    // Fetch barangays with coordinates (filter by barangay_id if provided)
+    let barangayQuery = supabase.from('barangays').select('*');
+    if (barangayId) {
+      barangayQuery = barangayQuery.eq('id', parseInt(barangayId));
+    }
+    const { data: barangays, error: barangayError } = await barangayQuery;
 
     if (barangayError) {
       throw barangayError;
@@ -39,6 +42,9 @@ export async function GET(request: NextRequest) {
 
     if (diseaseType) {
       diseaseQuery = diseaseQuery.eq('disease_type', diseaseType);
+    }
+    if (barangayId) {
+      diseaseQuery = diseaseQuery.eq('barangay_id', parseInt(barangayId));
     }
     if (startDate) {
       diseaseQuery = diseaseQuery.gte('diagnosis_date', startDate);

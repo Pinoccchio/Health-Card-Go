@@ -112,6 +112,97 @@ export function calculateMAE(actual: number[], predicted: number[]): number {
 }
 
 /**
+ * Calculate Mean Absolute Percentage Error (MAPE)
+ *
+ * MAPE = (100/n) * Σ(|actual - predicted| / |actual|)
+ *
+ * MAPE expresses accuracy as a percentage, making it very interpretable:
+ * - < 10% = Excellent
+ * - 10-20% = Good
+ * - 20-50% = Fair
+ * - > 50% = Poor
+ *
+ * Note: MAPE is undefined when actual values are zero. We skip those points.
+ *
+ * @param actual - Array of actual observed values
+ * @param predicted - Array of predicted values
+ * @returns MAPE as a percentage (0-100+, lower is better)
+ */
+export function calculateMAPE(actual: number[], predicted: number[]): number {
+  if (actual.length === 0 || predicted.length === 0) {
+    throw new Error('Arrays cannot be empty');
+  }
+
+  if (actual.length !== predicted.length) {
+    throw new Error('Actual and predicted arrays must have the same length');
+  }
+
+  let sumPercentageErrors = 0;
+  let validCount = 0;
+
+  for (let i = 0; i < actual.length; i++) {
+    // Skip zero values to avoid division by zero
+    if (actual[i] !== 0) {
+      const percentageError = Math.abs((actual[i] - predicted[i]) / actual[i]);
+      sumPercentageErrors += percentageError;
+      validCount++;
+    }
+  }
+
+  // If all actual values are zero, return 0 (perfect prediction of zeros)
+  if (validCount === 0) {
+    return 0;
+  }
+
+  return (sumPercentageErrors / validCount) * 100;
+}
+
+/**
+ * Calculate Directional Accuracy
+ *
+ * Measures the percentage of times the model correctly predicted the direction
+ * of change (increase, decrease, or stable) compared to the previous value.
+ *
+ * Directional Accuracy = (Correct Predictions / Total Predictions) * 100
+ *
+ * Thresholds:
+ * - > 70% = Good
+ * - 50-70% = Fair
+ * - < 50% = Poor (worse than random)
+ *
+ * @param actual - Array of actual observed values
+ * @param predicted - Array of predicted values
+ * @returns Directional accuracy as a percentage (0-100)
+ */
+export function calculateDirectionalAccuracy(actual: number[], predicted: number[]): number {
+  if (actual.length === 0 || predicted.length === 0) {
+    throw new Error('Arrays cannot be empty');
+  }
+
+  if (actual.length !== predicted.length) {
+    throw new Error('Actual and predicted arrays must have the same length');
+  }
+
+  if (actual.length < 2) {
+    // Need at least 2 points to calculate direction
+    return 0;
+  }
+
+  let correctDirections = 0;
+
+  for (let i = 1; i < actual.length; i++) {
+    const actualDirection = Math.sign(actual[i] - actual[i - 1]);
+    const predictedDirection = Math.sign(predicted[i] - predicted[i - 1]);
+
+    if (actualDirection === predictedDirection) {
+      correctDirections++;
+    }
+  }
+
+  return (correctDirections / (actual.length - 1)) * 100;
+}
+
+/**
  * Calculate R-squared (Coefficient of Determination)
  *
  * R² = 1 - (SS_res / SS_tot)
@@ -145,6 +236,18 @@ export function calculateRSquared(actual: number[], predicted: number[]): number
   // Calculate mean of actual values
   const mean = actual.reduce((sum, value) => sum + value, 0) / actual.length;
 
+  // NEW: Check if predictions have variance (detect constant predictions)
+  const predMean = predicted.reduce((sum, value) => sum + value, 0) / predicted.length;
+  const predVariance = predicted.reduce((sum, value) =>
+    sum + Math.pow(value - predMean, 2), 0) / predicted.length;
+
+  if (predVariance < 0.1) {
+    console.warn('[R² Warning] Predictions are near-constant (low variance)');
+    console.warn(`[R²] Prediction mean: ${predMean.toFixed(2)}, variance: ${predVariance.toFixed(4)}`);
+    console.warn('[R²] Constant predictions cannot capture data variance → R² ≈ 0');
+    console.warn('[R²] This usually indicates unstable SARIMA parameters or insufficient data');
+  }
+
   // Calculate sum of squared residuals (SS_res)
   const ssRes = actual.reduce((sum, actualValue, index) => {
     const residual = actualValue - predicted[index];
@@ -165,7 +268,15 @@ export function calculateRSquared(actual: number[], predicted: number[]): number
   const rSquared = 1 - (ssRes / ssTot);
 
   // Clamp to [0, 1] range (R² can be negative for very poor models, but we'll floor at 0)
-  return Math.max(0, Math.min(1, rSquared));
+  const clampedR2 = Math.max(0, Math.min(1, rSquared));
+
+  // NEW: Warn if R² is clamped to 0 (predictions worse than mean baseline)
+  if (rSquared < 0 && clampedR2 === 0) {
+    console.warn('[R² Warning] Predictions are worse than mean baseline (negative R² clamped to 0)');
+    console.warn(`[R²] Raw R²: ${rSquared.toFixed(3)} → Clamped to 0.00`);
+  }
+
+  return clampedR2;
 }
 
 /**
@@ -329,4 +440,67 @@ export function getMetricBackgroundColor(rSquared: number): string {
   if (rSquared >= 0.8) return 'bg-blue-50 border-blue-200'; // Good
   if (rSquared >= 0.6) return 'bg-yellow-50 border-yellow-200'; // Fair
   return 'bg-red-50 border-red-200'; // Poor
+}
+
+/**
+ * Interpret MAPE value into human-readable category
+ *
+ * Industry-standard thresholds for disease surveillance:
+ * - < 10% = Excellent (dengue studies target MAPE < 10%)
+ * - 10-20% = Good
+ * - 20-50% = Fair (acceptable for disease surveillance)
+ * - > 50% = Poor
+ *
+ * @param mape - MAPE value as percentage (0-100+)
+ * @returns Interpretation category
+ */
+export function interpretMAPE(mape: number): 'Excellent' | 'Good' | 'Fair' | 'Poor' {
+  if (mape < 10) return 'Excellent';
+  if (mape < 20) return 'Good';
+  if (mape < 50) return 'Fair';
+  return 'Poor';
+}
+
+/**
+ * Get color coding for MAPE display
+ *
+ * @param mape - MAPE value as percentage
+ * @returns Tailwind CSS color class
+ */
+export function getMAPEColor(mape: number): string {
+  if (mape < 10) return 'text-green-600'; // Excellent
+  if (mape < 20) return 'text-blue-600'; // Good
+  if (mape < 50) return 'text-yellow-600'; // Fair
+  return 'text-red-600'; // Poor
+}
+
+/**
+ * Get background color for MAPE metric card
+ *
+ * @param mape - MAPE value as percentage
+ * @returns Tailwind CSS background color classes
+ */
+export function getMAPEBackgroundColor(mape: number): string {
+  if (mape < 10) return 'bg-green-50 border-green-200'; // Excellent
+  if (mape < 20) return 'bg-blue-50 border-blue-200'; // Good
+  if (mape < 50) return 'bg-yellow-50 border-yellow-200'; // Fair
+  return 'bg-red-50 border-red-200'; // Poor
+}
+
+/**
+ * Calculate data variance
+ *
+ * Used to determine if MAPE or R² is more appropriate for evaluation.
+ * Low variance data (< 5.0) should use MAPE instead of R².
+ *
+ * @param data - Array of numerical values
+ * @returns Variance value
+ */
+export function calculateVariance(data: number[]): number {
+  if (data.length === 0) return 0;
+
+  const mean = data.reduce((sum, val) => sum + val, 0) / data.length;
+  const variance = data.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / data.length;
+
+  return variance;
 }

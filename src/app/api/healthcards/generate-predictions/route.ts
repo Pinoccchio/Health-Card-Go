@@ -1,9 +1,9 @@
 /**
- * Gemini AI HealthCard Predictions Generator API
+ * Local SARIMA HealthCard Predictions Generator API
  *
  * POST /api/healthcards/generate-predictions
  *
- * Uses Google Gemini AI to analyze historical health card issuance data
+ * Uses local SARIMA model to analyze historical health card issuance data
  * and generate SARIMA predictions with confidence intervals.
  *
  * Body Parameters:
@@ -17,7 +17,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { HealthCardType } from '@/types/healthcard';
 import { isValidHealthCardType } from '@/lib/utils/healthcardHelpers';
-import { generateSARIMAPredictions, formatHistoricalData, validatePredictions } from '@/lib/ai/geminiSARIMA';
+import { generateSARIMAPredictions, formatHistoricalData } from '@/lib/sarima/localSARIMA';
 
 export async function POST(request: NextRequest) {
   try {
@@ -47,17 +47,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { success: false, error: 'Forbidden: Super Admin access required' },
         { status: 403 }
-      );
-    }
-
-    // Check if Gemini API key is configured
-    if (!process.env.GEMINI_API_KEY) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'Gemini AI not configured. Please set GEMINI_API_KEY environment variable.',
-        },
-        { status: 500 }
       );
     }
 
@@ -152,24 +141,24 @@ export async function POST(request: NextRequest) {
     console.log('[Generate Predictions API] Formatted data points:', historicalData.length);
 
     // ========================================================================
-    // Generate Predictions with Gemini AI
+    // Generate Predictions with Local SARIMA
     // ========================================================================
 
-    console.log('[Generate Predictions API] Calling Gemini AI...');
+    console.log('[Generate Predictions API] Running local SARIMA...');
     const forecast = await generateSARIMAPredictions(
       historicalData,
       healthcardType,
       daysForecast
     );
 
-    console.log('[Generate Predictions API] Gemini AI forecast received:', {
+    console.log('[Generate Predictions API] Local SARIMA forecast received:', {
       predictions: forecast.predictions.length,
       trend: forecast.trend,
       r_squared: forecast.accuracy_metrics.r_squared,
     });
 
-    // Validate predictions
-    const validatedPredictions = validatePredictions(forecast.predictions);
+    // Predictions are already validated by local SARIMA
+    const validatedPredictions = forecast.predictions;
 
     // ========================================================================
     // Save to Database (if auto_save enabled)
@@ -224,7 +213,7 @@ export async function POST(request: NextRequest) {
           r_squared: forecast.accuracy_metrics.r_squared,
           trend: forecast.trend,
           seasonality_detected: forecast.seasonality_detected,
-          generated_by: 'gemini-ai',
+          generated_by: 'local-sarima',
           generated_at: new Date().toISOString(),
         },
       }));
@@ -256,7 +245,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: `Successfully generated ${validatedPredictions.length} predictions using Gemini AI`,
+      message: `Successfully generated ${validatedPredictions.length} predictions using local SARIMA`,
       data: {
         healthcard_type: healthcardType,
         barangay_id: barangayId,
@@ -267,7 +256,7 @@ export async function POST(request: NextRequest) {
           accuracy_metrics: forecast.accuracy_metrics,
           trend: forecast.trend,
           seasonality_detected: forecast.seasonality_detected,
-          generated_by: 'google-gemini-1.5-flash',
+          generated_by: 'local-sarima-arima-js',
           generated_at: new Date().toISOString(),
         },
         historical_data_points: historicalData.length,

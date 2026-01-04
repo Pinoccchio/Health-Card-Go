@@ -3,13 +3,11 @@ import { createClient } from '@/lib/supabase/server';
 import {
   generateDiseaseSARIMAPredictions,
   formatDiseaseHistoricalData,
-  validateDiseasePredictions,
-  calculateDataQuality,
-} from '@/lib/ai/geminiDiseaseSARIMA';
+} from '@/lib/sarima/localSARIMA';
 
 /**
  * POST /api/diseases/generate-predictions
- * Generate disease predictions using Gemini AI
+ * Generate disease predictions using local SARIMA model
  * (Staff and Super Admin only)
  */
 export async function POST(request: NextRequest) {
@@ -93,7 +91,7 @@ export async function POST(request: NextRequest) {
     // Determine which diseases to generate predictions for
     const diseasesToGenerate =
       diseaseType === 'all'
-        ? ['dengue', 'hiv_aids', 'malaria', 'measles', 'rabies', 'pregnancy_complications']
+        ? ['dengue', 'hiv_aids', 'malaria', 'measles', 'rabies', 'pregnancy_complications', 'other']
         : [diseaseType];
 
     const results: Array<{
@@ -154,7 +152,7 @@ export async function POST(request: NextRequest) {
           continue;
         }
 
-        // Format data for Gemini
+        // Format data for SARIMA model
         const formattedData = formatDiseaseHistoricalData(historicalRecords);
 
         // Get barangay name for context
@@ -162,53 +160,8 @@ export async function POST(request: NextRequest) {
           ? barangays?.find((b) => b.id === barangayId)?.name || `Barangay ${barangayId}`
           : 'System-Wide';
 
-        // ========================================
-        // 24-HOUR CACHE CHECK (Prevent quota exhaustion)
-        // ========================================
-        const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-        const cacheQuery = supabase
-          .from('disease_predictions')
-          .select('generated_at, data_points_count')
-          .eq('disease_type', disease);
-
-        if (barangayId) {
-          cacheQuery.eq('barangay_id', barangayId);
-        } else {
-          cacheQuery.is('barangay_id', null);
-        }
-
-        const { data: recentPredictions } = await cacheQuery
-          .gte('generated_at', twentyFourHoursAgo)
-          .order('generated_at', { ascending: false }) // Get the MOST RECENT prediction
-          .limit(1);
-
-        if (recentPredictions && recentPredictions.length > 0) {
-          const cacheAge = Math.round((Date.now() - new Date(recentPredictions[0].generated_at).getTime()) / (1000 * 60 * 60));
-          console.log(`[Cache Hit] Using recent predictions for ${disease} (generated ${cacheAge}h ago)`);
-
-          results.push({
-            disease_type: disease,
-            barangay_name: barangayName,
-            success: true,
-            predictions_count: 30, // Assuming 30 predictions
-            data_quality: 'high', // From cache
-            cached: true,
-            cache_age_hours: cacheAge,
-          });
-          continue; // Skip Gemini API call
-        }
-
-        // ========================================
-        // RATE LIMITING (Stay under 15 RPM)
-        // ========================================
-        // Add 10-second delay between diseases (except first one)
-        if (disease !== diseasesToGenerate[0]) {
-          console.log(`[Rate Limit] Waiting 10 seconds before generating ${disease}...`);
-          await new Promise((resolve) => setTimeout(resolve, 10000));
-        }
-
-        // Generate predictions using Gemini AI
-        console.log(`[Generate Predictions] Calling Gemini for ${disease} in ${barangayName}...`);
+        // Generate predictions using local SARIMA
+        console.log(`[Generate Predictions] Running local SARIMA for ${disease} in ${barangayName}...`);
         const forecast = await generateDiseaseSARIMAPredictions(
           formattedData,
           disease,
@@ -216,11 +169,8 @@ export async function POST(request: NextRequest) {
           daysForecast
         );
 
-        // Validate predictions
-        const validatedPredictions = validateDiseasePredictions(forecast.predictions);
-
-        // Calculate data quality
-        const qualityInfo = calculateDataQuality(formattedData.length);
+        // Predictions are already validated by local SARIMA
+        const validatedPredictions = forecast.predictions;
 
         // Delete old predictions for this disease/barangay combination
         const deleteQuery = supabase
@@ -250,17 +200,19 @@ export async function POST(request: NextRequest) {
           accuracy_rmse: forecast.accuracy_metrics.rmse,
           accuracy_mae: forecast.accuracy_metrics.mae,
           accuracy_mse: forecast.accuracy_metrics.mse,
+          accuracy_mape: forecast.accuracy_metrics.mape, // NEW: MAPE metric
           trend: forecast.trend,
           seasonality_detected: forecast.seasonality_detected,
           data_quality: forecast.data_quality,
           data_points_count: formattedData.length,
+          test_variance: forecast.test_variance, // NEW: Test variance for conditional metric display
           generated_at: new Date().toISOString(),
           generated_by_id: user.id,
-          // Store full forecast JSON (fixes NULL prediction_data issue)
+          // Store full forecast JSON
           prediction_data: {
             full_forecast: forecast,
             historical_data_count: formattedData.length,
-            generated_by_model: 'gemini-2.5-flash-lite',
+            generated_by_model: 'local-sarima-arima-js',
             timestamp: new Date().toISOString(),
           },
         }));
@@ -277,7 +229,7 @@ export async function POST(request: NextRequest) {
             barangay_name: barangayName,
             success: false,
             predictions_count: 0,
-            data_quality: qualityInfo.quality,
+            data_quality: forecast.data_quality,
             error: 'Failed to save predictions to database',
           });
           continue;
@@ -293,7 +245,10 @@ export async function POST(request: NextRequest) {
           barangay_name: barangayName,
           success: true,
           predictions_count: validatedPredictions.length,
-          data_quality: qualityInfo.quality,
+          data_quality: forecast.data_quality,
+          accuracy_r_squared: forecast.accuracy_metrics.r_squared,
+          accuracy_mape: forecast.accuracy_metrics.mape,
+          test_variance: forecast.test_variance,
         });
       } catch (error) {
         console.error(`Error generating predictions for ${disease}:`, error);

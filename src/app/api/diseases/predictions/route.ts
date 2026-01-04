@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
 
   try {
     const searchParams = request.nextUrl.searchParams;
-    const diseaseType = searchParams.get('type');
+    const diseaseType = searchParams.get('disease_type'); // FIX: Changed from 'type' to 'disease_type' to match SARIMAChart
     const barangayId = searchParams.get('barangay_id');
     const daysBack = parseInt(searchParams.get('days_back') || '30');
     const daysForecast = parseInt(searchParams.get('days_forecast') || '30');
@@ -172,7 +172,7 @@ export async function GET(request: NextRequest) {
     const generationMetadata = latestPrediction && latestPrediction.length > 0
       ? {
           generated_at: latestPrediction[0].generated_at,
-          model_version: latestPrediction[0].model_version || 'Gemini-Disease-SARIMA-v1.0',
+          model_version: latestPrediction[0].model_version || 'Local-SARIMA-v1.0',
           data_quality: latestPrediction[0].data_quality || 'unknown',
           data_points_count: latestPrediction[0].data_points_count || 0,
           accuracy_r_squared: latestPrediction[0].accuracy_r_squared || null,

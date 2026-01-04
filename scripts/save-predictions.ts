@@ -1,5 +1,5 @@
 /**
- * Save Gemini AI Predictions to Database
+ * Save Local SARIMA Predictions to Database
  *
  * This script generates predictions and saves them directly to the database.
  *
@@ -14,7 +14,7 @@ import { resolve } from 'path';
 dotenv.config({ path: resolve(__dirname, '../.env.local') });
 
 import { createClient } from '@supabase/supabase-js';
-import { generateSARIMAPredictions, formatHistoricalData, validatePredictions } from '../src/lib/ai/geminiSARIMA';
+import { generateSARIMAPredictions, formatHistoricalData } from '../src/lib/sarima/localSARIMA';
 import type { HealthCardType } from '../src/types/healthcard';
 
 async function savePredictions() {
@@ -25,7 +25,7 @@ async function savePredictions() {
   const healthcardType: HealthCardType = typeArg === 'non_food' ? 'non_food' : 'food_handler';
   const serviceIds = healthcardType === 'food_handler' ? [12, 13] : [14, 15];
 
-  console.log(`💾 Saving ${healthcardType === 'food_handler' ? 'Food Handler' : 'Non-Food Handler'} Gemini AI Predictions to Database\n`);
+  console.log(`💾 Saving ${healthcardType === 'food_handler' ? 'Food Handler' : 'Non-Food Handler'} Local SARIMA Predictions to Database\n`);
 
   try {
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -53,9 +53,9 @@ async function savePredictions() {
     const historicalData = formatHistoricalData(appointments);
 
     // Generate predictions
-    console.log('2️⃣  Generating predictions with Gemini AI...');
+    console.log('2️⃣  Generating predictions with local SARIMA...');
     const forecast = await generateSARIMAPredictions(historicalData, healthcardType, 30);
-    const validatedPredictions = validatePredictions(forecast.predictions);
+    const validatedPredictions = forecast.predictions;
 
     console.log(`✅ Generated ${validatedPredictions.length} predictions\n`);
 
@@ -98,7 +98,7 @@ async function savePredictions() {
         r_squared: forecast.accuracy_metrics.r_squared,
         trend: forecast.trend,
         seasonality_detected: forecast.seasonality_detected,
-        generated_by: 'gemini-ai',
+        generated_by: 'local-sarima',
         generated_at: new Date().toISOString(),
       },
     }));

@@ -16,11 +16,11 @@ interface OutbreakThreshold {
 
 // Configurable outbreak thresholds
 const OUTBREAK_THRESHOLDS: OutbreakThreshold[] = [
-  { disease_type: 'dengue', cases_threshold: 10, days_window: 7, description: '10+ cases in 7 days' },
+  { disease_type: 'dengue', cases_threshold: 5, days_window: 14, description: '5+ cases in 14 days' },
   { disease_type: 'dengue', cases_threshold: 5, days_window: 3, description: '5+ cases in 3 days (rapid spike)' },
   { disease_type: 'hiv_aids', cases_threshold: 3, days_window: 30, description: '3+ new cases in 30 days' },
   { disease_type: 'malaria', cases_threshold: 3, days_window: 14, description: '3+ cases in 14 days' },
-  { disease_type: 'measles', cases_threshold: 2, days_window: 7, description: '2+ cases in 7 days (highly contagious)' },
+  { disease_type: 'measles', cases_threshold: 3, days_window: 14, description: '3+ cases in 14 days (highly contagious)' },
   { disease_type: 'rabies', cases_threshold: 1, days_window: 7, description: 'Any rabies case (immediate alert)' },
   { disease_type: 'pregnancy_complications', cases_threshold: 5, days_window: 30, description: '5+ complications in 30 days' },
   { disease_type: 'other', cases_threshold: 3, days_window: 14, description: '3+ cases in 14 days (custom disease)' },
@@ -51,6 +51,7 @@ export async function GET(request: NextRequest) {
     const outbreaks = [];
     let totalThresholdsChecked = 0;
     let totalDiseasesScanned = 0;
+    const cityWideCandidates = new Map<string, any>(); // Store diseases meeting city-wide threshold (distributed across barangays)
 
     // Check each threshold
     for (const threshold of OUTBREAK_THRESHOLDS) {
@@ -80,6 +81,14 @@ export async function GET(request: NextRequest) {
 
       if (diseaseCount >= threshold.cases_threshold) {
         console.log(`[Outbreak Detection] ✅ THRESHOLD MET for ${threshold.disease_type}: ${diseaseCount} >= ${threshold.cases_threshold}`);
+
+        // Store city-wide candidate for distributed outbreaks (e.g., HIV/AIDS spread across multiple barangays)
+        // No freshness check needed - SQL query already filters by date range
+        if (diseases && diseases.length > 0) {
+          const key = threshold.disease_type === 'other' ? `${threshold.disease_type}_multiple` : threshold.disease_type;
+          cityWideCandidates.set(key, { threshold, diseases, diseaseCount });
+          console.log(`[Outbreak Detection] ✅ City-wide outbreak candidate stored: ${threshold.disease_type} (${diseaseCount} cases)`);
+        }
       } else {
         console.log(`[Outbreak Detection] ❌ Threshold NOT met for ${threshold.disease_type}: ${diseaseCount} < ${threshold.cases_threshold}`);
       }
@@ -114,6 +123,7 @@ export async function GET(request: NextRequest) {
           const barangayName = barangayDiseases[0].barangays?.name || 'Unknown';
           const criticalCount = barangayDiseases.filter(d => d.severity === 'critical').length;
           const severeCount = barangayDiseases.filter(d => d.severity === 'severe').length;
+          const moderateCount = barangayDiseases.filter(d => d.severity === 'moderate').length; // FIX: Add moderate count
           const customDiseaseName = threshold.disease_type === 'other' ? barangayDiseases[0].custom_disease_name : null;
 
           // Extract barangay_id from groupKey (handles both "123" and "123_Leptospirosis" formats)
@@ -127,6 +137,7 @@ export async function GET(request: NextRequest) {
             case_count: barangayDiseases.length,
             critical_cases: criticalCount,
             severe_cases: severeCount,
+            moderate_cases: moderateCount, // FIX: Include moderate count in outbreak object
             days_window: threshold.days_window,
             threshold: threshold.cases_threshold,
             threshold_description: threshold.description,
@@ -142,12 +153,118 @@ export async function GET(request: NextRequest) {
           };
 
           const displayName = customDiseaseName ? `${customDiseaseName} (custom)` : threshold.disease_type;
-          console.log(`[Outbreak Detection] 🚨 OUTBREAK DETECTED in ${barangayName}: ${displayName} - ${barangayDiseases.length} cases (${criticalCount} critical, ${severeCount} severe) - Risk: ${outbreak.risk_level.toUpperCase()}`);
+          console.log(`[Outbreak Detection] 🚨 OUTBREAK DETECTED in ${barangayName}: ${displayName} - ${barangayDiseases.length} cases (${criticalCount} critical, ${severeCount} severe, ${moderateCount} moderate) - Risk: ${outbreak.risk_level.toUpperCase()}`);
           outbreaks.push(outbreak);
 
           // Auto-create notification for Super Admins if enabled
           if (autoNotify) {
             await createOutbreakNotification(adminClient, outbreak);
+          }
+        }
+      }
+
+      // FIX: Emit city-wide alerts for distributed outbreaks (ONLY if no barangay-level outbreaks)
+      // This prevents duplicate alerts for the same disease
+      if (threshold.disease_type === 'other') {
+        // For custom diseases, check each unique custom_disease_name
+        const customDiseaseGroups: Record<string, any[]> = {};
+        diseases?.forEach(disease => {
+          const name = disease.custom_disease_name || 'unknown';
+          if (!customDiseaseGroups[name]) {
+            customDiseaseGroups[name] = [];
+          }
+          customDiseaseGroups[name].push(disease);
+        });
+
+        for (const [customName, customDiseases] of Object.entries(customDiseaseGroups)) {
+          // Check if barangay-level outbreak exists for this custom disease
+          const barangayOutbreakFound = outbreaks.some(o =>
+            o.disease_type === threshold.disease_type &&
+            o.custom_disease_name === customName &&
+            o.barangay_id !== null
+          );
+
+          if (!barangayOutbreakFound && customDiseases.length >= threshold.cases_threshold) {
+            const criticalCount = customDiseases.filter(d => d.severity === 'critical').length;
+            const severeCount = customDiseases.filter(d => d.severity === 'severe').length;
+            const moderateCount = customDiseases.filter(d => d.severity === 'moderate').length;
+
+            const cityOutbreak = {
+              disease_type: threshold.disease_type,
+              custom_disease_name: customName,
+              barangay_id: null,
+              barangay_name: 'City-wide (distributed)',
+              case_count: customDiseases.length,
+              critical_cases: criticalCount,
+              severe_cases: severeCount,
+              moderate_cases: moderateCount,
+              days_window: threshold.days_window,
+              threshold: threshold.cases_threshold, // SAME threshold as barangay-level
+              threshold_description: `${threshold.description} (city-wide, distributed across barangays)`,
+              risk_level: criticalCount >= 5 ? 'critical' :
+                         severeCount >= 8 ? 'high' :
+                         customDiseases.length >= threshold.cases_threshold * 1.5 ? 'high' : 'medium',
+              first_case_date: customDiseases.sort((a, b) =>
+                new Date(a.diagnosis_date).getTime() - new Date(b.diagnosis_date).getTime()
+              )[0].diagnosis_date,
+              latest_case_date: customDiseases.sort((a, b) =>
+                new Date(b.diagnosis_date).getTime() - new Date(a.diagnosis_date).getTime()
+              )[0].diagnosis_date,
+            };
+
+            console.log(`[Outbreak Detection] 🚨 CITY-WIDE OUTBREAK (distributed): ${customName} - ${customDiseases.length} cases across multiple barangays (${criticalCount} critical, ${severeCount} severe, ${moderateCount} moderate) - Risk: ${cityOutbreak.risk_level.toUpperCase()}`);
+            outbreaks.push(cityOutbreak);
+
+            if (autoNotify) {
+              await createOutbreakNotification(adminClient, cityOutbreak);
+            }
+          }
+        }
+      } else {
+        // Standard disease - check if city-wide candidate exists
+        const candidate = cityWideCandidates.get(threshold.disease_type);
+
+        if (candidate) {
+          // Check if barangay-level outbreak exists for this disease
+          const barangayOutbreakFound = outbreaks.some(o =>
+            o.disease_type === threshold.disease_type &&
+            o.barangay_id !== null
+          );
+
+          if (!barangayOutbreakFound) {
+            const criticalCount = candidate.diseases.filter((d: any) => d.severity === 'critical').length;
+            const severeCount = candidate.diseases.filter((d: any) => d.severity === 'severe').length;
+            const moderateCount = candidate.diseases.filter((d: any) => d.severity === 'moderate').length;
+
+            const cityOutbreak = {
+              disease_type: threshold.disease_type,
+              custom_disease_name: null,
+              barangay_id: null,
+              barangay_name: 'City-wide (distributed)',
+              case_count: candidate.diseaseCount,
+              critical_cases: criticalCount,
+              severe_cases: severeCount,
+              moderate_cases: moderateCount,
+              days_window: threshold.days_window,
+              threshold: threshold.cases_threshold, // SAME threshold as barangay-level
+              threshold_description: `${threshold.description} (city-wide, distributed across barangays)`,
+              risk_level: criticalCount >= 5 ? 'critical' :
+                         severeCount >= 8 ? 'high' :
+                         candidate.diseaseCount >= threshold.cases_threshold * 1.5 ? 'high' : 'medium',
+              first_case_date: candidate.diseases.sort((a: any, b: any) =>
+                new Date(a.diagnosis_date).getTime() - new Date(b.diagnosis_date).getTime()
+              )[0].diagnosis_date,
+              latest_case_date: candidate.diseases.sort((a: any, b: any) =>
+                new Date(b.diagnosis_date).getTime() - new Date(a.diagnosis_date).getTime()
+              )[0].diagnosis_date,
+            };
+
+            console.log(`[Outbreak Detection] 🚨 CITY-WIDE OUTBREAK (distributed): ${threshold.disease_type} - ${candidate.diseaseCount} cases across multiple barangays (${criticalCount} critical, ${severeCount} severe, ${moderateCount} moderate) - Risk: ${cityOutbreak.risk_level.toUpperCase()}`);
+            outbreaks.push(cityOutbreak);
+
+            if (autoNotify) {
+              await createOutbreakNotification(adminClient, cityOutbreak);
+            }
           }
         }
       }
@@ -166,10 +283,11 @@ export async function GET(request: NextRequest) {
 
         // Check each custom disease for city-wide outbreak
         for (const [customName, customDiseases] of Object.entries(customDiseaseGroups)) {
-          if (customDiseases.length >= threshold.cases_threshold * 3) {
-            console.log(`[Outbreak Detection] Checking city-wide ${customName}: ${customDiseases.length} cases >= ${threshold.cases_threshold * 3} threshold`);
+          if (customDiseases.length >= threshold.cases_threshold * 2) {
+            console.log(`[Outbreak Detection] Checking high-volume city-wide ${customName}: ${customDiseases.length} cases >= ${threshold.cases_threshold * 2} threshold`);
             const criticalCount = customDiseases.filter(d => d.severity === 'critical').length;
             const severeCount = customDiseases.filter(d => d.severity === 'severe').length;
+            const moderateCount = customDiseases.filter(d => d.severity === 'moderate').length; // FIX: Add moderate count for city-wide custom diseases
 
             const cityOutbreak = {
               disease_type: threshold.disease_type,
@@ -179,9 +297,10 @@ export async function GET(request: NextRequest) {
               case_count: customDiseases.length,
               critical_cases: criticalCount,
               severe_cases: severeCount,
+              moderate_cases: moderateCount, // FIX: Include moderate count in city-wide outbreak
               days_window: threshold.days_window,
-              threshold: threshold.cases_threshold * 3,
-              threshold_description: `${threshold.description} (city-wide)`,
+              threshold: threshold.cases_threshold * 2,
+              threshold_description: `${threshold.description} (high-volume city-wide)`,
               risk_level: criticalCount >= 10 ? 'critical' :
                          severeCount >= 15 ? 'high' :
                          customDiseases.length >= threshold.cases_threshold * 5 ? 'high' : 'medium',
@@ -193,7 +312,7 @@ export async function GET(request: NextRequest) {
               )[0].diagnosis_date,
             };
 
-            console.log(`[Outbreak Detection] 🚨 CITY-WIDE OUTBREAK DETECTED for ${customName} (custom): ${customDiseases.length} cases (${criticalCount} critical, ${severeCount} severe) - Risk: ${cityOutbreak.risk_level.toUpperCase()}`);
+            console.log(`[Outbreak Detection] 🚨 HIGH-VOLUME CITY-WIDE OUTBREAK for ${customName} (custom): ${customDiseases.length} cases (${criticalCount} critical, ${severeCount} severe, ${moderateCount} moderate) - Risk: ${cityOutbreak.risk_level.toUpperCase()}`);
             outbreaks.push(cityOutbreak);
 
             if (autoNotify) {
@@ -201,11 +320,12 @@ export async function GET(request: NextRequest) {
             }
           }
         }
-      } else if (diseases && diseases.length >= threshold.cases_threshold * 3) {
+      } else if (diseases && diseases.length >= threshold.cases_threshold * 2) {
         // Standard disease city-wide outbreak detection
-        console.log(`[Outbreak Detection] Checking city-wide ${threshold.disease_type}: ${diseases.length} cases >= ${threshold.cases_threshold * 3} threshold`);
+        console.log(`[Outbreak Detection] Checking high-volume city-wide ${threshold.disease_type}: ${diseases.length} cases >= ${threshold.cases_threshold * 2} threshold`);
         const criticalCount = diseases.filter(d => d.severity === 'critical').length;
         const severeCount = diseases.filter(d => d.severity === 'severe').length;
+        const moderateCount = diseases.filter(d => d.severity === 'moderate').length; // FIX: Add moderate count for city-wide standard diseases
 
         const cityOutbreak = {
           disease_type: threshold.disease_type,
@@ -215,9 +335,10 @@ export async function GET(request: NextRequest) {
           case_count: diseases.length,
           critical_cases: criticalCount,
           severe_cases: severeCount,
+          moderate_cases: moderateCount, // FIX: Include moderate count in city-wide standard outbreak
           days_window: threshold.days_window,
-          threshold: threshold.cases_threshold * 3,
-          threshold_description: `${threshold.description} (city-wide)`,
+          threshold: threshold.cases_threshold * 2,
+          threshold_description: `${threshold.description} (high-volume city-wide)`,
           risk_level: criticalCount >= 10 ? 'critical' :
                      severeCount >= 15 ? 'high' :
                      diseases.length >= threshold.cases_threshold * 5 ? 'high' : 'medium',
@@ -229,7 +350,7 @@ export async function GET(request: NextRequest) {
           )[0].diagnosis_date,
         };
 
-        console.log(`[Outbreak Detection] 🚨 CITY-WIDE OUTBREAK DETECTED for ${threshold.disease_type}: ${diseases.length} cases (${criticalCount} critical, ${severeCount} severe) - Risk: ${cityOutbreak.risk_level.toUpperCase()}`);
+        console.log(`[Outbreak Detection] 🚨 HIGH-VOLUME CITY-WIDE OUTBREAK for ${threshold.disease_type}: ${diseases.length} cases (${criticalCount} critical, ${severeCount} severe, ${moderateCount} moderate) - Risk: ${cityOutbreak.risk_level.toUpperCase()}`);
         outbreaks.push(cityOutbreak);
 
         if (autoNotify) {
