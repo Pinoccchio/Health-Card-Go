@@ -1,10 +1,11 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { useTranslations } from 'next-intl';
 import { Container, Card } from '@/components/ui';
 import { SERVICES } from '@/lib/config/landingConfig';
+import { ServiceInfoModal } from './ServiceInfoModal';
 
 const containerVariants = {
   hidden: {},
@@ -26,6 +27,19 @@ const itemVariants = {
 
 export function ServicesSection() {
   const t = useTranslations('landing');
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedService, setSelectedService] = useState<'healthcard' | 'hiv' | 'pregnancy' | null>(null);
+
+  const handleServiceClick = (serviceId: 'healthcard' | 'hiv' | 'pregnancy') => {
+    setSelectedService(serviceId);
+    setIsModalOpen(true);
+  };
+
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+    // Delay clearing selectedService to avoid UI flash during modal close animation
+    setTimeout(() => setSelectedService(null), 200);
+  };
 
   return (
     <section id="services" className="py-20 bg-gray-50">
@@ -61,13 +75,22 @@ export function ServicesSection() {
                 description={t(`services.${service.id}.description`)}
                 icon={service.icon}
                 iconColor={service.iconColor}
-                href={service.href}
+                onClick={() => handleServiceClick(service.id as 'healthcard' | 'hiv' | 'pregnancy')}
                 linkText="Learn More"
               />
             </motion.div>
           ))}
         </motion.div>
       </Container>
+
+      {/* Service Info Modal */}
+      {selectedService && (
+        <ServiceInfoModal
+          isOpen={isModalOpen}
+          onClose={handleCloseModal}
+          serviceId={selectedService}
+        />
+      )}
     </section>
   );
 }

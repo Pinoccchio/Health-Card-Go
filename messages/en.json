@@ -362,6 +362,100 @@
       "ourstores": "Our Stores",
       "terms": "Terms & Conditions",
       "copyright": "Contactus. Copyright © 2025"
+    },
+    "service_modals": {
+      "healthcard": {
+        "title": "Health Card Requirements & Digital Process",
+        "important_notice": "⚠️ Important: Book Labs First",
+        "important_notice_text": "Before starting your HealthCardGo booking, you must first schedule and complete laboratory tests (Urinalysis, Fecalysis, Chest X-ray, and Hepa B if required) at an accredited lab to obtain your results.",
+        "overview": {
+          "title": "Overview",
+          "content": "The HealthCardGo: Panabo City Digital Booking System simplifies the issuance of health cards for workers. Instead of waiting in long lines, applicants can now book appointments online, upload requirements, and track their application status. This system ensures that every worker—from food handlers to medical professionals—is certified fit for work through a streamlined, organized process."
+        },
+        "general_requirements": {
+          "title": "General Requirements (Digital Uploads)",
+          "subtitle": "Applicants must prepare digital copies (clear photos or scans) of the following:",
+          "items": [
+            { "label": "Valid Government ID", "description": "Along with Community Tax Certificate (Cedula)" },
+            { "label": "Laboratory Results", "description": "Urinalysis, Fecalysis, and Chest X-ray" },
+            { "label": "Digital Payment Confirmation", "description": "Receipt number from the City Treasurer's Office" }
+          ]
+        },
+        "card_categories": {
+          "title": "Specific Requirements by Card Category",
+          "items": [
+            { "card": "🟡 Yellow Card", "industry": "Food Industry", "requirements": "Standard laboratory results only" },
+            { "card": "🟢 Green Card", "industry": "Non-Food Industry", "requirements": "Standard laboratory results only" },
+            { "card": "🩷 Pink Card", "industry": "Service & Clinical", "requirements": "Standard labs + Hepa B Antibody Test (for Nurses, Massage Therapists, Beauticians)" }
+          ]
+        },
+        "booking_process": {
+          "title": "The Digital Booking Process: Step-by-Step",
+          "steps": [
+            { "step": "1", "action": "Register & Book", "description": "Create an account on the HealthCardGo portal and select your preferred appointment date and time." },
+            { "step": "2", "action": "Upload Documents", "description": "Fill out the digital application form and upload your ID, Cedula, and Laboratory Results." },
+            { "step": "3", "action": "Secure Payment", "description": "Upload your receipt from the City Treasurer's Office to confirm your slot." },
+            { "step": "4", "action": "Verification", "description": "The CHO staff will review your digital submissions. You will receive a Notification/SMS once your documents are verified." },
+            { "step": "5", "action": "Fast-Track Issuance", "description": "On your scheduled date, present your Digital Appointment Slip at the Panabo CHO for final verification and instant card printing." }
+          ]
+        },
+        "footer": "Panabo City Health Office (CHO) - HealthCardGo Digital Booking System"
+      },
+      "hiv": {
+        "title": "Social Hygiene and Wellness Center",
+        "subtitle": "\"Your privacy is our promise.\" We offer 100% confidential support and care.",
+        "overview": {
+          "title": "Overview",
+          "content": "The Panabo City Health Office (CHO) Social Hygiene and Wellness Center offers 100% confidential free HIV testing, screening, and support. We care deeply about teaching, helping, and ending stigma with local health programs that keep everything private and put you first."
+        },
+        "key_services": {
+          "title": "Key Services",
+          "items": [
+            { "service": "Free Confidential HIV Testing", "description": "Private counseling and testing you can trust completely." },
+            { "service": "Confidential STI Screening & Treatment", "description": "Free checkups and medicine for infections—all private." },
+            { "service": "Confidential PrEP Consultations", "description": "Expert help to prevent HIV with full privacy." },
+            { "service": "Awareness Programs", "description": "Educational talks and events with DepEd and local government." }
+          ]
+        },
+        "clinic_access": {
+          "title": "Clinic Details and Easy Access",
+          "location": "City Health Office Social Hygiene and Wellness Center, Panabo City.",
+          "confidentiality": "Everything is confidential—no names shared ever. We make care simple:",
+          "options": [
+            { "option": "Book Ahead", "description": "Use our new online system or call for a private spot." },
+            { "option": "Walk-Ins Welcome", "description": "Come anytime during hours; no need to book, still fully confidential." }
+          ]
+        },
+        "operating_hours": {
+          "title": "Operating Hours",
+          "regular": {
+            "label": "Regular Hours",
+            "value": "Mondays, Wednesdays, and Fridays (1 PM to 3 PM)"
+          },
+          "sundown": {
+            "label": "Sundown Clinics",
+            "value": "6 PM to 11 PM (evening access)"
+          }
+        }
+      },
+      "pregnancy": {
+        "title": "Maternal Health and Safe Birthing",
+        "overview": {
+          "title": "Overview",
+          "content": "The Panabo City Health Office (CHO) strongly encourages pregnant mothers to complete eight (8) prenatal check-ups at their barangay health centers. We emphasize facility-based births with health professionals to ensure a safe pregnancy and delivery."
+        },
+        "call_to_action": "Take control of your health journey by booking your appointments every Tuesday. Our streamlined online and phone booking systems provide direct access to PhilHealth Konsulta and comprehensive maternity packages designed specifically for all Panabo residents.",
+        "key_services": {
+          "title": "Key Services & Recommendations",
+          "items": [
+            { "service": "Regular Check-ups", "description": "Aim for at least eight visits. Use the CHO system to book every Tuesday." },
+            { "service": "Vaccinations", "description": "Secure your maternal vaccinations during your scheduled Tuesday appointments." },
+            { "service": "Facility-Based Birth", "description": "For the safety of both mother and child, home births are strongly discouraged." },
+            { "service": "Free Comprehensive Care", "description": "Access dental, labs, and nutrition counseling—all available on Tuesdays." },
+            { "service": "Maternity Packages", "description": "Full support including family planning. Book your Tuesday slot today." }
+          ]
+        }
+      }
     }
   },
   "dashboard": {

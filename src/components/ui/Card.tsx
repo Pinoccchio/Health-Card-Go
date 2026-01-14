@@ -10,12 +10,20 @@ export interface CardProps {
   icon?: LucideIcon;
   iconColor?: string;
   href?: string;
+  onClick?: () => void;
   linkText?: string;
   className?: string;
   children?: React.ReactNode;
 }
 
-export function Card({ title, description, icon: Icon, iconColor = '#20C997', href, linkText = 'Learn More', className, children }: CardProps) {
+export function Card({ title, description, icon: Icon, iconColor = '#20C997', href, onClick, linkText = 'Learn More', className, children }: CardProps) {
+  const handleClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
+    if (onClick) {
+      e.preventDefault();
+      onClick();
+    }
+  };
+
   return (
     <div
       className={cn(
@@ -46,12 +54,14 @@ export function Card({ title, description, icon: Icon, iconColor = '#20C997', hr
       {/* Children - for custom content */}
       {children}
 
-      {/* Link */}
-      {href && (
+      {/* Link / Button */}
+      {(href || onClick) && (
         <div className="text-center">
           <a
-            href={href}
-            className="inline-block text-[#20C997] hover:text-[#1AA179] font-medium transition-colors duration-200 hover:underline underline-offset-4"
+            href={href || '#'}
+            onClick={handleClick}
+            className="inline-block text-[#20C997] hover:text-[#1AA179] font-medium transition-colors duration-200 hover:underline underline-offset-4 cursor-pointer"
+            role={onClick ? 'button' : undefined}
           >
             {linkText}
           </a>
