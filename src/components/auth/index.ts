@@ -27,3 +27,6 @@ export type { CheckboxProps } from './Checkbox';
 
 export { AuthCard } from './AuthCard';
 export type { AuthCardProps } from './AuthCard';
+
+export { TermsModal } from './TermsModal';
+export { PrivacyPolicyModal } from './PrivacyPolicyModal';

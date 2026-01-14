@@ -52,7 +52,7 @@ export const Modal: React.FC<ModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[1002] overflow-y-auto">
+    <div className="fixed inset-0 z-[9999] overflow-y-auto">
       {/* Backdrop */}
       <div
         className="fixed inset-0 bg-gray-900/60 backdrop-blur-lg transition-all duration-300"
@@ -61,12 +61,13 @@ export const Modal: React.FC<ModalProps> = ({
       />
 
       {/* Modal Container */}
-      <div className="flex min-h-full items-center justify-center p-4">
+      <div className="flex min-h-full items-center justify-center p-4 sm:p-6 md:p-8">
         {/* Modal Content */}
         <div
           className={cn(
             'relative w-full bg-white rounded-lg shadow-xl transform transition-all',
             'animate-in fade-in zoom-in-95 duration-200',
+            'max-h-[85vh]',
             sizeClasses[size],
             className
           )}
@@ -74,7 +75,7 @@ export const Modal: React.FC<ModalProps> = ({
         >
           {/* Header */}
           {title && (
-            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 flex-shrink-0">
               <h2 className="text-xl font-semibold text-gray-900">{title}</h2>
               <button
                 onClick={onClose}
@@ -98,7 +99,7 @@ export const Modal: React.FC<ModalProps> = ({
           )}
 
           {/* Content */}
-          <div className={cn('overflow-y-auto px-6 py-4', title ? 'max-h-[calc(90vh-80px)]' : 'max-h-[90vh]')}>
+          <div className={cn('overflow-y-auto px-6 py-4', title ? 'max-h-[calc(85vh-80px)]' : 'max-h-[calc(85vh-32px)]')}>
             {children}
           </div>
         </div>

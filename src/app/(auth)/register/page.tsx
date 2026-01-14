@@ -21,6 +21,8 @@ import {
   Select,
   Checkbox,
   Alert,
+  TermsModal,
+  PrivacyPolicyModal,
 } from '@/components/auth';
 import { Button } from '@/components/ui';
 import { RegisterData, RoleId, ROLE_NAMES, ADMIN_CATEGORY_NAMES } from '@/types/auth';
@@ -45,6 +47,8 @@ export default function RegisterPage() {
   const [successMessage, setSuccessMessage] = useState<string>('');
   const [barangays, setBarangays] = useState<Barangay[]>([]);
   const [barangaysLoading, setBarangaysLoading] = useState<boolean>(true);
+  const [isTermsModalOpen, setIsTermsModalOpen] = useState<boolean>(false);
+  const [isPrivacyModalOpen, setIsPrivacyModalOpen] = useState<boolean>(false);
 
   // Fetch barangays from API on mount
   useEffect(() => {
@@ -593,25 +597,27 @@ export default function RegisterPage() {
             label={
               <span>
                 I accept the{' '}
-                <Link
-                  href="/terms"
-                  target="_blank"
-                  rel="noopener noreferrer"
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setIsTermsModalOpen(true);
+                  }}
                   className="text-primary-teal hover:text-primary-teal-dark underline font-medium transition-colors"
-                  onClick={(e) => e.stopPropagation()}
                 >
                   Terms and Conditions
-                </Link>{' '}
+                </button>{' '}
                 and{' '}
-                <Link
-                  href="/privacy-policy"
-                  target="_blank"
-                  rel="noopener noreferrer"
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setIsPrivacyModalOpen(true);
+                  }}
                   className="text-primary-teal hover:text-primary-teal-dark underline font-medium transition-colors"
-                  onClick={(e) => e.stopPropagation()}
                 >
                   Privacy Policy
-                </Link>
+                </button>
               </span>
             }
             checked={formData.acceptTerms}
@@ -643,6 +649,16 @@ export default function RegisterPage() {
             </Link>
           </div>
         </form>
+
+        {/* Terms and Privacy Modals */}
+        <TermsModal
+          isOpen={isTermsModalOpen}
+          onClose={() => setIsTermsModalOpen(false)}
+        />
+        <PrivacyPolicyModal
+          isOpen={isPrivacyModalOpen}
+          onClose={() => setIsPrivacyModalOpen(false)}
+        />
       </AuthCard>
     </div>
   );
