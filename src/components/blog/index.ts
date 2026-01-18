@@ -1,0 +1,1 @@
+export { BlogDetailModal } from './BlogDetailModal';

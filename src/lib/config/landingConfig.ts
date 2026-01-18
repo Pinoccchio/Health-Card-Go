@@ -12,7 +12,7 @@ export const NAV_ITEMS: NavItem[] = [
   { id: 'home', label: 'Home', href: '#home' },
   { id: 'about', label: 'About Us', href: '#about' },
   { id: 'services', label: 'Services', href: '#services' },
-  { id: 'blog', label: 'Blog', href: '#blog' },
+  { id: 'blog', label: 'Blog', href: '/blog' },
   { id: 'announcements', label: 'Announcements', href: '#announcements' },
 ];
 
@@ -100,7 +100,7 @@ export const FOOTER_COLUMNS: FooterColumn[] = [
       { label: 'Home', href: '/' },
       { label: 'About Us', href: '#about' },
       { label: 'Work With Us', href: '#work' },
-      { label: 'Our Blog', href: '#blog' },
+      { label: 'Our Blog', href: '/blog' },
       { label: 'Announcements', href: '#announcements' },
     ],
   },

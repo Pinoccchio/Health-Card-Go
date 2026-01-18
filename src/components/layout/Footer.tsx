@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import Link from 'next/link';
 import { useTranslations } from 'next-intl';
 import { Instagram, Facebook, Twitter, Linkedin, Mail, MapPin } from 'lucide-react';
 import { CONTACT_INFO } from '@/lib/config/landingConfig';
@@ -47,9 +48,9 @@ export function Footer() {
                 </a>
               </li>
               <li>
-                <a href="#blog" className="text-gray-600 hover:text-[#20C997] transition-colors duration-200 text-sm">
+                <Link href="/blog" className="text-gray-600 hover:text-[#20C997] transition-colors duration-200 text-sm">
                   {t('ourblog')}
-                </a>
+                </Link>
               </li>
               <li>
                 <a href="#announcements" className="text-gray-600 hover:text-[#20C997] transition-colors duration-200 text-sm">

@@ -131,19 +131,35 @@ export function Header() {
 
           {/* Desktop Navigation */}
           <nav className="hidden lg:flex items-center space-x-8">
-            {NAV_ITEMS.map((item) => (
-              <a
-                key={item.href}
-                href={item.href}
-                onClick={(e) => {
-                  e.preventDefault();
-                  handleNavClick(item.href);
-                }}
-                className="text-sm font-medium text-white transition-colors duration-200 hover:text-cta-orange"
-              >
-                {t(`navigation.${item.id}`)}
-              </a>
-            ))}
+            {NAV_ITEMS.map((item) => {
+              const isHashLink = item.href.startsWith('#');
+
+              if (isHashLink) {
+                return (
+                  <a
+                    key={item.href}
+                    href={item.href}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      handleNavClick(item.href);
+                    }}
+                    className="text-sm font-medium text-white transition-colors duration-200 hover:text-cta-orange"
+                  >
+                    {t(`navigation.${item.id}`)}
+                  </a>
+                );
+              }
+
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className="text-sm font-medium text-white transition-colors duration-200 hover:text-cta-orange"
+                >
+                  {t(`navigation.${item.id}`)}
+                </Link>
+              );
+            })}
           </nav>
 
           {/* Desktop Actions */}
@@ -273,19 +289,36 @@ export function Header() {
         {isMobileMenuOpen && (
           <nav className="lg:hidden py-4 border-t border-white/20">
             <div className="flex flex-col space-y-3">
-              {NAV_ITEMS.map((item) => (
-                <a
-                  key={item.href}
-                  href={item.href}
-                  onClick={(e) => {
-                    e.preventDefault();
-                    handleNavClick(item.href);
-                  }}
-                  className="text-white hover:text-cta-orange transition-colors py-2"
-                >
-                  {t(`navigation.${item.id}`)}
-                </a>
-              ))}
+              {NAV_ITEMS.map((item) => {
+                const isHashLink = item.href.startsWith('#');
+
+                if (isHashLink) {
+                  return (
+                    <a
+                      key={item.href}
+                      href={item.href}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        handleNavClick(item.href);
+                      }}
+                      className="text-white hover:text-cta-orange transition-colors py-2"
+                    >
+                      {t(`navigation.${item.id}`)}
+                    </a>
+                  );
+                }
+
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    onClick={() => setIsMobileMenuOpen(false)}
+                    className="text-white hover:text-cta-orange transition-colors py-2"
+                  >
+                    {t(`navigation.${item.id}`)}
+                  </Link>
+                );
+              })}
 
               {/* Mobile Language Switcher - Only show for patients (role_id: 4) or unauthenticated users */}
               {(!isAuthenticated || user?.role_id === 4) && (
