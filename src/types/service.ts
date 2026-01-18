@@ -6,15 +6,13 @@
 
 /**
  * Service categories available in the system
+ * As of 2026-01-18: Only 3 core categories remain
+ * Removed: laboratory, immunization, education, general
  */
 export type ServiceCategory =
   | 'healthcard'
-  | 'general'
   | 'hiv'
-  | 'pregnancy'
-  | 'immunization'
-  | 'laboratory'
-  | 'education';
+  | 'pregnancy';
 
 /**
  * Service entity from database

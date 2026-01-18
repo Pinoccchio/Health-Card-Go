@@ -12,14 +12,13 @@ interface ServiceFormProps {
   isSubmitting?: boolean;
 }
 
+// FINAL SERVICE CATEGORIES (as of 2026-01-18)
+// Only 3 core categories remain: Health Card Issuance & Renewal, HIV Testing & Counseling, Prenatal Checkup
+// Removed: Laboratory, Immunization, Education, General Services
 const SERVICE_CATEGORIES = [
-  { value: 'healthcard', label: 'Health Card', color: 'text-emerald-600 bg-emerald-50' },
-  { value: 'hiv', label: 'HIV Services', color: 'text-purple-600 bg-purple-50' },
-  { value: 'pregnancy', label: 'Pregnancy Services', color: 'text-pink-600 bg-pink-50' },
-  { value: 'laboratory', label: 'Laboratory', color: 'text-blue-600 bg-blue-50' },
-  { value: 'immunization', label: 'Immunization', color: 'text-indigo-600 bg-indigo-50' },
-  { value: 'education', label: 'Education', color: 'text-amber-600 bg-amber-50' },
-  { value: 'general', label: 'General Services', color: 'text-gray-600 bg-gray-50' },
+  { value: 'healthcard', label: 'Health Card Issuance & Renewal', color: 'text-emerald-600 bg-emerald-50' },
+  { value: 'hiv', label: 'HIV Testing & Counseling', color: 'text-purple-600 bg-purple-50' },
+  { value: 'pregnancy', label: 'Prenatal Checkup', color: 'text-pink-600 bg-pink-50' },
 ];
 
 export function ServiceForm({
@@ -31,7 +30,7 @@ export function ServiceForm({
 }: ServiceFormProps) {
   const [formData, setFormData] = useState<ServiceFormData>({
     name: initialData?.name || '',
-    category: initialData?.category || 'general',
+    category: initialData?.category || 'healthcard',
     description: initialData?.description || '',
     duration_minutes: initialData?.duration_minutes || 30,
     requires_appointment: initialData?.requires_appointment !== false,
@@ -47,7 +46,7 @@ export function ServiceForm({
     if (initialData && mode === 'edit') {
       setFormData({
         name: initialData.name || '',
-        category: initialData.category || 'general',
+        category: initialData.category || 'healthcard',
         description: initialData.description || '',
         duration_minutes: initialData.duration_minutes || 30,
         requires_appointment: initialData.requires_appointment !== false,

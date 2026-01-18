@@ -304,7 +304,7 @@ export default function PatientDashboard() {
         {/* Quick Actions */}
         <div className="bg-gray-50 rounded-lg p-8">
           <h3 className="text-xl font-bold text-gray-900 mb-4">{t('quick_actions.title')}</h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Link
               href="/patient/book-appointment"
               className="bg-white hover:bg-primary-teal/10 transition-colors rounded-lg p-4 text-left shadow hover:shadow-md block"
@@ -312,14 +312,6 @@ export default function PatientDashboard() {
               <Calendar className="w-6 h-6 mb-2 text-primary-teal" />
               <p className="font-semibold text-gray-900">{t('quick_actions.book_appointment.title')}</p>
               <p className="text-sm text-gray-600 mt-1">{t('quick_actions.book_appointment.description')}</p>
-            </Link>
-            <Link
-              href="/patient/health-card"
-              className="bg-white hover:bg-primary-teal/10 transition-colors rounded-lg p-4 text-left shadow hover:shadow-md block"
-            >
-              <Heart className="w-6 h-6 mb-2 text-primary-teal" />
-              <p className="font-semibold text-gray-900">{t('quick_actions.health_card.title')}</p>
-              <p className="text-sm text-gray-600 mt-1">{t('quick_actions.health_card.description')}</p>
             </Link>
             <Link
               href="/patient/medical-records"

@@ -145,11 +145,6 @@ export const PATIENT_MENU_ITEMS: MenuItem[] = [
     icon: ClipboardList,
   },
   {
-    label: 'My Health Card',
-    href: '/patient/health-card',
-    icon: Heart,
-  },
-  {
     label: 'Medical Records',
     href: '/patient/medical-records',
     icon: FileText,
