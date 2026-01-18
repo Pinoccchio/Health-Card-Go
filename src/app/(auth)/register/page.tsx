@@ -23,9 +23,15 @@ import {
   Alert,
   TermsModal,
   PrivacyPolicyModal,
+  PasswordRequirementsDisplay,
 } from '@/components/auth';
 import { Button } from '@/components/ui';
 import { RegisterData, RoleId, ROLE_NAMES, ADMIN_CATEGORY_NAMES } from '@/types/auth';
+import {
+  validatePasswordComplexity,
+  isPasswordValid,
+  type PasswordValidationRules,
+} from '@/lib/validators/passwordValidation';
 
 interface Barangay {
   id: number;
@@ -49,6 +55,16 @@ export default function RegisterPage() {
   const [barangaysLoading, setBarangaysLoading] = useState<boolean>(true);
   const [isTermsModalOpen, setIsTermsModalOpen] = useState<boolean>(false);
   const [isPrivacyModalOpen, setIsPrivacyModalOpen] = useState<boolean>(false);
+
+  // Password validation state
+  const [passwordValidation, setPasswordValidation] = useState<PasswordValidationRules>({
+    minLength: false,
+    hasUppercase: false,
+    hasLowercase: false,
+    hasDigit: false,
+    hasSpecialChar: false,
+  });
+  const [isPasswordFieldActive, setIsPasswordFieldActive] = useState<boolean>(false);
 
   // Fetch barangays from API on mount
   useEffect(() => {
@@ -109,8 +125,8 @@ export default function RegisterPage() {
 
     if (!formData.password) {
       newErrors.password = 'Password is required';
-    } else if (formData.password.length < 8) {
-      newErrors.password = 'Password must be at least 8 characters';
+    } else if (!isPasswordValid(passwordValidation)) {
+      newErrors.password = 'Password does not meet all requirements';
     }
 
     if (!formData.confirmPassword) {
@@ -242,6 +258,74 @@ export default function RegisterPage() {
     }
   };
 
+  /**
+   * Handle password change with real-time validation
+   */
+  const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const password = e.target.value;
+    setFormData((prev) => ({ ...prev, password }));
+    setPasswordValidation(validatePasswordComplexity(password));
+
+    // Clear error for password field
+    if (errors.password) {
+      setErrors((prev) => {
+        const updated = { ...prev };
+        delete updated.password;
+        return updated;
+      });
+    }
+
+    // Also validate confirm password mismatch if user already typed confirm password
+    if (formData.confirmPassword) {
+      if (password && formData.confirmPassword !== password) {
+        // Passwords don't match - show error on confirm field
+        setErrors((prev) => ({
+          ...prev,
+          confirmPassword: 'Passwords do not match',
+        }));
+      } else {
+        // Passwords match - clear confirm password error
+        setErrors((prev) => {
+          const updated = { ...prev };
+          delete updated.confirmPassword;
+          return updated;
+        });
+      }
+    }
+  };
+
+  /**
+   * Handle confirm password change with real-time validation
+   */
+  const handleConfirmPasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const confirmPassword = e.target.value;
+    setFormData((prev) => ({ ...prev, confirmPassword }));
+
+    // Also validate against the main password to show requirements
+    // This allows users to see validation feedback when typing in confirm field
+    if (formData.password) {
+      setPasswordValidation(validatePasswordComplexity(formData.password));
+    }
+
+    // Real-time password mismatch validation
+    if (formData.password && confirmPassword && confirmPassword !== formData.password) {
+      // Passwords don't match - show error
+      setErrors((prev) => ({
+        ...prev,
+        confirmPassword: 'Passwords do not match',
+      }));
+    } else {
+      // Passwords match or field is empty - clear error
+      if (errors.confirmPassword) {
+        setErrors((prev) => {
+          const updated = { ...prev };
+          delete updated.confirmPassword;
+          return updated;
+        });
+      }
+    }
+  };
+
   // Prepare select options - Only patients can self-register (business rule)
   const roleOptions = [
     { value: 'patient', label: ROLE_NAMES[4] },
@@ -329,42 +413,55 @@ export default function RegisterPage() {
             disabled={loading}
           />
 
-          <div className="grid grid-cols-2 gap-6">
-            <div>
-              <label
-                htmlFor="password"
-                className="block text-sm font-medium text-gray-700 mb-1.5"
-              >
-                Password <span className="text-danger">*</span>
-              </label>
-              <PasswordInput
-                id="password"
-                placeholder="Min. 8 characters"
-                value={formData.password || ''}
-                onChange={(e) => handleChange('password', e.target.value)}
-                error={errors.password}
-                icon={Lock}
-                disabled={loading}
-              />
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-6">
+              <div>
+                <label
+                  htmlFor="password"
+                  className="block text-sm font-medium text-gray-700 mb-1.5"
+                >
+                  Password <span className="text-danger">*</span>
+                </label>
+                <PasswordInput
+                  id="password"
+                  placeholder="Min. 8 characters"
+                  value={formData.password || ''}
+                  onChange={handlePasswordChange}
+                  onFocus={() => setIsPasswordFieldActive(true)}
+                  onBlur={() => setIsPasswordFieldActive(false)}
+                  error={errors.password}
+                  icon={Lock}
+                  disabled={loading}
+                />
+              </div>
+
+              <div>
+                <label
+                  htmlFor="confirmPassword"
+                  className="block text-sm font-medium text-gray-700 mb-1.5"
+                >
+                  Confirm Password <span className="text-danger">*</span>
+                </label>
+                <PasswordInput
+                  id="confirmPassword"
+                  placeholder="Confirm password"
+                  value={formData.confirmPassword || ''}
+                  onChange={handleConfirmPasswordChange}
+                  onFocus={() => setIsPasswordFieldActive(true)}
+                  onBlur={() => setIsPasswordFieldActive(false)}
+                  error={errors.confirmPassword}
+                  icon={Lock}
+                  disabled={loading}
+                />
+              </div>
             </div>
 
-            <div>
-              <label
-                htmlFor="confirmPassword"
-                className="block text-sm font-medium text-gray-700 mb-1.5"
-              >
-                Confirm Password <span className="text-danger">*</span>
-              </label>
-              <PasswordInput
-                id="confirmPassword"
-                placeholder="Confirm password"
-                value={formData.confirmPassword || ''}
-                onChange={(e) => handleChange('confirmPassword', e.target.value)}
-                error={errors.confirmPassword}
-                icon={Lock}
-                disabled={loading}
-              />
-            </div>
+            {/* Password Requirements Display */}
+            <PasswordRequirementsDisplay
+              validationRules={passwordValidation}
+              isActive={isPasswordFieldActive}
+              showOnlyWhenActive={false}
+            />
           </div>
 
           {/* Healthcare Admin Category */}

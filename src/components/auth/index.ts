@@ -16,6 +16,8 @@ export type { FormFieldProps } from './FormField';
 export { PasswordInput } from './PasswordInput';
 export type { PasswordInputProps } from './PasswordInput';
 
+export { PasswordRequirementsDisplay } from './PasswordRequirementsDisplay';
+
 export { Alert } from './Alert';
 export type { AlertProps } from './Alert';
 
