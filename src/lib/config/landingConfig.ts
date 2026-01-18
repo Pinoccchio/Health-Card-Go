@@ -9,11 +9,11 @@ export interface NavItem {
 }
 
 export const NAV_ITEMS: NavItem[] = [
-  { id: 'home', label: 'Home', href: '#home' },
-  { id: 'about', label: 'About Us', href: '#about' },
-  { id: 'services', label: 'Services', href: '#services' },
+  { id: 'home', label: 'Home', href: '/#home' },
+  { id: 'about', label: 'About Us', href: '/#about' },
+  { id: 'services', label: 'Services', href: '/#services' },
   { id: 'blog', label: 'Blog', href: '/blog' },
-  { id: 'announcements', label: 'Announcements', href: '#announcements' },
+  { id: 'announcements', label: 'Announcements', href: '/#announcements' },
 ];
 
 // Service Cards
@@ -33,7 +33,7 @@ export const SERVICES: ServiceCard[] = [
     description: 'Accurate Diagnostics, Swift Results: Experience top-notch Laboratory Testing at our facility.',
     icon: Heart,
     iconColor: '#20C997',
-    href: '#services',
+    href: '/#services',
   },
   {
     id: 'hiv',
@@ -41,7 +41,7 @@ export const SERVICES: ServiceCard[] = [
     description: 'Our thorough assessments and expert evaluations help you stay proactive about your health.',
     icon: Lightbulb,
     iconColor: '#20C997',
-    href: '#services',
+    href: '/#services',
   },
   {
     id: 'pregnancy',
@@ -49,7 +49,7 @@ export const SERVICES: ServiceCard[] = [
     description: 'Experience comprehensive oral care with Dentistry. Trust us to keep your smile healthy and bright.',
     icon: Building2,
     iconColor: '#20C997',
-    href: '#services',
+    href: '/#services',
   },
 ];
 
@@ -98,27 +98,27 @@ export const FOOTER_COLUMNS: FooterColumn[] = [
     title: 'About Us',
     links: [
       { label: 'Home', href: '/' },
-      { label: 'About Us', href: '#about' },
-      { label: 'Work With Us', href: '#work' },
+      { label: 'About Us', href: '/#about' },
+      { label: 'Work With Us', href: '/#work' },
       { label: 'Our Blog', href: '/blog' },
-      { label: 'Announcements', href: '#announcements' },
+      { label: 'Announcements', href: '/#announcements' },
     ],
   },
   {
     title: 'Services',
     links: [
-      { label: 'Services', href: '#services' },
-      { label: 'Pregnancy Checkup', href: '#services' },
-      { label: 'HIV', href: '#services' },
-      { label: 'Privacy Policy', href: '#privacy' },
-      { label: 'Our Stores', href: '#stores' },
+      { label: 'Services', href: '/#services' },
+      { label: 'Pregnancy Checkup', href: '/#services' },
+      { label: 'HIV', href: '/#services' },
+      { label: 'Privacy Policy', href: '/#privacy' },
+      { label: 'Our Stores', href: '/#stores' },
     ],
   },
   {
     title: 'Links',
     links: [
-      { label: 'Terms & Conditions', href: '#terms' },
-      { label: 'Privacy Policy', href: '#privacy' },
+      { label: 'Terms & Conditions', href: '/#terms' },
+      { label: 'Privacy Policy', href: '/#privacy' },
     ],
   },
 ];
@@ -155,7 +155,7 @@ export const HERO_CONTENT = {
   title: 'Providing an Exceptional Patient Experience',
   subtitle: 'Welcome, where exceptional patient experiences are our priority. With compassionate care, state-of-the-art facilities, and a patient-centered approach, we\'re dedicated to your well-being. Trust us with your health and experience the difference.',
   ctaText: 'Book an Appointment',
-  ctaHref: '#book',
+  ctaHref: '/#book',
 };
 
 // About Section Content

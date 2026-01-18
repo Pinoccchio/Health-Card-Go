@@ -54,17 +54,6 @@ export function Header() {
     getCurrentLocale();
   }, []);
 
-  const handleNavClick = (href: string) => {
-    setIsMobileMenuOpen(false);
-
-    if (href.startsWith('#')) {
-      const element = document.querySelector(href);
-      if (element) {
-        element.scrollIntoView({ behavior: 'smooth' });
-      }
-    }
-  };
-
   const handleLogout = async () => {
     await logout();
     setIsUserMenuOpen(false);
@@ -125,41 +114,21 @@ export function Header() {
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16 md:h-20">
           {/* Logo */}
-          <a href="#home" onClick={() => handleNavClick('#home')}>
+          <Link href="/#home">
             <Logo size="lg" variant="default" colorScheme="light" />
-          </a>
+          </Link>
 
           {/* Desktop Navigation */}
           <nav className="hidden lg:flex items-center space-x-8">
-            {NAV_ITEMS.map((item) => {
-              const isHashLink = item.href.startsWith('#');
-
-              if (isHashLink) {
-                return (
-                  <a
-                    key={item.href}
-                    href={item.href}
-                    onClick={(e) => {
-                      e.preventDefault();
-                      handleNavClick(item.href);
-                    }}
-                    className="text-sm font-medium text-white transition-colors duration-200 hover:text-cta-orange"
-                  >
-                    {t(`navigation.${item.id}`)}
-                  </a>
-                );
-              }
-
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className="text-sm font-medium text-white transition-colors duration-200 hover:text-cta-orange"
-                >
-                  {t(`navigation.${item.id}`)}
-                </Link>
-              );
-            })}
+            {NAV_ITEMS.map((item) => (
+              <Link
+                key={item.href}
+                href={item.href}
+                className="text-sm font-medium text-white transition-colors duration-200 hover:text-cta-orange"
+              >
+                {t(`navigation.${item.id}`)}
+              </Link>
+            ))}
           </nav>
 
           {/* Desktop Actions */}
@@ -290,24 +259,6 @@ export function Header() {
           <nav className="lg:hidden py-4 border-t border-white/20">
             <div className="flex flex-col space-y-3">
               {NAV_ITEMS.map((item) => {
-                const isHashLink = item.href.startsWith('#');
-
-                if (isHashLink) {
-                  return (
-                    <a
-                      key={item.href}
-                      href={item.href}
-                      onClick={(e) => {
-                        e.preventDefault();
-                        handleNavClick(item.href);
-                      }}
-                      className="text-white hover:text-cta-orange transition-colors py-2"
-                    >
-                      {t(`navigation.${item.id}`)}
-                    </a>
-                  );
-                }
-
                 return (
                   <Link
                     key={item.href}
