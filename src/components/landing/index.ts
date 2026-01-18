@@ -3,3 +3,4 @@ export { HeroSection } from './HeroSection';
 export { ServicesSection } from './ServicesSection';
 export { AboutSection } from './AboutSection';
 export { WhyChooseUsSection } from './WhyChooseUsSection';
+export { AnnouncementsSection } from './AnnouncementsSection';

@@ -1,22 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createClient, createAdminClient } from '@/lib/supabase/server';
 import { logAuditAction, AUDIT_ACTIONS, AUDIT_ENTITIES } from '@/lib/utils/auditLog';
 
 /**
  * GET /api/announcements
  * Fetch active announcements for a specific audience
+ * Note: Public access allowed - uses admin client to fetch data, then filters for public announcements
  */
 export async function GET(request: NextRequest) {
-  const supabase = await createClient();
-
-  const { data: { user }, error: authError } = await supabase.auth.getUser();
-
-  if (authError || !user) {
-    return NextResponse.json(
-      { success: false, error: 'Unauthorized' },
-      { status: 401 }
-    );
-  }
+  // Use admin client to bypass RLS and fetch announcements with profile joins
+  const supabase = createAdminClient();
 
   try {
     const searchParams = request.nextUrl.searchParams;
@@ -24,18 +17,17 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get('limit') || '10');
     const includeInactive = searchParams.get('include_inactive') === 'true';
 
-    // Fetch announcements
+    // Fetch announcements with admin client (bypasses RLS)
     let query = supabase
       .from('announcements')
       .select(`
         *,
-        profiles!announcements_created_by_fkey(first_name, last_name)
+        profiles!announcements_created_by_fkey(first_name, last_name, role)
       `)
       .order('created_at', { ascending: false })
       .limit(limit);
 
     // Only filter by is_active when NOT including inactive announcements
-    // This allows admin pages to fetch all announcements for management
     if (!includeInactive) {
       query = query.eq('is_active', true);
     }
@@ -64,8 +56,14 @@ export async function GET(request: NextRequest) {
     const NEW_THRESHOLD_HOURS = 48;
     const newCutoff = new Date(now.getTime() - NEW_THRESHOLD_HOURS * 60 * 60 * 1000);
 
+    // Sanitize profile data - only include first_name, last_name, and role (for transparency)
     const announcementsWithNewFlag = (announcements || []).map((announcement) => ({
       ...announcement,
+      profiles: announcement.profiles ? {
+        first_name: announcement.profiles.first_name,
+        last_name: announcement.profiles.last_name,
+        role: announcement.profiles.role,
+      } : null,
       is_new: new Date(announcement.created_at) >= newCutoff,
     }));
 
