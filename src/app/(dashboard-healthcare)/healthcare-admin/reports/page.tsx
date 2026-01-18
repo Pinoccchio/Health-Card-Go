@@ -48,6 +48,7 @@ export default function HealthcareAdminReportsPage() {
   const [patientsData, setPatientsData] = useState<any>(null);
   const [sarimaData, setSarimaData] = useState<any>(null);
   const [sarimaMetrics, setSarimaMetrics] = useState<any>(null);
+  const [overviewData, setOverviewData] = useState<any>(null);
 
   useEffect(() => {
     const fetchServiceInfo = async () => {
@@ -136,8 +137,41 @@ export default function HealthcareAdminReportsPage() {
 
         if (barangayId) params.append('barangay_id', barangayId.toString());
 
+        // Fetch overview data (combines appointments + patients)
+        if (activeTab === 'overview') {
+          const tempOverviewData: any = {
+            summary: {},
+            table_data: [],
+          };
+
+          // Fetch appointments if service requires them
+          if (service.requires_appointment) {
+            const apptResponse = await fetch(`/api/healthcare-admin/reports/appointments?${params}`);
+            if (apptResponse.ok) {
+              const apptData = await apptResponse.json();
+              setAppointmentsData(apptData.data);
+              // Combine for overview
+              tempOverviewData.summary = { ...tempOverviewData.summary, ...apptData.data.summary };
+              tempOverviewData.table_data.push(...(apptData.data.table_data || []));
+            }
+          }
+
+          // Fetch patients
+          const patientResponse = await fetch(`/api/healthcare-admin/reports/patients?${params}`);
+          if (patientResponse.ok) {
+            const patientData = await patientResponse.json();
+            setPatientsData(patientData.data);
+            // Combine for overview
+            tempOverviewData.summary = { ...tempOverviewData.summary, ...patientData.data.summary };
+            // Don't duplicate table_data, keep separate tabs for detailed views
+          }
+
+          // Set overview data
+          setOverviewData(tempOverviewData);
+        }
+
         // Fetch appointments data if service requires appointments
-        if (service.requires_appointment && (activeTab === 'overview' || activeTab === 'appointments')) {
+        if (service.requires_appointment && activeTab === 'appointments') {
           const apptResponse = await fetch(`/api/healthcare-admin/reports/appointments?${params}`);
           if (apptResponse.ok) {
             const apptData = await apptResponse.json();
@@ -146,7 +180,7 @@ export default function HealthcareAdminReportsPage() {
         }
 
         // Fetch patients data
-        if (activeTab === 'overview' || activeTab === 'patients') {
+        if (activeTab === 'patients') {
           const patientParams = new URLSearchParams(params);
           const patientResponse = await fetch(`/api/healthcare-admin/reports/patients?${patientParams}`);
           if (patientResponse.ok) {
@@ -275,6 +309,7 @@ export default function HealthcareAdminReportsPage() {
                   endDate={endDate}
                   barangayId={barangayId}
                   data={
+                    activeTab === 'overview' ? overviewData :
                     activeTab === 'appointments' ? appointmentsData :
                     activeTab === 'patients' ? patientsData :
                     activeTab === 'healthcard-forecast' ? sarimaData :

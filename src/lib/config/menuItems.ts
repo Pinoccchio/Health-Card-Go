@@ -15,6 +15,7 @@ import {
   UserPlus,
   Map,
   Shield,
+  CreditCard,
 } from 'lucide-react';
 import { MenuItem } from '@/components/dashboard';
 import { RoleId } from '@/types/auth';
@@ -190,6 +191,11 @@ export const STAFF_MENU_ITEMS: MenuItem[] = [
     label: 'Disease Surveillance',
     href: '/staff/disease-surveillance',
     icon: Activity,
+  },
+  {
+    label: 'HealthCard Statistics',
+    href: '/staff/healthcard-statistics',
+    icon: CreditCard,
   },
   {
     label: 'Reports',
