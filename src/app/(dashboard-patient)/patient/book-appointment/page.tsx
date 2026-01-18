@@ -376,76 +376,114 @@ export default function PatientBookAppointmentPage() {
                     <p className="text-gray-500">{t('step1.no_services')}</p>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
-                    {services.map((service) => {
-                    const categoryColors = getCategoryColors(service.category);
-                    const isConfidential = isConfidentialCategory(service.category);
-                    const isFree = isFreeService(service.name);
-
-                    return (
-                      <button
-                        key={service.id}
-                        onClick={() => handleServiceSelect(service.id)}
-                        className="text-left p-5 border-2 border-gray-300 rounded-lg hover:border-primary-teal hover:bg-primary-teal/5 transition-all hover:shadow-md"
+                  <div className="space-y-4">
+                    {/* Service Dropdown */}
+                    <div>
+                      <label htmlFor="service-select" className="block text-sm font-medium text-gray-700 mb-2">
+                        {t('step1.select_service_label', { defaultValue: 'Select a service' })}
+                      </label>
+                      <select
+                        id="service-select"
+                        value={selectedService || ''}
+                        onChange={(e) => {
+                          const serviceId = Number(e.target.value);
+                          if (serviceId) {
+                            setSelectedService(serviceId);
+                          } else {
+                            setSelectedService(null);
+                          }
+                        }}
+                        className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-primary-teal focus:ring-2 focus:ring-primary-teal/20 transition-all text-gray-900"
                       >
-                        <div className="flex items-start justify-between mb-2">
-                          <h4 className="font-semibold text-gray-900 flex-1 pr-2">
+                        <option value="">{t('step1.choose_service', { defaultValue: 'Choose a service...' })}</option>
+                        {services.map((service) => (
+                          <option key={service.id} value={service.id}>
                             {service.name}
-                          </h4>
-                          {isFree && (
-                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-green-100 text-green-800 flex-shrink-0">
-                              <Sparkles className="w-3 h-3 mr-1" />
-                              {t('step1.free_badge')}
-                            </span>
-                          )}
-                        </div>
+                          </option>
+                        ))}
+                      </select>
+                    </div>
 
-                        <p className="text-sm text-gray-600 mb-3">
-                          {service.description}
-                        </p>
+                    {/* Service Details - Shown when service is selected */}
+                    {selectedService && (() => {
+                      const service = services.find(s => s.id === selectedService);
+                      if (!service) return null;
 
-                        {/* Admin Category Badge */}
-                        <div className="flex flex-wrap items-center gap-2 mb-3">
-                          <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium ${categoryColors.bgColor} ${categoryColors.textColor}`}>
-                            {getAdminRoleLabel(service.category)}
-                          </span>
-                          {isConfidential && (
-                            <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-purple-100 text-purple-800">
-                              <Lock className="w-3 h-3 mr-1" />
-                              {t('step1.confidential_badge')}
-                            </span>
-                          )}
-                        </div>
+                      const categoryColors = getCategoryColors(service.category);
+                      const isConfidential = isConfidentialCategory(service.category);
+                      const isFree = isFreeService(service.name);
 
-                        {/* Requirements Section */}
-                        {service.requirements && service.requirements.length > 0 && (
-                          <div className="mb-3">
-                            <ServiceRequirements requirements={service.requirements} />
+                      return (
+                        <div className="bg-gradient-to-br from-primary-teal/5 to-primary-teal/10 border-2 border-primary-teal/30 rounded-lg p-6">
+                          {/* Header */}
+                          <div className="flex items-start justify-between mb-4">
+                            <div className="flex-1">
+                              <h4 className="text-lg font-bold text-gray-900 mb-1">
+                                {service.name}
+                              </h4>
+                              <p className="text-sm text-gray-700">
+                                {service.description}
+                              </p>
+                            </div>
+                            {isFree && (
+                              <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-green-100 text-green-800 flex-shrink-0 ml-3">
+                                <Sparkles className="w-3 h-3 mr-1" />
+                                {t('step1.free_badge')}
+                              </span>
+                            )}
                           </div>
-                        )}
 
-                        {/* Assigned Admin */}
-                        {service.assigned_admins && service.assigned_admins.length > 0 && (
-                          <div className="flex items-center gap-1.5 text-xs text-gray-600 mb-3">
-                            <User className="w-3.5 h-3.5" />
-                            <span>
-                              {t('step1.managed_by', {
-                                name: `${service.assigned_admins[0].first_name} ${service.assigned_admins[0].last_name}`
-                              })}
-                              {service.admin_count && service.admin_count > 1 && (
-                                <span className="text-gray-500"> {t('step1.and_more', { count: service.admin_count - 1 })}</span>
-                              )}
+                          {/* Badges */}
+                          <div className="flex flex-wrap items-center gap-2 mb-4">
+                            <span className={`inline-flex items-center px-3 py-1.5 rounded-md text-xs font-medium ${categoryColors.bgColor} ${categoryColors.textColor}`}>
+                              {getAdminRoleLabel(service.category)}
                             </span>
+                            {isConfidential && (
+                              <span className="inline-flex items-center px-3 py-1.5 rounded-md text-xs font-medium bg-purple-100 text-purple-800">
+                                <Lock className="w-3 h-3 mr-1" />
+                                {t('step1.confidential_badge')}
+                              </span>
+                            )}
                           </div>
-                        )}
 
-                        <div className="flex items-center justify-between text-xs text-gray-500 pt-3 border-t border-gray-200">
-                          <span>{t('step1.duration', { minutes: service.duration_minutes })}</span>
-                          <span className="text-gray-400">{t('step1.booking_confirmation')}</span>
+                          {/* Requirements */}
+                          {service.requirements && service.requirements.length > 0 && (
+                            <div className="mb-4 bg-white/80 rounded-lg p-4">
+                              <ServiceRequirements requirements={service.requirements} />
+                            </div>
+                          )}
+
+                          {/* Admin Info */}
+                          {service.assigned_admins && service.assigned_admins.length > 0 && (
+                            <div className="flex items-center gap-2 text-sm text-gray-700 mb-4 bg-white/60 rounded-lg px-3 py-2">
+                              <User className="w-4 h-4" />
+                              <span>
+                                {t('step1.managed_by', {
+                                  name: `${service.assigned_admins[0].first_name} ${service.assigned_admins[0].last_name}`
+                                })}
+                                {service.admin_count && service.admin_count > 1 && (
+                                  <span className="text-gray-600"> {t('step1.and_more', { count: service.admin_count - 1 })}</span>
+                                )}
+                              </span>
+                            </div>
+                          )}
+
+                          {/* Duration & Next Button */}
+                          <div className="flex items-center justify-between pt-4 border-t border-primary-teal/20">
+                            <div className="flex items-center gap-2 text-sm text-gray-600">
+                              <Clock className="w-4 h-4" />
+                              <span>{t('step1.duration', { minutes: service.duration_minutes })}</span>
+                            </div>
+                            <button
+                              onClick={() => handleServiceSelect(service.id)}
+                              className="px-6 py-2.5 bg-primary-teal text-white font-medium rounded-lg hover:bg-primary-teal/90 transition-colors shadow-md hover:shadow-lg"
+                            >
+                              {t('step1.continue_button', { defaultValue: 'Continue' })}
+                            </button>
+                          </div>
                         </div>
-                      </button>
-                    );
-                  })}
+                      );
+                    })()}
                   </div>
                 )}
 

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { useTranslations } from 'next-intl';
+import { useToast } from '@/lib/contexts/ToastContext';
 import { DashboardLayout } from '@/components/dashboard';
 import { Container, ConfirmDialog } from '@/components/ui';
 import { ProfessionalCard } from '@/components/ui/ProfessionalCard';
@@ -68,6 +69,7 @@ const statusConfig = APPOINTMENT_STATUS_CONFIG;
 export default function PatientAppointmentsPage() {
   const t = useTranslations('appointments_page');
   const tStatus = useTranslations('enums.appointment_status');
+  const toast = useToast();
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
   const [loading, setLoading] = useState(true);
@@ -153,14 +155,15 @@ export default function PatientAppointmentsPage() {
 
     try {
       const response = await fetch(`/api/appointments/${appointmentToCancel.id}`, {
-        method: 'DELETE',
+        method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ reason }),
+        body: JSON.stringify({ status: 'cancelled', reason }),
       });
 
       const data = await response.json();
 
       if (data.success) {
+        toast.success('Appointment cancelled successfully');
         // Refresh appointments list
         await fetchAppointments();
         setShowCancelDialog(false);
@@ -171,10 +174,14 @@ export default function PatientAppointmentsPage() {
           setSelectedAppointment(null);
         }
       } else {
-        setError(data.error || t('errors.failed_to_load'));
+        const errorMessage = data.error || t('errors.failed_to_load');
+        toast.error(errorMessage);
+        setError(errorMessage);
       }
     } catch (err) {
-      setError(t('errors.unexpected_error'));
+      const errorMessage = t('errors.unexpected_error');
+      toast.error(errorMessage);
+      setError(errorMessage);
     } finally {
       setCancellingId(null);
     }
@@ -347,105 +354,6 @@ export default function PatientAppointmentsPage() {
           </div>
         ) : (
           <>
-            {/* Statistics Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 mb-6">
-              <ProfessionalCard variant="flat" className="bg-gradient-to-br from-teal-50 to-teal-100 border-l-4 border-teal-500">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-gray-600 mb-1">{t('statistics.total')}</p>
-                    <p className="text-3xl font-bold text-gray-900">{statistics.total}</p>
-                  </div>
-                  <div className="w-12 h-12 bg-teal-500 rounded-xl flex items-center justify-center shadow-lg">
-                    <ListChecks className="w-6 h-6 text-white" />
-                  </div>
-                </div>
-              </ProfessionalCard>
-
-              <ProfessionalCard variant="flat" className="bg-gradient-to-br from-orange-50 to-orange-100 border-l-4 border-orange-500">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-gray-600 mb-1">{t('statistics.pending')}</p>
-                    <p className="text-3xl font-bold text-gray-900">{statistics.pending}</p>
-                  </div>
-                  <div className="w-12 h-12 bg-orange-500 rounded-xl flex items-center justify-center shadow-lg">
-                    <Clock className="w-6 h-6 text-white" />
-                  </div>
-                </div>
-              </ProfessionalCard>
-
-              <ProfessionalCard variant="flat" className="bg-gradient-to-br from-blue-50 to-blue-100 border-l-4 border-blue-500">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-gray-600 mb-1">{t('statistics.scheduled')}</p>
-                    <p className="text-3xl font-bold text-gray-900">{statistics.scheduled}</p>
-                  </div>
-                  <div className="w-12 h-12 bg-blue-500 rounded-xl flex items-center justify-center shadow-lg">
-                    <Calendar className="w-6 h-6 text-white" />
-                  </div>
-                </div>
-              </ProfessionalCard>
-
-              <ProfessionalCard variant="flat" className="bg-gradient-to-br from-purple-50 to-purple-100 border-l-4 border-purple-500">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-gray-600 mb-1">{t('statistics.checked_in')}</p>
-                    <p className="text-3xl font-bold text-gray-900">{statistics.checked_in}</p>
-                  </div>
-                  <div className="w-12 h-12 bg-purple-500 rounded-xl flex items-center justify-center shadow-lg">
-                    <UserCheck className="w-6 h-6 text-white" />
-                  </div>
-                </div>
-              </ProfessionalCard>
-
-              <ProfessionalCard variant="flat" className="bg-gradient-to-br from-amber-50 to-amber-100 border-l-4 border-amber-500">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-gray-600 mb-1">{t('statistics.in_progress')}</p>
-                    <p className="text-3xl font-bold text-gray-900">{statistics.in_progress}</p>
-                  </div>
-                  <div className="w-12 h-12 bg-amber-500 rounded-xl flex items-center justify-center shadow-lg">
-                    <Activity className="w-6 h-6 text-white" />
-                  </div>
-                </div>
-              </ProfessionalCard>
-
-              <ProfessionalCard variant="flat" className="bg-gradient-to-br from-green-50 to-green-100 border-l-4 border-green-500">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-gray-600 mb-1">{t('statistics.completed')}</p>
-                    <p className="text-3xl font-bold text-gray-900">{statistics.completed}</p>
-                  </div>
-                  <div className="w-12 h-12 bg-green-500 rounded-xl flex items-center justify-center shadow-lg">
-                    <CheckCircle className="w-6 h-6 text-white" />
-                  </div>
-                </div>
-              </ProfessionalCard>
-
-              <ProfessionalCard variant="flat" className="bg-gradient-to-br from-gray-50 to-gray-100 border-l-4 border-gray-500">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-gray-600 mb-1">{t('statistics.cancelled')}</p>
-                    <p className="text-3xl font-bold text-gray-900">{statistics.cancelled}</p>
-                  </div>
-                  <div className="w-12 h-12 bg-gray-500 rounded-xl flex items-center justify-center shadow-lg">
-                    <XCircle className="w-6 h-6 text-white" />
-                  </div>
-                </div>
-              </ProfessionalCard>
-
-              <ProfessionalCard variant="flat" className="bg-gradient-to-br from-red-50 to-red-100 border-l-4 border-red-500">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-gray-600 mb-1">{t('statistics.no_show')}</p>
-                    <p className="text-3xl font-bold text-gray-900">{statistics.no_show}</p>
-                  </div>
-                  <div className="w-12 h-12 bg-red-500 rounded-xl flex items-center justify-center shadow-lg">
-                    <AlertCircle className="w-6 h-6 text-white" />
-                  </div>
-                </div>
-              </ProfessionalCard>
-            </div>
-
             {/* Quick Status Filters */}
             <div className="flex flex-wrap gap-2 mb-6">
               {[

@@ -3,6 +3,8 @@
  * and interpolates dynamic data
  */
 
+import { formatTime24To12, isTimeFormat } from '@/lib/utils/timeFormatters';
+
 interface TranslationData {
   [key: string]: string | number | Date;
 }
@@ -33,13 +35,30 @@ function parseNotificationData(dataString: string | null): TranslationData {
   pairs.forEach(pair => {
     const [key, value] = pair.split('=');
     if (key && value) {
-      // Try to parse dates
-      if (value.match(/^\d{4}-\d{2}-\d{2}/)) {
-        data[key.trim()] = new Date(value.trim());
-      } else if (!isNaN(Number(value))) {
-        data[key.trim()] = Number(value);
-      } else {
-        data[key.trim()] = value.trim();
+      const trimmedKey = key.trim();
+      const trimmedValue = value.trim();
+
+      // Format dates as readable strings for next-intl
+      if (trimmedValue.match(/^\d{4}-\d{2}-\d{2}/)) {
+        const date = new Date(trimmedValue);
+        // Format as "January 26, 2026" for better readability
+        data[trimmedKey] = date.toLocaleDateString('en-US', {
+          month: 'long',
+          day: 'numeric',
+          year: 'numeric'
+        });
+      }
+      // Format times (HH:MM:SS or HH:MM) to 12-hour format with AM/PM
+      else if (isTimeFormat(trimmedValue)) {
+        data[trimmedKey] = formatTime24To12(trimmedValue);
+      }
+      // Convert numbers
+      else if (!isNaN(Number(trimmedValue))) {
+        data[trimmedKey] = Number(trimmedValue);
+      }
+      // Keep everything else as-is
+      else {
+        data[trimmedKey] = trimmedValue;
       }
     }
   });
@@ -73,15 +92,53 @@ export function translateNotification(
     // Parse dynamic data from link or dedicated data field
     const dynamicData = parseNotificationData(notification.data || null);
 
-    // Translate title
-    const title = isTitleKey
-      ? t(notification.title, dynamicData)
-      : notification.title;
+    // Ensure all data values are strings or numbers (not objects)
+    const sanitizedData: Record<string, string | number> = {};
+    Object.entries(dynamicData).forEach(([key, value]) => {
+      if (typeof value === 'string' || typeof value === 'number') {
+        sanitizedData[key] = value;
+      } else if (value instanceof Date) {
+        sanitizedData[key] = value.toLocaleDateString();
+      } else {
+        sanitizedData[key] = String(value || '');
+      }
+    });
 
-    // Translate message (use richT if available for complex formatting)
-    const message = isMessageKey
-      ? (richT ? richT(notification.message, dynamicData) : t(notification.message, dynamicData))
-      : notification.message;
+    // Debug logging for translation issues
+    if (isMessageKey && process.env.NODE_ENV === 'development') {
+      console.log('Translating notification:', {
+        key: notification.message,
+        data: sanitizedData
+      });
+    }
+
+    // Translate title with fallback
+    let title: string;
+    if (isTitleKey) {
+      try {
+        title = t(notification.title, sanitizedData);
+      } catch (err) {
+        console.warn('Failed to translate notification title:', err);
+        title = notification.title;
+      }
+    } else {
+      title = notification.title;
+    }
+
+    // Translate message with fallback
+    let message: string;
+    if (isMessageKey) {
+      try {
+        message = richT
+          ? richT(notification.message, sanitizedData)
+          : t(notification.message, sanitizedData);
+      } catch (err) {
+        console.warn('Failed to translate notification message:', err);
+        message = notification.message;
+      }
+    } else {
+      message = notification.message;
+    }
 
     // Translate type label
     const type = t(`notifications.types.${notification.type}`, { defaultValue: notification.type });

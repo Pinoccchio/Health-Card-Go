@@ -153,6 +153,8 @@ export default function RegisterPage() {
       }
       if (!formData.contactNumber) {
         newErrors.contactNumber = 'Contact number is required';
+      } else if (!validatePhoneNumber(formData.contactNumber)) {
+        newErrors.contactNumber = 'Invalid phone number. Use 11 digits (09123456789) or +63 format (+639123456789)';
       }
 
       // Emergency contact validation
@@ -161,6 +163,8 @@ export default function RegisterPage() {
       }
       if (!formData.emergencyContact?.phone?.trim()) {
         newErrors.emergencyContactPhone = 'Emergency contact phone is required';
+      } else if (!validatePhoneNumber(formData.emergencyContact.phone)) {
+        newErrors.emergencyContactPhone = 'Invalid phone number. Use 11 digits (09123456789) or +63 format (+639123456789)';
       }
       // Email is optional, but validate format if provided
       if (formData.emergencyContact?.email && formData.emergencyContact.email.trim()) {
@@ -320,6 +324,109 @@ export default function RegisterPage() {
         setErrors((prev) => {
           const updated = { ...prev };
           delete updated.confirmPassword;
+          return updated;
+        });
+      }
+    }
+  };
+
+  /**
+   * Validate Philippine phone number format
+   * Accepts: 09123456789 (11 digits) or +639123456789 (+63 format)
+   */
+  const validatePhoneNumber = (phone: string): boolean => {
+    if (!phone) return false;
+
+    // Remove all spaces and dashes for validation
+    const cleaned = phone.replace(/[\s-]/g, '');
+
+    // Check for 11-digit format starting with 0 (09123456789)
+    const elevenDigitPattern = /^0\d{10}$/;
+    if (elevenDigitPattern.test(cleaned)) {
+      return true;
+    }
+
+    // Check for +63 format (+639123456789)
+    const plus63Pattern = /^\+639\d{9}$/;
+    if (plus63Pattern.test(cleaned)) {
+      return true;
+    }
+
+    return false;
+  };
+
+  /**
+   * Handle contact number change with real-time validation
+   */
+  const handleContactNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const contactNumber = e.target.value;
+    setFormData((prev) => ({ ...prev, contactNumber }));
+
+    // Real-time phone number validation
+    if (contactNumber) {
+      if (!validatePhoneNumber(contactNumber)) {
+        setErrors((prev) => ({
+          ...prev,
+          contactNumber: 'Invalid phone number. Use 11 digits (09123456789) or +63 format (+639123456789)',
+        }));
+      } else {
+        // Valid phone number - clear error
+        if (errors.contactNumber) {
+          setErrors((prev) => {
+            const updated = { ...prev };
+            delete updated.contactNumber;
+            return updated;
+          });
+        }
+      }
+    } else {
+      // Empty field - clear error (required validation happens on submit)
+      if (errors.contactNumber) {
+        setErrors((prev) => {
+          const updated = { ...prev };
+          delete updated.contactNumber;
+          return updated;
+        });
+      }
+    }
+  };
+
+  /**
+   * Handle emergency contact phone change with real-time validation
+   */
+  const handleEmergencyPhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const phone = e.target.value;
+    setFormData((prev) => ({
+      ...prev,
+      emergencyContact: {
+        ...prev.emergencyContact,
+        phone,
+      },
+    }));
+
+    // Real-time phone number validation
+    if (phone) {
+      if (!validatePhoneNumber(phone)) {
+        setErrors((prev) => ({
+          ...prev,
+          emergencyContactPhone: 'Invalid phone number. Use 11 digits (09123456789) or +63 format (+639123456789)',
+        }));
+      } else {
+        // Valid phone number - clear error
+        if (errors.emergencyContactPhone) {
+          setErrors((prev) => {
+            const updated = { ...prev };
+            delete updated.emergencyContactPhone;
+            return updated;
+          });
+        }
+      }
+    } else {
+      // Empty field - clear error (required validation happens on submit)
+      if (errors.emergencyContactPhone) {
+        setErrors((prev) => {
+          const updated = { ...prev };
+          delete updated.emergencyContactPhone;
           return updated;
         });
       }
@@ -545,9 +652,9 @@ export default function RegisterPage() {
                 id="contactNumber"
                 label="Contact Number"
                 type="tel"
-                placeholder="+63 912 345 6789"
+                placeholder="+63 912 345 6789 or 09123456789"
                 value={formData.contactNumber || ''}
-                onChange={(e) => handleChange('contactNumber', e.target.value)}
+                onChange={handleContactNumberChange}
                 error={errors.contactNumber}
                 icon={Phone}
                 required
@@ -583,14 +690,9 @@ export default function RegisterPage() {
                     id="emergencyContactPhone"
                     label="Contact Phone"
                     type="tel"
-                    placeholder="+63 912 999 9999"
+                    placeholder="+63 912 999 9999 or 09123456789"
                     value={formData.emergencyContact?.phone || ''}
-                    onChange={(e) =>
-                      handleChange('emergencyContact', {
-                        ...formData.emergencyContact,
-                        phone: e.target.value,
-                      })
-                    }
+                    onChange={handleEmergencyPhoneChange}
                     error={errors.emergencyContactPhone}
                     icon={Phone}
                     required

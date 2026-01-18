@@ -2,6 +2,7 @@ import { Bell, CheckCircle, XCircle, MessageSquare, Calendar, Info, Eye } from '
 import { useTranslations } from 'next-intl';
 import { Notification } from '@/hooks/useNotifications';
 import { useNotificationContext } from '@/lib/contexts/NotificationContext';
+import { translateNotification } from '@/lib/notifications/translateNotification';
 
 interface NotificationItemProps {
   notification: Notification;
@@ -37,11 +38,15 @@ const typeConfig = {
 };
 
 export default function NotificationItem({ notification, onMarkAsRead, onViewDetails }: NotificationItemProps) {
-  const t = useTranslations('notifications');
+  const t = useTranslations();
+  const tNotifications = useTranslations('notifications');
   const { markAsRead } = useNotificationContext();
   const isUnread = !notification.read_at;
   const config = typeConfig[notification.type] || typeConfig.general;
   const Icon = config.icon;
+
+  // Translate notification content
+  const translatedNotification = translateNotification(notification, t);
 
   const formatTimestamp = (timestamp: string) => {
     const date = new Date(timestamp);
@@ -51,10 +56,10 @@ export default function NotificationItem({ notification, onMarkAsRead, onViewDet
     const diffHours = Math.floor(diffMs / 3600000);
     const diffDays = Math.floor(diffMs / 86400000);
 
-    if (diffMins < 1) return t('time.just_now');
-    if (diffMins < 60) return `${diffMins} ${t('time.minutes_ago')}`;
-    if (diffHours < 24) return `${diffHours} ${t('time.hours_ago')}`;
-    if (diffDays < 7) return `${diffDays} ${t('time.days_ago')}`;
+    if (diffMins < 1) return tNotifications('time.just_now');
+    if (diffMins < 60) return `${diffMins} ${tNotifications('time.minutes_ago')}`;
+    if (diffHours < 24) return `${diffHours} ${tNotifications('time.hours_ago')}`;
+    if (diffDays < 7) return `${diffDays} ${tNotifications('time.days_ago')}`;
     return date.toLocaleDateString();
   };
 
@@ -102,7 +107,7 @@ export default function NotificationItem({ notification, onMarkAsRead, onViewDet
         <div className="flex-1 min-w-0">
           <div className="flex items-start justify-between gap-2 mb-1">
             <h3 className={`font-semibold ${isUnread ? 'text-gray-900' : 'text-gray-700'}`}>
-              {notification.title}
+              {translatedNotification.title}
             </h3>
             <span className="text-xs text-gray-500 whitespace-nowrap">
               {formatTimestamp(notification.created_at)}
@@ -110,13 +115,13 @@ export default function NotificationItem({ notification, onMarkAsRead, onViewDet
           </div>
 
           <p className="text-sm text-gray-600 line-clamp-2">
-            {notification.message}
+            {translatedNotification.message}
           </p>
 
           {/* Type badge and actions */}
           <div className="mt-3 flex items-center justify-between gap-3">
             <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${config.bgColor} ${config.color} border ${config.borderColor}`}>
-              {t(`types.${notification.type}`, { defaultValue: notification.type.replace(/_/g, ' ') })}
+              {tNotifications(`types.${notification.type}`, { defaultValue: notification.type.replace(/_/g, ' ') })}
             </span>
 
             {/* View Details Button */}
@@ -126,7 +131,7 @@ export default function NotificationItem({ notification, onMarkAsRead, onViewDet
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-primary-teal hover:bg-primary-teal hover:text-white border border-primary-teal rounded-lg transition-colors"
               >
                 <Eye className="w-3.5 h-3.5" />
-                {t('view_details')}
+                {tNotifications('view_details')}
               </button>
             )}
           </div>

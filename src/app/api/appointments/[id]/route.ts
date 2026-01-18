@@ -38,10 +38,11 @@ export async function PATCH(
       return NextResponse.json({ error: 'Profile not found' }, { status: 404 });
     }
 
-    // Only Healthcare Admins and Super Admins can update appointments
-    if (profile.role !== 'healthcare_admin' && profile.role !== 'super_admin') {
+    // Authorization: Allow Healthcare Admins, Super Admins, and Patients (for cancellation only)
+    const allowedRoles = ['healthcare_admin', 'super_admin', 'patient'];
+    if (!allowedRoles.includes(profile.role)) {
       return NextResponse.json(
-        { error: 'Only Healthcare Admins and Super Admins can update appointments' },
+        { error: 'Unauthorized to update appointments' },
         { status: 403 }
       );
     }
@@ -67,6 +68,51 @@ export async function PATCH(
       return NextResponse.json({ error: 'Appointment not found' }, { status: 404 });
     }
 
+    // Get request body
+    const body = await request.json();
+    const { status: newStatus, revert_to_history_id, reason } = body;
+
+    // Patients can only cancel their own appointments
+    if (profile.role === 'patient') {
+      // Get patient record to compare patient_id correctly
+      const { data: patientRecord, error: patientError } = await supabase
+        .from('patients')
+        .select('id')
+        .eq('user_id', user.id)
+        .single();
+
+      if (patientError || !patientRecord) {
+        return NextResponse.json(
+          { error: 'Patient record not found' },
+          { status: 404 }
+        );
+      }
+
+      // Verify patient owns the appointment (compare appointment.patient_id to patient.id from patients table)
+      if (appointment.patient_id !== patientRecord.id) {
+        return NextResponse.json(
+          { error: 'You can only cancel your own appointments' },
+          { status: 403 }
+        );
+      }
+
+      // Patients can only cancel (not other operations)
+      if (newStatus !== 'cancelled' || revert_to_history_id) {
+        return NextResponse.json(
+          { error: 'Patients can only cancel appointments' },
+          { status: 403 }
+        );
+      }
+
+      // Verify appointment can be cancelled (scheduled or pending only)
+      if (!['scheduled', 'pending'].includes(appointment.status)) {
+        return NextResponse.json(
+          { error: `Cannot cancel appointment with status '${appointment.status}'` },
+          { status: 400 }
+        );
+      }
+    }
+
     // Healthcare Admins can only update appointments for their assigned service
     if (profile.role === 'healthcare_admin') {
       if (!profile.assigned_service_id) {
@@ -83,10 +129,6 @@ export async function PATCH(
         );
       }
     }
-
-    // Get request body
-    const body = await request.json();
-    const { status: newStatus, revert_to_history_id, reason } = body;
 
     // Check if this is a revert operation FIRST (before validating status)
     let isRevertOperation = false;
