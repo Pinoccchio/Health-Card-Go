@@ -351,6 +351,27 @@ export async function PATCH(
             data: `appointment_number=${queueNumber}|date=${appointmentWithPatient.appointment_date}|time=${appointmentWithPatient.appointment_time}|reason=${reason || ''}`
           });
           console.log(`✅ [NOTIFICATION] Cancellation notification sent for appointment #${queueNumber}`);
+
+          // Recalculate queue numbers for remaining appointments
+          try {
+            console.log(`🔄 [QUEUE RECALCULATION] Starting recalculation for date=${appointment.appointment_date}, service=${appointment.service_id}, cancelled_queue=${appointment.appointment_number}`);
+
+            const { error: recalcError } = await adminClient.rpc('recalculate_queue_numbers', {
+              p_appointment_date: appointment.appointment_date,
+              p_service_id: appointment.service_id,
+              p_cancelled_queue_number: appointment.appointment_number
+            });
+
+            if (recalcError) {
+              console.error('❌ [QUEUE RECALCULATION] Error:', recalcError);
+              // Don't fail the cancellation - log error and continue
+            } else {
+              console.log(`✅ [QUEUE RECALCULATION] Successfully recalculated queue numbers`);
+            }
+          } catch (recalcError) {
+            console.error('❌ [QUEUE RECALCULATION] Unexpected error:', recalcError);
+            // Don't fail the cancellation - log error and continue
+          }
         }
 
         // Status revert notification
