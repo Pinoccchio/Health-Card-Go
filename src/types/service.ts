@@ -13,7 +13,8 @@ export type ServiceCategory =
   | 'hiv'
   | 'pregnancy'
   | 'immunization'
-  | 'laboratory';
+  | 'laboratory'
+  | 'education';
 
 /**
  * Service entity from database

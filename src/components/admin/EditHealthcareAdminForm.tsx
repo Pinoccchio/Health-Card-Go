@@ -60,12 +60,16 @@ export default function EditHealthcareAdminForm({ userId, isOpen, onClose, onSuc
       if (res.ok) {
         const data = await res.json();
         const user = data.data;
+
+        // Handle assigned_service_id - could be from nested object or direct field
+        const serviceId = user.assigned_service?.id || user.assigned_service_id || '';
+
         setFormData({
           first_name: user.first_name || '',
           last_name: user.last_name || '',
           email: user.email || '',
           contact_number: user.contact_number || '',
-          assigned_service_id: user.assigned_service?.id?.toString() || '',
+          assigned_service_id: serviceId ? serviceId.toString() : '',
           status: user.status || 'active',
         });
       } else {
@@ -288,7 +292,7 @@ export default function EditHealthcareAdminForm({ userId, isOpen, onClose, onSuc
                       >
                         <option value="">None (Unassigned)</option>
                         {services.map((service) => (
-                          <option key={service.id} value={service.id}>
+                          <option key={service.id} value={service.id.toString()}>
                             {service.name}
                           </option>
                         ))}

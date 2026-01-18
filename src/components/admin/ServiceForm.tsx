@@ -18,6 +18,7 @@ const SERVICE_CATEGORIES = [
   { value: 'pregnancy', label: 'Pregnancy Services', color: 'text-pink-600 bg-pink-50' },
   { value: 'laboratory', label: 'Laboratory', color: 'text-blue-600 bg-blue-50' },
   { value: 'immunization', label: 'Immunization', color: 'text-indigo-600 bg-indigo-50' },
+  { value: 'education', label: 'Education', color: 'text-amber-600 bg-amber-50' },
   { value: 'general', label: 'General Services', color: 'text-gray-600 bg-gray-50' },
 ];
 

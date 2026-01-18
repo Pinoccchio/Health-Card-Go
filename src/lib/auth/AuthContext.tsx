@@ -232,6 +232,19 @@ export function AuthProvider({ children, initialUser }: AuthProviderProps) {
             throw new Error(errorMessage);
           }
 
+          // SECURITY: Validate service assignment for healthcare admins
+          // Healthcare admins MUST be assigned to a service to access appointments/patients
+          if (profile.role_id === 2 && !profile.assigned_service_id) {
+            // Sign out the user immediately
+            await supabase.auth.signOut();
+
+            const errorMessage =
+              'Your account has not been assigned to a service yet. ' +
+              'Please contact a Super Admin to assign your account to a service before you can access the healthcare admin dashboard.';
+            setError(errorMessage);
+            throw new Error(errorMessage);
+          }
+
           setUser(profile);
           return profile; // Return user data immediately for redirect
         }

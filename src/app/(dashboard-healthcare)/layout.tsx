@@ -67,6 +67,16 @@ export default function HealthcareAdminDashboardLayout({
           router.push(getDashboardPath(user.role_id));
           return;
         }
+        // SECURITY: Block unassigned healthcare admins (defense-in-depth)
+        // Healthcare admins MUST have assigned_service_id to access dashboard
+        if (!user.assigned_service_id) {
+          console.warn(
+            '🚨 [HEALTHCARE ADMIN LAYOUT] Unassigned healthcare admin attempted access:',
+            user.id
+          );
+          router.push('/login');
+          return;
+        }
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -85,7 +95,13 @@ export default function HealthcareAdminDashboardLayout({
   }
 
   // JOBSYNC PATTERN: Return null for unauthorized users (no spinner loop)
-  if (!isAuthenticated || !user || user.status !== 'active' || user.role_id !== 2) {
+  if (
+    !isAuthenticated ||
+    !user ||
+    user.status !== 'active' ||
+    user.role_id !== 2 ||
+    (user.role_id === 2 && !user.assigned_service_id)
+  ) {
     return null;
   }
 
