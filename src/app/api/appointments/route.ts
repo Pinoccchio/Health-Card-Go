@@ -430,6 +430,7 @@ export async function GET(request: NextRequest) {
           allergies,
           current_medications,
           accessibility_requirements,
+          blood_type,
           profiles(
             first_name,
             last_name,
@@ -457,6 +458,15 @@ export async function GET(request: NextRequest) {
         ),
         feedback(
           id
+        ),
+        appointment_uploads(
+          id,
+          file_name,
+          file_url,
+          file_type,
+          mime_type,
+          file_size_bytes,
+          verification_status
         )
       `)
       .order('appointment_date', { ascending: true });
@@ -823,10 +833,65 @@ export async function GET(request: NextRequest) {
       console.log('  medical_records count from separate query:', medicalRecordCounts[appointment.id] || 0);
       console.log('  CALCULATED has_medical_record:', hasMedicalRecord);
 
+      // Transform patient data to flatten structure for frontend
+      const transformedPatient = appointment.patients ? {
+        id: appointment.patients.id,
+        patient_number: appointment.patients.patient_number,
+        first_name: appointment.patients.profiles?.first_name || null,
+        last_name: appointment.patients.profiles?.last_name || null,
+        email: appointment.patients.profiles?.email || null,
+        contact_number: appointment.patients.profiles?.contact_number || null,
+        date_of_birth: appointment.patients.profiles?.date_of_birth || null,
+        gender: appointment.patients.profiles?.gender || null,
+        barangay: appointment.patients.profiles?.barangays?.name || null,
+        blood_type: appointment.patients.blood_type || appointment.patients.medical_history?.blood_type || null,
+        // Parse JSONB fields to readable strings
+        allergies: (() => {
+          if (!appointment.patients.allergies) return null;
+          if (typeof appointment.patients.allergies === 'string') return appointment.patients.allergies;
+          if (Array.isArray(appointment.patients.allergies)) {
+            return appointment.patients.allergies.join(', ');
+          }
+          return appointment.patients.allergies.allergies || JSON.stringify(appointment.patients.allergies);
+        })(),
+        medical_conditions: (() => {
+          if (!appointment.patients.medical_history) return null;
+          if (typeof appointment.patients.medical_history === 'string') return appointment.patients.medical_history;
+          if (typeof appointment.patients.medical_history === 'object') {
+            return appointment.patients.medical_history.conditions || JSON.stringify(appointment.patients.medical_history);
+          }
+          return JSON.stringify(appointment.patients.medical_history);
+        })(),
+        current_medications: (() => {
+          if (!appointment.patients.current_medications) return null;
+          if (typeof appointment.patients.current_medications === 'string') return appointment.patients.current_medications;
+          if (Array.isArray(appointment.patients.current_medications)) {
+            return appointment.patients.current_medications.join(', ');
+          }
+          if (typeof appointment.patients.current_medications === 'object') {
+            return appointment.patients.current_medications.medications || JSON.stringify(appointment.patients.current_medications);
+          }
+          return JSON.stringify(appointment.patients.current_medications);
+        })(),
+        // Parse emergency_contact JSONB from profiles
+        emergency_contact_name: appointment.patients.profiles?.emergency_contact?.name || null,
+        emergency_contact_phone: appointment.patients.profiles?.emergency_contact?.phone || null,
+        emergency_contact_email: appointment.patients.profiles?.emergency_contact?.email || null,
+      } : null;
+
+      // Transform uploads from array or object to consistent array
+      const transformedUploads = appointment.appointment_uploads
+        ? (Array.isArray(appointment.appointment_uploads)
+            ? appointment.appointment_uploads
+            : [appointment.appointment_uploads])
+        : [];
+
       return {
         ...appointment,
         has_medical_record: hasMedicalRecord,
-        has_feedback: hasFeedback
+        has_feedback: hasFeedback,
+        patient: transformedPatient,
+        uploads: transformedUploads,
       };
     });
 

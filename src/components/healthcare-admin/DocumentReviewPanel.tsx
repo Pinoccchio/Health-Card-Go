@@ -6,6 +6,7 @@ import {
   AppointmentUpload,
   getUploadFileTypeInfo,
 } from '@/types/appointment';
+import DocumentViewerModal from '@/components/ui/DocumentViewerModal';
 
 interface DocumentReviewPanelProps {
   /** Appointment ID to fetch uploads for */
@@ -26,6 +27,12 @@ export function DocumentReviewPanel({
   const [uploads, setUploads] = useState<AppointmentUpload[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [viewerOpen, setViewerOpen] = useState(false);
+  const [selectedDocument, setSelectedDocument] = useState<{
+    url: string;
+    name: string;
+    type: string;
+  } | null>(null);
 
   // Fetch uploads on mount
   useEffect(() => {
@@ -50,6 +57,46 @@ export function DocumentReviewPanel({
       setError(err.message || 'Failed to load uploaded documents');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleViewDocument = (upload: AppointmentUpload) => {
+    setSelectedDocument({
+      url: upload.file_url,
+      name: upload.file_name,
+      type: upload.mime_type,
+    });
+    setViewerOpen(true);
+  };
+
+  const handleCloseViewer = () => {
+    setViewerOpen(false);
+    setSelectedDocument(null);
+  };
+
+  const handleDownloadDocument = async (upload: AppointmentUpload) => {
+    try {
+      // Fetch the file as a blob to handle cross-origin and Supabase signed URLs
+      const response = await fetch(upload.file_url);
+      const blob = await response.blob();
+
+      // Create a temporary object URL for the blob
+      const blobUrl = window.URL.createObjectURL(blob);
+
+      // Create a link and trigger download
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      link.download = upload.file_name;
+      document.body.appendChild(link);
+      link.click();
+
+      // Cleanup
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(blobUrl);
+    } catch (error) {
+      console.error('Error downloading file:', error);
+      // Fallback: try opening in new tab
+      window.open(upload.file_url, '_blank');
     }
   };
 
@@ -152,24 +199,23 @@ export function DocumentReviewPanel({
 
                 {/* Action Buttons */}
                 <div className="flex items-center space-x-2 ml-3 flex-shrink-0">
-                  <a
-                    href={upload.file_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
+                  <button
+                    onClick={() => handleViewDocument(upload)}
                     className="p-2 text-gray-600 hover:text-primary-teal hover:bg-gray-100 rounded-md transition-colors"
                     title="View file"
+                    aria-label={`View ${fileTypeInfo.label}`}
                   >
                     <Eye className="h-4 w-4" />
-                  </a>
+                  </button>
 
-                  <a
-                    href={upload.file_url}
-                    download={upload.file_name}
+                  <button
+                    onClick={() => handleDownloadDocument(upload)}
                     className="p-2 text-gray-600 hover:text-primary-teal hover:bg-gray-100 rounded-md transition-colors"
                     title="Download file"
+                    aria-label={`Download ${fileTypeInfo.label}`}
                   >
                     <Download className="h-4 w-4" />
-                  </a>
+                  </button>
                 </div>
               </div>
             </div>
@@ -177,7 +223,16 @@ export function DocumentReviewPanel({
         })}
       </div>
 
-
+      {/* Document Viewer Modal */}
+      {selectedDocument && (
+        <DocumentViewerModal
+          isOpen={viewerOpen}
+          onClose={handleCloseViewer}
+          documentUrl={selectedDocument.url}
+          documentName={selectedDocument.name}
+          documentType={selectedDocument.type}
+        />
+      )}
     </div>
   );
 }

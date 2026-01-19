@@ -9,6 +9,8 @@ import { ProfessionalCard } from '@/components/ui/ProfessionalCard';
 import { EnhancedTable } from '@/components/ui/EnhancedTable';
 import { Drawer } from '@/components/ui/Drawer';
 import { StatusHistoryModal } from '@/components/appointments/StatusHistoryModal';
+import { TimeElapsedBadge } from '@/components/appointments/TimeElapsedBadge';
+import { DocumentReviewPanel } from '@/components/healthcare-admin/DocumentReviewPanel';
 import {
   Calendar,
   Clock,
@@ -25,6 +27,11 @@ import {
   Activity,
   Eye,
   PlayCircle,
+  Download,
+  Phone,
+  Mail,
+  Heart,
+  Droplet,
 } from 'lucide-react';
 import { canCancelAppointment as canCancelByTimezone } from '@/lib/utils/timezone';
 import { APPOINTMENT_STATUS_CONFIG } from '@/lib/constants/colors';
@@ -53,6 +60,7 @@ interface Appointment {
   service_id?: number;
   lab_location?: 'inside_cho' | 'outside_cho';
   card_type?: 'food_handler' | 'non_food' | 'pink';
+  has_medical_record?: boolean;
   services?: {
     id: number;
     name: string;
@@ -63,6 +71,33 @@ interface Appointment {
     first_name: string;
     last_name: string;
   } | null;
+  patient?: {
+    id: string;
+    patient_number: string;
+    first_name: string;
+    last_name: string;
+    email: string | null;
+    contact_number: string | null;
+    date_of_birth: string | null;
+    gender: string | null;
+    barangay: string | null;
+    blood_type: string | null;
+    allergies: string | null;
+    medical_conditions: string | null;
+    current_medications: string | null;
+    emergency_contact_name: string | null;
+    emergency_contact_phone: string | null;
+    emergency_contact_email: string | null;
+  } | null;
+  uploads?: Array<{
+    id: string;
+    file_name: string;
+    file_url: string;
+    file_type: string;
+    mime_type: string;
+    file_size_bytes: number;
+    verification_status: 'pending' | 'approved' | 'rejected';
+  }>;
 }
 
 // Use centralized status config for consistent colors
@@ -247,7 +282,7 @@ export default function PatientAppointmentsPage() {
     );
   };
 
-  // Define table columns
+  // Define table columns (matches healthcare admin order)
   const tableColumns = [
     {
       header: t('table.queue_hash'),
@@ -273,24 +308,6 @@ export default function PatientAppointmentsPage() {
           )}
         </div>
       ),
-    },
-    {
-      header: 'Lab Location',
-      accessor: 'lab_location',
-      sortable: true,
-      render: (value: string) => {
-        if (!value) return <span className="text-gray-400 text-xs italic">N/A</span>;
-        const isInsideCHO = value === 'inside_cho';
-        return (
-          <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium ${
-            isInsideCHO
-              ? 'bg-blue-100 text-blue-800'
-              : 'bg-amber-100 text-amber-800'
-          }`}>
-            {isInsideCHO ? 'Inside CHO' : 'Outside CHO'}
-          </span>
-        );
-      },
     },
     {
       header: t('table.date'),
@@ -319,10 +336,72 @@ export default function PatientAppointmentsPage() {
       ),
     },
     {
+      header: 'Lab Location',
+      accessor: 'lab_location',
+      sortable: true,
+      render: (value: string) => {
+        if (!value) return <span className="text-gray-400 text-xs italic">N/A</span>;
+        const isInsideCHO = value === 'inside_cho';
+        return (
+          <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium ${
+            isInsideCHO
+              ? 'bg-blue-100 text-blue-800'
+              : 'bg-amber-100 text-amber-800'
+          }`}>
+            {isInsideCHO ? 'Inside CHO' : 'Outside CHO'}
+          </span>
+        );
+      },
+    },
+    {
       header: t('table.status'),
       accessor: 'status',
       sortable: true,
-      render: (value: Appointment['status']) => getStatusBadge(value),
+      render: (value: Appointment['status'], row: Appointment) => (
+        <div className="flex flex-col gap-1">
+          {/* Main Status Badge */}
+          {getStatusBadge(value)}
+
+          {/* Time Elapsed Badge - Waiting (checked_in) */}
+          {value === 'checked_in' && row.checked_in_at && (
+            <TimeElapsedBadge
+              timestamp={row.checked_in_at}
+              label="Waiting"
+              type="waiting"
+            />
+          )}
+
+          {/* Time Elapsed Badge - Consulting (in_progress) */}
+          {value === 'in_progress' && row.started_at && (
+            <TimeElapsedBadge
+              timestamp={row.started_at}
+              label="Consulting"
+              type="consulting"
+            />
+          )}
+
+          {/* Medical Record Created Badge */}
+          {value === 'completed' && row.has_medical_record && (
+            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
+              <CheckCircle className="w-3 h-3 mr-1" />
+              Medical Record Created
+            </span>
+          )}
+        </div>
+      ),
+    },
+    {
+      header: 'Reason',
+      accessor: 'reason',
+      sortable: false,
+      render: (value: string) => {
+        if (!value) return <span className="text-gray-400 text-xs italic">N/A</span>;
+        return (
+          <div className="text-sm text-gray-700 line-clamp-2 max-w-xs">
+            {value}
+          </div>
+        );
+      },
     },
     {
       header: t('table.actions'),
@@ -333,7 +412,7 @@ export default function PatientAppointmentsPage() {
           className="inline-flex items-center px-3 py-1.5 bg-[#20C997] text-white text-xs font-medium rounded-md hover:bg-[#1AA179] transition-colors"
         >
           <Eye className="w-3 h-3 mr-1.5" />
-          {t('table.view_details')}
+          View
         </button>
       ),
     },
@@ -465,6 +544,23 @@ export default function PatientAppointmentsPage() {
               <div className="mb-6">
                 <div className="flex items-center gap-2 mb-2">
                   {getStatusBadge(selectedAppointment.status)}
+
+                  {/* Elapsed Time Badges */}
+                  {selectedAppointment.status === 'checked_in' && selectedAppointment.checked_in_at && (
+                    <TimeElapsedBadge
+                      timestamp={selectedAppointment.checked_in_at}
+                      label="Waiting"
+                      type="waiting"
+                    />
+                  )}
+
+                  {selectedAppointment.status === 'in_progress' && selectedAppointment.started_at && (
+                    <TimeElapsedBadge
+                      timestamp={selectedAppointment.started_at}
+                      label="Consulting"
+                      type="consulting"
+                    />
+                  )}
                 </div>
               </div>
 
@@ -504,6 +600,189 @@ export default function PatientAppointmentsPage() {
                         </span>
                       </div>
                     </div>
+                  </div>
+                </div>
+
+                {/* Patient Information */}
+                {selectedAppointment.patient && (
+                  <div>
+                    <h4 className="text-sm font-medium text-gray-700 mb-2 flex items-center">
+                      <User className="w-4 h-4 mr-2" />
+                      Patient Information
+                    </h4>
+                    <div className="bg-gray-50 rounded-md p-3 space-y-3">
+                      <div className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
+                        <div>
+                          <p className="text-xs text-gray-500">Name</p>
+                          <p className="font-medium text-gray-900 mt-1">
+                            {selectedAppointment.patient.first_name || 'N/A'} {selectedAppointment.patient.last_name || ''}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-gray-500">Patient #</p>
+                          <p className="font-medium text-gray-900 mt-1">{selectedAppointment.patient.patient_number || 'N/A'}</p>
+                        </div>
+                        {selectedAppointment.patient.email && (
+                          <div>
+                            <p className="text-xs text-gray-500 flex items-center">
+                              <Mail className="w-3 h-3 mr-1" />
+                              Email
+                            </p>
+                            <p className="text-gray-900 mt-1">{selectedAppointment.patient.email}</p>
+                          </div>
+                        )}
+                        {selectedAppointment.patient.contact_number && (
+                          <div>
+                            <p className="text-xs text-gray-500 flex items-center">
+                              <Phone className="w-3 h-3 mr-1" />
+                              Contact
+                            </p>
+                            <p className="text-gray-900 mt-1">{selectedAppointment.patient.contact_number}</p>
+                          </div>
+                        )}
+                        {selectedAppointment.patient.date_of_birth && (
+                          <div>
+                            <p className="text-xs text-gray-500">Date of Birth</p>
+                            <p className="text-gray-900 mt-1">
+                              {new Date(selectedAppointment.patient.date_of_birth).toLocaleDateString('en-US', {
+                                month: 'short',
+                                day: 'numeric',
+                                year: 'numeric',
+                              })}
+                            </p>
+                          </div>
+                        )}
+                        {selectedAppointment.patient.gender && (
+                          <div>
+                            <p className="text-xs text-gray-500">Gender</p>
+                            <p className="text-gray-900 mt-1 capitalize">{selectedAppointment.patient.gender}</p>
+                          </div>
+                        )}
+                        {selectedAppointment.patient.barangay && (
+                          <div className="col-span-2">
+                            <p className="text-xs text-gray-500 flex items-center">
+                              <MapPin className="w-3 h-3 mr-1" />
+                              Barangay
+                            </p>
+                            <p className="text-gray-900 mt-1">{selectedAppointment.patient.barangay}</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Emergency Contact */}
+                {selectedAppointment.patient && (selectedAppointment.patient.emergency_contact_name || selectedAppointment.patient.emergency_contact_phone || selectedAppointment.patient.emergency_contact_email) && (
+                  <div>
+                    <h4 className="text-sm font-medium text-gray-700 mb-2 flex items-center">
+                      <AlertCircle className="w-4 h-4 mr-2" />
+                      Emergency Contact
+                    </h4>
+                    <div className="bg-gray-50 rounded-md p-3">
+                      <div className="space-y-2">
+                        {selectedAppointment.patient.emergency_contact_name && (
+                          <div>
+                            <p className="text-xs text-gray-500">Name</p>
+                            <p className="text-sm font-medium text-gray-900 mt-1">
+                              {selectedAppointment.patient.emergency_contact_name}
+                            </p>
+                          </div>
+                        )}
+                        {selectedAppointment.patient.emergency_contact_phone && (
+                          <div>
+                            <p className="text-xs text-gray-500 flex items-center">
+                              <Phone className="w-3 h-3 mr-1" />
+                              Phone
+                            </p>
+                            <p className="text-sm font-medium text-gray-900 mt-1">
+                              {selectedAppointment.patient.emergency_contact_phone}
+                            </p>
+                          </div>
+                        )}
+                        {selectedAppointment.patient.emergency_contact_email && (
+                          <div>
+                            <p className="text-xs text-gray-500 flex items-center">
+                              <Mail className="w-3 h-3 mr-1" />
+                              Email
+                            </p>
+                            <p className="text-sm font-medium text-gray-900 mt-1">
+                              {selectedAppointment.patient.emergency_contact_email}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Medical Information */}
+                {selectedAppointment.patient && (selectedAppointment.patient.blood_type || selectedAppointment.patient.allergies || selectedAppointment.patient.medical_conditions || selectedAppointment.patient.current_medications) && (
+                  <div>
+                    <h4 className="text-sm font-medium text-gray-700 mb-2 flex items-center">
+                      <Heart className="w-4 h-4 mr-2" />
+                      Medical Information
+                    </h4>
+                    <div className="bg-gray-50 rounded-md p-3 space-y-3">
+                      {selectedAppointment.patient.blood_type && (
+                        <div>
+                          <p className="text-xs text-gray-500 flex items-center">
+                            <Droplet className="w-3 h-3 mr-1" />
+                            Blood Type
+                          </p>
+                          <p className="text-sm font-medium text-gray-900 mt-1">
+                            {selectedAppointment.patient.blood_type}
+                          </p>
+                        </div>
+                      )}
+                      {selectedAppointment.patient.allergies && (
+                        <div>
+                          <p className="text-xs text-gray-500 flex items-center">
+                            <AlertCircle className="w-3 h-3 mr-1" />
+                            Allergies
+                          </p>
+                          <p className="text-sm font-medium text-gray-900 mt-1">
+                            {selectedAppointment.patient.allergies}
+                          </p>
+                        </div>
+                      )}
+                      {selectedAppointment.patient.medical_conditions && (
+                        <div>
+                          <p className="text-xs text-gray-500 flex items-center">
+                            <Heart className="w-3 h-3 mr-1" />
+                            Medical Conditions
+                          </p>
+                          <p className="text-sm font-medium text-gray-900 mt-1">
+                            {selectedAppointment.patient.medical_conditions}
+                          </p>
+                        </div>
+                      )}
+                      {selectedAppointment.patient.current_medications && (
+                        <div>
+                          <p className="text-xs text-gray-500 flex items-center">
+                            <FileText className="w-3 h-3 mr-1" />
+                            Current Medications
+                          </p>
+                          <p className="text-sm font-medium text-gray-900 mt-1">
+                            {selectedAppointment.patient.current_medications}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Uploaded Documents */}
+                <div>
+                  <h4 className="text-sm font-medium text-gray-700 mb-2 flex items-center">
+                    <FileText className="w-4 h-4 mr-2" />
+                    {selectedAppointment.status === 'pending' ? 'Document Verification' : 'Uploaded Documents'}
+                  </h4>
+                  <div className="bg-white rounded-md border border-gray-200 p-4">
+                    <DocumentReviewPanel
+                      appointmentId={selectedAppointment.id}
+                      onVerificationComplete={fetchAppointments}
+                    />
                   </div>
                 </div>
 
@@ -554,29 +833,32 @@ export default function PatientAppointmentsPage() {
                   </div>
                 )}
 
-                {/* Timestamps */}
+                {/* Timeline */}
                 {(selectedAppointment.checked_in_at || selectedAppointment.started_at || selectedAppointment.completed_at) && (
                   <div>
                     <h4 className="text-sm font-medium text-gray-700 mb-2 flex items-center">
                       <Clock className="w-4 h-4 mr-2" />
                       {t('drawer.timeline')}
                     </h4>
-                    <div className="bg-gray-50 rounded-md p-3 space-y-1 text-sm">
+                    <div className="space-y-2 text-sm">
                       {selectedAppointment.checked_in_at && (
-                        <div className="flex justify-between">
-                          <span className="text-gray-600">{t('drawer.checked_in')}:</span>
+                        <div className="flex items-center gap-2">
+                          <div className="w-2 h-2 rounded-full bg-purple-500"></div>
+                          <span className="text-gray-500">{t('drawer.checked_in')}:</span>
                           <span className="text-gray-900">{new Date(selectedAppointment.checked_in_at).toLocaleString()}</span>
                         </div>
                       )}
                       {selectedAppointment.started_at && (
-                        <div className="flex justify-between">
-                          <span className="text-gray-600">{t('drawer.started')}:</span>
+                        <div className="flex items-center gap-2">
+                          <div className="w-2 h-2 rounded-full bg-yellow-500"></div>
+                          <span className="text-gray-500">{t('drawer.started')}:</span>
                           <span className="text-gray-900">{new Date(selectedAppointment.started_at).toLocaleString()}</span>
                         </div>
                       )}
                       {selectedAppointment.completed_at && (
-                        <div className="flex justify-between">
-                          <span className="text-gray-600">{t('drawer.completed')}:</span>
+                        <div className="flex items-center gap-2">
+                          <div className="w-2 h-2 rounded-full bg-green-500"></div>
+                          <span className="text-gray-500">{t('drawer.completed')}:</span>
                           <span className="text-gray-900">{new Date(selectedAppointment.completed_at).toLocaleString()}</span>
                         </div>
                       )}
