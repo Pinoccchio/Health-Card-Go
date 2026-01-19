@@ -9,6 +9,7 @@ import {
   HEALTHCARE_ADMIN_MENU_ITEMS,
   PATIENT_MENU_ITEMS,
   STAFF_MENU_ITEMS,
+  EDUCATION_ADMIN_MENU_ITEMS,
   getRoleName,
   getHealthcareAdminMenuItems,
 } from '@/lib/config/menuItems';
@@ -59,12 +60,12 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
     // Not a super admin or not wrapped in FeedbackProvider, ignore
   }
 
-  // Get recent announcements count from AnnouncementContext (for super admins, patients, staff, healthcare admins)
+  // Get recent announcements count from AnnouncementContext (for super admins, patients, staff, healthcare admins, education admins)
   // This will throw if not wrapped in AnnouncementProvider
   let recentAnnouncementsCount = 0;
   let announcementsLoading = false;
   try {
-    if (roleId === 1 || roleId === 4 || roleId === 2 || roleId === 5) {
+    if (roleId === 1 || roleId === 4 || roleId === 2 || roleId === 5 || roleId === 6) {
       const announcementContext = useAnnouncementContext();
       recentAnnouncementsCount = announcementContext.recentCount;
       announcementsLoading = announcementContext.isLoading;
@@ -131,7 +132,9 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
                 ? HEALTHCARE_ADMIN_MENU_ITEMS // Fallback if no service assigned
                 : roleId === 5
                   ? STAFF_MENU_ITEMS
-                  : PATIENT_MENU_ITEMS;
+                  : roleId === 6
+                    ? EDUCATION_ADMIN_MENU_ITEMS
+                    : PATIENT_MENU_ITEMS;
           setMenuItems(staticMenuItems);
         }
       } catch (error) {
@@ -144,7 +147,9 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
               ? HEALTHCARE_ADMIN_MENU_ITEMS
               : roleId === 5
                 ? STAFF_MENU_ITEMS
-                : PATIENT_MENU_ITEMS;
+                : roleId === 6
+                  ? EDUCATION_ADMIN_MENU_ITEMS
+                  : PATIENT_MENU_ITEMS;
         setMenuItems(fallbackItems);
       } finally {
         setIsLoadingMenu(false);
@@ -244,8 +249,8 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
   // Context provides persistent state across navigation - no flickering
   // Triggers when: count changes OR when menu finishes loading
   useEffect(() => {
-    // Only for roles wrapped in AnnouncementProvider (Super Admin, Patient, Staff, Healthcare Admin)
-    if (roleId !== 1 && roleId !== 4 && roleId !== 5 && roleId !== 2) {
+    // Only for roles wrapped in AnnouncementProvider (Super Admin, Patient, Staff, Healthcare Admin, Education Admin)
+    if (roleId !== 1 && roleId !== 4 && roleId !== 5 && roleId !== 2 && roleId !== 6) {
       return;
     }
 
@@ -275,6 +280,8 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
             ? '/staff/announcements'
             : roleId === 2
             ? '/healthcare-admin/announcements'
+            : roleId === 6
+            ? '/education-admin/announcements'
             : '/admin/announcements'; // Super Admin (roleId === 1)
 
         if (item.href === announcementHref) {

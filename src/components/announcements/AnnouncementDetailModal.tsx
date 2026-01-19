@@ -46,6 +46,7 @@ export function AnnouncementDetailModal({
       healthcare_admin: 'Healthcare Admin',
       staff: 'Staff',
       patient: 'Patient',
+      education_admin: 'Education Admin (HEPA)',
     };
     return roleLabels[role] || role;
   };

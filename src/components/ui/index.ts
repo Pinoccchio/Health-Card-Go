@@ -22,6 +22,8 @@ export { Drawer } from './Drawer';
 export { ProfessionalCard } from './ProfessionalCard';
 export type { ProfessionalCardProps } from './ProfessionalCard';
 
+export { StatCard } from './StatCard';
+
 export { Modal } from './Modal';
 
 export { EnhancedTable } from './EnhancedTable';

@@ -49,7 +49,8 @@ export async function middleware(request: NextRequest) {
   // const isProtectedRoute = pathname.startsWith('/admin') ||
   //                         pathname.startsWith('/healthcare-admin') ||
   //                         pathname.startsWith('/staff') ||
-  //                         pathname.startsWith('/patient');
+  //                         pathname.startsWith('/patient') ||
+  //                         pathname.startsWith('/education-admin');
 
   // if (!user && isProtectedRoute) {
   //   return NextResponse.redirect(new URL('/login', request.url));

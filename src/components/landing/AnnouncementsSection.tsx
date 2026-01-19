@@ -16,7 +16,7 @@ interface Announcement {
   profiles: {
     first_name: string;
     last_name: string;
-    role: 'super_admin' | 'healthcare_admin' | 'staff' | 'patient';
+    role: 'super_admin' | 'healthcare_admin' | 'staff' | 'patient' | 'education_admin';
   };
 }
 
@@ -76,6 +76,7 @@ export function AnnouncementsSection() {
       healthcare_admin: 'Healthcare Admin',
       staff: 'Staff',
       patient: 'Patient',
+      education_admin: 'Education Admin (HEPA)',
     };
     return roleLabels[role] || role;
   };

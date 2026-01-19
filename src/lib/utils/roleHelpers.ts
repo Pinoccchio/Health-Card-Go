@@ -8,11 +8,12 @@ export const ROLE_DASHBOARDS: Record<RoleId, string> = {
   2: '/healthcare-admin/dashboard',
   4: '/patient/dashboard',
   5: '/staff/dashboard',
+  6: '/education-admin/dashboard',
 };
 
 /**
  * Get the dashboard path for a given role ID
- * @param roleId - The user's role ID (1, 2, 4, 5)
+ * @param roleId - The user's role ID (1, 2, 4, 5, 6)
  * @returns The path to the user's dashboard
  */
 export function getDashboardPath(roleId: RoleId): string {
@@ -26,7 +27,7 @@ export function getDashboardPath(roleId: RoleId): string {
 
 /**
  * Get the human-readable name for a role ID
- * @param roleId - The role ID (1, 2, 4, 5)
+ * @param roleId - The role ID (1, 2, 4, 5, 6)
  * @returns The role name as a string
  */
 export function getRoleName(roleId: RoleId): string {
@@ -35,6 +36,7 @@ export function getRoleName(roleId: RoleId): string {
     2: 'Healthcare Admin',
     4: 'Patient',
     5: 'Staff',
+    6: 'Education Admin (HEPA)',
   };
   return roleNames[roleId] || 'Unknown Role';
 }
@@ -52,6 +54,7 @@ export function isAuthorizedForRoute(roleId: RoleId, route: string): boolean {
     2: '/healthcare-admin',
     4: '/patient',
     5: '/staff',
+    6: '/education-admin',
   };
 
   const authorizedPrefix = roleRoutes[roleId];
@@ -69,6 +72,7 @@ export function getAllowedRoutes(roleId: RoleId): string[] {
     2: ['/healthcare-admin'],
     4: ['/patient'],
     5: ['/staff'],
+    6: ['/education-admin'],
   };
   return routes[roleId] || [];
 }

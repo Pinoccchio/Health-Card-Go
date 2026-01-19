@@ -56,6 +56,7 @@ export function AuthProvider({ children, initialUser }: AuthProviderProps) {
       healthcare_admin: 2,
       patient: 4,
       staff: 5,
+      education_admin: 6,
     } as const;
 
     return {

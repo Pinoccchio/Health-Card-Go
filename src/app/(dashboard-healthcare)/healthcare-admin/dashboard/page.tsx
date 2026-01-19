@@ -335,13 +335,13 @@ export default function HealthcareAdminDashboard() {
                 )}
 
                 <Link
-                  href="/healthcare-admin/announcements/manage"
+                  href="/healthcare-admin/announcements"
                   className="flex items-center gap-3 p-4 border border-gray-200 rounded-lg hover:border-primary-teal hover:bg-primary-teal/5 transition-all group"
                 >
                   <Megaphone className="w-8 h-8 text-success group-hover:scale-110 transition-transform" />
                   <div>
-                    <p className="font-medium text-gray-900">Manage Announcements</p>
-                    <p className="text-xs text-gray-500">Post updates</p>
+                    <p className="font-medium text-gray-900">View Announcements</p>
+                    <p className="text-xs text-gray-500">Read updates</p>
                   </div>
                 </Link>
 

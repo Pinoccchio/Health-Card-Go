@@ -1,14 +1,14 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import Link from 'next/link';
 import { useAuth } from '@/lib/auth';
 import { DashboardLayout } from '@/components/dashboard';
 import { Container } from '@/components/ui';
-import { Megaphone, Clock, Users, Shield, AlertCircle, RefreshCw } from 'lucide-react';
+import { Megaphone, Clock, Users, AlertCircle, RefreshCw, ArrowLeft, Plus } from 'lucide-react';
 import { Announcement } from '@/types';
+import Link from 'next/link';
 
-export default function HealthcareAdminAnnouncementsViewPage() {
+export default function EducationAdminAnnouncementsPage() {
   const { user } = useAuth();
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [loading, setLoading] = useState(true);
@@ -23,10 +23,11 @@ export default function HealthcareAdminAnnouncementsViewPage() {
       setLoading(true);
       setError(null);
 
-      // Fetch announcements targeted to healthcare_admin or all
+      // Fetch announcements targeted to education_admin or all
       const params = new URLSearchParams({
-        target_audience: 'healthcare_admin',
+        target_audience: 'education_admin',
         limit: '1000',
+        include_inactive: 'true', // HEPA can see inactive announcements
       });
 
       const response = await fetch(`/api/announcements?${params.toString()}`);
@@ -36,12 +37,36 @@ export default function HealthcareAdminAnnouncementsViewPage() {
         throw new Error(result.error || 'Failed to fetch announcements');
       }
 
-      setAnnouncements(result.data || []);
+      const fetchedAnnouncements = result.data || [];
+      setAnnouncements(fetchedAnnouncements);
+
+      // Mark all announcements as read (background operation)
+      if (fetchedAnnouncements.length > 0) {
+        markAnnouncementsAsRead(fetchedAnnouncements.map((a: Announcement) => a.id));
+      }
     } catch (err) {
       console.error('Error fetching announcements:', err);
       setError(err instanceof Error ? err.message : 'Failed to load announcements');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const markAnnouncementsAsRead = async (announcementIds: string[]) => {
+    // Mark announcements as read in the background (non-blocking)
+    // This updates the user_announcement_reads table to clear the badge
+    try {
+      await Promise.allSettled(
+        announcementIds.map((id) =>
+          fetch(`/api/announcements/${id}/mark-read`, {
+            method: 'POST',
+          })
+        )
+      );
+      console.log(`✅ Marked ${announcementIds.length} announcements as read`);
+    } catch (error) {
+      console.error('Error marking announcements as read:', error);
+      // Silent failure - doesn't affect user experience
     }
   };
 
@@ -66,39 +91,38 @@ export default function HealthcareAdminAnnouncementsViewPage() {
     }
   };
 
-  const getAudienceLabel = (targetAudience: string) => {
+  const getAudienceLabel = (targetAudience: string, targetPatientType?: string | null) => {
     switch (targetAudience) {
       case 'all':
         return 'All Users';
+      case 'education_admin':
+        return 'Education Admin';
+      case 'super_admin':
+        return 'Super Admin';
       case 'healthcare_admin':
         return 'Healthcare Admins';
-      case 'super_admin':
-        return 'Super Admins';
-      case 'patients':
-        return 'Patients';
       case 'staff':
         return 'Staff';
+      case 'patients':
+        if (targetPatientType) {
+          const patientTypeLabels: Record<string, string> = {
+            healthcard: 'Health Card Patients',
+            hiv: 'HIV Patients',
+            prenatal: 'Prenatal Patients',
+          };
+          return patientTypeLabels[targetPatientType] || 'Patients';
+        }
+        return 'All Patients';
       default:
         return targetAudience;
     }
   };
 
-  const getAudienceIcon = (targetAudience: string) => {
-    switch (targetAudience) {
-      case 'all':
-        return Users;
-      case 'healthcare_admin':
-        return Shield;
-      default:
-        return Megaphone;
-    }
-  };
-
   return (
     <DashboardLayout
-      roleId={user?.role_id || 2}
+      roleId={6}
       pageTitle="Announcements"
-      pageDescription="View announcements and updates"
+      pageDescription="View and manage announcements for the City Health Office"
     >
       <Container size="full">
         {/* Header */}
@@ -109,17 +133,33 @@ export default function HealthcareAdminAnnouncementsViewPage() {
             </div>
             <div>
               <h1 className="text-2xl font-bold text-gray-900">Announcements</h1>
-              <p className="text-sm text-gray-600">Stay updated with important information</p>
+              <p className="text-sm text-gray-600">View announcements sent to you and manage all announcements</p>
             </div>
           </div>
-          <button
-            onClick={fetchAnnouncements}
-            disabled={loading}
-            className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors disabled:opacity-50"
-          >
-            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-            Refresh
-          </button>
+          <div className="flex items-center gap-3">
+            <Link
+              href="/education-admin/dashboard"
+              className="flex items-center gap-2 px-4 py-2 text-gray-600 hover:text-gray-900 transition-colors"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              Back to Dashboard
+            </Link>
+            <Link
+              href="/education-admin/announcements/manage"
+              className="flex items-center gap-2 px-4 py-2 bg-primary-teal text-white rounded-md hover:bg-primary-teal-dark transition-colors"
+            >
+              <Plus className="w-4 h-4" />
+              Manage Announcements
+            </Link>
+            <button
+              onClick={fetchAnnouncements}
+              disabled={loading}
+              className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors disabled:opacity-50"
+            >
+              <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+              Refresh
+            </button>
+          </div>
         </div>
 
         {/* Content */}
@@ -144,17 +184,22 @@ export default function HealthcareAdminAnnouncementsViewPage() {
           <div className="bg-white rounded-lg shadow p-12 text-center">
             <Megaphone className="w-16 h-16 text-gray-400 mx-auto mb-4" />
             <h3 className="text-lg font-semibold text-gray-900 mb-2">No Announcements</h3>
-            <p className="text-gray-600">There are no announcements at this time.</p>
+            <p className="text-gray-600 mb-6">There are no announcements at this time.</p>
+            <Link
+              href="/education-admin/announcements/manage"
+              className="inline-flex items-center gap-2 px-4 py-2 bg-primary-teal text-white rounded-md hover:bg-primary-teal-dark transition-colors"
+            >
+              <Plus className="w-4 h-4" />
+              Create Announcement
+            </Link>
           </div>
         ) : (
           <div className="space-y-4">
             {announcements.map((announcement) => {
-              const AudienceIcon = getAudienceIcon(announcement.target_audience);
-
               return (
                 <div
                   key={announcement.id}
-                  className="bg-white rounded-lg shadow hover:shadow-md transition-shadow"
+                  className={`bg-white rounded-lg shadow hover:shadow-md transition-shadow ${!announcement.is_active ? 'opacity-60 border-2 border-gray-300' : ''}`}
                 >
                   <div className="p-6">
                     {/* Header with title and metadata */}
@@ -169,6 +214,11 @@ export default function HealthcareAdminAnnouncementsViewPage() {
                               NEW
                             </span>
                           )}
+                          {!announcement.is_active && (
+                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-gray-100 text-gray-800 border border-gray-300">
+                              INACTIVE
+                            </span>
+                          )}
                         </div>
                         <div className="flex items-center gap-4 text-sm text-gray-600">
                           <div className="flex items-center gap-1">
@@ -176,14 +226,9 @@ export default function HealthcareAdminAnnouncementsViewPage() {
                             <span>{formatDate(announcement.created_at)}</span>
                           </div>
                           <div className="flex items-center gap-1">
-                            <AudienceIcon className="w-4 h-4" />
-                            <span>{getAudienceLabel(announcement.target_audience)}</span>
+                            <Users className="w-4 h-4" />
+                            <span>{getAudienceLabel(announcement.target_audience, announcement.target_patient_type)}</span>
                           </div>
-                          {announcement.profiles && (
-                            <span className="text-gray-500">
-                              By {announcement.profiles.first_name} {announcement.profiles.last_name}
-                            </span>
-                          )}
                         </div>
                       </div>
                     </div>
@@ -203,9 +248,10 @@ export default function HealthcareAdminAnnouncementsViewPage() {
 
         {/* Footer Info */}
         {!loading && !error && announcements.length > 0 && (
-          <div className="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
-            <p className="text-sm text-blue-800">
-              <strong>Showing {announcements.length} announcement{announcements.length !== 1 ? 's' : ''}</strong> targeted to healthcare administrators.
+          <div className="mt-6 bg-teal-50 border border-teal-200 rounded-lg p-4">
+            <p className="text-sm text-teal-800">
+              <strong>Showing {announcements.length} announcement{announcements.length !== 1 ? 's' : ''}</strong> sent to you as Education Admin (HEPA).
+              {' '}To manage all announcements, click "Manage Announcements" above.
             </p>
           </div>
         )}

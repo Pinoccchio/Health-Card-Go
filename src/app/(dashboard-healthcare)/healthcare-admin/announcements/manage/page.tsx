@@ -145,18 +145,10 @@ export default function HealthcareAdminAnnouncementsPage() {
     return filtered;
   }, [announcements, filter, audienceFilter, searchQuery]);
 
-  // Handle drawer open for create
+  // Handle drawer open for create - DISABLED (view-only mode)
+  // Healthcare Admins can only view announcements, not create/edit/delete
   const handleCreate = () => {
-    setSelectedAnnouncement(null);
-    setFormData({
-      title: '',
-      content: '',
-      target_audience: 'all',
-      is_active: true,
-    });
-    setFormErrors({});
-    setDrawerMode('create');
-    setIsDrawerOpen(true);
+    // No-op - button removed from UI
   };
 
   // Handle drawer open for edit
@@ -441,40 +433,6 @@ export default function HealthcareAdminAnnouncementsPage() {
               <Eye className="w-3 h-3 mr-1.5" />
               View
             </button>
-            <button
-              onClick={() => handleEdit(row)}
-              className="inline-flex items-center px-3 py-1.5 bg-blue-600 text-white text-xs font-medium rounded-md hover:bg-blue-700 transition-colors"
-            >
-              <Edit className="w-3 h-3 mr-1.5" />
-              Edit
-            </button>
-            <button
-              onClick={() => handleToggleClick(row)}
-              className={`inline-flex items-center px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
-                row.is_active
-                  ? 'bg-gray-600 text-white hover:bg-gray-700'
-                  : 'bg-green-600 text-white hover:bg-green-700'
-              }`}
-            >
-              {row.is_active ? (
-                <>
-                  <ToggleRight className="w-3 h-3 mr-1.5" />
-                  Deactivate
-                </>
-              ) : (
-                <>
-                  <ToggleLeft className="w-3 h-3 mr-1.5" />
-                  Activate
-                </>
-              )}
-            </button>
-            <button
-              onClick={() => handleDeleteClick(row)}
-              className="inline-flex items-center px-3 py-1.5 bg-red-600 text-white text-xs font-medium rounded-md hover:bg-red-700 transition-colors"
-            >
-              <Trash2 className="w-3 h-3 mr-1.5" />
-              Delete
-            </button>
           </div>
         );
       },
@@ -484,8 +442,8 @@ export default function HealthcareAdminAnnouncementsPage() {
   return (
     <DashboardLayout
       roleId={user?.role_id || 2}
-      pageTitle="Announcements"
-      pageDescription="Manage announcements and communications"
+      pageTitle="Announcements (View Only)"
+      pageDescription="View announcements and communications (managed by Education Admin)"
     >
       <Container size="full">
         {/* Success Message */}
@@ -636,15 +594,13 @@ export default function HealthcareAdminAnnouncementsPage() {
               })}
             </div>
 
-            {/* Action Button */}
+            {/* View-Only Notice */}
             <div className="flex justify-end mb-4">
-              <button
-                onClick={handleCreate}
-                className="inline-flex items-center px-4 py-2 bg-[#20C997] text-white text-sm font-medium rounded-md hover:bg-[#1AA179] transition-colors shadow-sm"
-              >
-                <Plus className="w-4 h-4 mr-2" />
-                Create Announcement
-              </button>
+              <div className="px-4 py-2 bg-blue-50 border border-blue-200 rounded-md">
+                <p className="text-sm text-blue-800">
+                  <strong>View Only:</strong> Only Education Admin (HEPA) can create and manage announcements
+                </p>
+              </div>
             </div>
 
             {/* Announcements Table */}

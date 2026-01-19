@@ -32,7 +32,7 @@ export async function GET(request: NextRequest) {
       query = query.eq('is_active', true);
     }
 
-    // Filter by target audience (all, patients, healthcare_admin, super_admin, staff)
+    // Filter by target audience (all, patients, healthcare_admin, super_admin, education_admin, staff)
     // Show announcements for 'all' OR the specific target audience
     if (targetAudience === 'patients') {
       query = query.or('target_audience.eq.all,target_audience.eq.patients');
@@ -40,6 +40,8 @@ export async function GET(request: NextRequest) {
       query = query.or('target_audience.eq.all,target_audience.eq.healthcare_admin');
     } else if (targetAudience === 'super_admin') {
       query = query.or('target_audience.eq.all,target_audience.eq.super_admin');
+    } else if (targetAudience === 'education_admin') {
+      query = query.or('target_audience.eq.all,target_audience.eq.education_admin');
     } else if (targetAudience === 'staff') {
       query = query.or('target_audience.eq.all,target_audience.eq.staff');
     }
@@ -106,15 +108,15 @@ export async function POST(request: NextRequest) {
       .eq('id', user.id)
       .single();
 
-    if (profile?.role !== 'super_admin' && profile?.role !== 'healthcare_admin') {
+    if (profile?.role !== 'education_admin') {
       return NextResponse.json(
-        { success: false, error: 'Forbidden: Only Super Admins and Healthcare Admins can create announcements' },
+        { success: false, error: 'Forbidden: Only Education Admins (HEPA) can create announcements' },
         { status: 403 }
       );
     }
 
     const body = await request.json();
-    const { title, content, target_audience = 'all' } = body;
+    const { title, content, target_audience = 'all', target_patient_type = null } = body;
 
     if (!title || !content) {
       return NextResponse.json(
@@ -124,12 +126,30 @@ export async function POST(request: NextRequest) {
     }
 
     // Validate target_audience
-    const validAudiences = ['all', 'patients', 'healthcare_admin', 'super_admin', 'staff'];
+    const validAudiences = ['all', 'patients', 'healthcare_admin', 'staff', 'super_admin', 'education_admin'];
     if (!validAudiences.includes(target_audience)) {
       return NextResponse.json(
         { success: false, error: 'Invalid target_audience' },
         { status: 400 }
       );
+    }
+
+    // Validate target_patient_type (optional, only used with target_audience='patients')
+    if (target_patient_type) {
+      const validPatientTypes = ['healthcard', 'hiv', 'prenatal'];
+      if (!validPatientTypes.includes(target_patient_type)) {
+        return NextResponse.json(
+          { success: false, error: 'Invalid target_patient_type. Must be: healthcard, hiv, or prenatal' },
+          { status: 400 }
+        );
+      }
+      // target_patient_type should only be used with target_audience='patients'
+      if (target_audience !== 'patients') {
+        return NextResponse.json(
+          { success: false, error: 'target_patient_type can only be used when target_audience is "patients"' },
+          { status: 400 }
+        );
+      }
     }
 
     // Create announcement
@@ -139,6 +159,7 @@ export async function POST(request: NextRequest) {
         title,
         content,
         target_audience,
+        target_patient_type,
         created_by: user.id,
         is_active: body.is_active ?? true,
       })
@@ -161,6 +182,7 @@ export async function POST(request: NextRequest) {
         after: {
           title: announcement.title,
           target_audience: announcement.target_audience,
+          target_patient_type: announcement.target_patient_type,
           is_active: announcement.is_active,
         },
       },

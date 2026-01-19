@@ -1,11 +1,12 @@
 /**
  * Authentication Type Definitions
  *
- * Types for the HealthCard authentication system supporting 4 user roles:
+ * Types for the HealthCard authentication system supporting 5 user roles:
  * - Super Admin (role_id: 1) - Full system access
  * - Healthcare Admin (role_id: 2) - Service-specific admin with assigned_service_id
  * - Patient (role_id: 4) - Regular users
  * - Staff (role_id: 5) - Disease surveillance staff (handles ALL diseases, no service assignment)
+ * - Education Admin (role_id: 6) - HEPA role for announcement management
  */
 
 // ============================================================================
@@ -13,8 +14,8 @@
 // ============================================================================
 
 // Database uses string enums, but we keep numeric IDs for backward compatibility
-export type RoleId = 1 | 2 | 4 | 5;
-export type UserRole = 'super_admin' | 'healthcare_admin' | 'staff' | 'patient';
+export type RoleId = 1 | 2 | 4 | 5 | 6;
+export type UserRole = 'super_admin' | 'healthcare_admin' | 'staff' | 'patient' | 'education_admin';
 
 // Mapping between role_id and role enum
 export const ROLE_ID_TO_ENUM: Record<RoleId, UserRole> = {
@@ -22,6 +23,7 @@ export const ROLE_ID_TO_ENUM: Record<RoleId, UserRole> = {
   2: 'healthcare_admin',
   4: 'patient',
   5: 'staff',
+  6: 'education_admin',
 } as const;
 
 export const ROLE_ENUM_TO_ID: Record<UserRole, RoleId> = {
@@ -29,6 +31,7 @@ export const ROLE_ENUM_TO_ID: Record<UserRole, RoleId> = {
   healthcare_admin: 2,
   patient: 4,
   staff: 5,
+  education_admin: 6,
 } as const;
 
 export const ROLE_NAMES: Record<RoleId, string> = {
@@ -36,6 +39,7 @@ export const ROLE_NAMES: Record<RoleId, string> = {
   2: 'Healthcare Admin',
   4: 'Patient',
   5: 'Staff',
+  6: 'Education Admin (HEPA)',
 } as const;
 
 /**

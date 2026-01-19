@@ -199,6 +199,28 @@ export const STAFF_MENU_ITEMS: MenuItem[] = [
 ];
 
 /**
+ * Menu items for Education Admin (HEPA) (role_id: 6)
+ * Announcement management only - no appointment booking
+ */
+export const EDUCATION_ADMIN_MENU_ITEMS: MenuItem[] = [
+  {
+    label: 'Dashboard',
+    href: '/education-admin/dashboard',
+    icon: LayoutDashboard,
+  },
+  {
+    label: 'Announcements',
+    href: '/education-admin/announcements',
+    icon: Megaphone,
+  },
+  {
+    label: 'Profile',
+    href: '/education-admin/profile',
+    icon: UserCircle,
+  },
+];
+
+/**
  * Get dynamic menu items for Healthcare Admin based on assigned service properties
  * Returns menu items for Pattern 5: Dual Access (Appointments + Walk-in Queue)
  *
@@ -274,6 +296,7 @@ export function getRoleName(roleId: RoleId): string {
     2: 'Healthcare Admin',
     4: 'Patient',
     5: 'Staff',
+    6: 'Education Admin (HEPA)',
   };
   return roleNames[roleId];
 }

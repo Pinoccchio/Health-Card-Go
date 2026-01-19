@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useAuth } from '@/lib/auth';
 import { DashboardLayout } from '@/components/dashboard';
 import { Container } from '@/components/ui';
-import { Megaphone, Clock, Users, Shield, Settings, AlertCircle, RefreshCw } from 'lucide-react';
+import { Megaphone, Clock, Users, Shield, AlertCircle, RefreshCw } from 'lucide-react';
 import { Announcement } from '@/types';
 
 export default function SuperAdminAnnouncementsViewPage() {
@@ -112,23 +112,14 @@ export default function SuperAdminAnnouncementsViewPage() {
               <p className="text-sm text-gray-600">Stay updated with important information</p>
             </div>
           </div>
-          <div className="flex items-center gap-3">
-            <button
-              onClick={fetchAnnouncements}
-              disabled={loading}
-              className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors disabled:opacity-50"
-            >
-              <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-              Refresh
-            </button>
-            <Link
-              href="/admin/announcements/manage"
-              className="flex items-center gap-2 px-4 py-2 bg-primary-teal text-white rounded-md hover:bg-primary-teal-dark transition-colors"
-            >
-              <Settings className="w-4 h-4" />
-              Manage Announcements
-            </Link>
-          </div>
+          <button
+            onClick={fetchAnnouncements}
+            disabled={loading}
+            className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors disabled:opacity-50"
+          >
+            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+            Refresh
+          </button>
         </div>
 
         {/* Content */}
@@ -153,14 +144,7 @@ export default function SuperAdminAnnouncementsViewPage() {
           <div className="bg-white rounded-lg shadow p-12 text-center">
             <Megaphone className="w-16 h-16 text-gray-400 mx-auto mb-4" />
             <h3 className="text-lg font-semibold text-gray-900 mb-2">No Announcements</h3>
-            <p className="text-gray-600 mb-6">There are no announcements at this time.</p>
-            <Link
-              href="/admin/announcements/manage"
-              className="inline-flex items-center gap-2 px-4 py-2 bg-primary-teal text-white rounded-md hover:bg-primary-teal-dark transition-colors"
-            >
-              <Settings className="w-4 h-4" />
-              Create New Announcement
-            </Link>
+            <p className="text-gray-600">There are no announcements at this time.</p>
           </div>
         ) : (
           <div className="space-y-4">
@@ -222,10 +206,6 @@ export default function SuperAdminAnnouncementsViewPage() {
           <div className="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
             <p className="text-sm text-blue-800">
               <strong>Showing {announcements.length} announcement{announcements.length !== 1 ? 's' : ''}</strong> targeted to super administrators.
-              {' '}To create or manage announcements, visit the{' '}
-              <Link href="/admin/announcements/manage" className="font-semibold underline hover:text-blue-900">
-                management page
-              </Link>.
             </p>
           </div>
         )}
