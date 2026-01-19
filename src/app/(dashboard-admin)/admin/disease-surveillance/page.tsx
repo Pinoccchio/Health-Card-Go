@@ -7,7 +7,6 @@ import { ProfessionalCard } from '@/components/ui/ProfessionalCard';
 import DiseaseHeatmap from '@/components/disease-surveillance/DiseaseHeatmap';
 import SARIMAChart from '@/components/disease-surveillance/SARIMAChart';
 import OutbreakAlerts from '@/components/disease-surveillance/OutbreakAlerts';
-import { DiseaseChartsSection } from '@/components/staff/DiseaseChartsSection';
 import { HistoricalChartsSection } from '@/components/staff/HistoricalChartsSection';
 import { interpretMAPE, getMAPEColor } from '@/lib/utils/sarimaMetrics';
 import HealthCardSARIMAChart from '@/components/healthcare-admin/HealthCardSARIMAChart';
@@ -716,20 +715,15 @@ export default function AdminDiseaseSurveillancePage() {
 
         {/* TAB CONTENT: Individual Cases */}
         {activeTab === 'individual-cases' && (
-          <div>
-            {chartsLoading ? (
-              <div className="py-12 text-center bg-white rounded-lg shadow">
-                <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary-teal"></div>
-                <p className="mt-2 text-sm text-gray-500">Loading charts...</p>
-              </div>
-            ) : (
-              <DiseaseChartsSection
-                individualCases={diseases}
-                barangays={barangays}
-                isLoading={chartsLoading}
-                timeRangeMonths={timeRange}
-              />
-            )}
+          <div className="bg-white rounded-lg shadow p-8">
+            <div className="text-center">
+              <Activity className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">Individual Cases Analytics</h3>
+              <p className="text-sm text-gray-600">
+                Individual case charts have been consolidated into the Historical Statistics tab.
+                Please use the Historical Statistics tab for detailed disease case analysis.
+              </p>
+            </div>
           </div>
         )}
 

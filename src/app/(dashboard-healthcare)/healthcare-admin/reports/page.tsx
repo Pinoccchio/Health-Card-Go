@@ -12,8 +12,11 @@ import PatientListTable from '@/components/healthcare-admin/PatientListTable';
 import ExportButtons from '@/components/healthcare-admin/ExportButtons';
 import HealthCardSARIMAChart from '@/components/healthcare-admin/HealthCardSARIMAChart';
 import HealthCardSARIMAMetrics from '@/components/healthcare-admin/HealthCardSARIMAMetrics';
+import ServiceSARIMAChart from '@/components/healthcare-admin/ServiceSARIMAChart';
+import ServiceSARIMAMetrics from '@/components/healthcare-admin/ServiceSARIMAMetrics';
 import { getHealthCardType, isHealthCardService } from '@/lib/utils/healthcardHelpers';
 import type { HealthCardType } from '@/types/healthcard';
+import { Sparkles, CheckCircle2, XCircle } from 'lucide-react';
 
 interface ServiceData {
   id: number;
@@ -49,6 +52,12 @@ export default function HealthcareAdminReportsPage() {
   const [sarimaData, setSarimaData] = useState<any>(null);
   const [sarimaMetrics, setSarimaMetrics] = useState<any>(null);
   const [overviewData, setOverviewData] = useState<any>(null);
+
+  // Service predictions state
+  const [isGeneratingPredictions, setIsGeneratingPredictions] = useState(false);
+  const [generationStatus, setGenerationStatus] = useState<{ type: 'idle' | 'success' | 'error'; message?: string }>({ type: 'idle' });
+  const [predictionRefreshKey, setPredictionRefreshKey] = useState(0);
+  const [servicePredictionMetrics, setServicePredictionMetrics] = useState<any>(null);
 
   useEffect(() => {
     const fetchServiceInfo = async () => {
@@ -170,6 +179,26 @@ export default function HealthcareAdminReportsPage() {
           setOverviewData(tempOverviewData);
         }
 
+        // Fetch service prediction metrics for non-HealthCard services
+        if (!isHealthCardService(service.id) && activeTab === 'healthcard-forecast') {
+          const servicePredParams = new URLSearchParams({
+            service_id: service.id.toString(),
+            days_back: '30',
+            days_forecast: '30',
+          });
+
+          if (barangayId) servicePredParams.append('barangay_id', barangayId.toString());
+
+          const servicePredResponse = await fetch(`/api/services/predictions?${servicePredParams}`);
+          if (servicePredResponse.ok) {
+            const servicePredData = await servicePredResponse.json();
+            // Extract model_accuracy from metadata
+            setServicePredictionMetrics(servicePredData.metadata?.model_accuracy || null);
+          } else {
+            setServicePredictionMetrics(null);
+          }
+        }
+
         // Fetch appointments data if service requires appointments
         if (service.requires_appointment && activeTab === 'appointments') {
           const apptResponse = await fetch(`/api/healthcare-admin/reports/appointments?${params}`);
@@ -238,6 +267,99 @@ export default function HealthcareAdminReportsPage() {
   const handleApplyFilters = () => {
     // Increment key to trigger re-render of child components
     setFiltersKey((prev) => prev + 1);
+  };
+
+  const handleGeneratePredictions = async () => {
+    if (!service) return;
+
+    setIsGeneratingPredictions(true);
+    setGenerationStatus({ type: 'idle' });
+
+    try {
+      // Use different API endpoint for HealthCard vs other services
+      const isHealthCard = isHealthCardService(service.id);
+      const endpoint = isHealthCard ? '/api/healthcards/generate-predictions' : '/api/services/generate-predictions';
+
+      const requestBody = isHealthCard
+        ? {
+            healthcard_type: getHealthCardType(service.id),
+            barangay_id: barangayId || null,
+            days_forecast: 30,
+          }
+        : {
+            service_id: service.id,
+            barangay_id: barangayId || null,
+            days_forecast: 30,
+            auto_save: true,
+          };
+
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestBody),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        const predictionsCount = isHealthCard
+          ? data.data?.predictions?.length || 0
+          : data.data?.predictions?.length || 0;
+
+        setGenerationStatus({
+          type: 'success',
+          message: `Successfully generated ${predictionsCount} predictions for the next 30 days`,
+        });
+
+        // Force chart to reload with new cached predictions
+        setPredictionRefreshKey((prev) => prev + 1);
+
+        // Reload metrics
+        if (isHealthCard) {
+          const healthcardType = getHealthCardType(service.id);
+          const chartParams = new URLSearchParams({
+            healthcard_type: healthcardType,
+            days_back: '30',
+            days_forecast: '30',
+          });
+          if (barangayId) chartParams.append('barangay_id', barangayId.toString());
+
+          const chartResponse = await fetch(`/api/healthcards/predictions?${chartParams}`);
+          if (chartResponse.ok) {
+            const chartData = await chartResponse.json();
+            setSarimaMetrics(chartData.data?.model_accuracy || null);
+          }
+        } else {
+          const servicePredParams = new URLSearchParams({
+            service_id: service.id.toString(),
+            days_back: '30',
+            days_forecast: '30',
+          });
+          if (barangayId) servicePredParams.append('barangay_id', barangayId.toString());
+
+          const servicePredResponse = await fetch(`/api/services/predictions?${servicePredParams}`);
+          if (servicePredResponse.ok) {
+            const servicePredData = await servicePredResponse.json();
+            setServicePredictionMetrics(servicePredData.metadata?.model_accuracy || null);
+          }
+        }
+      } else {
+        setGenerationStatus({
+          type: 'error',
+          message: data.error || 'Failed to generate predictions',
+        });
+      }
+    } catch (error) {
+      console.error('Error generating predictions:', error);
+      setGenerationStatus({
+        type: 'error',
+        message: 'An unexpected error occurred. Please try again.',
+      });
+    } finally {
+      setIsGeneratingPredictions(false);
+    }
   };
 
   if (loading) {
@@ -367,18 +489,16 @@ export default function HealthcareAdminReportsPage() {
                 >
                   Patients
                 </button>
-                {isHealthCardService(service.id) && (
-                  <button
-                    onClick={() => setActiveTab('healthcard-forecast')}
-                    className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${
-                      activeTab === 'healthcard-forecast'
-                        ? 'border-blue-600 text-blue-600'
-                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                    }`}
-                  >
-                    HealthCard Forecasts
-                  </button>
-                )}
+                <button
+                  onClick={() => setActiveTab('healthcard-forecast')}
+                  className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${
+                    activeTab === 'healthcard-forecast'
+                      ? 'border-blue-600 text-blue-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
+                >
+                  Service Forecasts
+                </button>
               </nav>
             </div>
 
@@ -421,35 +541,114 @@ export default function HealthcareAdminReportsPage() {
                 />
               )}
 
-              {/* HealthCard Forecasts Tab - SARIMA Predictions */}
-              {activeTab === 'healthcard-forecast' && isHealthCardService(service.id) && (
+              {/* Service Forecasts Tab - SARIMA Predictions */}
+              {activeTab === 'healthcard-forecast' && (
                 <div className="space-y-6">
                   <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                    <h3 className="font-semibold text-blue-900 mb-2">
-                      HealthCard Issuance Forecasting (SARIMA)
-                    </h3>
-                    <p className="text-sm text-blue-800">
-                      This chart shows historical health card issuances and AI-predicted future demand
-                      for your assigned service. Use these insights to optimize staffing and resource
-                      allocation.
-                    </p>
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex-1">
+                        <h3 className="font-semibold text-blue-900 mb-2">
+                          {isHealthCardService(service.id)
+                            ? 'HealthCard Issuance Forecasting (SARIMA)'
+                            : `${service.name} Appointment Forecasting (SARIMA)`}
+                        </h3>
+                        <p className="text-sm text-blue-800">
+                          {isHealthCardService(service.id)
+                            ? 'This chart shows historical health card issuances and AI-predicted future demand for your assigned service. Use these insights to optimize staffing and resource allocation.'
+                            : `This chart shows historical appointment bookings and AI-predicted future demand for ${service.name}. Use these insights to optimize staffing and resource allocation.`}
+                        </p>
+                      </div>
+                      <button
+                        onClick={handleGeneratePredictions}
+                        disabled={isGeneratingPredictions}
+                        className={`flex items-center gap-2 px-4 py-2 text-white rounded-lg disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors whitespace-nowrap ${
+                          isHealthCardService(service.id)
+                            ? 'bg-yellow-600 hover:bg-yellow-700'
+                            : 'bg-purple-600 hover:bg-purple-700'
+                        }`}
+                      >
+                        <Sparkles className="w-4 h-4" />
+                        {isGeneratingPredictions ? 'Generating...' : 'Generate Predictions'}
+                      </button>
+                    </div>
                   </div>
 
-                  <HealthCardSARIMAChart
-                    healthcardType={getHealthCardType(service.id) as HealthCardType}
-                    barangayId={barangayId || null}
-                    daysBack={30}
-                    daysForecast={30}
-                    showTitle={true}
-                    height={450}
-                  />
+                  {/* Status Messages */}
+                  {generationStatus.type !== 'idle' && (
+                    <div
+                      className={`rounded-lg p-4 flex items-start gap-3 ${
+                        generationStatus.type === 'success'
+                          ? 'bg-green-50 border border-green-200'
+                          : 'bg-red-50 border border-red-200'
+                      }`}
+                    >
+                      {generationStatus.type === 'success' ? (
+                        <CheckCircle2 className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
+                      ) : (
+                        <XCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+                      )}
+                      <div className="flex-1">
+                        <p
+                          className={`text-sm font-medium ${
+                            generationStatus.type === 'success' ? 'text-green-900' : 'text-red-900'
+                          }`}
+                        >
+                          {generationStatus.type === 'success' ? 'Success' : 'Error'}
+                        </p>
+                        <p
+                          className={`text-sm mt-1 ${
+                            generationStatus.type === 'success' ? 'text-green-800' : 'text-red-800'
+                          }`}
+                        >
+                          {generationStatus.message}
+                        </p>
+                      </div>
+                    </div>
+                  )}
 
-                  {/* Only show metrics section if metrics are available */}
-                  {sarimaMetrics && (
-                    <HealthCardSARIMAMetrics
-                      metrics={sarimaMetrics}
-                      showDetails={true}
-                    />
+                  {isHealthCardService(service.id) ? (
+                    <>
+                      <HealthCardSARIMAChart
+                        key={predictionRefreshKey} // Force reload when predictions are regenerated
+                        healthcardType={getHealthCardType(service.id) as HealthCardType}
+                        barangayId={barangayId || null}
+                        daysBack={30}
+                        daysForecast={30}
+                        showTitle={true}
+                        height={450}
+                      />
+
+                      {/* Only show metrics section if metrics are available */}
+                      {sarimaMetrics && (
+                        <HealthCardSARIMAMetrics
+                          metrics={sarimaMetrics}
+                          showDetails={true}
+                        />
+                      )}
+                    </>
+                  ) : (
+                    <>
+                      <ServiceSARIMAChart
+                        key={predictionRefreshKey} // Force reload when predictions are regenerated
+                        serviceId={service.id}
+                        serviceName={service.name}
+                        barangayId={barangayId || null}
+                        daysBack={30}
+                        daysForecast={30}
+                        showTitle={true}
+                        height={450}
+                      />
+
+                      {/* Only show metrics section if metrics are available */}
+                      {servicePredictionMetrics && (
+                        <ServiceSARIMAMetrics
+                          metrics={servicePredictionMetrics}
+                          showDetails={true}
+                          dataPointsCount={servicePredictionMetrics.data_points_count}
+                          dataQuality={servicePredictionMetrics.data_quality}
+                        />
+                      )}
+                    </>
                   )}
                 </div>
               )}

@@ -273,7 +273,6 @@ export default function StaffReportsPage() {
               </div>
             </div>
           </div>
-        </div>
 
         {/* Report Generator Modal */}
         <HistoricalStatisticsReportGenerator

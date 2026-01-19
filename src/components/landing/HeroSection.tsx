@@ -2,6 +2,7 @@
 
 import React from 'react';
 import Image from 'next/image';
+import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { useTranslations } from 'next-intl';
 import { Button, Container } from '@/components/ui';
@@ -50,19 +51,15 @@ export function HeroSection() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, delay: 0.4, ease: 'easeOut' }}
           >
-            <Button
-              variant="secondary"
-              size="lg"
-              onClick={() => {
-                const element = document.querySelector('#book');
-                if (element) {
-                  element.scrollIntoView({ behavior: 'smooth' });
-                }
-              }}
-              className="shadow-lg hover:shadow-xl"
-            >
-              {t('cta')}
-            </Button>
+            <Link href="/login">
+              <Button
+                variant="secondary"
+                size="lg"
+                className="shadow-lg hover:shadow-xl"
+              >
+                {t('cta')}
+              </Button>
+            </Link>
           </motion.div>
         </div>
       </Container>

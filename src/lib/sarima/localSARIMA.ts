@@ -1171,3 +1171,63 @@ export function formatHistoricalData(
 
   return data;
 }
+
+/**
+ * Run local SARIMA predictions for generic service appointment data
+ *
+ * Simplified interface for any service (HIV, Pregnancy, etc.)
+ * Takes historical appointment counts by date and returns predictions
+ *
+ * @param historicalData - Array of { date, value } pairs representing appointment counts
+ * @param daysForecast - Number of days to forecast ahead
+ * @returns Array of predictions with confidence intervals
+ */
+export async function runLocalSARIMA(
+  historicalData: Array<{ date: string; value: number }>,
+  daysForecast: number
+): Promise<Array<{ date: string; predicted_value: number; lower_bound: number; upper_bound: number }>> {
+  try {
+    console.log('[runLocalSARIMA] Generating predictions for service appointments');
+    console.log('[runLocalSARIMA] Historical data points:', historicalData.length);
+    console.log('[runLocalSARIMA] Forecast days:', daysForecast);
+
+    // Validate input
+    if (!historicalData || historicalData.length < 3) {
+      throw new Error('Insufficient historical data. At least 3 data points required.');
+    }
+
+    // Extract values
+    const values = historicalData.map(d => d.value);
+    const dataQuality = assessDataQuality(historicalData.length);
+
+    // Get optimal SARIMA parameters for appointment data (daily patterns)
+    const params = getSARIMAParameters(historicalData.length);
+
+    // Train model and generate forecast
+    const { predictions, lower, upper } = trainAndForecast(values, params, daysForecast);
+
+    // Generate prediction dates (daily increments from last historical date)
+    const lastDate = new Date(historicalData[historicalData.length - 1].date);
+    const predictionArray = predictions.map((pred, index) => {
+      const predDate = new Date(lastDate);
+      predDate.setDate(predDate.getDate() + index + 1);
+
+      return {
+        date: predDate.toISOString().split('T')[0],
+        predicted_value: pred,
+        lower_bound: lower[index],
+        upper_bound: upper[index],
+      };
+    });
+
+    console.log('[runLocalSARIMA] Forecast complete:', {
+      predictions: predictionArray.length,
+      data_quality: dataQuality,
+    });
+
+    return predictionArray;
+  } catch (error) {
+    console.error('[runLocalSARIMA] Error:', error);
+    throw error;
+  }
+}
