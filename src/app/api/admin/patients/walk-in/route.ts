@@ -81,10 +81,11 @@ export async function POST(request: NextRequest) {
     }
 
     // 3. CRITICAL: Verify user is Healthcare Admin assigned to walk-in service
-    // Accept either 'general' admin_category or assigned to Service 22 (Walk-in Emergency)
+    // Pattern 5: Services 12, 16, 17 all support walk-in registration (dual access)
+    // Legacy: Services 22, 23 remain for backward compatibility
     const isHealthcareAdmin = profile.role === 'healthcare_admin';
     const isGeneralAdmin = profile.admin_category === 'general' || profile.admin_category === 'general_admin';
-    const isWalkInService = profile.assigned_service_id === 22 || profile.assigned_service_id === 23;
+    const isWalkInService = [12, 16, 17, 22, 23].includes(profile.assigned_service_id || -1);
 
     if (!isHealthcareAdmin || !(isGeneralAdmin || isWalkInService)) {
       return NextResponse.json(

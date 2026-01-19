@@ -1355,6 +1355,7 @@ ${pendingRevert.currentStatus === 'in_progress' || pendingRevert.currentStatus =
           onClose={() => setShowRegistrationModal(false)}
           onSuccess={handleRegistrationSuccess}
           barangays={barangays}
+          assignedServiceId={user?.assigned_service_id}
         />
       </Container>
     </DashboardLayout>

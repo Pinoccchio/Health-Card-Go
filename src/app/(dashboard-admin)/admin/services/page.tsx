@@ -30,7 +30,8 @@ export default function AdminServicesPage() {
   const fetchServices = async () => {
     try {
       setLoading(true);
-      const response = await fetch('/api/admin/services');
+      // Fetch only active services (Services 12, 16, 17)
+      const response = await fetch('/api/admin/services?is_active=true');
       const result = await response.json();
 
       if (!response.ok) {

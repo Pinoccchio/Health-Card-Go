@@ -4,19 +4,27 @@ import { useState } from 'react';
 import { Button } from '@/components/ui';
 import { useToast } from '@/lib/contexts/ToastContext';
 import { X } from 'lucide-react';
+import {
+  HealthCardType,
+  LabLocationType,
+  HEALTH_CARD_TYPES,
+  LAB_LOCATIONS,
+} from '@/types/appointment';
 
 interface WalkInRegistrationModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => void;
   barangays: Array<{ id: number; name: string }>;
+  assignedServiceId?: number; // Service ID of the Healthcare Admin
 }
 
 export function WalkInRegistrationModal({
   isOpen,
   onClose,
   onSuccess,
-  barangays
+  barangays,
+  assignedServiceId
 }: WalkInRegistrationModalProps) {
   const toast = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -27,6 +35,13 @@ export function WalkInRegistrationModal({
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [emailError, setEmailError] = useState('');
+
+  // Health Card specific fields (Service 12 only)
+  const [cardType, setCardType] = useState<HealthCardType | null>(null);
+  const [labLocation, setLabLocation] = useState<LabLocationType | null>(null);
+
+  // Check if this is Service 12 (Health Card)
+  const isHealthCardService = assignedServiceId === 12;
 
   // Form state for patient registration
   const [formData, setFormData] = useState({
@@ -68,6 +83,20 @@ export function WalkInRegistrationModal({
     setIsSubmitting(true);
 
     try {
+      // Validate health card fields if Service 12
+      if (isHealthCardService) {
+        if (!cardType) {
+          toast.error('Please select a card type');
+          setIsSubmitting(false);
+          return;
+        }
+        if (!labLocation) {
+          toast.error('Please select a laboratory location');
+          setIsSubmitting(false);
+          return;
+        }
+      }
+
       // Validate portal account fields if enabled
       if (createPortalAccount) {
         if (!email || !password || !confirmPassword) {
@@ -116,6 +145,12 @@ export function WalkInRegistrationModal({
         allergies: formData.allergies || null,
         current_medications: formData.currentMedications || null,
       };
+
+      // Add health card fields if Service 12
+      if (isHealthCardService && cardType && labLocation) {
+        requestBody.card_type = cardType;
+        requestBody.lab_location = labLocation;
+      }
 
       // Add portal account fields if enabled
       if (createPortalAccount) {
@@ -168,6 +203,10 @@ export function WalkInRegistrationModal({
       setConfirmPassword('');
       setEmailError('');
 
+      // Reset health card fields
+      setCardType(null);
+      setLabLocation(null);
+
       // Close modal and trigger success callback
       onSuccess();
     } catch (error) {
@@ -199,6 +238,8 @@ export function WalkInRegistrationModal({
     setPassword('');
     setConfirmPassword('');
     setEmailError('');
+    setCardType(null);
+    setLabLocation(null);
     onClose();
   };
 
@@ -305,6 +346,85 @@ export function WalkInRegistrationModal({
                   </div>
                 </div>
               </div>
+
+              {/* Health Card Fields - Only for Service 12 */}
+              {isHealthCardService && (
+                <div>
+                  <h4 className="text-sm font-semibold text-gray-900 mb-3">Health Card Information</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* Card Type Selection */}
+                    <div className="md:col-span-2">
+                      <label htmlFor="cardType" className="block text-sm font-medium text-gray-700 mb-1">
+                        Card Type *
+                      </label>
+                      <select
+                        id="cardType"
+                        value={cardType || ''}
+                        onChange={(e) => {
+                          const value = e.target.value as HealthCardType;
+                          if (value) {
+                            setCardType(value);
+                          } else {
+                            setCardType(null);
+                          }
+                        }}
+                        required
+                        className="w-full px-3 py-2 border-2 border-primary-teal rounded-md focus:outline-none focus:ring-2 focus:ring-primary-teal focus:border-transparent"
+                      >
+                        <option value="">Select a card type</option>
+                        <option value="food_handler">Food (Yellow)</option>
+                        <option value="non_food">Nonfood (Green)</option>
+                        <option value="pink">Pink Card</option>
+                      </select>
+                      {cardType && (
+                        <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-md">
+                          <p className="text-xs font-medium text-blue-900 mb-1">
+                            {HEALTH_CARD_TYPES[cardType].label}
+                          </p>
+                          <p className="text-xs text-blue-800 mb-2">
+                            {HEALTH_CARD_TYPES[cardType].description}
+                          </p>
+                          <p className="text-xs text-blue-700">
+                            <strong>Required Tests:</strong> {HEALTH_CARD_TYPES[cardType].requiredTests.join(', ')}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Lab Location Selection - Only when card type selected */}
+                    {cardType && (
+                      <div className="md:col-span-2">
+                        <label htmlFor="labLocation" className="block text-sm font-medium text-gray-700 mb-1">
+                          Laboratory Location *
+                        </label>
+                        <select
+                          id="labLocation"
+                          value={labLocation || ''}
+                          onChange={(e) => {
+                            const value = e.target.value as LabLocationType;
+                            if (value) {
+                              setLabLocation(value);
+                            } else {
+                              setLabLocation(null);
+                            }
+                          }}
+                          required
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-teal focus:border-transparent"
+                        >
+                          <option value="">Select lab location...</option>
+                          <option value="inside_cho">Inside CHO Laboratory</option>
+                          <option value="outside_cho">Outside CHO Laboratory</option>
+                        </select>
+                        {labLocation && (
+                          <p className="mt-2 text-xs text-gray-600">
+                            {LAB_LOCATIONS[labLocation].description}
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
 
               {/* Contact Information */}
               <div>

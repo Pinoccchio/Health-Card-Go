@@ -76,9 +76,10 @@ export default function UsersManagementPage() {
     setLoading(true);
     try {
       // Fetch all user types in parallel for accurate tab counts
+      // Healthcare Admins: Filter by status=active to show only 3 active admins
       const [superAdminsRes, healthcareAdminsRes, staffRes] = await Promise.all([
         fetch('/api/admin/super-admins'),
-        fetch('/api/admin/healthcare-admins'),
+        fetch('/api/admin/healthcare-admins?status=active'),
         fetch('/api/admin/staff'),
       ]);
 

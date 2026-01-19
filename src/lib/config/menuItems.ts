@@ -200,114 +200,69 @@ export const STAFF_MENU_ITEMS: MenuItem[] = [
 
 /**
  * Get dynamic menu items for Healthcare Admin based on assigned service properties
- * Returns different menu items depending on whether the service requires appointments/medical records
+ * Returns menu items for Pattern 5: Dual Access (Appointments + Walk-in Queue)
  *
  * @param assignedServiceId - The service ID assigned to the Healthcare Admin
  * @returns Promise<MenuItem[]> - Array of menu items tailored to the service capabilities
  *
- * Service Property Logic:
- * - requires_appointment = true → Show "Appointments" tab
- * - requires_appointment = false → Show "Walk-in Queue" tab instead
- * - requires_medical_record = true → Show "Medical Records" tab
- * - requires_medical_record = false → Hide "Medical Records" tab
- * - Always show: Dashboard, Patients, Reports, Announcements
+ * PATTERN 5 - Dual Access (ALL 3 Services: 12, 16, 17):
+ * - ALL services show BOTH "Appointments" AND "Walk-in Queue"
+ * - Dashboard, Patients, Reports, Announcements (always shown)
+ * - Disease Map removed (requires_medical_record = false for all services)
+ * - Total: 6 menu items for all Healthcare Admins
  */
 export async function getHealthcareAdminMenuItems(
   assignedServiceId: number | null
 ): Promise<MenuItem[]> {
-  // Base menu items (always shown)
-  const baseItems: MenuItem[] = [
+  // If no service assigned, return minimal menu with warning
+  if (!assignedServiceId) {
+    console.warn('⚠️ Healthcare Admin has no assigned service - showing minimal menu');
+    return [
+      {
+        label: 'Dashboard',
+        href: '/healthcare-admin/dashboard',
+        icon: LayoutDashboard,
+      },
+    ];
+  }
+
+  // Pattern 5: ALL services (12, 16, 17) have dual access
+  // Show BOTH Appointments AND Walk-in Queue for all Healthcare Admins
+  const menuItems: MenuItem[] = [
     {
       label: 'Dashboard',
       href: '/healthcare-admin/dashboard',
       icon: LayoutDashboard,
     },
-  ];
-
-  // If no service assigned, return minimal menu with warning
-  if (!assignedServiceId) {
-    console.warn('⚠️ Healthcare Admin has no assigned service - showing minimal menu');
-    return baseItems;
-  }
-
-  try {
-    // Fetch service properties from API
-    const serviceRes = await fetch(`/api/services/${assignedServiceId}`);
-
-    if (!serviceRes.ok) {
-      console.error('❌ Failed to fetch service data:', serviceRes.statusText);
-      return HEALTHCARE_ADMIN_MENU_ITEMS; // Fallback to static menu
-    }
-
-    const serviceData = await serviceRes.json();
-
-    if (!serviceData.success || !serviceData.data) {
-      console.error('❌ Invalid service data response:', serviceData);
-      return HEALTHCARE_ADMIN_MENU_ITEMS; // Fallback to static menu
-    }
-
-    const service = serviceData.data;
-    console.log('📋 Building menu for service:', service.name, {
-      requires_appointment: service.requires_appointment,
-      requires_medical_record: service.requires_medical_record,
-    });
-
-    const menuItems = [...baseItems];
-
-    // Add appointment-specific or walk-in items
-    if (service.requires_appointment) {
-      menuItems.push({
-        label: 'Appointments',
-        href: '/healthcare-admin/appointments',
-        icon: Calendar,
-      });
-    } else {
-      // Walk-in service (Services 22, 23)
-      menuItems.push({
-        label: 'Walk-in Queue',
-        href: '/healthcare-admin/walk-in',
-        icon: UserPlus,
-      });
-    }
-
-    // Always show Patients
-    menuItems.push({
+    {
+      label: 'Appointments',
+      href: '/healthcare-admin/appointments',
+      icon: Calendar,
+    },
+    {
+      label: 'Walk-in Queue',
+      href: '/healthcare-admin/walk-in',
+      icon: UserPlus,
+    },
+    {
       label: 'Patients',
       href: '/healthcare-admin/patients',
       icon: Users,
-    });
+    },
+    {
+      label: 'Reports',
+      href: '/healthcare-admin/reports',
+      icon: FileText,
+    },
+    {
+      label: 'Announcements',
+      href: '/healthcare-admin/announcements',
+      icon: Megaphone,
+    },
+  ];
 
-    // Only show Disease Map for services with medical records (Pattern 2 & 3)
-    // Pattern 1 (health card) and Pattern 4 (education) don't track diseases
-    if (service.requires_medical_record) {
-      menuItems.push({
-        label: 'Disease Map',
-        href: '/healthcare-admin/disease-map',
-        icon: Map,
-      });
-    }
-
-    // Always show Reports and Announcements
-    menuItems.push(
-      {
-        label: 'Reports',
-        href: '/healthcare-admin/reports',
-        icon: FileText,
-      },
-      {
-        label: 'Announcements',
-        href: '/healthcare-admin/announcements',
-        icon: Megaphone,
-      }
-    );
-
-    console.log('✅ Generated menu items:', menuItems.length, 'items');
-    return menuItems;
-  } catch (error) {
-    console.error('❌ Error fetching service for menu generation:', error);
-    // Fallback to static menu if API call fails
-    return HEALTHCARE_ADMIN_MENU_ITEMS;
-  }
+  console.log('✅ Pattern 5 menu generated:', menuItems.length, 'items (Appointments + Walk-in Queue)');
+  return menuItems;
 }
 
 /**
