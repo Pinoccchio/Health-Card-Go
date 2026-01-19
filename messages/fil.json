@@ -384,29 +384,29 @@
         "card_categories": {
           "title": "Specific Requirements by Card Category",
           "items": [
-            { "card": "🟡 Yellow Card", "industry": "Food Industry", "requirements": "Standard laboratory results only" },
-            { "card": "🟢 Green Card", "industry": "Non-Food Industry", "requirements": "Standard laboratory results only" },
-            { "card": "🩷 Pink Card", "industry": "Service & Clinical", "requirements": "Standard labs + Hepa B Antibody Test (for Nurses, Massage Therapists, Beauticians)" }
+            { "card": "🟡 Yellow Card", "industry": "Food Industry", "requirements": "Urinalysis, Stool Test, CBC (Complete Blood Count), Chest X-ray" },
+            { "card": "🟢 Green Card", "industry": "Non-Food Industry", "requirements": "Urinalysis, Stool Test, CBC (Complete Blood Count), Chest X-ray" },
+            { "card": "🩷 Pink Card", "industry": "Service & Clinical (skin-to-skin contact occupations)", "requirements": "Gram Stain, Hepatitis B Test, Syphilis Test, HIV Test" }
           ]
         },
         "booking_process": {
           "title": "The Digital Booking Process: Step-by-Step",
           "steps": [
-            { "step": "1", "action": "Register & Book", "description": "Create an account on the HealthCardGo portal and select your preferred appointment date and time." },
-            { "step": "2", "action": "Upload Documents", "description": "Fill out the digital application form and upload your ID, Cedula, and Laboratory Results." },
-            { "step": "3", "action": "Secure Payment", "description": "Upload your receipt from the City Treasurer's Office to confirm your slot." },
-            { "step": "4", "action": "Verification", "description": "The CHO staff will review your digital submissions. You will receive a Notification/SMS once your documents are verified." },
-            { "step": "5", "action": "Fast-Track Issuance", "description": "On your scheduled date, present your Digital Appointment Slip at the Panabo CHO for final verification and instant card printing." }
+            { "step": "1", "action": "Pumili ng Serbisyo", "description": "Pumili ng uri ng Health Card na kailangan mo (Food, Non-Food, o Pink Card) mula sa HealthCardGo portal." },
+            { "step": "2", "action": "Mag-upload ng Dokumento", "description": "Kung magpapatesT sa CHO: Mag-upload ng Laboratory Request Form, Payment Receipt, at Valid ID. Kung magpapatest sa labas ng CHO: Mag-upload ng Valid ID at kumpirmahin na nakuha mo na ang lab results." },
+            { "step": "3", "action": "Pumili ng Petsa", "description": "Pumili ng iyong gustong petsa ng appointment (available Monday, Tuesday, Thursday, Wednesday, Friday). Dapat ay na-book ng hindi bababa sa 7 araw in advance." },
+            { "step": "4", "action": "Pumili ng Oras", "description": "Pumili ng iyong gustong time block (Morning AM o Afternoon PM) base sa available slots." },
+            { "step": "5", "action": "Kumpirmahin ang Booking", "description": "I-review ang iyong appointment details at i-submit. Ang CHO staff ay mag-verify ng iyong mga na-upload na dokumento bago kumpirmahin ang iyong appointment." }
           ]
         },
         "footer": "Panabo City Health Office (CHO) - HealthCardGo Digital Booking System"
       },
       "hiv": {
-        "title": "Social Hygiene and Wellness Center",
-        "subtitle": "\"Your privacy is our promise.\" We offer 100% confidential support and care.",
+        "title": "HIV Counselling",
+        "subtitle": "\"Ang iyong privacy ay aming pangako.\" Nag-aalok kami ng 100% confidential na suporta at pag-aalaga.",
         "overview": {
           "title": "Overview",
-          "content": "The Panabo City Health Office (CHO) Social Hygiene and Wellness Center offers 100% confidential free HIV testing, screening, and support. We care deeply about teaching, helping, and ending stigma with local health programs that keep everything private and put you first."
+          "content": "Counseling para sa mga taong nais na malaman ang tungkol sa HIV risks at testing. Ang Panabo City Health Office (CHO) Social Hygiene and Wellness Center ay nag-aalok ng 100% confidential na libreng HIV testing, screening, at suporta."
         },
         "key_services": {
           "title": "Key Services",
@@ -439,10 +439,10 @@
         }
       },
       "pregnancy": {
-        "title": "Maternal Health and Safe Birthing",
+        "title": "Prenatal Checkup",
         "overview": {
           "title": "Overview",
-          "content": "The Panabo City Health Office (CHO) strongly encourages pregnant mothers to complete eight (8) prenatal check-ups at their barangay health centers. We emphasize facility-based births with health professionals to ensure a safe pregnancy and delivery."
+          "content": "Konsultasyon para sa mga inaasahang ina upang masiguro ang kalusugan ng ina at sanggol. Ang Panabo City Health Office (CHO) ay lubos na hinihikayat ang mga buntis na ina na kumpletuhin ang walong (8) prenatal check-ups sa kanilang barangay health centers."
         },
         "call_to_action": "Take control of your health journey by booking your appointments every Tuesday. Our streamlined online and phone booking systems provide direct access to PhilHealth Konsulta and comprehensive maternity packages designed specifically for all Panabo residents.",
         "key_services": {

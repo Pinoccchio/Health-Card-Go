@@ -86,7 +86,7 @@
     },
     "cancellation": {
       "title": "Appointment Cancelled",
-      "message": "Your appointment scheduled for {date} at {time} has been cancelled. {reason}"
+      "message": "Your appointment scheduled for {date} at {time} has been cancelled."
     },
     "feedback_request": {
       "title": "Share Your Feedback",
@@ -110,7 +110,7 @@
     },
     "appointment_cancelled": {
       "title": "Appointment Cancelled",
-      "message": "Your appointment #{appointment_number} scheduled for {date} at {time} has been cancelled. {reason}"
+      "message": "Your appointment #{appointment_number} scheduled for {date} at {time} has been cancelled."
     },
     "unread_badge": "Unread",
     "go_to_page": "Go to Related Page",
@@ -384,29 +384,29 @@
         "card_categories": {
           "title": "Specific Requirements by Card Category",
           "items": [
-            { "card": "🟡 Yellow Card", "industry": "Food Industry", "requirements": "Standard laboratory results only" },
-            { "card": "🟢 Green Card", "industry": "Non-Food Industry", "requirements": "Standard laboratory results only" },
-            { "card": "🩷 Pink Card", "industry": "Service & Clinical", "requirements": "Standard labs + Hepa B Antibody Test (for Nurses, Massage Therapists, Beauticians)" }
+            { "card": "🟡 Yellow Card", "industry": "Food Industry", "requirements": "Urinalysis, Stool Test, CBC (Complete Blood Count), Chest X-ray" },
+            { "card": "🟢 Green Card", "industry": "Non-Food Industry", "requirements": "Urinalysis, Stool Test, CBC (Complete Blood Count), Chest X-ray" },
+            { "card": "🩷 Pink Card", "industry": "Service & Clinical (skin-to-skin contact occupations)", "requirements": "Gram Stain, Hepatitis B Test, Syphilis Test, HIV Test" }
           ]
         },
         "booking_process": {
           "title": "The Digital Booking Process: Step-by-Step",
           "steps": [
-            { "step": "1", "action": "Register & Book", "description": "Create an account on the HealthCardGo portal and select your preferred appointment date and time." },
-            { "step": "2", "action": "Upload Documents", "description": "Fill out the digital application form and upload your ID, Cedula, and Laboratory Results." },
-            { "step": "3", "action": "Secure Payment", "description": "Upload your receipt from the City Treasurer's Office to confirm your slot." },
-            { "step": "4", "action": "Verification", "description": "The CHO staff will review your digital submissions. You will receive a Notification/SMS once your documents are verified." },
-            { "step": "5", "action": "Fast-Track Issuance", "description": "On your scheduled date, present your Digital Appointment Slip at the Panabo CHO for final verification and instant card printing." }
+            { "step": "1", "action": "Select Service", "description": "Choose the type of Health Card you need (Food, Non-Food, or Pink Card) from the HealthCardGo portal." },
+            { "step": "2", "action": "Upload Documents", "description": "If testing at CHO: Upload Laboratory Request Form, Payment Receipt, and Valid ID. If testing outside CHO: Upload Valid ID and confirm you have obtained lab results." },
+            { "step": "3", "action": "Choose Date", "description": "Select your preferred appointment date (available Monday, Tuesday, Thursday, Wednesday, Friday). Must be booked at least 7 days in advance." },
+            { "step": "4", "action": "Pick Time", "description": "Choose your preferred time block (Morning AM or Afternoon PM) based on available slots." },
+            { "step": "5", "action": "Booking Confirm", "description": "Review your appointment details and submit. CHO staff will verify your uploaded documents before confirming your appointment." }
           ]
         },
         "footer": "Panabo City Health Office (CHO) - HealthCardGo Digital Booking System"
       },
       "hiv": {
-        "title": "Social Hygiene and Wellness Center",
+        "title": "HIV Counselling",
         "subtitle": "\"Your privacy is our promise.\" We offer 100% confidential support and care.",
         "overview": {
           "title": "Overview",
-          "content": "The Panabo City Health Office (CHO) Social Hygiene and Wellness Center offers 100% confidential free HIV testing, screening, and support. We care deeply about teaching, helping, and ending stigma with local health programs that keep everything private and put you first."
+          "content": "Counseling for individuals who wish to understand HIV risks and testing. The Panabo City Health Office (CHO) Social Hygiene and Wellness Center offers 100% confidential free HIV testing, screening, and support."
         },
         "key_services": {
           "title": "Key Services",
@@ -439,10 +439,10 @@
         }
       },
       "pregnancy": {
-        "title": "Maternal Health and Safe Birthing",
+        "title": "Prenatal Checkup",
         "overview": {
           "title": "Overview",
-          "content": "The Panabo City Health Office (CHO) strongly encourages pregnant mothers to complete eight (8) prenatal check-ups at their barangay health centers. We emphasize facility-based births with health professionals to ensure a safe pregnancy and delivery."
+          "content": "Consultation for expecting mothers to ensure the health of both mother and child. The Panabo City Health Office (CHO) strongly encourages pregnant mothers to complete eight (8) prenatal check-ups at their barangay health centers."
         },
         "call_to_action": "Take control of your health journey by booking your appointments every Tuesday. Our streamlined online and phone booking systems provide direct access to PhilHealth Konsulta and comprehensive maternity packages designed specifically for all Panabo residents.",
         "key_services": {
@@ -955,13 +955,14 @@
   },
   "enums": {
     "appointment_status": {
+      "draft": "Draft",
+      "pending": "Pending",
       "scheduled": "Scheduled",
       "checked_in": "Checked In",
       "in_progress": "In Progress",
       "completed": "Completed",
       "cancelled": "Cancelled",
-      "no_show": "No Show",
-      "pending": "Pending"
+      "no_show": "No Show"
     },
     "notification_type": {
       "appointment_reminder": "Appointment Reminder",

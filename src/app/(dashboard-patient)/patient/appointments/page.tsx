@@ -51,6 +51,8 @@ interface Appointment {
   completed_at?: string;
   cancelled_at?: string;
   service_id?: number;
+  lab_location?: 'inside_cho' | 'outside_cho';
+  card_type?: 'food_handler' | 'non_food' | 'pink';
   services?: {
     id: number;
     name: string;
@@ -157,7 +159,7 @@ export default function PatientAppointmentsPage() {
       const response = await fetch(`/api/appointments/${appointmentToCancel.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: 'cancelled', reason }),
+        body: JSON.stringify({ status: 'cancelled', cancellation_reason: reason }),
       });
 
       const data = await response.json();
@@ -273,6 +275,24 @@ export default function PatientAppointmentsPage() {
       ),
     },
     {
+      header: 'Lab Location',
+      accessor: 'lab_location',
+      sortable: true,
+      render: (value: string) => {
+        if (!value) return <span className="text-gray-400 text-xs italic">N/A</span>;
+        const isInsideCHO = value === 'inside_cho';
+        return (
+          <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium ${
+            isInsideCHO
+              ? 'bg-blue-100 text-blue-800'
+              : 'bg-amber-100 text-amber-800'
+          }`}>
+            {isInsideCHO ? 'Inside CHO' : 'Outside CHO'}
+          </span>
+        );
+      },
+    },
+    {
       header: t('table.date'),
       accessor: 'appointment_date',
       sortable: true,
@@ -320,6 +340,9 @@ export default function PatientAppointmentsPage() {
   ];
 
   const filteredAppointments = appointments.filter((apt) => {
+    // Always exclude draft appointments (they are only for document upload)
+    if (apt.status === 'draft') return false;
+
     if (filter === 'all') return true;
     if (filter === 'pending') return apt.status === 'pending';
     if (filter === 'scheduled') return apt.status === 'scheduled';
@@ -483,6 +506,27 @@ export default function PatientAppointmentsPage() {
                     </div>
                   </div>
                 </div>
+
+                {/* Lab Location */}
+                {selectedAppointment.lab_location && (
+                  <div>
+                    <h4 className="text-sm font-medium text-gray-700 mb-2 flex items-center">
+                      <MapPin className="w-4 h-4 mr-2" />
+                      Lab Location
+                    </h4>
+                    <div className="bg-gray-50 rounded-md p-3">
+                      <span className={`inline-flex items-center px-2.5 py-1 rounded text-sm font-medium ${
+                        selectedAppointment.lab_location === 'inside_cho'
+                          ? 'bg-blue-100 text-blue-800'
+                          : 'bg-amber-100 text-amber-800'
+                      }`}>
+                        {selectedAppointment.lab_location === 'inside_cho'
+                          ? 'Inside CHO Laboratory'
+                          : 'Outside CHO Laboratory'}
+                      </span>
+                    </div>
+                  </div>
+                )}
 
                 {/* Reason for Visit */}
                 {selectedAppointment.reason && (

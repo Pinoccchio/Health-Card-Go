@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createClient, createAdminClient } from '@/lib/supabase/server';
 
 /**
  * GET /api/appointments/[id]/history
@@ -93,7 +93,9 @@ export async function GET(
     }
 
     // 7. Fetch status history with user details
-    const { data: history, error: historyError } = await supabase
+    // Use admin client to bypass RLS for fetching profile names (security: access already verified above)
+    const adminClient = createAdminClient();
+    const { data: history, error: historyError } = await adminClient
       .from('appointment_status_history')
       .select(`
         id,

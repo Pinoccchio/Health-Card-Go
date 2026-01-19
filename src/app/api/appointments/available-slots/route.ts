@@ -55,6 +55,30 @@ export async function GET(request: NextRequest) {
       });
     }
 
+    // Check service-specific availability if serviceId provided
+    if (serviceId) {
+      const { data: service } = await supabase
+        .from('services')
+        .select('id, name, available_days')
+        .eq('id', Number(serviceId))
+        .single();
+
+      if (service?.available_days && service.available_days.length > 0) {
+        const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+        const dayOfWeek = new Date(date + 'T00:00:00').getDay();
+        const dayName = dayNames[dayOfWeek];
+
+        if (!service.available_days.includes(dayName)) {
+          return NextResponse.json({
+            success: true,
+            available: false,
+            reason: `${service.name} is not available on ${dayName}. Available: ${service.available_days.join(', ')}`,
+            slots: [],
+          });
+        }
+      }
+    }
+
     // Check 7-day advance requirement (using Philippine timezone)
     if (!isValidBookingDate(date)) {
       return NextResponse.json({
@@ -66,11 +90,12 @@ export async function GET(request: NextRequest) {
     }
 
     // Get total appointments for this date (grouped by time_block)
+    // Include 'pending' status for HealthCard Outside CHO appointments awaiting verification
     const { data: appointments, error: fetchError } = await supabase
       .from('appointments')
       .select('time_block, status')
       .eq('appointment_date', date)
-      .in('status', ['scheduled', 'checked_in', 'in_progress']);
+      .in('status', ['pending', 'scheduled', 'checked_in', 'in_progress']);
 
     if (fetchError) {
       console.error('Error fetching appointments:', fetchError);

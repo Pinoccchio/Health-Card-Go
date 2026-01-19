@@ -36,22 +36,37 @@ export async function POST(request: NextRequest) {
 
     // Get request body
     const body = await request.json();
-    const { service_id, appointment_date, time_block, reason } = body as CreateAppointmentRequest;
+    const { service_id, appointment_date, time_block, reason, card_type, lab_location, status } = body as CreateAppointmentRequest;
 
-    // Validate required fields
-    if (!service_id || !appointment_date || !time_block) {
+    // Check if this is a draft appointment
+    const isDraft = status === 'draft';
+
+    console.log(`📝 [APPOINTMENT CREATE] Request received - Service: ${service_id}, Status: ${status}, IsDraft: ${isDraft}`);
+
+    // Validate required fields (service_id always required, others only for non-draft)
+    if (!service_id) {
       return NextResponse.json(
-        { error: 'Service, date, and time block are required' },
+        { error: 'Service is required' },
         { status: 400 }
       );
     }
 
-    // Validate time_block value
-    if (!isValidTimeBlock(time_block)) {
-      return NextResponse.json(
-        { error: 'Invalid time block. Please select AM or PM.' },
-        { status: 400 }
-      );
+    if (!isDraft) {
+      // For non-draft appointments, require date and time_block
+      if (!appointment_date || !time_block) {
+        return NextResponse.json(
+          { error: 'Service, date, and time block are required' },
+          { status: 400 }
+        );
+      }
+
+      // Validate time_block value
+      if (!isValidTimeBlock(time_block)) {
+        return NextResponse.json(
+          { error: 'Invalid time block. Please select AM or PM.' },
+          { status: 400 }
+        );
+      }
     }
 
     // Get user profile
@@ -120,7 +135,7 @@ export async function POST(request: NextRequest) {
     // Validate service exists and requires appointment
     const { data: service, error: serviceError } = await supabase
       .from('services')
-      .select('id, name, category, requires_appointment, is_active')
+      .select('id, name, category, requires_appointment, is_active, available_days')
       .eq('id', service_id)
       .single();
 
@@ -139,108 +154,172 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Validate 7-day advance booking (using Philippine timezone)
-    if (!isValidBookingDate(appointment_date)) {
-      return NextResponse.json(
-        { error: 'Appointments must be booked at least 7 days in advance' },
-        { status: 400 }
-      );
-    }
+    // Set appointment_time based on time_block (always required by DB NOT NULL constraint)
+    // For drafts: Use provided time_block without validation (temporary value)
+    // For non-drafts: Use after validation
+    let appointment_time: string = getBlockDefaultTime(time_block || 'AM');
+    let nextQueueNumber: number = 0; // Default for drafts
 
-    // Validate weekday (Monday-Friday)
-    const dayOfWeek = new Date(appointment_date + 'T00:00:00').getDay();
-    if (dayOfWeek === 0 || dayOfWeek === 6) {
-      return NextResponse.json(
-        { error: 'Appointments are only available Monday through Friday' },
-        { status: 400 }
-      );
-    }
+    if (!isDraft) {
+      // Validate 7-day advance booking (using Philippine timezone)
+      if (!isValidBookingDate(appointment_date!)) {
+        return NextResponse.json(
+          { error: 'Appointments must be booked at least 7 days in advance' },
+          { status: 400 }
+        );
+      }
 
-    // Set appointment_time based on time_block
-    // AM: 08:00:00, PM: 13:00:00 (hidden from users, used for backend operations)
-    const appointment_time = getBlockDefaultTime(time_block);
+      // Validate weekday (Monday-Friday)
+      const dayOfWeek = new Date(appointment_date! + 'T00:00:00').getDay();
+      if (dayOfWeek === 0 || dayOfWeek === 6) {
+        return NextResponse.json(
+          { error: 'Appointments are only available Monday through Friday' },
+          { status: 400 }
+        );
+      }
 
-    // Check for existing active appointments (limit: 2 concurrent appointments)
-    const { data: existingAppointments } = await supabase
-      .from('appointments')
-      .select('id, service_id')
-      .eq('patient_id', patient.id)
-      .in('status', ['scheduled', 'checked_in', 'in_progress']);
+      // Validate service-specific available days
+      if (service.available_days && service.available_days.length > 0) {
+        const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+        const selectedDayName = dayNames[dayOfWeek];
 
-    if (existingAppointments && existingAppointments.length >= 2) {
-      return NextResponse.json(
-        { error: 'You have reached the maximum of 2 active appointments. Please complete or cancel one before booking another.' },
-        { status: 400 }
-      );
-    }
+        if (!service.available_days.includes(selectedDayName)) {
+          return NextResponse.json({
+            error: `${service.name} appointments are only available on: ${service.available_days.join(', ')}`
+          }, { status: 400 });
+        }
+      }
 
-    // Check if patient already has an active appointment for this specific service
-    if (existingAppointments && existingAppointments.some(apt => apt.service_id === service_id)) {
-      return NextResponse.json(
-        { error: 'You already have an active appointment for this service. Please cancel it if you need to reschedule.' },
-        { status: 400 }
-      );
-    }
+      // Re-set appointment_time with validated time_block
+      appointment_time = getBlockDefaultTime(time_block!);
 
-    // Get next queue number atomically using database function (prevents race conditions)
-    // Each service has its own independent queue (1-100)
-    const { data: nextQueueNumber, error: queueError } = await supabase
-      .rpc('get_next_queue_number', {
-        p_appointment_date: appointment_date,
-        p_service_id: service_id
-      });
+      // Check for existing active appointments (limit: 2 concurrent appointments)
+      const { data: existingAppointments } = await supabase
+        .from('appointments')
+        .select('id, service_id')
+        .eq('patient_id', patient.id)
+        .in('status', ['scheduled', 'checked_in', 'in_progress']);
 
-    if (queueError || nextQueueNumber === null) {
-      console.error('Error getting next queue number:', queueError);
-      return NextResponse.json(
-        { error: 'Failed to assign queue number' },
-        { status: 500 }
-      );
-    }
+      if (existingAppointments && existingAppointments.length >= 2) {
+        return NextResponse.json(
+          { error: 'You have reached the maximum of 2 active appointments. Please complete or cancel one before booking another.' },
+          { status: 400 }
+        );
+      }
 
-    // Check if we've reached daily capacity (100 per day per service)
-    if (nextQueueNumber > 100) {
-      return NextResponse.json(
-        { error: `This service is fully booked for ${appointment_date}. Please select another date.` },
-        { status: 400 }
-      );
-    }
+      // Check if patient already has an active appointment for this specific service
+      if (existingAppointments && existingAppointments.some(apt => apt.service_id === service_id)) {
+        return NextResponse.json(
+          { error: 'You already have an active appointment for this service. Please cancel it if you need to reschedule.' },
+          { status: 400 }
+        );
+      }
 
-    // Check block-specific capacity (50 per block)
-    const blockCapacity = getBlockCapacity(time_block);
-    const { data: blockAppointments } = await supabase
-      .from('appointments')
-      .select('id')
-      .eq('appointment_date', appointment_date)
-      .eq('service_id', service_id)
-      .eq('time_block', time_block)
-      .in('status', ['pending', 'scheduled', 'checked_in', 'in_progress']);
+      // Get next queue number atomically using database function (prevents race conditions)
+      // Each service has its own independent queue (1-100)
+      const { data: queueNum, error: queueError } = await supabase
+        .rpc('get_next_queue_number', {
+          p_appointment_date: appointment_date!,
+          p_service_id: service_id
+        });
 
-    if (blockAppointments && blockAppointments.length >= blockCapacity) {
-      const blockInfo = formatTimeBlock(time_block);
-      return NextResponse.json(
-        { error: `The ${blockInfo} is fully booked for ${appointment_date}. Please select another time block or date.` },
-        { status: 400 }
-      );
+      if (queueError || queueNum === null) {
+        console.error('Error getting next queue number:', queueError);
+        return NextResponse.json(
+          { error: 'Failed to assign queue number' },
+          { status: 500 }
+        );
+      }
+
+      nextQueueNumber = queueNum;
+
+      // Check if we've reached daily capacity (100 per day per service)
+      if (nextQueueNumber > 100) {
+        return NextResponse.json(
+          { error: `This service is fully booked for ${appointment_date}. Please select another date.` },
+          { status: 400 }
+        );
+      }
+
+      // Check block-specific capacity (50 per block)
+      const blockCapacity = getBlockCapacity(time_block!);
+      const { data: blockAppointments } = await supabase
+        .from('appointments')
+        .select('id')
+        .eq('appointment_date', appointment_date!)
+        .eq('service_id', service_id)
+        .eq('time_block', time_block!)
+        .in('status', ['pending', 'scheduled', 'checked_in', 'in_progress']);
+
+      if (blockAppointments && blockAppointments.length >= blockCapacity) {
+        const blockInfo = formatTimeBlock(time_block!);
+        return NextResponse.json(
+          { error: `The ${blockInfo} is fully booked for ${appointment_date}. Please select another time block or date.` },
+          { status: 400 }
+        );
+      }
     }
 
     // Use admin client to bypass RLS for nested joins on insert
     // Security: User is authenticated patient, creating their own appointment
     const adminClient = createAdminClient();
 
-    // Create appointment with 'scheduled' status (immediately confirmed)
+    // Determine appointment status based on service and verification needs
+    // Draft appointments are incomplete bookings (no date/time yet)
+    // HealthCard Outside CHO needs verification before being scheduled
+    // HIV/Prenatal and HealthCard Inside CHO are auto-scheduled
+    let initialStatus: string;
+
+    if (isDraft) {
+      initialStatus = 'draft'; // Incomplete booking (for upload flows)
+    } else if (service_id === 12) {
+      // HealthCard (Service 12) always needs verification (both inside and outside CHO)
+      initialStatus = 'pending'; // Awaiting admin verification of uploaded documents
+    } else {
+      // HIV (16) and Prenatal (17) - auto-confirmed, no verification needed
+      initialStatus = 'scheduled';
+    }
+
+    // Create appointment with conditional status
+    // Build insert data with all required fields (NOT NULL constraints)
+    const insertData: any = {
+      patient_id: patient.id,
+      service_id: service_id, // Links to service for category-based routing
+      status: initialStatus, // Conditional: 'draft', 'pending', or 'scheduled'
+      // Always include date/time fields (required by DB NOT NULL constraints)
+      // For drafts: temporary values from request body (updated later on conversion to pending)
+      // For non-drafts: validated values from request body
+      appointment_date: appointment_date || new Date().toISOString().split('T')[0],
+      appointment_time: appointment_time, // Already set on line 158 with fallback
+      time_block: time_block || 'AM', // Fallback to AM if not provided
+      // Queue number: 0 for drafts, 1-100 for real appointments (set via get_next_queue_number)
+      appointment_number: nextQueueNumber,
+      // Reason: Use provided or default message for drafts
+      reason: reason || (isDraft ? 'Draft appointment for document upload' : ''),
+      // Track who created the appointment (needed for status history trigger)
+      completed_by_id: user.id,
+    }
+
+    // Add health card specific fields if provided (Service ID 12)
+    if (card_type) {
+      insertData.card_type = card_type;
+    }
+    if (lab_location) {
+      insertData.lab_location = lab_location;
+
+      // Set verification status for HealthCard (Service 12)
+      // Both inside and outside CHO require document verification
+      if (service_id === 12) {
+        insertData.verification_status = 'pending'; // Needs admin verification of uploaded documents
+      } else {
+        // HIV and Prenatal don't require verification
+        insertData.verification_status = 'approved'; // Auto-approved
+      }
+    }
+
     const { data: appointment, error: insertError } = await adminClient
       .from('appointments')
-      .insert({
-        patient_id: patient.id,
-        service_id: service_id, // Links to service for category-based routing
-        appointment_date,
-        appointment_time, // Default time for the block (08:00 or 13:00)
-        time_block, // User-selected time block (AM or PM)
-        appointment_number: nextQueueNumber,
-        status: 'scheduled', // Automatically scheduled when booked
-        reason,
-      })
+      .insert(insertData)
       .select(`
         *,
         patients!inner(
@@ -277,7 +356,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      data: appointment,
+      appointment: appointment,  // Changed from 'data' to 'appointment' to match frontend expectation
       message: 'Appointment booked successfully',
     });
 
@@ -459,6 +538,9 @@ export async function GET(request: NextRequest) {
       // Support comma-separated status values for filtering multiple statuses
       const statusValues = status.split(',').map(s => s.trim());
       query = query.in('status', statusValues);
+    } else {
+      // By default, exclude draft appointments (they are only for document upload)
+      query = query.neq('status', 'draft');
     }
 
     if (date) {

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useTranslations } from 'next-intl';
 import { DashboardLayout } from '@/components/dashboard';
 import { Container } from '@/components/ui';
@@ -22,7 +22,14 @@ import {
   TimeBlockInfo,
   formatTimeBlock,
   getTimeBlockColor,
+  HealthCardType,
+  LabLocationType,
+  AppointmentUpload,
+  isHealthCardService,
+  requiresDocumentUpload,
+  getRequiredUploads,
 } from '@/types/appointment';
+import { DocumentUploadForm } from '@/components/patient/DocumentUploadForm';
 
 interface Service {
   id: number;
@@ -56,17 +63,47 @@ export default function PatientBookAppointmentPage() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
 
+  // Health Card specific state
+  const [selectedCardType, setSelectedCardType] = useState<HealthCardType | null>(null);
+  const [selectedLabLocation, setSelectedLabLocation] = useState<LabLocationType | null>(null);
+  const [uploadedDocuments, setUploadedDocuments] = useState<AppointmentUpload[]>([]);
+  const [labResultsConfirmed, setLabResultsConfirmed] = useState(false);
+
+  // Draft appointment state (for upload flow)
+  const [draftAppointmentId, setDraftAppointmentId] = useState<string | null>(null);
+  const [creatingDraft, setCreatingDraft] = useState(false);
+  const draftIdRef = useRef<string | null>(null); // Track draft ID for cleanup
+
   // Suspension state
   const [isSuspended, setIsSuspended] = useState(false);
   const [suspendedUntil, setSuspendedUntil] = useState<string | null>(null);
   const [noShowCount, setNoShowCount] = useState(0);
   const [daysRemaining, setDaysRemaining] = useState(0);
 
+  // Service availability state
+  const [serviceAvailableDays, setServiceAvailableDays] = useState<string[]>([]);
+
   // Load services and check suspension status on mount
   useEffect(() => {
     fetchServices();
     checkSuspensionStatus();
   }, []);
+
+  // Keep ref in sync with state
+  useEffect(() => {
+    draftIdRef.current = draftAppointmentId;
+  }, [draftAppointmentId]);
+
+  // Cleanup draft appointment when component unmounts
+  useEffect(() => {
+    return () => {
+      // Use ref to get current draft ID at unmount time
+      if (draftIdRef.current) {
+        console.log('🧹 [CLEANUP] Component unmounting with active draft, cleaning up...');
+        deleteDraftAppointment(draftIdRef.current);
+      }
+    };
+  }, []); // Empty deps - only runs on mount/unmount, not on step changes
 
   const checkSuspensionStatus = async () => {
     try {
@@ -117,6 +154,33 @@ export default function PatientBookAppointmentPage() {
     }
   }, [selectedDate]);
 
+  // Fetch service availability when service changes
+  useEffect(() => {
+    const fetchServiceAvailability = async () => {
+      if (!selectedService) {
+        setServiceAvailableDays([]);
+        return;
+      }
+
+      try {
+        const response = await fetch(`/api/services/${selectedService}`);
+        const data = await response.json();
+        if (data.success && data.data?.available_days) {
+          setServiceAvailableDays(data.data.available_days);
+        } else {
+          // Default to all weekdays if not configured
+          setServiceAvailableDays(['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']);
+        }
+      } catch (error) {
+        console.error('Error fetching service availability:', error);
+        // Default to all weekdays on error
+        setServiceAvailableDays(['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']);
+      }
+    };
+
+    fetchServiceAvailability();
+  }, [selectedService]);
+
   const fetchAvailableBlocks = async () => {
     if (!selectedDate) return;
 
@@ -143,20 +207,131 @@ export default function PatientBookAppointmentPage() {
 
   const handleServiceSelect = (serviceId: number) => {
     setSelectedService(serviceId);
-    setStep(2);
+    // Stay on Step 1 to show card type/lab location selectors (HealthCard)
+    // Or allow user to click Continue button to proceed
+  };
+
+  /**
+   * Creates a draft appointment for upload flow (HealthCard services only)
+   * This draft appointment provides an ID for DocumentUploadForm to upload files
+   */
+  const createDraftAppointment = async () => {
+    if (!selectedService || !selectedCardType || !selectedLabLocation) {
+      console.error('❌ [DRAFT] Missing required data for draft creation');
+      return null;
+    }
+
+    setCreatingDraft(true);
+    setError('');
+
+    try {
+      const requestBody = {
+        service_id: selectedService,
+        appointment_date: new Date().toISOString().split('T')[0], // Temp date (will be updated at Step 5)
+        time_block: 'AM', // Temp time block (will be updated at Step 5)
+        status: 'draft', // Draft status
+        card_type: selectedCardType,
+        lab_location: selectedLabLocation,
+        reason: 'Draft appointment for document upload', // Placeholder reason
+      };
+
+      console.log('📝 [DRAFT] Creating draft appointment:', requestBody);
+
+      const response = await fetch('/api/appointments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(requestBody),
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.success && data.appointment) {
+        console.log('✅ [DRAFT] Draft appointment created:', data.appointment.id);
+        setDraftAppointmentId(data.appointment.id);
+        return data.appointment.id;
+      } else {
+        console.error('❌ [DRAFT] Failed to create draft:', data.error);
+        setError(data.error || 'Failed to create draft appointment');
+        return null;
+      }
+    } catch (err) {
+      console.error('❌ [DRAFT] Error creating draft:', err);
+      setError('An unexpected error occurred');
+      return null;
+    } finally {
+      setCreatingDraft(false);
+    }
+  };
+
+  /**
+   * Deletes draft appointment (cleanup when user navigates away)
+   */
+  const deleteDraftAppointment = async (draftId: string) => {
+    if (!draftId) return;
+
+    try {
+      console.log('🗑️ [DRAFT CLEANUP] Deleting draft appointment:', draftId);
+
+      const response = await fetch(`/api/appointments/${draftId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'cancelled' }),
+      });
+
+      if (response.ok) {
+        console.log('✅ [DRAFT CLEANUP] Draft appointment deleted successfully');
+      } else {
+        const errorData = await response.json();
+        console.error('❌ [DRAFT CLEANUP] Failed to delete draft:', errorData);
+      }
+    } catch (err) {
+      console.error('❌ [DRAFT CLEANUP] Error deleting draft:', err);
+    }
+  };
+
+  const handleStep1Continue = async () => {
+    if (!selectedService) return;
+
+    // HealthCard: Create draft appointment & go to Step 2 (Upload)
+    // HIV/Prenatal: Skip to Step 3 (Date) since no upload needed
+    if (isHealthCardService(selectedService)) {
+      // Create draft appointment before showing upload step
+      const draftId = await createDraftAppointment();
+      if (draftId) {
+        setStep(2); // Go to Upload Documents
+      }
+      // If draft creation failed, stay on Step 1 (error message shown)
+    } else {
+      setStep(3); // Skip upload, go directly to Choose Date
+    }
+  };
+
+  const handleUploadsComplete = (uploads: AppointmentUpload[]) => {
+    setUploadedDocuments(uploads);
+  };
+
+  const handleStep2Continue = () => {
+    // Validate checkbox for Outside CHO
+    if (selectedLabLocation === 'outside_cho' && !labResultsConfirmed) {
+      setError('Please confirm that you have obtained laboratory results from an outside facility');
+      return;
+    }
+    // After uploads (HealthCard only), go to Step 3 (Choose Date)
+    setStep(3);
   };
 
   const handleDateSelect = (date: string) => {
     setSelectedDate(date);
     setSelectedBlock('');
-    setStep(3);
+    setStep(4); // Go to Step 4 (Pick Time)
   };
 
   const handleBlockSelect = (block: TimeBlock) => {
     setSelectedBlock(block);
-    setStep(4);
+    setStep(5); // Go to Step 5 (Confirm)
   };
 
+  // Removed createAppointmentForUploads - appointments now created only at final step (Step 5)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -181,21 +356,54 @@ export default function PatientBookAppointmentPage() {
     const finalReason = reasonTemplate === 'Other (please specify)' ? customReason : reasonTemplate;
 
     try {
-      const response = await fetch('/api/appointments', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          service_id: selectedService,
-          appointment_date: selectedDate,
-          time_block: selectedBlock,
-          reason: finalReason,
-        }),
-      });
+      // Build request body with conditional health card fields
+      const requestBody: any = {
+        service_id: selectedService,
+        appointment_date: selectedDate,
+        time_block: selectedBlock,
+        reason: finalReason,
+      };
 
-      const data = await response.json();
+      // Add health card specific fields if applicable
+      if (selectedService && isHealthCardService(selectedService)) {
+        requestBody.card_type = selectedCardType;
+        requestBody.lab_location = selectedLabLocation;
+      }
+
+      let response;
+      let data;
+
+      // If we have a draft appointment (HealthCard flow), convert it to pending
+      if (draftAppointmentId) {
+        console.log('📝 [SUBMIT] Converting draft to pending:', draftAppointmentId, requestBody);
+
+        // Update the draft appointment with final data and change status to 'pending'
+        response = await fetch(`/api/appointments/${draftAppointmentId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            ...requestBody,
+            status: 'pending', // Convert from 'draft' to 'pending'
+          }),
+        });
+
+        data = await response.json();
+      } else {
+        // No draft (HIV/Prenatal flow) - create new appointment directly
+        console.log('📝 [SUBMIT] Creating new appointment:', requestBody);
+
+        response = await fetch('/api/appointments', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(requestBody),
+        });
+
+        data = await response.json();
+      }
 
       if (response.ok && data.success) {
         setSuccess(true);
+        setDraftAppointmentId(null); // Clear draft ID to prevent cleanup
         setTimeout(() => {
           window.location.href = '/patient/appointments';
         }, 3000);
@@ -315,33 +523,70 @@ export default function PatientBookAppointmentPage() {
         )}
 
         <div className="bg-white rounded-lg shadow">
-          {/* Progress Steps */}
-          <div className="border-b border-gray-200 px-6 py-4">
-            <div className="flex items-center justify-between">
-              {[
-                { num: 1, label: t('progress_steps.step1') },
-                { num: 2, label: t('progress_steps.step2') },
-                { num: 3, label: t('progress_steps.step3') },
-                { num: 4, label: t('progress_steps.step4') },
-              ].map((s, i) => (
-                <div key={s.num} className="flex items-center">
-                  <div
-                    className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
-                      step >= s.num
-                        ? 'bg-primary-teal text-white'
-                        : 'bg-gray-200 text-gray-600'
-                    }`}
-                  >
-                    {s.num}
-                  </div>
-                  <span className="ml-2 text-sm font-medium text-gray-700 hidden sm:inline">
-                    {s.label}
-                  </span>
-                  {i < 3 && (
-                    <div className="w-12 sm:w-24 h-0.5 bg-gray-300 mx-2"></div>
-                  )}
-                </div>
-              ))}
+          {/* Progress Steps - Horizontal numbered indicators */}
+          <div className="bg-gray-50 border-b border-gray-200 px-6 py-6">
+            <div className="flex items-center justify-between max-w-5xl mx-auto">
+              {(() => {
+                const isHealthCard = selectedService && isHealthCardService(selectedService);
+
+                // Define steps based on service type
+                const steps = isHealthCard
+                  ? [
+                      { num: 1, label: 'Select Service', sublabel: 'Choose service & option' },
+                      { num: 2, label: 'Upload', sublabel: 'Upload documents' },
+                      { num: 3, label: 'Choose Date', sublabel: 'Pick a schedule' },
+                      { num: 4, label: 'Pick Time', sublabel: 'Select a slot' },
+                      { num: 5, label: 'Booking Confirm', sublabel: 'Review & submit' },
+                    ]
+                  : [
+                      { num: 1, label: 'Select Service', sublabel: 'Choose service' },
+                      { num: 2, label: 'Choose Date', sublabel: 'Pick a schedule', actualStep: 3 },
+                      { num: 3, label: 'Pick Time', sublabel: 'Select a slot', actualStep: 4 },
+                      { num: 4, label: 'Booking Confirm', sublabel: 'Review & submit', actualStep: 5 },
+                    ];
+
+                return steps.map((s, i) => {
+                  // For HIV/Prenatal, use actualStep for comparison (they skip step 2)
+                  const stepToCompare = 'actualStep' in s ? s.actualStep : s.num;
+                  const isStepActive = step >= (stepToCompare || s.num);
+
+                  return (
+                    <div key={s.num} className="flex flex-col items-center flex-1">
+                      <div className="flex items-center w-full">
+                        {i > 0 && (
+                          <div className={`flex-1 h-0.5 transition-all ${isStepActive ? 'bg-primary-teal' : 'bg-gray-300'}`}></div>
+                        )}
+                        <div className="relative flex-shrink-0 mx-2">
+                          <div
+                            className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold border-2 transition-all ${
+                              isStepActive
+                                ? 'bg-primary-teal border-primary-teal text-white' // Active/Completed: teal
+                                : 'bg-white border-gray-300 text-gray-600' // Pending: white
+                            }`}
+                          >
+                            {s.num}
+                          </div>
+                        </div>
+                        {i < steps.length - 1 && (
+                          <div className={`flex-1 h-0.5 transition-all ${step > (stepToCompare || s.num) ? 'bg-primary-teal' : 'bg-gray-300'}`}></div>
+                        )}
+                      </div>
+                      <div className="text-center mt-2">
+                        <p className={`text-xs font-semibold transition-colors ${
+                          isStepActive
+                            ? 'text-primary-teal' // Active: teal text
+                            : 'text-gray-600' // Pending: gray text
+                        }`}>
+                          {s.label}
+                        </p>
+                        <p className="text-xs text-gray-400 mt-0.5 hidden sm:block">
+                          {s.sublabel}
+                        </p>
+                      </div>
+                    </div>
+                  );
+                });
+              })()}
             </div>
           </div>
 
@@ -358,185 +603,282 @@ export default function PatientBookAppointmentPage() {
             {/* Step 1: Select Service */}
             {step === 1 && (
               <div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                  {t('step1.heading')}
+                <h3 className="text-2xl font-bold text-gray-900 mb-2">
+                  Select a Service
                 </h3>
                 <p className="text-sm text-gray-600 mb-6">
-                  {t('step1.description')}
+                  Choose a main service. If it has options (HealthCard), select the card type and lab location.
                 </p>
 
                 {/* Loading State */}
                 {servicesLoading ? (
                   <div className="text-center py-12">
                     <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary-teal"></div>
-                    <p className="mt-2 text-sm text-gray-500">{t('step1.loading')}</p>
+                    <p className="mt-2 text-sm text-gray-500">Loading services...</p>
                   </div>
                 ) : services.length === 0 ? (
                   <div className="text-center py-12">
-                    <p className="text-gray-500">{t('step1.no_services')}</p>
+                    <p className="text-gray-500">No services available</p>
                   </div>
                 ) : (
-                  <div className="space-y-4">
-                    {/* Service Dropdown */}
-                    <div>
-                      <label htmlFor="service-select" className="block text-sm font-medium text-gray-700 mb-2">
-                        {t('step1.select_service_label', { defaultValue: 'Select a service' })}
-                      </label>
-                      <select
-                        id="service-select"
-                        value={selectedService || ''}
-                        onChange={(e) => {
-                          const serviceId = Number(e.target.value);
-                          if (serviceId) {
-                            setSelectedService(serviceId);
-                          } else {
-                            setSelectedService(null);
-                          }
-                        }}
-                        className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-primary-teal focus:ring-2 focus:ring-primary-teal/20 transition-all text-gray-900"
-                      >
-                        <option value="">{t('step1.choose_service', { defaultValue: 'Choose a service...' })}</option>
-                        {services.map((service) => (
-                          <option key={service.id} value={service.id}>
-                            {service.name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
+                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    {/* Left: Form */}
+                    <div className="lg:col-span-2 space-y-6">
+                      {/* Main Service Dropdown */}
+                      <div>
+                        <label htmlFor="main-service" className="block text-sm font-semibold text-gray-900 mb-2">
+                          Main Service
+                        </label>
+                        <select
+                          id="main-service"
+                          value={selectedService || ''}
+                          onChange={(e) => {
+                            const serviceId = Number(e.target.value);
+                            if (serviceId) {
+                              setSelectedService(serviceId);
+                              setSelectedCardType(null);
+                              setSelectedLabLocation(null);
+                            } else {
+                              setSelectedService(null);
+                              setSelectedCardType(null);
+                              setSelectedLabLocation(null);
+                            }
+                          }}
+                          className="w-full px-4 py-3 border border-gray-300 rounded-md focus:outline-none focus:border-primary-teal focus:ring-1 focus:ring-primary-teal text-gray-900 bg-white"
+                        >
+                          <option value="">Select a service...</option>
+                          {services.map((service) => (
+                            <option key={service.id} value={service.id}>
+                              {service.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
 
-                    {/* Service Details - Shown when service is selected */}
-                    {selectedService && (() => {
-                      const service = services.find(s => s.id === selectedService);
-                      if (!service) return null;
-
-                      const categoryColors = getCategoryColors(service.category);
-                      const isConfidential = isConfidentialCategory(service.category);
-                      const isFree = isFreeService(service.name);
-
-                      return (
-                        <div className="bg-gradient-to-br from-primary-teal/5 to-primary-teal/10 border-2 border-primary-teal/30 rounded-lg p-6">
-                          {/* Header */}
-                          <div className="flex items-start justify-between mb-4">
-                            <div className="flex-1">
-                              <h4 className="text-lg font-bold text-gray-900 mb-1">
-                                {service.name}
-                              </h4>
-                              <p className="text-sm text-gray-700">
-                                {service.description}
-                              </p>
-                            </div>
-                            {isFree && (
-                              <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-green-100 text-green-800 flex-shrink-0 ml-3">
-                                <Sparkles className="w-3 h-3 mr-1" />
-                                {t('step1.free_badge')}
-                              </span>
-                            )}
-                          </div>
-
-                          {/* Badges */}
-                          <div className="flex flex-wrap items-center gap-2 mb-4">
-                            <span className={`inline-flex items-center px-3 py-1.5 rounded-md text-xs font-medium ${categoryColors.bgColor} ${categoryColors.textColor}`}>
-                              {getAdminRoleLabel(service.category)}
-                            </span>
-                            {isConfidential && (
-                              <span className="inline-flex items-center px-3 py-1.5 rounded-md text-xs font-medium bg-purple-100 text-purple-800">
-                                <Lock className="w-3 h-3 mr-1" />
-                                {t('step1.confidential_badge')}
-                              </span>
-                            )}
-                          </div>
-
-                          {/* Requirements */}
-                          {service.requirements && service.requirements.length > 0 && (
-                            <div className="mb-4 bg-white/80 rounded-lg p-4">
-                              <ServiceRequirements requirements={service.requirements} />
-                            </div>
-                          )}
-
-                          {/* Admin Info */}
-                          {service.assigned_admins && service.assigned_admins.length > 0 && (
-                            <div className="flex items-center gap-2 text-sm text-gray-700 mb-4 bg-white/60 rounded-lg px-3 py-2">
-                              <User className="w-4 h-4" />
-                              <span>
-                                {t('step1.managed_by', {
-                                  name: `${service.assigned_admins[0].first_name} ${service.assigned_admins[0].last_name}`
-                                })}
-                                {service.admin_count && service.admin_count > 1 && (
-                                  <span className="text-gray-600"> {t('step1.and_more', { count: service.admin_count - 1 })}</span>
-                                )}
-                              </span>
-                            </div>
-                          )}
-
-                          {/* Duration & Next Button */}
-                          <div className="flex items-center justify-between pt-4 border-t border-primary-teal/20">
-                            <div className="flex items-center gap-2 text-sm text-gray-600">
-                              <Clock className="w-4 h-4" />
-                              <span>{t('step1.duration', { minutes: service.duration_minutes })}</span>
-                            </div>
-                            <button
-                              onClick={() => handleServiceSelect(service.id)}
-                              className="px-6 py-2.5 bg-primary-teal text-white font-medium rounded-lg hover:bg-primary-teal/90 transition-colors shadow-md hover:shadow-lg"
-                            >
-                              {t('step1.continue_button', { defaultValue: 'Continue' })}
-                            </button>
-                          </div>
+                      {/* Card Type Dropdown - Only for HealthCard */}
+                      {selectedService && isHealthCardService(selectedService) && (
+                        <div>
+                          <label htmlFor="card-type" className="block text-sm font-semibold text-gray-900 mb-2">
+                            Card Type
+                          </label>
+                          <select
+                            id="card-type"
+                            value={selectedCardType || ''}
+                            onChange={(e) => {
+                              const value = e.target.value as HealthCardType;
+                              if (value) {
+                                setSelectedCardType(value);
+                              } else {
+                                setSelectedCardType(null);
+                              }
+                            }}
+                            className="w-full px-4 py-3 border-2 border-primary-teal rounded-md focus:outline-none focus:border-primary-teal focus:ring-2 focus:ring-primary-teal/20 text-gray-900 bg-white font-medium"
+                          >
+                            <option value="" className="text-gray-500">Select a card type</option>
+                            <option value="food_handler">Food (Yellow)</option>
+                            <option value="non_food">Nonfood (Green)</option>
+                            <option value="pink">Pink Card</option>
+                          </select>
                         </div>
-                      );
-                    })()}
-                  </div>
-                )}
+                      )}
 
-                {/* Information Panel */}
-                <div className="mt-6 bg-gray-50 border border-gray-200 rounded-lg p-4">
-                  <div className="flex items-start">
-                    <Info className="w-5 h-5 text-gray-600 mr-3 mt-0.5 flex-shrink-0" />
-                    <div className="text-sm text-gray-700">
-                      <h5 className="font-semibold text-gray-900 mb-1">{t('step1.about_system.heading')}</h5>
-                      <p>
-                        {t('step1.about_system.description')}
+                      {/* Lab Location Dropdown - Only when card type selected */}
+                      {selectedService && isHealthCardService(selectedService) && selectedCardType && (
+                        <div>
+                          <label htmlFor="lab-location" className="block text-sm font-semibold text-gray-900 mb-2">
+                            Laboratory Location
+                          </label>
+                          <select
+                            id="lab-location"
+                            value={selectedLabLocation || ''}
+                            onChange={(e) => {
+                              const value = e.target.value as LabLocationType;
+                              if (value) {
+                                setSelectedLabLocation(value);
+                              } else {
+                                setSelectedLabLocation(null);
+                              }
+                            }}
+                            className="w-full px-4 py-3 border border-gray-300 rounded-md focus:outline-none focus:border-primary-teal focus:ring-1 focus:ring-primary-teal text-gray-900 bg-white"
+                          >
+                            <option value="">Select lab location...</option>
+                            <option value="inside_cho">Inside CHO Laboratory</option>
+                            <option value="outside_cho">Outside CHO Laboratory</option>
+                          </select>
+                        </div>
+                      )}
+
+                      {/* Continue Button */}
+                      <div className="flex justify-end pt-4">
+                        {selectedService && !isHealthCardService(selectedService) && (
+                          <button
+                            onClick={handleStep1Continue}
+                            className="px-8 py-3 bg-primary-teal text-white font-semibold rounded-md hover:bg-primary-teal/90 transition-colors shadow-md hover:shadow-lg"
+                          >
+                            Continue
+                          </button>
+                        )}
+                        {selectedService && isHealthCardService(selectedService) && selectedCardType && selectedLabLocation && (
+                          <button
+                            onClick={handleStep1Continue}
+                            className="px-8 py-3 bg-primary-teal text-white font-semibold rounded-md hover:bg-primary-teal/90 transition-colors shadow-md hover:shadow-lg"
+                          >
+                            Continue
+                          </button>
+                        )}
+                      </div>
+
+                      {/* Footer Note */}
+                      <p className="text-xs text-gray-500 italic pt-4 border-t border-gray-200">
+                        No personal info fields are required on this page. (Name and contact removed.)
                       </p>
                     </div>
+
+                    {/* Right: Service Descriptions & Requirements */}
+                    <div className="lg:col-span-1">
+                      <div className="bg-gray-50 border border-gray-200 rounded-lg p-5 sticky top-6">
+                        <h4 className="text-base font-bold text-gray-900 mb-3">
+                          Service Descriptions & Requirements
+                        </h4>
+
+                        {!selectedService ? (
+                          <p className="text-sm text-gray-600">
+                            Select a service to view its description and requirements.
+                          </p>
+                        ) : (() => {
+                          const service = services.find(s => s.id === selectedService);
+                          if (!service) return null;
+
+                          return (
+                            <div className="space-y-4">
+                              {/* Service Description */}
+                              <div>
+                                <h5 className="text-sm font-semibold text-primary-teal mb-2">
+                                  {service.name}
+                                </h5>
+                                <p className="text-sm text-gray-700 leading-relaxed">
+                                  {service.description}
+                                </p>
+                              </div>
+
+                              {/* Health Card Requirements */}
+                              {isHealthCardService(service.id) && (
+                                <div className="space-y-3">
+                                  <h5 className="text-sm font-semibold text-gray-900 mb-2">
+                                    Requirements for Health Card:
+                                  </h5>
+
+                                  {/* Food (Yellow) Card */}
+                                  <div>
+                                    <p className="text-xs font-semibold text-yellow-700 mb-1">
+                                      • Food (Yellow Card):
+                                    </p>
+                                    <p className="text-xs text-gray-600 ml-4">
+                                      For food handlers and workers in the food industry. Tests required: Urinalysis, Stool Test, CBC (Complete Blood Count), Chest X-ray.
+                                    </p>
+                                  </div>
+
+                                  {/* Non-Food (Green) Card */}
+                                  <div>
+                                    <p className="text-xs font-semibold text-green-700 mb-1">
+                                      • Non-Food (Green Card):
+                                    </p>
+                                    <p className="text-xs text-gray-600 ml-4">
+                                      For non-food handlers or general employees in other industries. Tests required: Urinalysis, Stool Test, CBC (Complete Blood Count), Chest X-ray.
+                                    </p>
+                                  </div>
+
+                                  {/* Pink Card */}
+                                  <div>
+                                    <p className="text-xs font-semibold text-pink-700 mb-1">
+                                      • Pink Card:
+                                    </p>
+                                    <p className="text-xs text-gray-600 ml-4">
+                                      For occupations involving skin-to-skin contact (e.g., massage therapists, health workers). Tests required: Gram Stain, Hepatitis B Test, Syphilis Test, HIV Test.
+                                    </p>
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* Service Requirements */}
+                              {service.requirements && service.requirements.length > 0 && (
+                                <div>
+                                  <h5 className="text-sm font-semibold text-gray-900 mb-2">
+                                    General Requirements:
+                                  </h5>
+                                  <ul className="text-xs text-gray-600 space-y-1">
+                                    {service.requirements.map((req, idx) => (
+                                      <li key={idx} className="flex items-start">
+                                        <span className="mr-2">•</span>
+                                        <span>{req}</span>
+                                      </li>
+                                    ))}
+                                  </ul>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })()}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Step 3: Choose Date */}
+            {step === 3 && (
+              <div>
+                <h3 className="text-2xl font-bold text-gray-900 mb-2">
+                  Choose Date
+                </h3>
+                <p className="text-sm text-gray-600 mb-6">
+                  Pick a schedule for your appointment (at least 7 days in advance).
+                </p>
+
+                <div className="max-w-xl">
+                  <label htmlFor="appointment-date" className="block text-sm font-semibold text-gray-900 mb-2">
+                    Appointment Date
+                  </label>
+                  <input
+                    id="appointment-date"
+                    type="date"
+                    min={getMinDate()}
+                    value={selectedDate}
+                    onChange={(e) => handleDateSelect(e.target.value)}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-md focus:outline-none focus:border-primary-teal focus:ring-1 focus:ring-primary-teal text-gray-900"
+                  />
+                  <p className="text-xs text-gray-500 mt-2">
+                    {serviceAvailableDays.length > 0 && serviceAvailableDays.length < 5 ? (
+                      <>
+                        This service is available on: <span className="font-semibold text-primary-teal">{serviceAvailableDays.join(', ')}</span>.
+                        {' '}Appointments must be booked at least 7 days in advance.
+                      </>
+                    ) : (
+                      'Appointments must be booked at least 7 days in advance. Only weekdays are available (Monday-Friday).'
+                    )}
+                  </p>
+
+                  <div className="mt-8 pt-6 border-t border-gray-200">
+                    <button
+                      onClick={() => setStep(selectedService && isHealthCardService(selectedService) ? 2 : 1)}
+                      className="text-sm text-gray-600 hover:text-gray-900 font-medium"
+                    >
+                      ← Back to {selectedService && isHealthCardService(selectedService) ? 'Document Upload' : 'Service Selection'}
+                    </button>
                   </div>
                 </div>
               </div>
             )}
 
-            {/* Step 2: Choose Date */}
-            {step === 2 && (
+            {/* Step 4: Pick Time Block */}
+            {step === 4 && (
               <div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                  {t('step2.heading')}
-                </h3>
-                <p className="text-sm text-gray-600 mb-4">
-                  {t('step2.description')}
-                </p>
-                <input
-                  type="date"
-                  min={getMinDate()}
-                  value={selectedDate}
-                  onChange={(e) => handleDateSelect(e.target.value)}
-                  className="w-full max-w-sm px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-teal"
-                />
-                <div className="mt-4">
-                  <button
-                    onClick={() => setStep(1)}
-                    className="text-sm text-gray-600 hover:text-gray-900"
-                  >
-                    {t('step2.back_to_services')}
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {/* Step 3: Pick Time Block */}
-            {step === 3 && (
-              <div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                  {t('step3.heading')}
+                <h3 className="text-2xl font-bold text-gray-900 mb-2">
+                  Pick Time
                 </h3>
                 <p className="text-sm text-gray-600 mb-6">
-                  {t('step3.description', { date: selectedDate })}
+                  Select a time slot for {selectedDate}
                 </p>
                 {loading ? (
                   <div className="text-center py-8">
@@ -620,26 +962,139 @@ export default function PatientBookAppointmentPage() {
                     {t('step3.no_blocks')}
                   </div>
                 )}
-                <div className="mt-6">
+                <div className="mt-8 pt-6 border-t border-gray-200">
                   <button
                     onClick={() => {
-                      setStep(2);
+                      setStep(3); // Go back to date selection (now Step 3)
                       setSelectedDate('');
                     }}
-                    className="text-sm text-gray-600 hover:text-gray-900"
+                    className="text-sm text-gray-600 hover:text-gray-900 font-medium"
                   >
-                    {t('step3.choose_different_date')}
+                    ← Choose Different Date
                   </button>
                 </div>
               </div>
             )}
 
-            {/* Step 4: Confirm */}
-            {step === 4 && selectedServiceDetails && (
-              <form onSubmit={handleSubmit}>
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                  {t('step4.heading')}
+            {/* Step 2: Document Upload (Health Card only) */}
+            {step === 2 && selectedService && isHealthCardService(selectedService) && (
+              <div>
+                <h3 className="text-2xl font-bold text-gray-900 mb-2">
+                  Upload Documents
                 </h3>
+                <p className="text-sm text-gray-600 mb-6">
+                  Upload the required documents for your health card application.
+                </p>
+
+                <div className="max-w-3xl">
+                  {/* Show loading state while creating draft */}
+                  {creatingDraft && !draftAppointmentId && (
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 text-center">
+                      <div className="flex items-center justify-center gap-3">
+                        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary-teal"></div>
+                        <p className="text-sm text-blue-800">Preparing upload area...</p>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Show upload form once draft is created */}
+                  {draftAppointmentId && (
+                    <>
+                      {/* Info banner for Inside CHO */}
+                      {selectedLabLocation === 'inside_cho' && (
+                        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+                          <p className="text-sm text-blue-800 font-medium mb-2">
+                            <strong>Inside CHO Laboratory</strong>
+                          </p>
+                          <p className="text-sm text-blue-700">
+                            Please upload the following 3 required documents:
+                          </p>
+                          <ul className="mt-2 text-sm text-blue-700 list-disc list-inside space-y-1">
+                            <li>Laboratory Request Form (downloadable template)</li>
+                            <li>Payment Receipt from CHO Treasury</li>
+                            <li>Valid Government-Issued ID</li>
+                          </ul>
+                        </div>
+                      )}
+
+                      {/* Info banner for Outside CHO */}
+                      {selectedLabLocation === 'outside_cho' && (
+                        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+                          <p className="text-sm text-blue-800 font-medium mb-2">
+                            <strong>Outside CHO Laboratory</strong>
+                          </p>
+                          <p className="text-sm text-blue-700">
+                            Please upload your Valid Government-Issued ID and confirm you have obtained your lab results.
+                          </p>
+                        </div>
+                      )}
+
+                      {/* Document Upload Form */}
+                      <DocumentUploadForm
+                        appointmentId={draftAppointmentId}
+                        requiredUploads={
+                          selectedLabLocation === 'inside_cho'
+                            ? ['lab_request', 'payment_receipt', 'valid_id']
+                            : ['valid_id']
+                        }
+                        onUploadsComplete={handleUploadsComplete}
+                        disabled={false}
+                      />
+
+                      {/* Confirmation Checkbox for Outside CHO */}
+                      {selectedLabLocation === 'outside_cho' && (
+                        <div className="mt-6 flex items-start gap-3 p-4 bg-gray-50 border border-gray-300 rounded-lg">
+                          <input
+                            type="checkbox"
+                            id="lab-results-confirm"
+                            checked={labResultsConfirmed}
+                            onChange={(e) => setLabResultsConfirmed(e.target.checked)}
+                            className="mt-1 w-4 h-4 text-primary-teal border-gray-300 rounded focus:ring-primary-teal"
+                          />
+                          <label htmlFor="lab-results-confirm" className="text-sm text-gray-700 cursor-pointer">
+                            I confirm that I have obtained my laboratory results from an outside facility
+                          </label>
+                        </div>
+                      )}
+                    </>
+                  )}
+
+                  <div className="mt-8 flex justify-between items-center pt-6 border-t border-gray-200">
+                    <button
+                      onClick={() => {
+                        // Cleanup draft when going back
+                        if (draftAppointmentId) {
+                          deleteDraftAppointment(draftAppointmentId);
+                          setDraftAppointmentId(null);
+                        }
+                        setStep(1);
+                        setUploadedDocuments([]);
+                      }}
+                      className="text-sm text-gray-600 hover:text-gray-900 font-medium"
+                    >
+                      ← Back to Service Selection
+                    </button>
+                    <button
+                      onClick={handleStep2Continue}
+                      disabled={creatingDraft || (selectedLabLocation === 'outside_cho' && !labResultsConfirmed)}
+                      className="px-8 py-3 bg-primary-teal text-white font-semibold rounded-md hover:bg-primary-teal/90 transition-colors shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      Continue to Date Selection
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Step 5: Booking Confirm */}
+            {step === 5 && selectedServiceDetails && (
+              <form onSubmit={handleSubmit}>
+                <h3 className="text-2xl font-bold text-gray-900 mb-2">
+                  Booking Confirm
+                </h3>
+                <p className="text-sm text-gray-600 mb-6">
+                  Review your appointment details and submit your booking.
+                </p>
 
                 {/* Appointment Summary */}
                 <div className="bg-gray-50 rounded-lg p-4 mb-6">
@@ -650,6 +1105,39 @@ export default function PatientBookAppointmentPage() {
                         {selectedServiceDetails.name}
                       </dd>
                     </div>
+
+                    {/* Health Card specific fields */}
+                    {isHealthCardService(selectedService!) && (
+                      <>
+                        {selectedCardType && (
+                          <div className="flex justify-between">
+                            <dt className="text-sm font-medium text-gray-500">Card Type</dt>
+                            <dd className="text-sm text-gray-900">
+                              {selectedCardType === 'food_handler' && '🟡 Yellow Card (Food Handler)'}
+                              {selectedCardType === 'non_food' && '🟢 Green Card (Non-Food)'}
+                              {selectedCardType === 'pink' && '🩷 Pink Card (Service/Clinical)'}
+                            </dd>
+                          </div>
+                        )}
+                        {selectedLabLocation && (
+                          <div className="flex justify-between">
+                            <dt className="text-sm font-medium text-gray-500">Laboratory</dt>
+                            <dd className="text-sm text-gray-900">
+                              {selectedLabLocation === 'inside_cho' ? 'Inside CHO' : 'Outside CHO'}
+                            </dd>
+                          </div>
+                        )}
+                        {uploadedDocuments.length > 0 && (
+                          <div className="flex justify-between">
+                            <dt className="text-sm font-medium text-gray-500">Documents</dt>
+                            <dd className="text-sm text-gray-900">
+                              {uploadedDocuments.length} file(s) uploaded ✓
+                            </dd>
+                          </div>
+                        )}
+                      </>
+                    )}
+
                     <div className="flex justify-between">
                       <dt className="text-sm font-medium text-gray-500">{t('step4.date_label')}</dt>
                       <dd className="text-sm text-gray-900">{selectedDate}</dd>
@@ -740,13 +1228,21 @@ export default function PatientBookAppointmentPage() {
                   )}
                 </div>
 
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between pt-6 border-t border-gray-200">
                   <button
                     type="button"
-                    onClick={() => setStep(3)}
-                    className="text-sm text-gray-600 hover:text-gray-900"
+                    onClick={() => {
+                      // If HealthCard with uploads, go back to step 4 (uploads)
+                      // Otherwise go back to step 3 (time selection)
+                      if (selectedService && isHealthCardService(selectedService) && selectedLabLocation && requiresDocumentUpload(selectedLabLocation)) {
+                        setStep(4);
+                      } else {
+                        setStep(3);
+                      }
+                    }}
+                    className="text-sm text-gray-600 hover:text-gray-900 font-medium"
                   >
-                    {t('step4.back_button')}
+                    ← Back
                   </button>
                   <button
                     type="submit"

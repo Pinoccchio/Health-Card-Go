@@ -3,6 +3,7 @@ import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { createClient as createSupabaseClient } from '@supabase/supabase-js';
 import { logAuditAction, AUDIT_ACTIONS, AUDIT_ENTITIES } from '@/lib/utils/auditLog';
+import { getBlockDefaultTime, type TimeBlock } from '@/types/appointment';
 
 /**
  * PATCH /api/appointments/[id]
@@ -70,9 +71,24 @@ export async function PATCH(
 
     // Get request body
     const body = await request.json();
-    const { status: newStatus, revert_to_history_id, reason } = body;
+    const {
+      status: newStatus,
+      revert_to_history_id,
+      reason,
+      cancellation_reason,
+      appointment_date,
+      time_block,
+      card_type,
+      lab_location,
+      service_id
+    } = body;
 
-    // Patients can only cancel their own appointments
+    // Determine operation type for later use
+    const isConvertingDraft = appointment.status === 'draft' && newStatus === 'pending';
+    const isUpdatingPending = appointment.status === 'pending' && !newStatus;
+    const isCancelling = newStatus === 'cancelled' && !revert_to_history_id;
+
+    // Patients can only cancel their own appointments OR update draft appointments
     if (profile.role === 'patient') {
       // Get patient record to compare patient_id correctly
       const { data: patientRecord, error: patientError } = await supabase
@@ -96,16 +112,19 @@ export async function PATCH(
         );
       }
 
-      // Patients can only cancel (not other operations)
-      if (newStatus !== 'cancelled' || revert_to_history_id) {
+      // Patients can:
+      // 1. Convert draft to pending (final booking submission)
+      // 2. Update pending appointments with final date/time
+      // 3. Cancel appointments
+      if (!isConvertingDraft && !isUpdatingPending && !isCancelling) {
         return NextResponse.json(
-          { error: 'Patients can only cancel appointments' },
+          { error: 'Patients can only cancel appointments, convert drafts to pending, or update pending bookings' },
           { status: 403 }
         );
       }
 
-      // Verify appointment can be cancelled (scheduled or pending only)
-      if (!['scheduled', 'pending'].includes(appointment.status)) {
+      // Verify appointment can be cancelled (scheduled, pending, or draft)
+      if (isCancelling && !['scheduled', 'pending', 'draft'].includes(appointment.status)) {
         return NextResponse.json(
           { error: `Cannot cancel appointment with status '${appointment.status}'` },
           { status: 400 }
@@ -179,9 +198,11 @@ export async function PATCH(
       }
 
       const validTransitions: Record<string, string[]> = {
+        'draft': ['pending', 'cancelled'], // Draft → Completed booking or cancelled
+        'pending': ['scheduled', 'cancelled'], // HealthCard Outside CHO awaiting verification
+        'scheduled': ['checked_in', 'cancelled'],
         'checked_in': ['in_progress', 'cancelled'],
         'in_progress': ['completed', 'cancelled'],
-        'scheduled': ['checked_in', 'cancelled'],
       };
 
       const allowedStatuses = validTransitions[appointment.status] || [];
@@ -248,10 +269,74 @@ export async function PATCH(
     // Update appointment status
     const now = new Date().toISOString();
     const updateData: any = {
-      status: targetStatus,
       updated_at: now,
-      _reversion_metadata: reversionMetadata,
     };
+
+    // Only update status if provided (for status change operations)
+    if (targetStatus) {
+      updateData.status = targetStatus;
+      updateData._reversion_metadata = reversionMetadata;
+    }
+
+    // Set cancellation reason if appointment is being cancelled
+    if (targetStatus === 'cancelled') {
+      updateData.cancellation_reason = cancellation_reason || null;
+    }
+
+    // Set completed_by_id for all status changes so trigger can track who made the change
+    // (auth.uid() doesn't work with service role, so we use this field as a workaround)
+    if (targetStatus) {
+      updateData.completed_by_id = profile.id;
+    }
+
+    // If converting draft to pending OR updating pending appointment with final date/time (patient completing booking)
+    if (['draft', 'pending'].includes(appointment.status) && profile.role === 'patient') {
+      if (appointment_date) updateData.appointment_date = appointment_date;
+      if (time_block) {
+        updateData.time_block = time_block;
+        // Update appointment_time to match the time_block (prevents constraint violation)
+        updateData.appointment_time = getBlockDefaultTime(time_block as TimeBlock);
+      }
+      if (reason) updateData.reason = reason;
+      if (card_type) updateData.card_type = card_type;
+      if (lab_location) updateData.lab_location = lab_location;
+      if (service_id) updateData.service_id = service_id;
+
+      console.log(`✅ [APPOINTMENT UPDATE] Patient ${appointment.status === 'draft' ? 'converting draft to pending' : 'updating pending'} appointment with final details`);
+    }
+
+    // Assign queue number when converting draft to pending
+    if (isConvertingDraft) {
+      // Get final date and service (from update data or existing appointment)
+      const finalDate = updateData.appointment_date || appointment.appointment_date;
+      const finalServiceId = updateData.service_id || appointment.service_id;
+
+      // Get next queue number atomically using database function
+      const { data: queueNum, error: queueError } = await adminClient
+        .rpc('get_next_queue_number', {
+          p_appointment_date: finalDate,
+          p_service_id: finalServiceId
+        });
+
+      if (queueError || queueNum === null) {
+        console.error('❌ [QUEUE NUMBER] Error getting next queue number:', queueError);
+        return NextResponse.json(
+          { error: 'Failed to assign queue number' },
+          { status: 500 }
+        );
+      }
+
+      // Check if we've reached daily capacity (100 per day per service)
+      if (queueNum > 100) {
+        return NextResponse.json(
+          { error: `This service is fully booked for ${finalDate}. Please select another date.` },
+          { status: 400 }
+        );
+      }
+
+      updateData.appointment_number = queueNum;
+      console.log(`✅ [QUEUE NUMBER] Assigned queue #${queueNum} for date ${finalDate}, service ${finalServiceId}`);
+    }
 
     // Clear timestamps when reverting to earlier status
     if (isRevertOperation && revert_to_history_id) {

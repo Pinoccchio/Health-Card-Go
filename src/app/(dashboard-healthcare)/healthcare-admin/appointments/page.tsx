@@ -11,6 +11,7 @@ import { Drawer } from '@/components/ui/Drawer';
 import { StatusHistoryModal } from '@/components/appointments/StatusHistoryModal';
 import { AppointmentCompletionModal } from '@/components/appointments/AppointmentCompletionModal';
 import { TimeElapsedBadge } from '@/components/appointments/TimeElapsedBadge';
+import { DocumentReviewPanel } from '@/components/healthcare-admin/DocumentReviewPanel';
 import {
   Calendar,
   Clock,
@@ -64,6 +65,10 @@ interface AdminAppointment {
   started_at?: string | null;
   completed_at?: string | null;
   has_medical_record?: boolean; // Indicates if medical record exists
+  // Health Card specific fields
+  lab_location?: 'inside_cho' | 'outside_cho';
+  card_type?: 'food_handler' | 'non_food' | 'pink';
+  verification_status?: 'pending' | 'approved' | 'rejected';
   patients: {
     id: string;
     patient_number: string;
@@ -189,6 +194,14 @@ export default function HealthcareAdminAppointmentsPage() {
   // No-show confirmation dialog state
   const [showNoShowDialog, setShowNoShowDialog] = useState(false);
   const [appointmentToNoShow, setAppointmentToNoShow] = useState<AdminAppointment | null>(null);
+
+  // Schedule appointment confirmation dialog state
+  const [showScheduleDialog, setShowScheduleDialog] = useState(false);
+  const [appointmentToSchedule, setAppointmentToSchedule] = useState<string | null>(null);
+
+  // Cancel pending appointment confirmation dialog state
+  const [showCancelDialog, setShowCancelDialog] = useState(false);
+  const [appointmentToCancel, setAppointmentToCancel] = useState<string | null>(null);
 
   // Check if user has access to appointments (not walk-in only service)
   useEffect(() => {
@@ -580,6 +593,93 @@ export default function HealthcareAdminAppointmentsPage() {
     setShowCheckInDialog(true);
   };
 
+  const handleSchedule = (appointmentId: string) => {
+    // Show confirmation dialog before scheduling
+    setAppointmentToSchedule(appointmentId);
+    setShowScheduleDialog(true);
+  };
+
+  const handleConfirmSchedule = async () => {
+    if (!appointmentToSchedule) return;
+
+    try {
+      setActionLoading(true);
+
+      const response = await fetch(`/api/appointments/${appointmentToSchedule}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'scheduled' }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to schedule appointment');
+      }
+
+      // Close UI
+      setShowScheduleDialog(false);
+      setIsDrawerOpen(false);
+      setSelectedAppointment(null);
+      toast.success('Appointment scheduled successfully');
+
+      // Refetch appointments and history to get latest data
+      await fetchAppointments();
+      await fetchAllLastHistoryEntries();
+    } catch (error) {
+      console.error('Error scheduling appointment:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to schedule appointment');
+    } finally {
+      setActionLoading(false);
+      setAppointmentToSchedule(null);
+    }
+  };
+
+  const handleCancelAppointment = (appointmentId: string) => {
+    // Show confirmation dialog before cancelling
+    setAppointmentToCancel(appointmentId);
+    setShowCancelDialog(true);
+  };
+
+  const handleConfirmCancel = async (reason?: string) => {
+    if (!appointmentToCancel) return;
+
+    try {
+      setActionLoading(true);
+
+      const response = await fetch(`/api/appointments/${appointmentToCancel}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          status: 'cancelled',
+          cancellation_reason: reason || 'Cancelled by healthcare admin',
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to cancel appointment');
+      }
+
+      // Close UI
+      setShowCancelDialog(false);
+      setIsDrawerOpen(false);
+      setSelectedAppointment(null);
+      toast.success('Appointment cancelled successfully');
+
+      // Refetch appointments and history to get latest data
+      await fetchAppointments();
+      await fetchAllLastHistoryEntries();
+    } catch (error) {
+      console.error('Error cancelling appointment:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to cancel appointment');
+    } finally {
+      setActionLoading(false);
+      setAppointmentToCancel(null);
+    }
+  };
+
   const handleConfirmCheckIn = async () => {
     if (!appointmentToCheckIn) return;
 
@@ -878,6 +978,24 @@ export default function HealthcareAdminAppointmentsPage() {
       ),
     },
     {
+      header: 'Lab Location',
+      accessor: 'lab_location',
+      sortable: true,
+      render: (value: string) => {
+        if (!value) return <span className="text-gray-400 text-xs italic">N/A</span>;
+        const isInsideCHO = value === 'inside_cho';
+        return (
+          <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium ${
+            isInsideCHO
+              ? 'bg-blue-100 text-blue-800'
+              : 'bg-amber-100 text-amber-800'
+          }`}>
+            {isInsideCHO ? 'Inside CHO' : 'Outside CHO'}
+          </span>
+        );
+      },
+    },
+    {
       header: 'Status',
       accessor: 'status',
       sortable: true,
@@ -921,102 +1039,14 @@ export default function HealthcareAdminAppointmentsPage() {
       header: 'Actions',
       accessor: 'actions',
       render: (_: any, row: AdminAppointment) => {
-        const canComplete = row.status === 'in_progress';
-        const canStart = row.status === 'checked_in';
-        const canCheckIn = row.status === 'scheduled';
-
-        // Check if there's another appointment in progress for the SAME service on the SAME date
-        const isDisabledDueToInProgress = dateFilteredAppointments.some(apt =>
-          apt.id !== row.id &&
-          apt.service_id === row.service_id &&
-          apt.appointment_date === row.appointment_date &&
-          apt.status === 'in_progress'
-        );
-
-        // Check if there's a lower queue number that's checked_in (not next in queue)
-        const lowerQueueCheckedIn = dateFilteredAppointments.find(apt =>
-          apt.id !== row.id &&
-          apt.service_id === row.service_id &&
-          apt.appointment_date === row.appointment_date &&
-          apt.status === 'checked_in' &&
-          apt.appointment_number < row.appointment_number
-        );
-
-        const isNotNextInQueue = !!lowerQueueCheckedIn;
-        const isStartDisabled = isDisabledDueToInProgress || isNotNextInQueue;
-
         return (
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => handleViewDetails(row)}
-              className="inline-flex items-center px-3 py-1.5 bg-[#20C997] text-white text-xs font-medium rounded-md hover:bg-[#1AA179] transition-colors"
-            >
-              <Eye className="w-3 h-3 mr-1.5" />
-              View
-            </button>
-
-            {canCheckIn && (
-              <button
-                onClick={() => handleCheckIn(row.id)}
-                disabled={actionLoading}
-                className="inline-flex items-center px-3 py-1.5 bg-purple-50 text-purple-700 border border-purple-200 text-xs font-medium rounded-md hover:bg-purple-100 transition-colors"
-                title="Check in patient"
-              >
-                <UserCheck className="w-3 h-3 mr-1.5" />
-                Check In
-              </button>
-            )}
-
-            {canStart && (
-              <div className="relative group">
-                <button
-                  onClick={() => handleStartConsultation(row.id)}
-                  disabled={isStartDisabled || actionLoading}
-                  className={`inline-flex items-center px-3 py-1.5 bg-blue-50 text-blue-700 border border-blue-200 text-xs font-medium rounded-md hover:bg-blue-100 transition-colors ${isStartDisabled ? 'opacity-50 cursor-not-allowed' : ''}`}
-                  title={
-                    isDisabledDueToInProgress
-                      ? 'Wait for current consultation to complete'
-                      : isNotNextInQueue
-                      ? `Wait for queue #${lowerQueueCheckedIn?.appointment_number} first`
-                      : 'Start consultation'
-                  }
-                >
-                  <PlayCircle className="w-3 h-3 mr-1.5" />
-                  Start
-                </button>
-                {isStartDisabled && (
-                  <div className="invisible group-hover:visible absolute z-50 min-w-max max-w-xs px-3 py-2 text-xs text-white bg-gray-900 rounded-lg shadow-lg -top-12 right-0 whitespace-normal">
-                    {isDisabledDueToInProgress
-                      ? 'Wait for current consultation to complete before starting'
-                      : isNotNextInQueue
-                      ? `Queue #${lowerQueueCheckedIn?.appointment_number} must be consulted first (sequential order)`
-                      : 'Start consultation'}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {canComplete && (
-              <button
-                onClick={() => handleCompleteAppointment(row)}
-                className="inline-flex items-center px-3 py-1.5 bg-green-600 text-white text-xs font-medium rounded-md hover:bg-green-700 transition-colors"
-              >
-                <CheckCircle className="w-3 h-3 mr-1.5" />
-                Complete
-              </button>
-            )}
-
-            {row.status === 'completed' && row.has_medical_record && (
-              <button
-                onClick={() => router.push(`/healthcare-admin/medical-records?appointment_id=${row.id}`)}
-                className="inline-flex items-center px-3 py-1.5 bg-purple-50 text-purple-700 border border-purple-200 text-xs font-medium rounded-md hover:bg-purple-100 transition-colors"
-                title="View associated medical record"
-              >
-                <FileText className="w-3 h-3 mr-1.5" />
-                Medical Record
-              </button>
-            )}
-          </div>
+          <button
+            onClick={() => handleViewDetails(row)}
+            className="inline-flex items-center px-3 py-1.5 bg-[#20C997] text-white text-xs font-medium rounded-md hover:bg-[#1AA179] transition-colors"
+          >
+            <Eye className="w-3 h-3 mr-1.5" />
+            View
+          </button>
         );
       },
     },
@@ -1581,6 +1611,41 @@ export default function HealthcareAdminAppointmentsPage() {
                   ) : null;
                 })()}
 
+                {/* Document Review Section - For all appointments (shows verification for pending, view-only for others) */}
+                <div>
+                  <h4 className="text-sm font-medium text-gray-700 mb-2 flex items-center">
+                    <FileText className="w-4 h-4 mr-2" />
+                    {selectedAppointment.status === 'pending' ? 'Document Verification' : 'Uploaded Documents'}
+                  </h4>
+                  <div className="bg-white rounded-md border border-gray-200 p-4">
+                    <DocumentReviewPanel
+                      appointmentId={selectedAppointment.id}
+                      onVerificationComplete={fetchAppointments}
+                    />
+                  </div>
+                </div>
+
+                {/* Lab Location */}
+                {selectedAppointment.lab_location && (
+                  <div>
+                    <h4 className="text-sm font-medium text-gray-700 mb-2 flex items-center">
+                      <MapPin className="w-4 h-4 mr-2" />
+                      Lab Location
+                    </h4>
+                    <div className="bg-gray-50 rounded-md p-3">
+                      <span className={`inline-flex items-center px-2.5 py-1 rounded text-sm font-medium ${
+                        selectedAppointment.lab_location === 'inside_cho'
+                          ? 'bg-blue-100 text-blue-800'
+                          : 'bg-amber-100 text-amber-800'
+                      }`}>
+                        {selectedAppointment.lab_location === 'inside_cho'
+                          ? 'Inside CHO Laboratory'
+                          : 'Outside CHO Laboratory'}
+                      </span>
+                    </div>
+                  </div>
+                )}
+
                 {/* Reason for Visit */}
                 {selectedAppointment.reason && (
                   <div>
@@ -1643,6 +1708,28 @@ export default function HealthcareAdminAppointmentsPage() {
 
               {/* Action Buttons */}
               <div className="mt-6 pt-6 border-t border-gray-200 flex flex-col gap-3">
+                {/* Schedule Button */}
+                {selectedAppointment.status === 'pending' && (
+                  <>
+                    <button
+                      onClick={() => handleSchedule(selectedAppointment.id)}
+                      disabled={actionLoading}
+                      className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 font-medium text-sm shadow-sm transition-colors disabled:opacity-50"
+                    >
+                      <Calendar className="w-5 h-5" />
+                      Schedule Appointment
+                    </button>
+                    <button
+                      onClick={() => handleCancelAppointment(selectedAppointment.id)}
+                      disabled={actionLoading}
+                      className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-red-50 text-red-700 border border-red-200 rounded-md hover:bg-red-100 font-medium text-sm transition-colors disabled:opacity-50"
+                    >
+                      <XCircle className="w-4 h-4" />
+                      Cancel Appointment
+                    </button>
+                  </>
+                )}
+
                 {/* Check In Button */}
                 {selectedAppointment.status === 'scheduled' && (
                   <button
@@ -1727,6 +1814,41 @@ export default function HealthcareAdminAppointmentsPage() {
           appointmentId={selectedHistoryAppointmentId || ''}
           isOpen={showHistoryModal}
           onClose={() => setShowHistoryModal(false)}
+        />
+
+        {/* Schedule Appointment Confirmation Dialog */}
+        <ConfirmDialog
+          isOpen={showScheduleDialog}
+          onClose={() => {
+            setShowScheduleDialog(false);
+            setAppointmentToSchedule(null);
+          }}
+          onConfirm={handleConfirmSchedule}
+          title="Schedule Appointment"
+          message="Schedule this pending appointment? This will change the status to 'scheduled' and the patient can check in on the appointment date."
+          confirmText="Schedule Appointment"
+          cancelText="Cancel"
+          variant="info"
+          isLoading={actionLoading}
+        />
+
+        {/* Cancel Appointment Confirmation Dialog */}
+        <ConfirmDialog
+          isOpen={showCancelDialog}
+          onClose={() => {
+            setShowCancelDialog(false);
+            setAppointmentToCancel(null);
+          }}
+          onConfirm={handleConfirmCancel}
+          title="Cancel Appointment"
+          message="Are you sure you want to cancel this pending appointment? This action will notify the patient and free up the appointment slot."
+          confirmText="Cancel Appointment"
+          cancelText="Keep Appointment"
+          variant="danger"
+          showReasonInput={true}
+          reasonLabel="Reason for cancellation (optional)"
+          reasonPlaceholder="E.g., Patient requested cancellation, Documents not verified, Service unavailable"
+          isLoading={actionLoading}
         />
 
         {/* Check In Confirmation Dialog */}
