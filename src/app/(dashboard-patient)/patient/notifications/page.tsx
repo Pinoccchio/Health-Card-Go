@@ -4,8 +4,7 @@ import { useState, useMemo, useEffect } from 'react';
 import { useTranslations } from 'next-intl';
 import { DashboardLayout } from '@/components/dashboard';
 import { Container, Button } from '@/components/ui';
-import { ProfessionalCard } from '@/components/ui/ProfessionalCard';
-import { CheckCheck, Bell, CheckCircle, XCircle, MessageSquare, Calendar, Info } from 'lucide-react';
+import { CheckCheck, Bell, XCircle, MessageSquare, Calendar, Info } from 'lucide-react';
 import { useNotifications, Notification } from '@/hooks/useNotifications';
 import { useNotificationContext } from '@/lib/contexts/NotificationContext';
 import NotificationList from '@/components/notifications/NotificationList';
@@ -75,69 +74,6 @@ export default function PatientNotificationsPage() {
 
         {!loading && (
           <>
-            {/* Statistics Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
-              <ProfessionalCard variant="flat" className="bg-gradient-to-br from-teal-50 to-teal-100 border-l-4 border-teal-500">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-gray-600 mb-1">{t('statistics.total')}</p>
-                    <p className="text-3xl font-bold text-gray-900">{statistics.total}</p>
-                  </div>
-                  <div className="w-12 h-12 bg-teal-500 rounded-xl flex items-center justify-center shadow-lg">
-                    <Bell className="w-6 h-6 text-white" />
-                  </div>
-                </div>
-              </ProfessionalCard>
-
-              <ProfessionalCard variant="flat" className="bg-gradient-to-br from-orange-50 to-orange-100 border-l-4 border-orange-500">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-gray-600 mb-1">{t('statistics.unread')}</p>
-                    <p className="text-3xl font-bold text-gray-900">{statistics.unread}</p>
-                  </div>
-                  <div className="w-12 h-12 bg-orange-500 rounded-xl flex items-center justify-center shadow-lg">
-                    <Bell className="w-6 h-6 text-white" />
-                  </div>
-                </div>
-              </ProfessionalCard>
-
-              <ProfessionalCard variant="flat" className="bg-gradient-to-br from-blue-50 to-blue-100 border-l-4 border-blue-500">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-gray-600 mb-1">{t('statistics.reminders')}</p>
-                    <p className="text-3xl font-bold text-gray-900">{statistics.reminders}</p>
-                  </div>
-                  <div className="w-12 h-12 bg-blue-500 rounded-xl flex items-center justify-center shadow-lg">
-                    <Calendar className="w-6 h-6 text-white" />
-                  </div>
-                </div>
-              </ProfessionalCard>
-
-              <ProfessionalCard variant="flat" className="bg-gradient-to-br from-red-50 to-red-100 border-l-4 border-red-500">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-gray-600 mb-1">{t('statistics.cancellations')}</p>
-                    <p className="text-3xl font-bold text-gray-900">{statistics.cancellations}</p>
-                  </div>
-                  <div className="w-12 h-12 bg-red-500 rounded-xl flex items-center justify-center shadow-lg">
-                    <XCircle className="w-6 h-6 text-white" />
-                  </div>
-                </div>
-              </ProfessionalCard>
-
-              <ProfessionalCard variant="flat" className="bg-gradient-to-br from-purple-50 to-purple-100 border-l-4 border-purple-500">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-gray-600 mb-1">{t('statistics.feedback')}</p>
-                    <p className="text-3xl font-bold text-gray-900">{statistics.feedbacks}</p>
-                  </div>
-                  <div className="w-12 h-12 bg-purple-500 rounded-xl flex items-center justify-center shadow-lg">
-                    <MessageSquare className="w-6 h-6 text-white" />
-                  </div>
-                </div>
-              </ProfessionalCard>
-            </div>
-
             {/* Quick Filters */}
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
               {[

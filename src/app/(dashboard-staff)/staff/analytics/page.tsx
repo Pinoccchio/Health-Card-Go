@@ -7,7 +7,6 @@ import { ProfessionalCard } from '@/components/ui/ProfessionalCard';
 import DiseaseHeatmap from '@/components/disease-surveillance/DiseaseHeatmap';
 import SARIMAChart from '@/components/disease-surveillance/SARIMAChart';
 import OutbreakAlerts from '@/components/disease-surveillance/OutbreakAlerts';
-import { DiseaseChartsSection } from '@/components/staff/DiseaseChartsSection';
 import { HistoricalChartsSection } from '@/components/staff/HistoricalChartsSection';
 import { interpretMAPE, getMAPEColor } from '@/lib/utils/sarimaMetrics';
 import {
@@ -27,16 +26,10 @@ import {
 } from 'lucide-react';
 
 type DiseaseType = 'all' | 'dengue' | 'hiv_aids' | 'pregnancy_complications' | 'malaria' | 'measles' | 'rabies' | 'other';
-type TabType = 'individual-cases' | 'historical-statistics' | 'predictions';
+type TabType = 'historical-statistics' | 'predictions';
 type TimeRange = 6 | 12 | 24 | 'all';
 
 interface SummaryStats {
-  individualCases: {
-    total: number;
-    thisMonth: number;
-    active: number;
-    recovered: number;
-  };
   historicalStats: {
     totalRecords: number;
     totalCases: number;
@@ -50,24 +43,20 @@ export default function StaffAnalyticsPage() {
   // FIX: Tab-specific disease filters to prevent cross-tab filter sharing
   const [diseaseFilterByTab, setDiseaseFilterByTab] = useState<Record<TabType, DiseaseType>>({
     'predictions': 'all',
-    'individual-cases': 'all',
     'historical-statistics': 'all'
   });
   // Tab-specific barangay filters (null = all barangays)
   const [barangayFilterByTab, setBarangayFilterByTab] = useState<Record<TabType, number | null>>({
     'predictions': null,
-    'individual-cases': null,
     'historical-statistics': null
   });
   const [timeRange, setTimeRange] = useState<TimeRange>(24);
 
   // Data states
   const [heatmapData, setHeatmapData] = useState<any>(null);
-  const [diseases, setDiseases] = useState<any[]>([]);
   const [historicalData, setHistoricalData] = useState<any[]>([]);
   const [barangays, setBarangays] = useState<any[]>([]);
   const [stats, setStats] = useState<SummaryStats>({
-    individualCases: { total: 0, thisMonth: 0, active: 0, recovered: 0 },
     historicalStats: { totalRecords: 0, totalCases: 0, dateRange: '-' },
   });
 
@@ -97,7 +86,7 @@ export default function StaffAnalyticsPage() {
 
     if (activeTab === 'predictions') {
       loadHeatmapData();
-    } else if (activeTab === 'individual-cases' || activeTab === 'historical-statistics') {
+    } else if (activeTab === 'historical-statistics') {
       loadChartsData();
     }
   }, [activeTab]);
@@ -106,7 +95,7 @@ export default function StaffAnalyticsPage() {
   useEffect(() => {
     if (activeTab === 'predictions') {
       loadHeatmapData();
-    } else if (activeTab === 'individual-cases' || activeTab === 'historical-statistics') {
+    } else if (activeTab === 'historical-statistics') {
       loadChartsData();
     }
   }, [diseaseFilterByTab[activeTab], barangayFilterByTab[activeTab], timeRange]); // NEW: Watch barangay filter changes
@@ -145,40 +134,6 @@ export default function StaffAnalyticsPage() {
     setError(null);
 
     try {
-      // FIX: Build disease filter parameters for Individual Cases API
-      const diseaseParams = new URLSearchParams();
-      if (selectedDisease !== 'all') {
-        diseaseParams.append('type', selectedDisease); // Note: /api/diseases uses 'type' parameter
-      }
-      if (selectedBarangay !== null) {
-        diseaseParams.append('barangay_id', selectedBarangay.toString()); // NEW: Add barangay filter
-      }
-
-      // Fetch individual cases WITH disease filter
-      const diseasesRes = await fetch(`/api/diseases?${diseaseParams.toString()}`);
-      const diseasesData = await diseasesRes.json();
-      const allDiseases = diseasesData.data || [];
-
-      // Apply time range filter
-      const filteredDiseases = filterByTimeRange(allDiseases);
-      setDiseases(filteredDiseases);
-
-      // Calculate individual cases stats
-      const now = new Date();
-      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-      const thisMonthCases = filteredDiseases.filter((d: any) => {
-        const diagnosisDate = new Date(d.diagnosis_date);
-        return diagnosisDate >= startOfMonth;
-      }).length;
-
-      const activeCases = filteredDiseases.filter((d: any) =>
-        d.status === 'active' || d.status === 'ongoing_treatment'
-      ).length;
-
-      const recoveredCases = filteredDiseases.filter((d: any) =>
-        d.status === 'recovered'
-      ).length;
-
       // FIX: Build disease filter parameters for Historical Statistics API
       const historicalParams = new URLSearchParams();
       if (selectedDisease !== 'all') {
@@ -204,12 +159,6 @@ export default function StaffAnalyticsPage() {
       }, 0);
 
       setStats({
-        individualCases: {
-          total: filteredDiseases.length,
-          thisMonth: thisMonthCases,
-          active: activeCases,
-          recovered: recoveredCases,
-        },
         historicalStats: {
           totalRecords: filteredHistorical.length,
           totalCases: totalHistoricalCases,
@@ -365,22 +314,6 @@ export default function StaffAnalyticsPage() {
               </div>
             </button>
             <button
-              onClick={() => setActiveTab('individual-cases')}
-              className={`
-                whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors
-                ${
-                  activeTab === 'individual-cases'
-                    ? 'border-primary-teal text-primary-teal'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                }
-              `}
-            >
-              <div className="flex items-center gap-2">
-                <Activity className="w-4 h-4" />
-                Individual Cases
-              </div>
-            </button>
-            <button
               onClick={() => setActiveTab('historical-statistics')}
               className={`
                 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors
@@ -398,150 +331,6 @@ export default function StaffAnalyticsPage() {
             </button>
           </nav>
         </div>
-
-        {/* FIX: Removed global disease filter - now each tab has its own filter */}
-
-        {/* TAB CONTENT: Individual Cases */}
-        {activeTab === 'individual-cases' && (
-          <>
-            {/* Disease Type, Time Range & Barangay Filters */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
-              {/* Disease Type Selector */}
-              <div className="bg-white rounded-lg shadow p-4">
-                <div className="flex items-center gap-2 mb-3">
-                  <BarChart3 className="w-5 h-5 text-primary-teal" />
-                  <h3 className="text-sm font-medium text-gray-700">Disease Type</h3>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {diseaseOptions.map((disease) => (
-                    <button
-                      key={disease.id}
-                      onClick={() => {
-                        setDiseaseFilterByTab(prev => ({
-                          ...prev,
-                          'individual-cases': disease.id as DiseaseType
-                        }));
-                      }}
-                      className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
-                        diseaseFilterByTab['individual-cases'] === disease.id
-                          ? 'bg-primary-teal text-white shadow-md'
-                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                      }`}
-                    >
-                      {disease.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Time Range Selector */}
-              <div className="bg-white rounded-lg shadow p-4">
-                <div className="flex items-center gap-2 mb-3">
-                  <Calendar className="w-5 h-5 text-primary-teal" />
-                  <h3 className="text-sm font-medium text-gray-700">Time Range</h3>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {[
-                    { value: 6, label: '6 Months' },
-                    { value: 12, label: '12 Months' },
-                    { value: 24, label: '24 Months' },
-                    { value: 'all', label: 'All Time' },
-                  ].map((option) => (
-                    <button
-                      key={option.value}
-                      onClick={() => setTimeRange(option.value as TimeRange)}
-                      className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
-                        timeRange === option.value
-                          ? 'bg-primary-teal text-white shadow-md'
-                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                      }`}
-                    >
-                      {option.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Barangay Selector */}
-              <div className="bg-white rounded-lg shadow p-4">
-                <div className="flex items-center gap-2 mb-3">
-                  <MapPin className="w-5 h-5 text-primary-teal" />
-                  <h3 className="text-sm font-medium text-gray-700">Barangay</h3>
-                </div>
-                <select
-                  value={barangayFilterByTab['individual-cases'] || ''}
-                  onChange={(e) => {
-                    setBarangayFilterByTab(prev => ({
-                      ...prev,
-                      'individual-cases': e.target.value ? Number(e.target.value) : null
-                    }));
-                  }}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-teal focus:border-transparent"
-                >
-                  <option value="">All Barangays</option>
-                  {barangays.map((barangay: any) => (
-                    <option key={barangay.id} value={barangay.id}>
-                      {barangay.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-          </>
-        )}
-
-        {/* Statistics Cards - Individual Cases Tab */}
-        {activeTab === 'individual-cases' && !chartsLoading && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-            <ProfessionalCard variant="flat" className="bg-gradient-to-br from-blue-50 to-blue-100 border-l-4 border-blue-500">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-600 mb-1">Total Cases</p>
-                  <p className="text-3xl font-bold text-gray-900">{stats.individualCases.total}</p>
-                </div>
-                <div className="w-12 h-12 bg-blue-500 rounded-xl flex items-center justify-center shadow-lg">
-                  <Activity className="w-6 h-6 text-white" />
-                </div>
-              </div>
-            </ProfessionalCard>
-
-            <ProfessionalCard variant="flat" className="bg-gradient-to-br from-purple-50 to-purple-100 border-l-4 border-purple-500">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-600 mb-1">This Month</p>
-                  <p className="text-3xl font-bold text-gray-900">{stats.individualCases.thisMonth}</p>
-                </div>
-                <div className="w-12 h-12 bg-purple-500 rounded-xl flex items-center justify-center shadow-lg">
-                  <Calendar className="w-6 h-6 text-white" />
-                </div>
-              </div>
-            </ProfessionalCard>
-
-            <ProfessionalCard variant="flat" className="bg-gradient-to-br from-orange-50 to-orange-100 border-l-4 border-orange-500">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-600 mb-1">Active Cases</p>
-                  <p className="text-3xl font-bold text-gray-900">{stats.individualCases.active}</p>
-                </div>
-                <div className="w-12 h-12 bg-orange-500 rounded-xl flex items-center justify-center shadow-lg">
-                  <AlertTriangle className="w-6 h-6 text-white" />
-                </div>
-              </div>
-            </ProfessionalCard>
-
-            <ProfessionalCard variant="flat" className="bg-gradient-to-br from-green-50 to-green-100 border-l-4 border-green-500">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-600 mb-1">Recovered</p>
-                  <p className="text-3xl font-bold text-gray-900">{stats.individualCases.recovered}</p>
-                </div>
-                <div className="w-12 h-12 bg-green-500 rounded-xl flex items-center justify-center shadow-lg">
-                  <TrendingUp className="w-6 h-6 text-white" />
-                </div>
-              </div>
-            </ProfessionalCard>
-          </div>
-        )}
 
         {/* Statistics Cards - Historical Statistics Tab */}
         {activeTab === 'historical-statistics' && !chartsLoading && (
@@ -643,25 +432,6 @@ export default function StaffAnalyticsPage() {
                 </div>
               </div>
             </ProfessionalCard>
-          </div>
-        )}
-
-        {/* TAB CONTENT: Individual Cases */}
-        {activeTab === 'individual-cases' && (
-          <div>
-            {chartsLoading ? (
-              <div className="py-12 text-center bg-white rounded-lg shadow">
-                <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary-teal"></div>
-                <p className="mt-2 text-sm text-gray-500">Loading charts...</p>
-              </div>
-            ) : (
-              <DiseaseChartsSection
-                individualCases={diseases}
-                barangays={barangays}
-                isLoading={chartsLoading}
-                timeRangeMonths={timeRange}
-              />
-            )}
           </div>
         )}
 
