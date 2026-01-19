@@ -161,7 +161,7 @@ export async function POST(request: NextRequest) {
 
     // Parse request body
     const body = await request.json();
-    const { name, category, description, duration_minutes, requires_appointment, requires_medical_record, is_active, requirements } = body;
+    const { name, category, description, duration_minutes, requires_appointment, is_active, requirements } = body;
 
     // Validation
     if (!name || name.trim() === '') {
@@ -219,7 +219,6 @@ export async function POST(request: NextRequest) {
         description: description?.trim() || '',
         duration_minutes: parseInt(duration_minutes),
         requires_appointment: requires_appointment !== false, // Default true
-        requires_medical_record: requires_medical_record !== false, // Default true
         is_active: is_active !== false, // Default true
         requirements: requirementsArray, // JSONB array
       })

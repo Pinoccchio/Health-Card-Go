@@ -7,7 +7,6 @@ import {
   MapPin,
   MessageSquare,
   Megaphone,
-  Heart,
   ClipboardList,
   Bell,
   UserCircle,
@@ -103,11 +102,6 @@ export const HEALTHCARE_ADMIN_MENU_ITEMS: MenuItem[] = [
     icon: Users,
   },
   {
-    label: 'Medical Records',
-    href: '/healthcare-admin/medical-records',
-    icon: Heart,
-  },
-  {
     label: 'Disease Map',
     href: '/healthcare-admin/disease-map',
     icon: Map,
@@ -143,11 +137,6 @@ export const PATIENT_MENU_ITEMS: MenuItem[] = [
     label: 'My Appointments',
     href: '/patient/appointments',
     icon: ClipboardList,
-  },
-  {
-    label: 'Medical Records',
-    href: '/patient/medical-records',
-    icon: FileText,
   },
   {
     label: 'Feedback',
@@ -287,15 +276,6 @@ export async function getHealthcareAdminMenuItems(
       href: '/healthcare-admin/patients',
       icon: Users,
     });
-
-    // Conditionally add Medical Records
-    if (service.requires_medical_record) {
-      menuItems.push({
-        label: 'Medical Records',
-        href: '/healthcare-admin/medical-records',
-        icon: Heart,
-      });
-    }
 
     // Only show Disease Map for services with medical records (Pattern 2 & 3)
     // Pattern 1 (health card) and Pattern 4 (education) don't track diseases

@@ -10,10 +10,9 @@ import { logAuditAction, AUDIT_ACTIONS, AUDIT_ENTITIES } from '@/lib/utils/audit
  * Business Rules:
  * - Only Healthcare Admins or Super Admins can complete appointments
  * - Healthcare Admins can only complete appointments for their assigned service
- * - Appointment must be in 'scheduled' or 'checked_in' status
- * - If service requires medical record, must provide medical record data
+ * - Appointment must be in 'in_progress' status
  * - Updates appointment status to 'completed' and sets completion metadata
- * - Creates medical record if required and provided
+ * - Sends feedback request notification to patient
  */
 export async function POST(
   request: NextRequest,
@@ -57,8 +56,7 @@ export async function POST(
         services!inner(
           id,
           name,
-          category,
-          requires_medical_record
+          category
         ),
         patients!inner(
           id,
@@ -97,37 +95,7 @@ export async function POST(
       );
     }
 
-    // Get request body
-    const body = await request.json();
-    const { medical_record } = body;
-
-    // If service requires medical record, validate it's provided
-    if (appointment.services.requires_medical_record && !medical_record) {
-      return NextResponse.json(
-        { error: 'This service requires a medical record. Please provide medical record data.' },
-        { status: 400 }
-      );
-    }
-
-    // Validate medical record data if provided
-    if (medical_record) {
-      if (!medical_record.category) {
-        return NextResponse.json(
-          { error: 'Medical record category is required' },
-          { status: 400 }
-        );
-      }
-
-      const validCategories = ['general', 'healthcard', 'hiv', 'pregnancy', 'immunization'];
-      if (!validCategories.includes(medical_record.category)) {
-        return NextResponse.json(
-          { error: `Invalid category. Must be one of: ${validCategories.join(', ')}` },
-          { status: 400 }
-        );
-      }
-    }
-
-    // Step 1: Update appointment status to completed
+    // Update appointment status to completed
     const now = new Date().toISOString();
     const { data: updatedAppointment, error: updateError } = await adminClient
       .from('appointments')
@@ -149,83 +117,7 @@ export async function POST(
       );
     }
 
-    // Step 2: Create medical record if provided
-    let createdMedicalRecord = null;
-    if (medical_record) {
-      // Map category to template_type
-      const templateTypeMap: Record<string, string> = {
-        general: 'general_checkup',
-        healthcard: 'general_checkup',
-        hiv: 'hiv',
-        pregnancy: 'prenatal',
-        immunization: 'immunization'
-      };
-
-      const template_type = templateTypeMap[medical_record.category] || 'general_checkup';
-
-      // Prepare record_data with metadata
-      const record_data = medical_record.record_data && Object.keys(medical_record.record_data).length > 0
-        ? {
-            ...medical_record.record_data,
-            created_via: 'appointment_completion',
-            created_at: new Date().toISOString(),
-          }
-        : {
-            // Fallback for backward compatibility (if old form data is sent)
-            diagnosis: medical_record.diagnosis || '',
-            prescription: medical_record.prescription || '',
-            notes: medical_record.notes || '',
-            created_via: 'appointment_completion',
-            created_at: new Date().toISOString(),
-          };
-
-      const { data: medicalRecord, error: medicalRecordError } = await adminClient
-        .from('medical_records')
-        .insert({
-          patient_id: appointment.patient_id,
-          appointment_id: appointmentId,
-          created_by_id: profile.id,
-          category: medical_record.category,
-          template_type: template_type,
-          diagnosis: medical_record.diagnosis || null,
-          prescription: medical_record.prescription || null,
-          notes: medical_record.notes || null,
-          record_data: record_data,
-          is_encrypted: medical_record.category === 'hiv' || medical_record.category === 'pregnancy',
-        })
-        .select()
-        .single();
-
-      if (medicalRecordError) {
-        console.error('Error creating medical record:', medicalRecordError);
-        console.error('Medical record error details:', {
-          code: medicalRecordError.code,
-          message: medicalRecordError.message,
-          details: medicalRecordError.details,
-          hint: medicalRecordError.hint,
-        });
-
-        // If service REQUIRES medical record, this is a critical failure
-        if (appointment.services.requires_medical_record) {
-          return NextResponse.json(
-            {
-              error: 'Failed to create required medical record',
-              details: medicalRecordError.message,
-              appointmentCompleted: true,
-              message: 'Appointment was marked as completed, but medical record creation failed. Please create the medical record separately from the Medical Records page.',
-            },
-            { status: 500 }
-          );
-        }
-
-        // For optional medical records, log warning but continue
-        console.warn('Appointment completed but medical record creation failed (optional)');
-      } else {
-        createdMedicalRecord = medicalRecord;
-      }
-    }
-
-    // Step 3: Send notification to patient (prompt for feedback)
+    // Send notification to patient (prompt for feedback)
     await adminClient.from('notifications').insert({
       user_id: appointment.patients.user_id,
       type: 'feedback_request',
@@ -249,7 +141,6 @@ export async function POST(
         after: {
           status: 'completed',
           completed_at: updatedAppointment.completed_at,
-          medical_record_created: !!createdMedicalRecord,
         },
       },
       request,
@@ -260,7 +151,6 @@ export async function POST(
       message: 'Appointment completed successfully',
       data: {
         appointment: updatedAppointment,
-        medical_record: createdMedicalRecord,
       },
     });
 

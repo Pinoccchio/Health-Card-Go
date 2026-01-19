@@ -54,15 +54,6 @@ export default function ServicePermissionsBox({ service, className = '' }: Servi
                   {service.requires_appointment ? '📅 Appointment-based' : '🚶 Walk-in'}
                 </span>
 
-                {/* Medical Records Badge */}
-                <span className={`inline-flex items-center px-2 py-1 rounded-md text-xs font-semibold ${
-                  service.requires_medical_record
-                    ? 'bg-emerald-200 text-emerald-900'
-                    : 'bg-gray-200 text-gray-700'
-                }`}>
-                  📋 Medical Records: {service.requires_medical_record ? 'Yes' : 'No'}
-                </span>
-
                 {/* Duration Badge */}
                 {service.duration_minutes && (
                   <span className="inline-flex items-center px-2 py-1 rounded-md text-xs font-semibold bg-amber-200 text-amber-900">

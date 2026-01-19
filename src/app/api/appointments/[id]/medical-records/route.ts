@@ -4,11 +4,8 @@ import { createClient, createAdminClient } from '@/lib/supabase/server';
 /**
  * GET /api/appointments/[id]/medical-records
  * Get medical records associated with a specific appointment
- *
- * Accessible by:
- * - Healthcare Admin (if appointment is for their assigned service)
- * - Super Admin (all appointments)
- * - Patient (if they own the appointment)
+ * ACCESS RESTRICTED: Medical records feature has been removed from patient and healthcare admin.
+ * Only Super Admin and Staff retain access for oversight and disease surveillance.
  */
 export async function GET(
   request: NextRequest,
@@ -33,6 +30,14 @@ export async function GET(
 
     if (!profile) {
       return NextResponse.json({ error: 'Profile not found' }, { status: 404 });
+    }
+
+    // Block access for patient and healthcare_admin
+    if (profile.role === 'patient' || profile.role === 'healthcare_admin') {
+      return NextResponse.json(
+        { error: 'Access denied. Medical records feature is no longer available for this role.' },
+        { status: 403 }
+      );
     }
 
     console.log('👤 [PROFILE] User:', user.id, '| Role:', profile.role, '| Appointment ID:', appointmentId);

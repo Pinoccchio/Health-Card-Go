@@ -212,12 +212,12 @@ export const LAB_LOCATIONS: Record<LabLocationType, {
   inside_cho: {
     label: 'Inside CHO Laboratory',
     description: 'Laboratory tests will be conducted at the City Health Office',
-    requiredUploads: [], // No uploads required - patient will have tests done on-site
+    requiredUploads: ['lab_request', 'payment_receipt', 'valid_id'], // Require all 3 documents for verification
   },
   outside_cho: {
     label: 'Outside CHO Laboratory',
     description: 'Laboratory tests conducted at an external facility',
-    requiredUploads: ['lab_request', 'payment_receipt'], // Require lab request and receipt
+    requiredUploads: ['valid_id'], // Require only Valid ID (patient already has lab results)
   },
 };
 

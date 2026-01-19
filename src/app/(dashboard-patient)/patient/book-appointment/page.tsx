@@ -311,12 +311,27 @@ export default function PatientBookAppointmentPage() {
   };
 
   const handleStep2Continue = () => {
+    // Determine required uploads based on lab location
+    const requiredUploadsCount = selectedLabLocation === 'inside_cho' ? 3 : 1;
+
+    // Check if all required files are uploaded
+    if (uploadedDocuments.length < requiredUploadsCount) {
+      if (selectedLabLocation === 'inside_cho') {
+        setError('Please upload all 3 required documents (Lab Request, Payment Receipt, Valid ID) before continuing');
+      } else {
+        setError('Please upload your Valid ID before continuing');
+      }
+      return;
+    }
+
     // Validate checkbox for Outside CHO
     if (selectedLabLocation === 'outside_cho' && !labResultsConfirmed) {
       setError('Please confirm that you have obtained laboratory results from an outside facility');
       return;
     }
-    // After uploads (HealthCard only), go to Step 3 (Choose Date)
+
+    // Clear error and proceed to Step 3 (Choose Date)
+    setError('');
     setStep(3);
   };
 
@@ -1076,7 +1091,11 @@ export default function PatientBookAppointmentPage() {
                     </button>
                     <button
                       onClick={handleStep2Continue}
-                      disabled={creatingDraft || (selectedLabLocation === 'outside_cho' && !labResultsConfirmed)}
+                      disabled={
+                        creatingDraft ||
+                        uploadedDocuments.length < (selectedLabLocation === 'inside_cho' ? 3 : 1) ||
+                        (selectedLabLocation === 'outside_cho' && !labResultsConfirmed)
+                      }
                       className="px-8 py-3 bg-primary-teal text-white font-semibold rounded-md hover:bg-primary-teal/90 transition-colors shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       Continue to Date Selection

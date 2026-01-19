@@ -24,7 +24,6 @@ export interface Service {
   description: string | null;
   duration_minutes: number;
   requires_appointment: boolean;
-  requires_medical_record: boolean;
   is_active: boolean;
   requirements: string[]; // JSONB array of requirement strings
   created_at: string;
@@ -40,7 +39,6 @@ export interface ServiceFormData {
   description: string;
   duration_minutes: number | ''; // Allow empty string during editing to prevent NaN
   requires_appointment: boolean;
-  requires_medical_record: boolean;
   is_active: boolean;
   requirements: string; // Comma-separated string for UI input
 }

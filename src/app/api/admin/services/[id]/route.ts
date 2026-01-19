@@ -139,7 +139,7 @@ export async function PUT(
 
     // Parse request body
     const body = await request.json();
-    const { name, category, description, duration_minutes, requires_appointment, requires_medical_record, is_active, requirements } = body;
+    const { name, category, description, duration_minutes, requires_appointment, is_active, requirements } = body;
 
     // Validation
     if (name !== undefined) {
@@ -195,7 +195,6 @@ export async function PUT(
     if (description !== undefined) updates.description = description?.trim() || '';
     if (duration_minutes !== undefined) updates.duration_minutes = parseInt(duration_minutes);
     if (requires_appointment !== undefined) updates.requires_appointment = requires_appointment;
-    if (requires_medical_record !== undefined) updates.requires_medical_record = requires_medical_record;
     if (is_active !== undefined) updates.is_active = is_active;
     if (requirements !== undefined) {
       // Parse requirements from comma-separated string to array

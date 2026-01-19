@@ -361,9 +361,6 @@ export default function AdminServicesPage() {
                     Appointment
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Medical Record
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Assigned Admins
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -377,7 +374,7 @@ export default function AdminServicesPage() {
               <tbody className="bg-white divide-y divide-gray-200">
                 {filteredServices.length === 0 ? (
                   <tr>
-                    <td colSpan={9} className="px-6 py-12 text-center text-gray-500">
+                    <td colSpan={8} className="px-6 py-12 text-center text-gray-500">
                       {searchTerm || categoryFilter !== 'all' ? 'No services match your filters' : 'No services found'}
                     </td>
                   </tr>
@@ -411,17 +408,6 @@ export default function AdminServicesPage() {
                         ) : (
                           <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
                             Walk-in
-                          </span>
-                        )}
-                      </td>
-                      <td className="px-6 py-4">
-                        {service.requires_medical_record ? (
-                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
-                            Required
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-                            Not Required
                           </span>
                         )}
                       </td>

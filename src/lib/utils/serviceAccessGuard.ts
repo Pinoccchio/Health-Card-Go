@@ -7,7 +7,6 @@ interface ServiceProperties {
   id: number;
   name: string;
   requires_appointment: boolean;
-  requires_medical_record: boolean;
 }
 
 /**
@@ -27,19 +26,6 @@ export async function getServiceProperties(serviceId: number): Promise<ServicePr
     console.error('Error fetching service properties:', error);
     return null;
   }
-}
-
-/**
- * Check if a Healthcare Admin has access to medical records
- * Returns true if service requires medical records, false otherwise
- */
-export async function canAccessMedicalRecords(assignedServiceId: number | null): Promise<boolean> {
-  if (!assignedServiceId) {
-    return false;
-  }
-
-  const service = await getServiceProperties(assignedServiceId);
-  return service?.requires_medical_record ?? false;
 }
 
 /**
@@ -74,14 +60,12 @@ export async function canAccessWalkInQueue(assignedServiceId: number | null): Pr
  */
 export async function getServicePermissions(assignedServiceId: number | null): Promise<{
   canViewAppointments: boolean;
-  canViewMedicalRecords: boolean;
   canViewWalkInQueue: boolean;
   serviceName: string | null;
 }> {
   if (!assignedServiceId) {
     return {
       canViewAppointments: false,
-      canViewMedicalRecords: false,
       canViewWalkInQueue: false,
       serviceName: null,
     };
@@ -92,7 +76,6 @@ export async function getServicePermissions(assignedServiceId: number | null): P
   if (!service) {
     return {
       canViewAppointments: false,
-      canViewMedicalRecords: false,
       canViewWalkInQueue: false,
       serviceName: null,
     };
@@ -100,7 +83,6 @@ export async function getServicePermissions(assignedServiceId: number | null): P
 
   return {
     canViewAppointments: service.requires_appointment,
-    canViewMedicalRecords: service.requires_medical_record,
     canViewWalkInQueue: !service.requires_appointment,
     serviceName: service.name,
   };

@@ -21,7 +21,6 @@ import { useTranslations } from 'next-intl';
 
 interface DashboardStats {
   upcomingCount: number;
-  medicalRecordsCount: number;
   completedVisits: number;
   unreadNotifications: number;
 }
@@ -42,7 +41,6 @@ export default function PatientDashboard() {
   const t = useTranslations('dashboard');
   const [stats, setStats] = useState<DashboardStats>({
     upcomingCount: 0,
-    medicalRecordsCount: 0,
     completedVisits: 0,
     unreadNotifications: 0,
   });
@@ -79,18 +77,6 @@ export default function PatientDashboard() {
 
       setUpcomingAppointment(nextAppointment);
 
-      // Fetch medical records count
-      let medicalRecordsCount = 0;
-      try {
-        const medicalRecordsRes = await fetch('/api/medical-records');
-        if (medicalRecordsRes.ok) {
-          const medicalRecordsData = await medicalRecordsRes.json();
-          medicalRecordsCount = medicalRecordsData.records?.length || 0;
-        }
-      } catch (err) {
-        console.error('Error fetching medical records:', err);
-      }
-
       // Fetch unread notifications count
       let unreadNotifications = 0;
       try {
@@ -105,7 +91,6 @@ export default function PatientDashboard() {
 
       setStats({
         upcomingCount: upcoming.length,
-        medicalRecordsCount,
         completedVisits: completed.length,
         unreadNotifications,
       });
@@ -218,7 +203,7 @@ export default function PatientDashboard() {
         )}
 
         {/* Quick Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
           <div className="bg-white rounded-lg shadow p-6 hover:shadow-lg transition-shadow">
             <div className="flex flex-col">
               <div className="flex items-center justify-between mb-2">
@@ -233,25 +218,6 @@ export default function PatientDashboard() {
                 <>
                   <p className="text-2xl font-bold text-gray-900">{stats.upcomingCount}</p>
                   <p className="text-xs text-gray-500 mt-1">{t('stats.appointments')}</p>
-                </>
-              )}
-            </div>
-          </div>
-
-          <div className="bg-white rounded-lg shadow p-6 hover:shadow-lg transition-shadow">
-            <div className="flex flex-col">
-              <div className="flex items-center justify-between mb-2">
-                <p className="text-sm font-medium text-gray-600">
-                  {t('stats.medical_records')}
-                </p>
-                <FileText className="w-8 h-8 text-cta-orange" />
-              </div>
-              {loading ? (
-                <div className="h-8 bg-gray-200 rounded animate-pulse"></div>
-              ) : (
-                <>
-                  <p className="text-2xl font-bold text-gray-900">{stats.medicalRecordsCount}</p>
-                  <p className="text-xs text-gray-500 mt-1">{t('stats.total_records')}</p>
                 </>
               )}
             </div>
@@ -312,14 +278,6 @@ export default function PatientDashboard() {
               <Calendar className="w-6 h-6 mb-2 text-primary-teal" />
               <p className="font-semibold text-gray-900">{t('quick_actions.book_appointment.title')}</p>
               <p className="text-sm text-gray-600 mt-1">{t('quick_actions.book_appointment.description')}</p>
-            </Link>
-            <Link
-              href="/patient/medical-records"
-              className="bg-white hover:bg-primary-teal/10 transition-colors rounded-lg p-4 text-left shadow hover:shadow-md block"
-            >
-              <FileText className="w-6 h-6 mb-2 text-primary-teal" />
-              <p className="font-semibold text-gray-900">{t('quick_actions.medical_records.title')}</p>
-              <p className="text-sm text-gray-600 mt-1">{t('quick_actions.medical_records.description')}</p>
             </Link>
           </div>
         </div>

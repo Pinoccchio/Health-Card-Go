@@ -34,7 +34,6 @@ export function ServiceForm({
     description: initialData?.description || '',
     duration_minutes: initialData?.duration_minutes || 30,
     requires_appointment: initialData?.requires_appointment !== false,
-    requires_medical_record: initialData?.requires_medical_record !== false,
     is_active: initialData?.is_active !== false,
     requirements: initialData?.requirements || '',
   });
@@ -50,7 +49,6 @@ export function ServiceForm({
         description: initialData.description || '',
         duration_minutes: initialData.duration_minutes || 30,
         requires_appointment: initialData.requires_appointment !== false,
-        requires_medical_record: initialData.requires_medical_record !== false,
         is_active: initialData.is_active !== false,
         requirements: initialData.requirements || '',
       });
@@ -266,28 +264,6 @@ export function ServiceForm({
           </label>
           <p className="text-xs text-gray-500">
             Uncheck for walk-in services that don't need appointments
-          </p>
-        </div>
-      </div>
-
-      {/* Requires Medical Record */}
-      <div className="flex items-start">
-        <div className="flex items-center h-5">
-          <input
-            id="requires_medical_record"
-            type="checkbox"
-            checked={formData.requires_medical_record}
-            onChange={(e) => handleChange('requires_medical_record', e.target.checked)}
-            className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-            disabled={isSubmitting}
-          />
-        </div>
-        <div className="ml-3">
-          <label htmlFor="requires_medical_record" className="text-sm font-medium text-gray-700">
-            Requires Medical Record
-          </label>
-          <p className="text-xs text-gray-500">
-            Uncheck for services that don't need medical documentation (e.g., simple procedures, health card issuance)
           </p>
         </div>
       </div>

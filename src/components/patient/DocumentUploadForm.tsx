@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Upload, X, FileText, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui';
 import {
@@ -60,6 +60,28 @@ export function DocumentUploadForm({
   });
 
   const fileInputRefs = useRef<Record<UploadFileType, HTMLInputElement | null>>({} as any);
+  const hasNotifiedComplete = useRef(false);
+
+  // Monitor uploads state and trigger callback when all required files are uploaded
+  useEffect(() => {
+    // Check if all required uploads are complete
+    const allComplete = requiredUploads.every((type) => uploads[type]?.uploaded);
+
+    if (allComplete && !hasNotifiedComplete.current) {
+      const uploadData = requiredUploads
+        .map((type) => uploads[type].uploadData)
+        .filter((data): data is AppointmentUpload => data !== null);
+
+      // Only call callback if we have valid data for all required uploads
+      if (uploadData.length === requiredUploads.length) {
+        hasNotifiedComplete.current = true;
+        onUploadsComplete(uploadData);
+      }
+    } else if (!allComplete) {
+      // Reset flag if user removes a file
+      hasNotifiedComplete.current = false;
+    }
+  }, [uploads, requiredUploads]);
 
   // Handle file selection
   const handleFileSelect = (fileType: UploadFileType, file: File) => {
@@ -143,9 +165,6 @@ export function DocumentUploadForm({
           error: null,
         },
       }));
-
-      // Check if all required uploads are complete
-      checkAllUploadsComplete();
     } catch (error: any) {
       console.error(`❌ [UPLOAD] Failed to upload ${fileType}:`, error);
       setUploads((prev) => ({
@@ -158,18 +177,6 @@ export function DocumentUploadForm({
       }));
     }
   };
-
-  // Check if all uploads are complete
-  const checkAllUploadsComplete = () => {
-    const allComplete = requiredUploads.every((type) => uploads[type]?.uploaded);
-    if (allComplete) {
-      const uploadData = requiredUploads
-        .map((type) => uploads[type].uploadData)
-        .filter((data): data is AppointmentUpload => data !== null);
-      onUploadsComplete(uploadData);
-    }
-  };
-
   // Handle file removal
   const handleRemove = (fileType: UploadFileType) => {
     setUploads((prev) => ({

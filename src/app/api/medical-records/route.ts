@@ -8,10 +8,8 @@ import { logAuditAction, AUDIT_ACTIONS, AUDIT_ENTITIES } from '@/lib/utils/audit
 /**
  * GET /api/medical-records
  * List medical records with filtering
- * Accessible by:
- * - Healthcare Admin (records for their assigned service category)
- * - Patient (own records only)
- * - Super Admin (all records)
+ * ACCESS RESTRICTED: Medical records feature has been removed from patient and healthcare admin.
+ * Only Super Admin and Staff retain access for oversight and disease surveillance.
  */
 export async function GET(request: NextRequest) {
   try {
@@ -35,6 +33,14 @@ export async function GET(request: NextRequest) {
 
     if (!profile) {
       return NextResponse.json({ error: 'Profile not found' }, { status: 404 });
+    }
+
+    // Block access for patient and healthcare_admin
+    if (profile.role === 'patient' || profile.role === 'healthcare_admin') {
+      return NextResponse.json(
+        { error: 'Access denied. Medical records feature is no longer available for this role.' },
+        { status: 403 }
+      );
     }
 
     // Parse filters
@@ -265,10 +271,18 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Profile not found' }, { status: 404 });
     }
 
-    // Only Healthcare Admins and Super Admins can create medical records
-    if (!['healthcare_admin', 'super_admin'].includes(profile.role)) {
+    // Block access for patient and healthcare_admin
+    if (profile.role === 'patient' || profile.role === 'healthcare_admin') {
       return NextResponse.json(
-        { error: 'Only Healthcare Admins and Super Admins can create medical records' },
+        { error: 'Access denied. Medical records feature is no longer available for this role.' },
+        { status: 403 }
+      );
+    }
+
+    // Only Super Admins and Staff can create medical records (for oversight and disease surveillance)
+    if (!['super_admin', 'staff'].includes(profile.role)) {
+      return NextResponse.json(
+        { error: 'Only Super Admins and Staff can create medical records' },
         { status: 403 }
       );
     }
