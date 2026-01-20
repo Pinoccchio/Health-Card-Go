@@ -1028,6 +1028,22 @@ export default function HealthcareAdminAppointmentsPage() {
       },
     },
     {
+      header: 'Health Card Type',
+      accessor: 'card_type',
+      sortable: true,
+      render: (value: HealthCardType | undefined) => {
+        if (!value) return <span className="text-gray-400 text-xs italic">N/A</span>;
+        const cardInfo = getHealthCardTypeInfo(value);
+        return (
+          <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium border ${
+            cardInfo.badgeColor
+          }`}>
+            {cardInfo.label}
+          </span>
+        );
+      },
+    },
+    {
       header: 'Status',
       accessor: 'status',
       sortable: true,
