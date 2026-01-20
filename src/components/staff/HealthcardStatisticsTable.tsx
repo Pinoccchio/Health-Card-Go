@@ -6,7 +6,7 @@ import { MoreVertical, Edit2, Trash2, MapPin, CreditCard } from 'lucide-react';
 
 interface HealthcardStatistic {
   id: string;
-  healthcard_type: 'food_handler' | 'non_food';
+  healthcard_type: 'food_handler' | 'non_food' | 'pink';
   record_date: string;
   cards_issued: number;
   barangay_id: number | null;
@@ -33,13 +33,15 @@ interface HealthcardStatisticsTableProps {
 }
 
 const HEALTHCARD_TYPE_LABELS: Record<string, string> = {
-  food_handler: 'Food Handler',
-  non_food: 'Non-Food',
+  food_handler: 'Yellow Card',
+  non_food: 'Green Card',
+  pink: 'Pink Card',
 };
 
 const HEALTHCARD_TYPE_COLORS: Record<string, string> = {
-  food_handler: 'bg-green-100 text-green-800',
-  non_food: 'bg-blue-100 text-blue-800',
+  food_handler: 'bg-yellow-100 text-yellow-800',
+  non_food: 'bg-green-100 text-green-800',
+  pink: 'bg-pink-100 text-pink-800',
 };
 
 export function HealthcardStatisticsTable({

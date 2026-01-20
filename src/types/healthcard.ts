@@ -15,8 +15,9 @@ import { Database } from './supabase';
  * Health card classification based on service type
  * - food_handler: Services 12, 13 (Yellow Card - General Health Card Processing & Renewal)
  * - non_food: Services 14, 15 (Green Card - General Health Card Processing & Renewal)
+ * - pink: Service 12 with card_type='pink' (Pink Card - Service/Clinical)
  */
-export type HealthCardType = 'food_handler' | 'non_food';
+export type HealthCardType = 'food_handler' | 'non_food' | 'pink';
 
 // ============================================================================
 // HealthCard Statistics (Historical Data)
@@ -229,9 +230,10 @@ export interface HealthCardPredictionsFilters {
 
 /**
  * Maps service IDs to health card types
+ * Note: Service 12 can be food_handler, non_food, or pink depending on appointment.card_type
  */
 export const SERVICE_TO_HEALTHCARD_TYPE: Record<number, HealthCardType> = {
-  12: 'food_handler', // Yellow Card - General Health Card Processing
+  12: 'food_handler', // Yellow Card - General Health Card Processing (default, also supports pink via card_type)
   13: 'food_handler', // Yellow Card - General Health Card Renewal
   14: 'non_food', // Green Card - General Health Card Processing
   15: 'non_food', // Green Card - General Health Card Renewal
@@ -243,6 +245,7 @@ export const SERVICE_TO_HEALTHCARD_TYPE: Record<number, HealthCardType> = {
 export const HEALTHCARD_TYPE_TO_SERVICES: Record<HealthCardType, number[]> = {
   food_handler: [12, 13],
   non_food: [14, 15],
+  pink: [12], // Pink Card uses Service 12 with card_type='pink' differentiation
 };
 
 /**
@@ -251,10 +254,14 @@ export const HEALTHCARD_TYPE_TO_SERVICES: Record<HealthCardType, number[]> = {
 export const HEALTHCARD_TYPE_LABELS: Record<HealthCardType, string> = {
   food_handler: 'General (Yellow Card)',
   non_food: 'General (Green Card)',
+  pink: 'Service/Clinical (Pink Card)',
 };
 
 /**
  * Color schemes for health card types (Chart.js compatible)
+ * - Yellow Card: Yellow colors (matches card name)
+ * - Green Card: Green colors (matches card name)
+ * - Pink Card: Pink/Rose colors (matches card name)
  */
 export const HEALTHCARD_TYPE_COLORS: Record<HealthCardType, {
   primary: string;
@@ -262,14 +269,19 @@ export const HEALTHCARD_TYPE_COLORS: Record<HealthCardType, {
   dark: string;
 }> = {
   food_handler: {
-    primary: 'rgb(59, 130, 246)', // Blue
-    light: 'rgba(59, 130, 246, 0.2)',
-    dark: 'rgb(29, 78, 216)',
+    primary: 'rgb(234, 179, 8)', // Yellow (FIXED from blue to yellow)
+    light: 'rgba(234, 179, 8, 0.2)',
+    dark: 'rgb(161, 98, 7)',
   },
   non_food: {
     primary: 'rgb(34, 197, 94)', // Green
     light: 'rgba(34, 197, 94, 0.2)',
     dark: 'rgb(21, 128, 61)',
+  },
+  pink: {
+    primary: 'rgb(236, 72, 153)', // Pink/Rose
+    light: 'rgba(236, 72, 153, 0.2)',
+    dark: 'rgb(190, 24, 93)',
   },
 };
 

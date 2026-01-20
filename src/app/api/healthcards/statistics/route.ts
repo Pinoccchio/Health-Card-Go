@@ -7,7 +7,7 @@
  * Derives healthcard type from service IDs (12-15).
  *
  * Query Parameters:
- * - healthcard_type: 'food_handler' | 'non_food' (optional)
+ * - healthcard_type: 'food_handler' | 'non_food' | 'pink' (optional)
  * - barangay_id: number (optional)
  * - start_date: YYYY-MM-DD (optional, default: 30 days ago)
  * - end_date: YYYY-MM-DD (optional, default: today)
@@ -59,7 +59,7 @@ export async function GET(request: NextRequest) {
         return NextResponse.json(
           {
             success: false,
-            error: `Invalid healthcard_type. Must be 'food_handler' or 'non_food'`,
+            error: `Invalid healthcard_type. Must be 'food_handler', 'non_food', or 'pink'`,
           },
           { status: 400 }
         );
@@ -89,6 +89,7 @@ export async function GET(request: NextRequest) {
         id,
         completed_at,
         service_id,
+        card_type,
         patient_id,
         patients!inner(
           user_id,
@@ -111,9 +112,14 @@ export async function GET(request: NextRequest) {
 
     // Apply filters
     if (healthcardType) {
-      const serviceIds =
-        healthcardType === 'food_handler' ? [12, 13] : [14, 15];
-      query = query.in('service_id', serviceIds);
+      if (healthcardType === 'food_handler') {
+        query = query.in('service_id', [12, 13]);
+      } else if (healthcardType === 'non_food') {
+        query = query.in('service_id', [14, 15]);
+      } else if (healthcardType === 'pink') {
+        // Pink Card uses Service 12 with card_type='pink'
+        query = query.eq('service_id', 12).eq('card_type', 'pink');
+      }
     }
 
     if (serviceId) {
@@ -140,7 +146,15 @@ export async function GET(request: NextRequest) {
       const completedDate = new Date(appointment.completed_at)
         .toISOString()
         .split('T')[0];
-      const type = getHealthCardType(appointment.service_id);
+
+      // Determine healthcard type from service_id and card_type
+      let type: HealthCardType | null = null;
+      if (appointment.card_type === 'pink') {
+        type = 'pink';
+      } else {
+        type = getHealthCardType(appointment.service_id);
+      }
+
       const barangay = appointment.patients?.profiles?.barangays;
       const barangayIdValue = appointment.patients?.profiles?.barangay_id;
 

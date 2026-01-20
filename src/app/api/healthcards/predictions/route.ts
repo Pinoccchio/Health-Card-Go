@@ -7,7 +7,7 @@
  * Returns Chart.js-compatible data for visualization.
  *
  * Query Parameters:
- * - healthcard_type: 'food_handler' | 'non_food' (required)
+ * - healthcard_type: 'food_handler' | 'non_food' | 'pink' (required)
  * - barangay_id: number (optional, null for system-wide)
  * - days_back: number (optional, default: 30)
  * - days_forecast: number (optional, default: 30)
@@ -73,7 +73,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(
         {
           success: false,
-          error: `Invalid healthcard_type. Must be 'food_handler' or 'non_food'`,
+          error: `Invalid healthcard_type. Must be 'food_handler', 'non_food', or 'pink'`,
         },
         { status: 400 }
       );
@@ -101,7 +101,16 @@ export async function GET(request: NextRequest) {
     // Fetch Historical Statistics
     // ========================================================================
 
-    const serviceIds = healthcardType === 'food_handler' ? [12, 13] : [14, 15];
+    // Determine service IDs based on healthcard type
+    let serviceIds: number[];
+    if (healthcardType === 'food_handler') {
+      serviceIds = [12, 13];
+    } else if (healthcardType === 'non_food') {
+      serviceIds = [14, 15];
+    } else {
+      // Pink Card uses Service 12 with card_type='pink'
+      serviceIds = [12];
+    }
 
     let historicalQuery = supabase
       .from('appointments')
@@ -110,6 +119,7 @@ export async function GET(request: NextRequest) {
         id,
         completed_at,
         service_id,
+        card_type,
         patient_id,
         patients!inner(
           user_id,
@@ -129,6 +139,11 @@ export async function GET(request: NextRequest) {
       .not('completed_at', 'is', null)
       .gte('completed_at', `${dateRange.start_date}T00:00:00`)
       .lte('completed_at', `${dateRange.today}T23:59:59`);
+
+    // For Pink Card, filter by card_type
+    if (healthcardType === 'pink') {
+      historicalQuery = historicalQuery.eq('card_type', 'pink');
+    }
 
     // Apply barangay filter if specified
     if (barangayId !== null) {
@@ -160,6 +175,11 @@ export async function GET(request: NextRequest) {
     const statisticsMap = new Map<string, HealthCardStatistic>();
 
     appointments?.forEach((appointment: any) => {
+      // Skip if card_type mismatch for pink
+      if (healthcardType === 'pink' && appointment.card_type !== 'pink') {
+        return;
+      }
+
       const completedDate = new Date(appointment.completed_at)
         .toISOString()
         .split('T')[0];

@@ -7,7 +7,7 @@ import { createClient } from '@/lib/supabase/server';
  * (Staff and Super Admin only)
  *
  * Query params:
- * - healthcard_type (optional): 'food_handler' | 'non_food'
+ * - healthcard_type (optional): 'food_handler' | 'non_food' | 'pink'
  * - barangay_id (optional): Filter by barangay
  * - start_date (optional): YYYY-MM-DD
  * - end_date (optional): YYYY-MM-DD
@@ -121,6 +121,7 @@ export async function GET(request: NextRequest) {
       total_cards_issued: summaryData?.reduce((sum, r) => sum + r.cards_issued, 0) || 0,
       food_handler_cards: summaryData?.filter(r => r.healthcard_type === 'food_handler').reduce((sum, r) => sum + r.cards_issued, 0) || 0,
       non_food_cards: summaryData?.filter(r => r.healthcard_type === 'non_food').reduce((sum, r) => sum + r.cards_issued, 0) || 0,
+      pink_cards: summaryData?.filter(r => r.healthcard_type === 'pink').reduce((sum, r) => sum + r.cards_issued, 0) || 0, // ADDED: Pink Card count
       date_range: {
         earliest: summaryData && summaryData.length > 0 ? Math.min(...summaryData.map(r => new Date(r.record_date).getTime())) : null,
         latest: summaryData && summaryData.length > 0 ? Math.max(...summaryData.map(r => new Date(r.record_date).getTime())) : null,

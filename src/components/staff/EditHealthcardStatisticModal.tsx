@@ -5,7 +5,7 @@ import { X, Save, Calendar, CreditCard, MapPin } from 'lucide-react';
 
 interface HealthcardStatistic {
   id: string;
-  healthcard_type: 'food_handler' | 'non_food';
+  healthcard_type: 'food_handler' | 'non_food' | 'pink';
   record_date: string;
   cards_issued: number;
   barangay_id: number | null;
@@ -46,7 +46,7 @@ export function EditHealthcardStatisticModal({
   const [error, setError] = useState('');
   const [barangays, setBarangays] = useState<Barangay[]>([]);
   const [formData, setFormData] = useState({
-    healthcard_type: '' as 'food_handler' | 'non_food' | '',
+    healthcard_type: '' as 'food_handler' | 'non_food' | 'pink' | '',
     record_date: '',
     cards_issued: 0,
     barangay_id: null as number | null,
@@ -251,7 +251,7 @@ export function EditHealthcardStatisticModal({
                     onChange={(e) =>
                       setFormData({
                         ...formData,
-                        healthcard_type: e.target.value as 'food_handler' | 'non_food',
+                        healthcard_type: e.target.value as 'food_handler' | 'non_food' | 'pink',
                       })
                     }
                     className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-teal"
@@ -259,8 +259,9 @@ export function EditHealthcardStatisticModal({
                     disabled={isSubmitting}
                   >
                     <option value="">Select Type</option>
-                    <option value="food_handler">Food Handler</option>
-                    <option value="non_food">Non-Food</option>
+                    <option value="food_handler">Yellow Card - General</option>
+                    <option value="non_food">Green Card - General</option>
+                    <option value="pink">Pink Card - Service/Clinical</option>
                   </select>
                 </div>
               </div>

@@ -18,7 +18,7 @@ import {
 
 interface HealthcardStatistic {
   id: string;
-  healthcard_type: 'food_handler' | 'non_food';
+  healthcard_type: 'food_handler' | 'non_food' | 'pink'; // UPDATED: Added pink
   record_date: string;
   cards_issued: number;
   barangay_id: number | null;
@@ -40,8 +40,9 @@ interface HealthcardStatistic {
 
 const HEALTHCARD_TYPES = [
   { value: 'all', label: 'All Types' },
-  { value: 'food_handler', label: 'Food Handler' },
-  { value: 'non_food', label: 'Non-Food' },
+  { value: 'food_handler', label: 'Yellow Card - General' },
+  { value: 'non_food', label: 'Green Card - General' },
+  { value: 'pink', label: 'Pink Card - Service/Clinical' }, // ADDED: Pink Card
 ];
 
 export default function StaffHealthcardStatisticsPage() {
@@ -66,6 +67,7 @@ export default function StaffHealthcardStatisticsPage() {
     total_cards_issued: 0,
     food_handler_cards: 0,
     non_food_cards: 0,
+    pink_cards: 0, // ADDED: Pink Card count
     date_range: {
       earliest: null,
       latest: null,
@@ -128,6 +130,7 @@ export default function StaffHealthcardStatisticsPage() {
           total_cards_issued: 0,
           food_handler_cards: 0,
           non_food_cards: 0,
+          pink_cards: 0,
           date_range: {
             earliest: null,
             latest: null,

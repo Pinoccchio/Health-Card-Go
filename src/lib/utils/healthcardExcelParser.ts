@@ -13,7 +13,7 @@ import * as XLSX from 'xlsx';
 
 export interface HealthcardHistoricalRecord {
   record_date: string;
-  healthcard_type: 'food_handler' | 'non_food';
+  healthcard_type: 'food_handler' | 'non_food' | 'pink';
   cards_issued: number;
   barangay?: string;
   source?: string;
@@ -53,8 +53,8 @@ export function validateHealthcardHistoricalRecord(
   // Validate healthcard_type (required)
   if (!record.healthcard_type) {
     errors.push('HealthCard Type is required');
-  } else if (!['food_handler', 'non_food'].includes(record.healthcard_type)) {
-    errors.push('HealthCard Type must be "food_handler" or "non_food"');
+  } else if (!['food_handler', 'non_food', 'pink'].includes(record.healthcard_type)) {
+    errors.push('HealthCard Type must be "food_handler", "non_food", or "pink"');
   }
 
   // Validate cards_issued (required, positive integer)
@@ -132,7 +132,7 @@ export async function parseHealthcardExcel(file: File): Promise<{
         // Try both header formats (with spaces and underscores)
         const record: HealthcardHistoricalRecord = {
           record_date: (row['Record Date'] || row['record_date'] || '').toString().trim(),
-          healthcard_type: (row['HealthCard Type'] || row['healthcard_type'] || '').toString().toLowerCase().trim() as 'food_handler' | 'non_food',
+          healthcard_type: (row['HealthCard Type'] || row['healthcard_type'] || '').toString().toLowerCase().trim() as 'food_handler' | 'non_food' | 'pink',
           cards_issued: parseInt(row['Cards Issued'] || row['cards_issued'] || '0'),
           barangay: (row['Barangay'] || row['barangay'] || '').toString().trim(),
           source: (row['Source'] || row['source'] || '').toString().trim(),
@@ -189,7 +189,7 @@ export async function parseHealthcardExcel(file: File): Promise<{
       // Try both header formats (with spaces and underscores)
       const record: HealthcardHistoricalRecord = {
         record_date: (row['Record Date'] || row['record_date'] || '').toString().trim(),
-        healthcard_type: (row['HealthCard Type'] || row['healthcard_type'] || '').toString().toLowerCase().trim() as 'food_handler' | 'non_food',
+        healthcard_type: (row['HealthCard Type'] || row['healthcard_type'] || '').toString().toLowerCase().trim() as 'food_handler' | 'non_food' | 'pink',
         cards_issued: parseInt(row['Cards Issued'] || row['cards_issued'] || '0'),
         barangay: (row['Barangay'] || row['barangay'] || '').toString().trim(),
         source: (row['Source'] || row['source'] || '').toString().trim(),

@@ -88,6 +88,8 @@ export function getHealthCardTypeDescription(type: HealthCardType): string {
       'Health certification for food handlers, restaurant workers, and food service personnel. Required by law for anyone handling food in commercial establishments.',
     non_food:
       'Health certification for non-food industry workers requiring health clearance for employment or business permits.',
+    pink:
+      'Health certification for service and clinical workers requiring comprehensive health screening. Includes tests for communicable diseases and infection control.',
   };
   return descriptions[type] || '';
 }
@@ -142,10 +144,10 @@ export function getHealthCardTypeLightColor(type: HealthCardType): string {
  */
 export function getHealthCardServiceName(serviceId: number): string {
   const serviceNames: Record<number, string> = {
-    12: 'Food Handler Health Card Processing',
-    13: 'Food Handler Health Card Renewal',
-    14: 'Non-Food Health Card Processing',
-    15: 'Non-Food Health Card Renewal',
+    12: 'Health Card Processing (Yellow/Green/Pink)',
+    13: 'Food Handler Health Card Renewal (Yellow)',
+    14: 'Non-Food Health Card Processing (Green)',
+    15: 'Non-Food Health Card Renewal (Green)',
   };
   return serviceNames[serviceId] || 'Unknown Service';
 }
@@ -181,7 +183,7 @@ export function isProcessingService(serviceId: number): boolean {
  * @returns True if valid health card type
  */
 export function isValidHealthCardType(type: string): type is HealthCardType {
-  return type === 'food_handler' || type === 'non_food';
+  return type === 'food_handler' || type === 'non_food' || type === 'pink';
 }
 
 /**
@@ -233,7 +235,7 @@ export function groupByHealthCardType<T extends { healthcard_type: HealthCardTyp
       acc[stat.healthcard_type] = (acc[stat.healthcard_type] || 0) + stat.card_count;
       return acc;
     },
-    { food_handler: 0, non_food: 0 } as Record<HealthCardType, number>
+    { food_handler: 0, non_food: 0, pink: 0 } as Record<HealthCardType, number>
   );
 }
 

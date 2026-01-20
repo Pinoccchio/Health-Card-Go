@@ -9,6 +9,7 @@ interface HealthcardStatsSummaryProps {
     total_cards_issued: number;
     food_handler_cards: number;
     non_food_cards: number;
+    pink_cards: number; // ADDED: Pink Card support
     date_range: {
       earliest: string | null;
       latest: string | null;
@@ -126,15 +127,30 @@ export function HealthcardStatsSummary({ summary, loading }: HealthcardStatsSumm
             <p className="text-sm font-medium text-gray-600">Card Type Distribution</p>
             <div className="mt-2 space-y-1">
               <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-700">Food Handler:</span>
+                <span className="text-sm text-gray-700 flex items-center gap-1">
+                  <span className="w-2 h-2 bg-yellow-500 rounded-full"></span>
+                  Yellow Card:
+                </span>
                 <span className="text-sm font-bold text-gray-900">
                   {calculatePercentage(summary.food_handler_cards, summary.total_cards_issued)}%
                 </span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-700">Non-Food:</span>
+                <span className="text-sm text-gray-700 flex items-center gap-1">
+                  <span className="w-2 h-2 bg-green-500 rounded-full"></span>
+                  Green Card:
+                </span>
                 <span className="text-sm font-bold text-gray-900">
                   {calculatePercentage(summary.non_food_cards, summary.total_cards_issued)}%
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-gray-700 flex items-center gap-1">
+                  <span className="w-2 h-2 bg-pink-500 rounded-full"></span>
+                  Pink Card:
+                </span>
+                <span className="text-sm font-bold text-gray-900">
+                  {calculatePercentage(summary.pink_cards, summary.total_cards_issued)}%
                 </span>
               </div>
             </div>
@@ -144,7 +160,7 @@ export function HealthcardStatsSummary({ summary, loading }: HealthcardStatsSumm
           </div>
         </div>
         <p className="text-xs text-gray-500 mt-2">
-          {summary.food_handler_cards.toLocaleString()} food handler, {summary.non_food_cards.toLocaleString()} non-food
+          {summary.food_handler_cards.toLocaleString()} yellow, {summary.non_food_cards.toLocaleString()} green, {summary.pink_cards.toLocaleString()} pink
         </p>
       </div>
     </div>
