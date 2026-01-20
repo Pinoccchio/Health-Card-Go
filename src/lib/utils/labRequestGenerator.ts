@@ -7,10 +7,31 @@
 
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
-import { getCardTypeFromHealthCardType } from '@/lib/config/labFees';
+import { getCardTypeFromHealthCardType, getLabFees } from '@/lib/config/labFees';
 
 export type HealthCardType = 'food_handler' | 'non_food' | 'pink';
 export type CardType = 'yellow' | 'green' | 'pink';
+
+/**
+ * Fetch lab fees from API
+ * @returns Promise resolving to lab fees data
+ */
+async function fetchLabFees() {
+  try {
+    const response = await fetch('/api/lab-fees');
+    const json = await response.json();
+
+    if (!response.ok || !json.success) {
+      console.warn('Failed to fetch lab fees from API, using fallback');
+      return undefined;
+    }
+
+    return json.data;
+  } catch (error) {
+    console.warn('Error fetching lab fees, using fallback:', error);
+    return undefined;
+  }
+}
 
 /**
  * Generate and download laboratory request PDF
@@ -21,6 +42,10 @@ export async function generateLabRequestPDF(healthCardType: HealthCardType): Pro
   try {
     // Convert health card type to card type
     const cardType = getCardTypeFromHealthCardType(healthCardType);
+
+    // Fetch current lab fees from database
+    const databaseFees = await fetchLabFees();
+    const fees = getLabFees(cardType, databaseFees);
 
     // Dynamically import the template component
     const { default: LabRequestTemplate } = await import('@/components/patient/LabRequestTemplate');
@@ -34,9 +59,9 @@ export async function generateLabRequestPDF(healthCardType: HealthCardType): Pro
     container.style.top = '0';
     document.body.appendChild(container);
 
-    // Render the template
+    // Render the template with fees
     const root = ReactDOM.createRoot(container);
-    const element = React.createElement(LabRequestTemplate, { cardType });
+    const element = React.createElement(LabRequestTemplate, { cardType, fees });
     root.render(element);
 
     // Wait for render to complete

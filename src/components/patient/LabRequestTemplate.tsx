@@ -6,14 +6,14 @@
  */
 
 import React from 'react';
-import { getLabFees, type HealthCardFees } from '@/lib/config/labFees';
+import type { HealthCardFees } from '@/lib/config/labFees';
 
 interface LabRequestTemplateProps {
   cardType: 'yellow' | 'green' | 'pink';
+  fees: HealthCardFees;
 }
 
-export default function LabRequestTemplate({ cardType }: LabRequestTemplateProps) {
-  const fees = getLabFees(cardType);
+export default function LabRequestTemplate({ cardType, fees }: LabRequestTemplateProps) {
   const isYellowOrGreen = cardType === 'yellow' || cardType === 'green';
 
   return (

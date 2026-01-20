@@ -4,6 +4,7 @@ import { cookies } from "next/headers";
 import "./globals.css";
 import { AuthProvider } from "@/lib/auth";
 import { ToastProvider } from "@/lib/contexts/ToastContext";
+import { ReactQueryProvider } from "@/lib/contexts/ReactQueryProvider";
 import { createServerClient } from "@supabase/ssr";
 
 const inter = Inter({
@@ -60,9 +61,11 @@ export default async function RootLayout({
   return (
     <html lang={locale} className="scroll-smooth">
       <body className={`${inter.variable} font-sans antialiased`}>
-        <AuthProvider initialUser={user}>
-          <ToastProvider>{children}</ToastProvider>
-        </AuthProvider>
+        <ReactQueryProvider>
+          <AuthProvider initialUser={user}>
+            <ToastProvider>{children}</ToastProvider>
+          </AuthProvider>
+        </ReactQueryProvider>
       </body>
     </html>
   );

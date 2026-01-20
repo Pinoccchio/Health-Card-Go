@@ -15,6 +15,7 @@ import {
   Map,
   Shield,
   CreditCard,
+  DollarSign,
 } from 'lucide-react';
 import { MenuItem } from '@/components/dashboard';
 import { RoleId } from '@/types/auth';
@@ -53,6 +54,11 @@ export const SUPER_ADMIN_MENU_ITEMS: MenuItem[] = [
     label: 'Disease Monitoring',
     href: '/admin/disease-surveillance',
     icon: Activity,
+  },
+  {
+    label: 'Laboratory Fees',
+    href: '/admin/lab-fees',
+    icon: DollarSign,
   },
   {
     label: 'Reports',

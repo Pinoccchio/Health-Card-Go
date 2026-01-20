@@ -212,63 +212,6 @@ export default function AdminFeedbackPage() {
       pageDescription="View and respond to patient feedback"
     >
       <Container size="full">
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-6">
-          <div className="bg-white rounded-lg shadow p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">Total Feedback</p>
-                <p className="text-2xl font-bold text-gray-900">{stats.total}</p>
-              </div>
-              <MessageSquare className="w-8 h-8 text-blue-600" />
-            </div>
-          </div>
-
-          <div className="bg-white rounded-lg shadow p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">Avg Rating</p>
-                <p className="text-2xl font-bold text-gray-900">{stats.avgOverall}</p>
-                <p className="text-xs text-gray-500">out of 5.0</p>
-              </div>
-              <Star className="w-8 h-8 text-yellow-500" />
-            </div>
-          </div>
-
-          <div className="bg-white rounded-lg shadow p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">Recommend</p>
-                <p className="text-2xl font-bold text-gray-900">{stats.recommendPercent}%</p>
-                <p className="text-xs text-gray-500">would recommend</p>
-              </div>
-              <TrendingUp className="w-8 h-8 text-green-600" />
-            </div>
-          </div>
-
-          <div className="bg-white rounded-lg shadow p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">Responded</p>
-                <p className="text-2xl font-bold text-gray-900">{stats.responded}</p>
-                <p className="text-xs text-gray-500">of {stats.total}</p>
-              </div>
-              <CheckCircle className="w-8 h-8 text-green-600" />
-            </div>
-          </div>
-
-          <div className="bg-white rounded-lg shadow p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">Pending</p>
-                <p className="text-2xl font-bold text-gray-900">{stats.pending}</p>
-                <p className="text-xs text-gray-500">need response</p>
-              </div>
-              <AlertCircle className="w-8 h-8 text-amber-600" />
-            </div>
-          </div>
-        </div>
-
         {/* Filters and Search */}
         <div className="bg-white rounded-lg shadow p-4 mb-6">
           <div className="flex flex-col md:flex-row gap-4">
