@@ -22,19 +22,40 @@ interface HistoricalBarangayChartProps {
   data: any[];
   barangays: Array<{ id: number; name: string; code?: string }>;
   timeRangeMonths?: number | 'all';
+  diseaseType?: string;
+}
+
+// Helper function to get disease display name
+function getDiseaseDisplayName(diseaseType?: string): string {
+  if (!diseaseType || diseaseType === 'all') {
+    return '';
+  }
+
+  const diseaseNames: Record<string, string> = {
+    dengue: 'Dengue',
+    hiv_aids: 'HIV/AIDS',
+    pregnancy_complications: 'Pregnancy Complications',
+    malaria: 'Malaria',
+    measles: 'Measles',
+    rabies: 'Rabies',
+    other: 'Other Diseases',
+  };
+
+  return diseaseNames[diseaseType] || diseaseType;
 }
 
 export default function HistoricalBarangayChart({
   data,
   barangays,
   timeRangeMonths = 24,
+  diseaseType,
 }: HistoricalBarangayChartProps) {
   const chartData = useMemo(() => {
     if (!data || data.length === 0 || !barangays || barangays.length === 0) {
       return null;
     }
 
-    const aggregated = aggregateHistoricalByBarangay(data, barangays, timeRangeMonths);
+    const aggregated = aggregateHistoricalByBarangay(data, barangays, timeRangeMonths, diseaseType);
 
     return {
       labels: aggregated.map((d) => d.name),
@@ -49,7 +70,7 @@ export default function HistoricalBarangayChart({
         },
       ],
     };
-  }, [data, barangays, timeRangeMonths]);
+  }, [data, barangays, timeRangeMonths, diseaseType]);
 
   const options: ChartOptions<'bar'> = {
     indexAxis: 'y' as const,
@@ -126,12 +147,16 @@ export default function HistoricalBarangayChart({
     );
   }
 
+  const diseaseName = getDiseaseDisplayName(diseaseType);
+  const titleSuffix = diseaseName ? ` - ${diseaseName}` : '';
+  const footerDisease = diseaseName ? `${diseaseName.toLowerCase()} ` : 'aggregate ';
+
   return (
     <div className="bg-white rounded-lg shadow p-6 border border-gray-200">
       <div className="flex items-center gap-2 mb-6">
         <MapPin className="w-5 h-5 text-purple-600" />
         <h3 className="text-lg font-semibold text-gray-900">
-          Top 10 Barangays (Historical Data)
+          Top 10 Barangays{titleSuffix} (Historical Data)
         </h3>
       </div>
       <div style={{ height: '350px' }}>
@@ -139,7 +164,7 @@ export default function HistoricalBarangayChart({
       </div>
       <div className="mt-4 pt-4 border-t border-gray-200">
         <p className="text-xs text-gray-500 text-center">
-          Showing top 10 barangays with highest aggregate case counts from historical records {timeRangeMonths === 'all' ? 'for all time' : `for the last ${timeRangeMonths} months`}
+          Showing top 10 barangays with highest {footerDisease}case counts from historical records {timeRangeMonths === 'all' ? 'for all time' : `for the last ${timeRangeMonths} months`}
         </p>
       </div>
     </div>

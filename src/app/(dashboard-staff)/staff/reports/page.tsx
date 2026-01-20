@@ -40,6 +40,21 @@ export default function StaffReportsPage() {
   // Time range state
   const [timeRange, setTimeRange] = useState<6 | 12 | 24 | 'all'>(24);
 
+  // Disease filter state
+  const [selectedDisease, setSelectedDisease] = useState<string>('all');
+
+  // Disease options
+  const diseaseOptions = [
+    { id: 'all', label: 'All Diseases' },
+    { id: 'dengue', label: 'Dengue' },
+    { id: 'hiv_aids', label: 'HIV/AIDS' },
+    { id: 'pregnancy_complications', label: 'Pregnancy' },
+    { id: 'malaria', label: 'Malaria' },
+    { id: 'measles', label: 'Measles' },
+    { id: 'rabies', label: 'Rabies' },
+    { id: 'other', label: 'Other' },
+  ];
+
   // Fetch summary statistics and barangays
   useEffect(() => {
     const fetchData = async () => {
@@ -222,6 +237,30 @@ export default function StaffReportsPage() {
                   </select>
                 </div>
               </div>
+
+              {/* Disease Filter */}
+              <div className="bg-white rounded-lg shadow p-4 mb-6">
+                <div className="flex items-center gap-2 mb-3">
+                  <BarChart3 className="w-5 h-5 text-primary-teal" />
+                  <h3 className="text-sm font-medium text-gray-700">Disease Type Filter</h3>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {diseaseOptions.map((disease) => (
+                    <button
+                      key={disease.id}
+                      onClick={() => setSelectedDisease(disease.id)}
+                      className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
+                        selectedDisease === disease.id
+                          ? 'bg-primary-teal text-white shadow-md'
+                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      }`}
+                    >
+                      {disease.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               <HistoricalChartsSection
                 historicalStatistics={historicalData}
                 barangays={barangays}
@@ -233,6 +272,7 @@ export default function StaffReportsPage() {
                   window.location.reload();
                 }}
                 timeRangeMonths={timeRange}
+                diseaseType={selectedDisease}
               />
             </div>
 

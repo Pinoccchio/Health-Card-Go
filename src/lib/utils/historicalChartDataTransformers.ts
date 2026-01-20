@@ -174,7 +174,8 @@ export function aggregateHistoricalByMonthAndDisease(
 export function aggregateHistoricalByBarangay(
   statistics: any[],
   barangayData: Barangay[],
-  monthsBack: number | 'all' = 24
+  monthsBack: number | 'all' = 24,
+  diseaseType?: string
 ): HistoricalBarangayData[] {
   // Filter statistics by date range
   const cutoffDate = monthsBack === 'all'
@@ -183,7 +184,14 @@ export function aggregateHistoricalByBarangay(
 
   const filteredStats = statistics.filter(s => {
     if (!s.record_date) return false;
-    return new Date(s.record_date) >= cutoffDate;
+    const dateMatches = new Date(s.record_date) >= cutoffDate;
+
+    // Filter by disease type if specified (and not 'all')
+    if (diseaseType && diseaseType !== 'all') {
+      return dateMatches && s.disease_type === diseaseType;
+    }
+
+    return dateMatches;
   });
 
   const barangayMap: Record<number, number> = {};

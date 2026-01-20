@@ -11,6 +11,7 @@ interface HistoricalChartsSectionProps {
   isLoading?: boolean;
   onRefresh?: () => void;
   timeRangeMonths?: number | 'all';
+  diseaseType?: string;
 }
 
 export function HistoricalChartsSection({
@@ -19,6 +20,7 @@ export function HistoricalChartsSection({
   isLoading = false,
   onRefresh,
   timeRangeMonths = 24,
+  diseaseType,
 }: HistoricalChartsSectionProps) {
   // Memoize to prevent unnecessary recalculations
   const chartData = useMemo(() => {
@@ -110,7 +112,7 @@ export function HistoricalChartsSection({
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
         {/* Barangay distribution - takes 60% */}
         <div className="lg:col-span-3">
-          <HistoricalBarangayChart data={chartData} barangays={barangays} timeRangeMonths={timeRangeMonths} />
+          <HistoricalBarangayChart data={chartData} barangays={barangays} timeRangeMonths={timeRangeMonths} diseaseType={diseaseType} />
         </div>
 
         {/* Disease type distribution - takes 40% */}

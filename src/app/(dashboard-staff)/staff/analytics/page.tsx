@@ -534,6 +534,7 @@ export default function StaffAnalyticsPage() {
                 barangays={barangays}
                 isLoading={chartsLoading}
                 timeRangeMonths={timeRange}
+                diseaseType={diseaseFilterByTab['historical-statistics']}
               />
             )}
             </div>
