@@ -46,7 +46,7 @@ export const SERVICES: ServiceCard[] = [
   {
     id: 'pregnancy',
     title: 'Pregnancy',
-    description: 'Experience comprehensive oral care with Dentistry. Trust us to keep your smile healthy and bright.',
+    description: 'Comprehensive prenatal care for expecting mothers. Expert guidance to ensure the health of both mother and baby.',
     icon: Building2,
     iconColor: '#20C997',
     href: '/#services',

@@ -86,15 +86,16 @@ interface StatusHistoryEntry {
 
 /**
  * Walk-in Queue Page
- * For Healthcare Admins assigned to walk-in services (Services 22, 23)
- * - Service 22: Walk-in Emergency Consultation (requires medical records)
- * - Service 23: Health Education Seminar (no medical records)
+ * For Healthcare Admins assigned to walk-in services
  *
  * Features:
  * - Register walk-in patients directly (no appointment needed)
  * - Bypasses 7-day advance booking rule
  * - Shows real-time walk-in queue
  * - Marks patients as in-progress or completed
+ *
+ * Note: Legacy walk-in services (Emergency Consultation, Health Education Seminar)
+ * have been deactivated. This page remains for potential future walk-in services.
  */
 export default function WalkInQueuePage() {
   const { user } = useAuth();

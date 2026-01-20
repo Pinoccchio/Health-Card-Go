@@ -222,9 +222,6 @@ export default function AdminServicesPage() {
       healthcard: 'Health Card',
       hiv: 'HIV Services',
       pregnancy: 'Pregnancy',
-      laboratory: 'Laboratory',
-      immunization: 'Immunization',
-      general: 'General',
     };
     return labels[category] || category;
   };
@@ -326,9 +323,6 @@ export default function AdminServicesPage() {
                 <option value="healthcard">Health Card</option>
                 <option value="hiv">HIV Services</option>
                 <option value="pregnancy">Pregnancy</option>
-                <option value="laboratory">Laboratory</option>
-                <option value="immunization">Immunization</option>
-                <option value="general">General</option>
               </select>
             </div>
 
