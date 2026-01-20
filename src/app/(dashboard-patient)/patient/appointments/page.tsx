@@ -12,6 +12,7 @@ import { StatusHistoryModal } from '@/components/appointments/StatusHistoryModal
 import { TimeElapsedBadge } from '@/components/appointments/TimeElapsedBadge';
 import { DocumentReviewPanel } from '@/components/healthcare-admin/DocumentReviewPanel';
 import DownloadLabRequestButton from '@/components/patient/DownloadLabRequestButton';
+import AppointmentStageTracker from '@/components/appointments/AppointmentStageTracker';
 import {
   Calendar,
   Clock,
@@ -43,6 +44,7 @@ import {
   formatTimeBlock,
   getTimeBlockColor,
   TIME_BLOCKS,
+  getHealthCardTypeInfo,
 } from '@/types/appointment';
 
 interface Appointment {
@@ -51,7 +53,8 @@ interface Appointment {
   appointment_time: string;
   time_block: TimeBlock;
   appointment_number: number;
-  status: 'pending' | 'scheduled' | 'checked_in' | 'in_progress' | 'completed' | 'cancelled' | 'no_show';
+  status: 'pending' | 'scheduled' | 'checked_in' | 'in_progress' | 'completed' | 'cancelled' | 'no_show' | 'rescheduled';
+  appointment_stage?: 'check_in' | 'laboratory' | 'results' | 'checkup' | 'releasing' | null;
   reason?: string;
   cancellation_reason?: string;
   checked_in_at?: string;
@@ -565,6 +568,14 @@ export default function PatientAppointmentsPage() {
                 </div>
               </div>
 
+              {/* Appointment Stage Tracker - Only for HealthCard services */}
+              <AppointmentStageTracker
+                currentStage={selectedAppointment.appointment_stage || null}
+                isHealthCardService={selectedAppointment.services?.category === 'healthcard'}
+                isCheckedIn={selectedAppointment.status === 'checked_in' || selectedAppointment.status === 'in_progress' || selectedAppointment.status === 'completed'}
+                isCompleted={selectedAppointment.status === 'completed'}
+              />
+
               <div className="space-y-4">
                 {/* Appointment Information */}
                 <div>
@@ -584,6 +595,16 @@ export default function PatientAppointmentsPage() {
                           <div className="font-medium text-gray-900">{selectedAppointment.services.name}</div>
                           <div className="text-xs text-gray-500 capitalize">{selectedAppointment.services.category}</div>
                         </div>
+                      </div>
+                    )}
+                    {selectedAppointment.card_type && (
+                      <div className="flex justify-between items-center">
+                        <span className="text-gray-600">Health Card Type:</span>
+                        <span className={`inline-flex items-center px-3 py-1 rounded text-sm font-medium border ${
+                          getHealthCardTypeInfo(selectedAppointment.card_type).badgeColor
+                        }`}>
+                          {getHealthCardTypeInfo(selectedAppointment.card_type).label}
+                        </span>
                       </div>
                     )}
                     <div className="flex justify-between">
@@ -773,19 +794,21 @@ export default function PatientAppointmentsPage() {
                   </div>
                 )}
 
-                {/* Uploaded Documents */}
-                <div>
-                  <h4 className="text-sm font-medium text-gray-700 mb-2 flex items-center">
-                    <FileText className="w-4 h-4 mr-2" />
-                    {selectedAppointment.status === 'pending' ? 'Document Verification' : 'Uploaded Documents'}
-                  </h4>
-                  <div className="bg-white rounded-md border border-gray-200 p-4">
-                    <DocumentReviewPanel
-                      appointmentId={selectedAppointment.id}
-                      onVerificationComplete={fetchAppointments}
-                    />
+                {/* Uploaded Documents - Only for HealthCard services */}
+                {selectedAppointment.services?.category === 'healthcard' && (
+                  <div>
+                    <h4 className="text-sm font-medium text-gray-700 mb-2 flex items-center">
+                      <FileText className="w-4 h-4 mr-2" />
+                      {selectedAppointment.status === 'pending' ? 'Document Verification' : 'Uploaded Documents'}
+                    </h4>
+                    <div className="bg-white rounded-md border border-gray-200 p-4">
+                      <DocumentReviewPanel
+                        appointmentId={selectedAppointment.id}
+                        onVerificationComplete={fetchAppointments}
+                      />
+                    </div>
                   </div>
-                </div>
+                )}
 
                 {/* Lab Location */}
                 {selectedAppointment.lab_location && (

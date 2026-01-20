@@ -80,7 +80,8 @@ export async function PATCH(
       time_block,
       card_type,
       lab_location,
-      service_id
+      service_id,
+      appointment_stage
     } = body;
 
     // Determine operation type for later use
@@ -369,6 +370,11 @@ export async function PATCH(
     if (targetStatus === 'completed' && !appointment.completed_at) {
       updateData.completed_at = now;
       updateData.completed_by_id = profile.id;
+    }
+
+    // Set appointment_stage if provided (for HealthCard stage tracking)
+    if (appointment_stage !== undefined) {
+      updateData.appointment_stage = appointment_stage;
     }
 
     const { data: updatedAppointment, error: updateError } = await adminClient

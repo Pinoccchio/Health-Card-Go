@@ -12,6 +12,10 @@ import { StatusHistoryModal } from '@/components/appointments/StatusHistoryModal
 import { AppointmentCompletionModal } from '@/components/appointments/AppointmentCompletionModal';
 import { TimeElapsedBadge } from '@/components/appointments/TimeElapsedBadge';
 import { DocumentReviewPanel } from '@/components/healthcare-admin/DocumentReviewPanel';
+import AppointmentStageTracker from '@/components/appointments/AppointmentStageTracker';
+import LaboratoryStageModal from '@/components/appointments/stages/LaboratoryStageModal';
+import CheckupStageModal from '@/components/appointments/stages/CheckupStageModal';
+import ReleasingStageModal from '@/components/appointments/stages/ReleasingStageModal';
 import {
   Calendar,
   Clock,
@@ -49,6 +53,7 @@ import {
   formatTimeBlock,
   getTimeBlockColor,
   TIME_BLOCKS,
+  getHealthCardTypeInfo,
 } from '@/types/appointment';
 
 interface AdminAppointment {
@@ -57,7 +62,8 @@ interface AdminAppointment {
   appointment_date: string;
   appointment_time: string;
   time_block: TimeBlock;
-  status: 'pending' | 'scheduled' | 'checked_in' | 'in_progress' | 'completed' | 'cancelled' | 'no_show'; // Added 'pending'
+  status: 'pending' | 'scheduled' | 'checked_in' | 'in_progress' | 'completed' | 'cancelled' | 'no_show' | 'rescheduled';
+  appointment_stage?: 'check_in' | 'laboratory' | 'results' | 'checkup' | 'releasing' | null;
   reason?: string;
   cancellation_reason?: string | null;
   service_id: number;
@@ -69,6 +75,11 @@ interface AdminAppointment {
   lab_location?: 'inside_cho' | 'outside_cho';
   card_type?: 'food_handler' | 'non_food' | 'pink';
   verification_status?: 'pending' | 'approved' | 'rejected';
+  services?: {
+    id: number;
+    name: string;
+    category: string;
+  };
   patients: {
     id: string;
     patient_number: string;
@@ -140,6 +151,9 @@ export default function HealthcareAdminAppointmentsPage() {
   }, [selectedDate, availableDates]);
 
   // Create markedDates Map for calendar (date string -> appointment count)
+  // Only counts active/workload appointments: pending, scheduled, checked_in, in_progress
+  // This represents appointments that need admin attention or action
+  // Historical appointments (completed, cancelled, no_show) are excluded from badge count
   const markedDates = useMemo(() => {
     const dateMap = new Map<string, number>();
     allAppointmentsForDates.forEach(apt => {
@@ -189,7 +203,7 @@ export default function HealthcareAdminAppointmentsPage() {
 
   // Check-in confirmation dialog state
   const [showCheckInDialog, setShowCheckInDialog] = useState(false);
-  const [appointmentToCheckIn, setAppointmentToCheckIn] = useState<string | null>(null);
+  const [appointmentToCheckIn, setAppointmentToCheckIn] = useState<AdminAppointment | null>(null);
 
   // No-show confirmation dialog state
   const [showNoShowDialog, setShowNoShowDialog] = useState(false);
@@ -198,6 +212,11 @@ export default function HealthcareAdminAppointmentsPage() {
   // Schedule appointment confirmation dialog state
   const [showScheduleDialog, setShowScheduleDialog] = useState(false);
   const [appointmentToSchedule, setAppointmentToSchedule] = useState<string | null>(null);
+
+  // Stage tracking modals state
+  const [showLaboratoryModal, setShowLaboratoryModal] = useState(false);
+  const [showCheckupModal, setShowCheckupModal] = useState(false);
+  const [showReleasingModal, setShowReleasingModal] = useState(false);
 
   // Cancel pending appointment confirmation dialog state
   const [showCancelDialog, setShowCancelDialog] = useState(false);
@@ -368,6 +387,9 @@ export default function HealthcareAdminAppointmentsPage() {
       const params = new URLSearchParams({
         page: '1',
         limit: '1000', // Fetch up to 1000 appointments for date dropdown
+        // Only fetch active appointments for calendar badge count
+        // Excludes: draft (temporary), completed (historical), cancelled (historical), no_show (historical)
+        status: 'pending,scheduled,checked_in,in_progress',
       });
 
       const response = await fetch(`/api/appointments?${params.toString()}`);
@@ -587,9 +609,9 @@ export default function HealthcareAdminAppointmentsPage() {
     }
   };
 
-  const handleCheckIn = (appointmentId: string) => {
+  const handleCheckIn = (appointment: AdminAppointment) => {
     // Show confirmation dialog before checking in
-    setAppointmentToCheckIn(appointmentId);
+    setAppointmentToCheckIn(appointment);
     setShowCheckInDialog(true);
   };
 
@@ -686,10 +708,20 @@ export default function HealthcareAdminAppointmentsPage() {
     try {
       setActionLoading(true);
 
-      const response = await fetch(`/api/appointments/${appointmentToCheckIn}`, {
+      // For HealthCard appointments, also set appointment_stage to 'check_in'
+      // Use service_id directly (more reliable than services.category which may be undefined)
+      // HealthCard service IDs: 1, 2, 3, 12
+      const isHealthCard = [1, 2, 3, 12].includes(appointmentToCheckIn.service_id);
+      const requestBody: any = { status: 'checked_in' };
+
+      if (isHealthCard) {
+        requestBody.appointment_stage = 'check_in';
+      }
+
+      const response = await fetch(`/api/appointments/${appointmentToCheckIn.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: 'checked_in' }),
+        body: JSON.stringify(requestBody),
       });
 
       const data = await response.json();
@@ -1418,6 +1450,64 @@ export default function HealthcareAdminAppointmentsPage() {
                 </div>
               </div>
 
+              {/* Appointment Stage Tracker - Only for HealthCard services */}
+              {selectedAppointment.services?.category === 'healthcard' && (
+                <AppointmentStageTracker
+                  currentStage={selectedAppointment.appointment_stage || null}
+                  isHealthCardService={true}
+                  isCheckedIn={selectedAppointment.status === 'checked_in' || selectedAppointment.status === 'in_progress' || selectedAppointment.status === 'completed'}
+                  isCompleted={selectedAppointment.status === 'completed'}
+                />
+              )}
+
+              {/* Stage Actions - Directly below tracker for clear visual hierarchy */}
+              {selectedAppointment.services?.category === 'healthcard' &&
+                (selectedAppointment.status === 'checked_in' || selectedAppointment.status === 'in_progress') && (
+                <div className="space-y-2 pt-2 pb-4 border-b border-gray-200">
+                  {/* Laboratory Stage Buttons - check_in OR laboratory */}
+                  {(selectedAppointment.appointment_stage === 'check_in' ||
+                    selectedAppointment.appointment_stage === 'laboratory') && (
+                    <button
+                      onClick={() => setShowLaboratoryModal(true)}
+                      disabled={actionLoading}
+                      className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 font-medium text-sm shadow-sm transition-colors disabled:opacity-50"
+                    >
+                      <Activity className="w-5 h-5" />
+                      {selectedAppointment.appointment_stage === 'check_in'
+                        ? 'Proceed to Laboratory'
+                        : 'Complete Laboratory & Proceed to Results'}
+                    </button>
+                  )}
+
+                  {/* Check-up Stage Buttons - results OR checkup */}
+                  {(selectedAppointment.appointment_stage === 'results' ||
+                    selectedAppointment.appointment_stage === 'checkup') && (
+                    <button
+                      onClick={() => setShowCheckupModal(true)}
+                      disabled={actionLoading}
+                      className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-purple-600 text-white rounded-md hover:bg-purple-700 font-medium text-sm shadow-sm transition-colors disabled:opacity-50"
+                    >
+                      <Activity className="w-5 h-5" />
+                      {selectedAppointment.appointment_stage === 'results'
+                        ? 'Start Doctor Check-up'
+                        : 'Complete Check-up & Approve for Release'}
+                    </button>
+                  )}
+
+                  {/* Releasing Stage Button */}
+                  {selectedAppointment.appointment_stage === 'releasing' && (
+                    <button
+                      onClick={() => setShowReleasingModal(true)}
+                      disabled={actionLoading}
+                      className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-green-600 text-white rounded-md hover:bg-green-700 font-medium text-sm shadow-sm transition-colors disabled:opacity-50"
+                    >
+                      <CheckCircle className="w-5 h-5" />
+                      Release Health Card
+                    </button>
+                  )}
+                </div>
+              )}
+
               <div className="space-y-4">
                 {/* Appointment Information */}
                 <div>
@@ -1445,6 +1535,16 @@ export default function HealthcareAdminAppointmentsPage() {
                         </span>
                       </div>
                     </div>
+                    {selectedAppointment.card_type && (
+                      <div className="flex justify-between items-center">
+                        <span className="text-gray-600">Health Card Type:</span>
+                        <span className={`inline-flex items-center px-3 py-1 rounded text-sm font-medium border ${
+                          getHealthCardTypeInfo(selectedAppointment.card_type).badgeColor
+                        }`}>
+                          {getHealthCardTypeInfo(selectedAppointment.card_type).label}
+                        </span>
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -1620,19 +1720,21 @@ export default function HealthcareAdminAppointmentsPage() {
                   ) : null;
                 })()}
 
-                {/* Document Review Section - For all appointments (shows verification for pending, view-only for others) */}
-                <div>
-                  <h4 className="text-sm font-medium text-gray-700 mb-2 flex items-center">
-                    <FileText className="w-4 h-4 mr-2" />
-                    {selectedAppointment.status === 'pending' ? 'Document Verification' : 'Uploaded Documents'}
-                  </h4>
-                  <div className="bg-white rounded-md border border-gray-200 p-4">
-                    <DocumentReviewPanel
-                      appointmentId={selectedAppointment.id}
-                      onVerificationComplete={fetchAppointments}
-                    />
+                {/* Document Review Section - Only for HealthCard services (shows verification for pending, view-only for others) */}
+                {selectedAppointment.services?.category === 'healthcard' && (
+                  <div>
+                    <h4 className="text-sm font-medium text-gray-700 mb-2 flex items-center">
+                      <FileText className="w-4 h-4 mr-2" />
+                      {selectedAppointment.status === 'pending' ? 'Document Verification' : 'Uploaded Documents'}
+                    </h4>
+                    <div className="bg-white rounded-md border border-gray-200 p-4">
+                      <DocumentReviewPanel
+                        appointmentId={selectedAppointment.id}
+                        onVerificationComplete={fetchAppointments}
+                      />
+                    </div>
                   </div>
-                </div>
+                )}
 
                 {/* Lab Location */}
                 {selectedAppointment.lab_location && (
@@ -1742,7 +1844,7 @@ export default function HealthcareAdminAppointmentsPage() {
                 {/* Check In Button */}
                 {selectedAppointment.status === 'scheduled' && (
                   <button
-                    onClick={() => handleCheckIn(selectedAppointment.id)}
+                    onClick={() => handleCheckIn(selectedAppointment)}
                     disabled={actionLoading}
                     className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-purple-50 text-purple-700 border border-purple-200 rounded-md hover:bg-purple-100 font-medium text-sm transition-colors disabled:opacity-50"
                   >
@@ -1751,8 +1853,9 @@ export default function HealthcareAdminAppointmentsPage() {
                   </button>
                 )}
 
-                {/* Start Consultation Button */}
-                {selectedAppointment.status === 'checked_in' && (
+                {/* Start Consultation Button - Only for non-HealthCard services (HIV, Prenatal) */}
+                {selectedAppointment.status === 'checked_in' &&
+                  !(selectedAppointment.services?.category === 'healthcard') && (
                   <button
                     onClick={() => handleStartConsultation(selectedAppointment.id)}
                     disabled={actionLoading}
@@ -1763,8 +1866,11 @@ export default function HealthcareAdminAppointmentsPage() {
                   </button>
                 )}
 
-                {/* Complete Appointment Button */}
-                {selectedAppointment.status === 'in_progress' && (
+                {/* Stage Advancement Buttons moved above (directly below AppointmentStageTracker) for better UX */}
+
+                {/* Complete Appointment Button - Hidden for HealthCard with stage tracking */}
+                {selectedAppointment.status === 'in_progress' &&
+                  !(selectedAppointment.services?.category === 'healthcard' && selectedAppointment.appointment_stage) && (
                   <button
                     onClick={() => handleCompleteAppointment(selectedAppointment)}
                     disabled={actionLoading}
@@ -1947,6 +2053,61 @@ export default function HealthcareAdminAppointmentsPage() {
             onSuccess={handleCompletionSuccess}
             appointment={appointmentToComplete}
           />
+        )}
+
+        {/* Stage Tracking Modals */}
+        {selectedAppointment && (
+          <>
+            {/* Laboratory Stage Modal */}
+            <LaboratoryStageModal
+              isOpen={showLaboratoryModal}
+              onClose={() => setShowLaboratoryModal(false)}
+              appointmentId={selectedAppointment.id}
+              currentStage={selectedAppointment.appointment_stage}
+              onStageUpdate={() => {
+                fetchAppointments(currentPage);
+                setShowLaboratoryModal(false);
+                setIsDrawerOpen(false);
+                setSelectedAppointment(null);
+              }}
+            />
+
+            {/* Check-up Stage Modal */}
+            <CheckupStageModal
+              isOpen={showCheckupModal}
+              onClose={() => setShowCheckupModal(false)}
+              appointmentId={selectedAppointment.id}
+              currentStage={selectedAppointment.appointment_stage}
+              onStageUpdate={() => {
+                fetchAppointments(currentPage);
+                setShowCheckupModal(false);
+                setIsDrawerOpen(false);
+                setSelectedAppointment(null);
+              }}
+              onReschedule={() => {
+                fetchAppointments(currentPage);
+                setShowCheckupModal(false);
+                setIsDrawerOpen(false);
+                setSelectedAppointment(null);
+              }}
+            />
+
+            {/* Releasing Stage Modal */}
+            <ReleasingStageModal
+              isOpen={showReleasingModal}
+              onClose={() => setShowReleasingModal(false)}
+              appointmentId={selectedAppointment.id}
+              patientName={`${selectedAppointment.patients.profiles.first_name} ${selectedAppointment.patients.profiles.last_name}`}
+              cardType={selectedAppointment.card_type || 'food_handler'}
+              currentStage={selectedAppointment.appointment_stage}
+              onComplete={() => {
+                fetchAppointments(currentPage);
+                setShowReleasingModal(false);
+                setIsDrawerOpen(false);
+                setSelectedAppointment(null);
+              }}
+            />
+          </>
         )}
       </Container>
     </DashboardLayout>
