@@ -1450,8 +1450,8 @@ export default function HealthcareAdminAppointmentsPage() {
                 </div>
               </div>
 
-              {/* Appointment Stage Tracker - Only for HealthCard services */}
-              {selectedAppointment.services?.category === 'healthcard' && (
+              {/* Appointment Stage Tracker - Only for HealthCard services WITH card_type (includes Pink Card) */}
+              {(selectedAppointment.services?.category === 'healthcard' || (selectedAppointment.services?.category === 'hiv' && selectedAppointment.card_type === 'pink')) && selectedAppointment.card_type && (
                 <AppointmentStageTracker
                   currentStage={selectedAppointment.appointment_stage || null}
                   isHealthCardService={true}
@@ -1461,7 +1461,7 @@ export default function HealthcareAdminAppointmentsPage() {
               )}
 
               {/* Stage Actions - Directly below tracker for clear visual hierarchy */}
-              {selectedAppointment.services?.category === 'healthcard' &&
+              {(selectedAppointment.services?.category === 'healthcard' || (selectedAppointment.services?.category === 'hiv' && selectedAppointment.card_type === 'pink')) && selectedAppointment.card_type &&
                 (selectedAppointment.status === 'checked_in' || selectedAppointment.status === 'in_progress') && (
                 <div className="space-y-2 pt-2 pb-4 border-b border-gray-200">
                   {/* Laboratory Stage Buttons - check_in OR laboratory */}
@@ -1720,8 +1720,12 @@ export default function HealthcareAdminAppointmentsPage() {
                   ) : null;
                 })()}
 
-                {/* Document Review Section - Only for HealthCard services (shows verification for pending, view-only for others) */}
-                {selectedAppointment.services?.category === 'healthcard' && (
+                {/* Document Review Section - For services with card_type (Health Cards) */}
+                {(
+                  (selectedAppointment.services?.category === 'healthcard' && selectedAppointment.card_type) ||
+                  (selectedAppointment.service_id === 16 && selectedAppointment.card_type === 'pink') ||
+                  (selectedAppointment.service_id === 17 && selectedAppointment.card_type)
+                ) && (
                   <div>
                     <h4 className="text-sm font-medium text-gray-700 mb-2 flex items-center">
                       <FileText className="w-4 h-4 mr-2" />
@@ -1853,9 +1857,10 @@ export default function HealthcareAdminAppointmentsPage() {
                   </button>
                 )}
 
-                {/* Start Consultation Button - Only for non-HealthCard services (HIV, Prenatal) */}
+                {/* Start Consultation Button - Only for non-HealthCard services (HIV Counseling, Prenatal) - excludes Pink Card */}
                 {selectedAppointment.status === 'checked_in' &&
-                  !(selectedAppointment.services?.category === 'healthcard') && (
+                  !(selectedAppointment.services?.category === 'healthcard' || (selectedAppointment.services?.category === 'hiv' && selectedAppointment.card_type === 'pink')) &&
+                  !selectedAppointment.card_type && (
                   <button
                     onClick={() => handleStartConsultation(selectedAppointment.id)}
                     disabled={actionLoading}
@@ -1868,9 +1873,9 @@ export default function HealthcareAdminAppointmentsPage() {
 
                 {/* Stage Advancement Buttons moved above (directly below AppointmentStageTracker) for better UX */}
 
-                {/* Complete Appointment Button - Hidden for HealthCard with stage tracking */}
+                {/* Complete Appointment Button - Hidden for HealthCard with stage tracking (includes Pink Card) */}
                 {selectedAppointment.status === 'in_progress' &&
-                  !(selectedAppointment.services?.category === 'healthcard' && selectedAppointment.appointment_stage) && (
+                  !((selectedAppointment.services?.category === 'healthcard' || (selectedAppointment.services?.category === 'hiv' && selectedAppointment.card_type === 'pink')) && selectedAppointment.appointment_stage) && (
                   <button
                     onClick={() => handleCompleteAppointment(selectedAppointment)}
                     disabled={actionLoading}

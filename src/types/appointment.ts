@@ -212,13 +212,13 @@ export const LAB_LOCATIONS: Record<LabLocationType, {
 }> = {
   inside_cho: {
     label: 'Inside CHO Laboratory',
-    description: 'Laboratory tests will be conducted at the City Health Office',
-    requiredUploads: ['lab_request', 'payment_receipt', 'valid_id'], // Require all 3 documents for verification
+    description: 'Laboratory tests will be conducted at the City Health Office. Upload payment receipt and valid ID.',
+    requiredUploads: ['payment_receipt', 'valid_id'], // Payment receipt (resibo) + Valid ID
   },
   outside_cho: {
     label: 'Outside CHO Laboratory',
-    description: 'Laboratory tests conducted at an external facility',
-    requiredUploads: ['valid_id'], // Require only Valid ID (patient already has lab results)
+    description: 'Laboratory tests conducted at an external facility. Upload valid ID only.',
+    requiredUploads: ['valid_id'], // Valid ID only (lab results already from external lab)
   },
 };
 
@@ -232,20 +232,20 @@ export const UPLOAD_FILE_TYPES: Record<UploadFileType, {
   maxSizeMB: number;
 }> = {
   lab_request: {
-    label: 'Laboratory Request Form',
-    description: 'Official lab request form with required tests',
+    label: 'Laboratory Results',
+    description: 'Lab results from external laboratory (for Outside CHO only)',
     acceptedFormats: ['image/jpeg', 'image/png', 'application/pdf'],
     maxSizeMB: 5,
   },
   payment_receipt: {
-    label: 'Payment Receipt',
-    description: 'Official receipt for laboratory payment',
+    label: 'Payment Receipt (Resibo)',
+    description: 'Official payment receipt for laboratory fees (for Inside CHO only)',
     acceptedFormats: ['image/jpeg', 'image/png', 'application/pdf'],
     maxSizeMB: 5,
   },
   valid_id: {
     label: 'Valid ID',
-    description: 'Government-issued ID for verification',
+    description: 'Government-issued ID for verification (required for all)',
     acceptedFormats: ['image/jpeg', 'image/png'],
     maxSizeMB: 3,
   },

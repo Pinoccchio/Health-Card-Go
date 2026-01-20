@@ -97,19 +97,25 @@ export function LabLocationSelector({
                     Required Documents:
                   </p>
                   <ul className="text-xs text-gray-600 space-y-1">
-                    <li>• Laboratory Request Form</li>
-                    <li>• Payment Receipt</li>
+                    <li>• Valid ID</li>
                   </ul>
                   <p className="text-xs text-amber-700 mt-2 font-medium">
-                    ⚠️ You will need to upload these documents in the next step
+                    ⚠️ You will need to upload this in the next step
                   </p>
                 </div>
               )}
 
               {isInsideCHO && (
                 <div className="mt-4 pt-4 border-t border-gray-200">
-                  <p className="text-xs text-green-700 font-medium">
-                    ✓ No document upload required
+                  <p className="text-xs font-semibold text-gray-700 mb-2">
+                    Required Documents:
+                  </p>
+                  <ul className="text-xs text-gray-600 space-y-1">
+                    <li>• Payment Receipt (Resibo)</li>
+                    <li>• Valid ID</li>
+                  </ul>
+                  <p className="text-xs text-amber-700 mt-2 font-medium">
+                    ⚠️ You will need to upload these in the next step
                   </p>
                 </div>
               )}
@@ -125,10 +131,10 @@ export function LabLocationSelector({
         </p>
         <ul className="text-sm text-blue-800 mt-2 space-y-2 ml-4">
           <li>
-            • <strong>Inside CHO Laboratory:</strong> If you prefer to have your lab tests done at the City Health Office. No document upload needed.
+            • <strong>Inside CHO Laboratory:</strong> If you prefer to have your lab tests done at the City Health Office. Upload payment receipt (resibo) and valid ID.
           </li>
           <li>
-            • <strong>Outside CHO Laboratory:</strong> If you have already arranged lab tests at an external facility or prefer to use your own clinic. You will need to upload the lab request and payment receipt.
+            • <strong>Outside CHO Laboratory:</strong> If you have already arranged lab tests at an external facility or prefer to use your own clinic. Upload valid ID only.
           </li>
         </ul>
       </div>

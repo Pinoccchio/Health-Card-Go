@@ -64,7 +64,7 @@ export async function PUT(
     // Get current appointment
     const { data: appointment, error: fetchError } = await supabase
       .from('appointments')
-      .select('*, service:services(id, name, category)')
+      .select('*, service:services(id, name, category), card_type')
       .eq('id', appointmentId)
       .single();
 
@@ -86,13 +86,15 @@ export async function PUT(
       );
     }
 
-    // Verify this is a health card service
-    const healthCardCategories = ['healthcard'];
-    if (!healthCardCategories.includes(appointment.service?.category)) {
+    // Verify this is a health card service or Pink Card (HIV with card_type='pink')
+    const isHealthCardService = appointment.service?.category === 'healthcard';
+    const isPinkCard = appointment.service?.category === 'hiv' && appointment.card_type === 'pink';
+
+    if (!isHealthCardService && !isPinkCard) {
       return NextResponse.json(
         {
           success: false,
-          error: 'Stage tracking is only available for Health Card appointments',
+          error: 'Stage tracking is only available for Health Card and Pink Card appointments',
         },
         { status: 400 }
       );

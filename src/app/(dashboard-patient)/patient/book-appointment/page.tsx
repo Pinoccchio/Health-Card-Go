@@ -32,6 +32,7 @@ import {
 } from '@/types/appointment';
 import { DocumentUploadForm } from '@/components/patient/DocumentUploadForm';
 import DownloadLabRequestButton from '@/components/patient/DownloadLabRequestButton';
+import { AppointmentCalendar } from '@/components/patient/AppointmentCalendar';
 
 interface Service {
   id: number;
@@ -233,8 +234,12 @@ export default function PatientBookAppointmentPage() {
     setError('');
 
     try {
+      // Route Pink Card to Service 16 (HIV Testing & Counseling)
+      // Yellow/Green cards stay on Service 12 (Health Card)
+      const serviceId = selectedCardType === 'pink' ? 16 : selectedService;
+
       const requestBody = {
-        service_id: selectedService,
+        service_id: serviceId,
         appointment_date: new Date().toISOString().split('T')[0], // Temp date (will be updated at Step 5)
         time_block: 'AM', // Temp time block (will be updated at Step 5)
         status: 'draft', // Draft status
@@ -328,29 +333,29 @@ export default function PatientBookAppointmentPage() {
     let requiredUploadsCount: number;
 
     if (selectedCardType === 'pink') {
-      // Pink Card: Always inside CHO (3 documents required)
-      requiredUploadsCount = 3;
+      // Pink Card: Always inside CHO (2 documents required: Payment Receipt + Valid ID)
+      requiredUploadsCount = 2;
     } else if (selectedLabLocation === 'inside_cho') {
-      // Yellow/Green - Inside CHO (3 documents required)
-      requiredUploadsCount = 3;
+      // Yellow/Green - Inside CHO (2 documents required: Payment Receipt + Valid ID)
+      requiredUploadsCount = 2;
     } else {
-      // Yellow/Green - Outside CHO (1 document required)
+      // Yellow/Green - Outside CHO (1 document required: Valid ID only)
       requiredUploadsCount = 1;
     }
 
     // Check if all required files are uploaded
     if (uploadedDocuments.length < requiredUploadsCount) {
-      if (requiredUploadsCount === 3) {
-        setError('Please upload all 3 required documents (Lab Request, Payment Receipt, Valid ID) before continuing');
+      if (requiredUploadsCount === 2) {
+        setError('Please upload all 2 required documents (Payment Receipt and Valid ID) before continuing');
       } else {
         setError('Please upload your Valid ID before continuing');
       }
       return;
     }
 
-    // Validate checkbox for Outside CHO (not applicable for Pink Card)
+    // Validate checkbox for Outside CHO
     if (selectedLabLocation === 'outside_cho' && selectedCardType !== 'pink' && !labResultsConfirmed) {
-      setError('Please confirm that you have obtained laboratory results from an outside facility');
+      setError('Please confirm the checkbox below to continue');
       return;
     }
 
@@ -395,9 +400,13 @@ export default function PatientBookAppointmentPage() {
     const finalReason = reasonTemplate === 'Other (please specify)' ? customReason : reasonTemplate;
 
     try {
+      // Route Pink Card to Service 16 (HIV Testing & Counseling)
+      // Yellow/Green cards stay on Service 12 (Health Card)
+      const serviceId = selectedCardType === 'pink' ? 16 : selectedService;
+
       // Build request body with conditional health card fields
       const requestBody: any = {
-        service_id: selectedService,
+        service_id: serviceId,
         appointment_date: selectedDate,
         time_block: selectedBlock,
         reason: finalReason,
@@ -824,27 +833,23 @@ export default function PatientBookAppointmentPage() {
                 </p>
 
                 <div className="max-w-xl">
-                  <label htmlFor="appointment-date" className="block text-sm font-semibold text-gray-900 mb-2">
-                    Appointment Date
-                  </label>
-                  <input
-                    id="appointment-date"
-                    type="date"
-                    min={getMinDate()}
-                    value={selectedDate}
-                    onChange={(e) => handleDateSelect(e.target.value)}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-md focus:outline-none focus:border-primary-teal focus:ring-1 focus:ring-primary-teal text-gray-900"
+                  <AppointmentCalendar
+                    selectedDate={selectedDate ? new Date(selectedDate) : undefined}
+                    onDateSelect={(date) => {
+                      if (date) {
+                        // Format date as YYYY-MM-DD
+                        const year = date.getFullYear();
+                        const month = String(date.getMonth() + 1).padStart(2, '0');
+                        const day = String(date.getDate()).padStart(2, '0');
+                        const dateString = `${year}-${month}-${day}`;
+                        handleDateSelect(dateString);
+                      } else {
+                        setSelectedDate('');
+                      }
+                    }}
+                    minDaysInAdvance={7}
+                    serviceAvailableDays={serviceAvailableDays}
                   />
-                  <p className="text-xs text-gray-500 mt-2">
-                    {serviceAvailableDays.length > 0 && serviceAvailableDays.length < 5 ? (
-                      <>
-                        This service is available on: <span className="font-semibold text-primary-teal">{serviceAvailableDays.join(', ')}</span>.
-                        {' '}Appointments must be booked at least 7 days in advance.
-                      </>
-                    ) : (
-                      'Appointments must be booked at least 7 days in advance. Only weekdays are available (Monday-Friday).'
-                    )}
-                  </p>
 
                   <div className="mt-8 pt-6 border-t border-gray-200">
                     <button
@@ -963,8 +968,8 @@ export default function PatientBookAppointmentPage() {
               </div>
             )}
 
-            {/* Step 2: Document Upload (Health Card only) */}
-            {step === 2 && selectedService && isHealthCardService(selectedService) && (
+            {/* Step 2: Document Upload (Health Card and Pink Card) */}
+            {step === 2 && ((selectedService && isHealthCardService(selectedService)) || selectedCardType === 'pink') && (
               <div>
                 <h3 className="text-2xl font-bold text-gray-900 mb-2">
                   Upload Documents
@@ -995,27 +1000,12 @@ export default function PatientBookAppointmentPage() {
                             {selectedCardType === 'pink' && ' (Required for Pink Card)'}
                           </p>
                           <p className="text-sm text-blue-700">
-                            Please upload the following 3 required documents:
+                            Please upload the following 2 required documents:
                           </p>
                           <ul className="mt-2 text-sm text-blue-700 list-disc list-inside space-y-1">
-                            <li>Laboratory Request Form (downloadable template)</li>
-                            <li>Payment Receipt from CHO Treasury</li>
+                            <li>Payment Receipt (Resibo) from CHO Treasury</li>
                             <li>Valid Government-Issued ID</li>
                           </ul>
-
-                          {/* Download Lab Request Button */}
-                          {selectedCardType && (
-                            <div className="mt-4 pt-4 border-t border-blue-200">
-                              <p className="text-xs text-blue-700 mb-2 font-medium">
-                                Download your laboratory request form:
-                              </p>
-                              <DownloadLabRequestButton
-                                healthCardType={selectedCardType}
-                                variant="default"
-                                size="sm"
-                              />
-                            </div>
-                          )}
                         </div>
                       )}
 
@@ -1026,7 +1016,7 @@ export default function PatientBookAppointmentPage() {
                             <strong>Outside CHO Laboratory</strong>
                           </p>
                           <p className="text-sm text-blue-700">
-                            Please upload your Valid Government-Issued ID and confirm you have obtained your lab results.
+                            Please upload your Valid Government-Issued ID.
                           </p>
                         </div>
                       )}
@@ -1036,7 +1026,7 @@ export default function PatientBookAppointmentPage() {
                         appointmentId={draftAppointmentId}
                         requiredUploads={
                           selectedLabLocation === 'inside_cho'
-                            ? ['lab_request', 'payment_receipt', 'valid_id']
+                            ? ['payment_receipt', 'valid_id']
                             : ['valid_id']
                         }
                         onUploadsComplete={handleUploadsComplete}
@@ -1044,20 +1034,23 @@ export default function PatientBookAppointmentPage() {
                       />
 
                       {/* Confirmation Checkbox for Outside CHO */}
-                      {selectedLabLocation === 'outside_cho' && (
-                        <div className="mt-6 flex items-start gap-3 p-4 bg-gray-50 border border-gray-300 rounded-lg">
-                          <input
-                            type="checkbox"
-                            id="lab-results-confirm"
-                            checked={labResultsConfirmed}
-                            onChange={(e) => setLabResultsConfirmed(e.target.checked)}
-                            className="mt-1 w-4 h-4 text-primary-teal border-gray-300 rounded focus:ring-primary-teal"
-                          />
-                          <label htmlFor="lab-results-confirm" className="text-sm text-gray-700 cursor-pointer">
-                            I confirm that I have obtained my laboratory results from an outside facility
+                      {selectedLabLocation === 'outside_cho' && selectedCardType !== 'pink' && (
+                        <div className="mt-6 p-4 bg-amber-50 border border-amber-200 rounded-lg">
+                          <label className="flex items-start gap-3 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              id="lab-results-confirm"
+                              checked={labResultsConfirmed}
+                              onChange={(e) => setLabResultsConfirmed(e.target.checked)}
+                              className="mt-1 w-4 h-4 text-primary-teal rounded border-gray-300 focus:ring-primary-teal cursor-pointer"
+                            />
+                            <span className="text-sm text-gray-700">
+                              I confirm that I will have my laboratory tests done at an accredited private laboratory before my scheduled appointment.
+                            </span>
                           </label>
                         </div>
                       )}
+
                     </>
                   )}
 
@@ -1080,7 +1073,7 @@ export default function PatientBookAppointmentPage() {
                       onClick={handleStep2Continue}
                       disabled={
                         creatingDraft ||
-                        uploadedDocuments.length < (selectedCardType === 'pink' || selectedLabLocation === 'inside_cho' ? 3 : 1) ||
+                        uploadedDocuments.length < (selectedLabLocation === 'inside_cho' ? 2 : 1) ||
                         (selectedLabLocation === 'outside_cho' && selectedCardType !== 'pink' && !labResultsConfirmed)
                       }
                       className="px-8 py-3 bg-primary-teal text-white font-semibold rounded-md hover:bg-primary-teal/90 transition-colors shadow-md disabled:opacity-50 disabled:cursor-not-allowed"

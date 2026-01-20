@@ -300,10 +300,35 @@ export async function POST(request: NextRequest) {
       completed_by_id: user.id,
     }
 
-    // Add health card specific fields if provided (Service ID 12)
+    // Add health card specific fields if provided
     if (card_type) {
       insertData.card_type = card_type;
+
+      // PINK CARD SERVICE VALIDATION: Pink Card must use Service 16 (HIV Testing & Counseling)
+      if (card_type === 'pink' && service_id !== 16) {
+        return NextResponse.json(
+          {
+            error: 'Pink Card appointments must be booked through HIV Testing & Counseling service (Service 16).',
+          },
+          { status: 400 }
+        );
+      }
+
+      // YELLOW/GREEN CARD SERVICE VALIDATION: food_handler/non_food must use Service 12
+      if ((card_type === 'food_handler' || card_type === 'non_food') && service_id !== 12) {
+        return NextResponse.json(
+          {
+            error: 'Food Handler and Non-Food cards must be booked through Health Card service (Service 12).',
+          },
+          { status: 400 }
+        );
+      }
+
+      // SET INITIAL APPOINTMENT STAGE: All health card appointments start at 'check_in'
+      // This enables the sequential workflow: check_in → laboratory → results → checkup → releasing
+      insertData.appointment_stage = 'check_in';
     }
+
     if (lab_location) {
       // PINK CARD VALIDATION: Pink Card must use inside_cho
       if (card_type === 'pink' && lab_location !== 'inside_cho') {
@@ -317,12 +342,12 @@ export async function POST(request: NextRequest) {
 
       insertData.lab_location = lab_location;
 
-      // Set verification status for HealthCard (Service 12)
-      // Both inside and outside CHO require document verification
-      if (service_id === 12) {
+      // Set verification status for HealthCard (Service 12) and Pink Card (Service 16)
+      // Both require document verification
+      if (service_id === 12 || (service_id === 16 && card_type === 'pink')) {
         insertData.verification_status = 'pending'; // Needs admin verification of uploaded documents
       } else {
-        // HIV and Prenatal don't require verification
+        // HIV counseling and Prenatal don't require verification
         insertData.verification_status = 'approved'; // Auto-approved
       }
     }
@@ -332,8 +357,8 @@ export async function POST(request: NextRequest) {
     if (card_type === 'pink' && !lab_location) {
       insertData.lab_location = 'inside_cho';
 
-      // Set verification status for Pink Card
-      if (service_id === 12) {
+      // Set verification status for Pink Card (Service 16)
+      if (service_id === 16) {
         insertData.verification_status = 'pending';
       }
     }

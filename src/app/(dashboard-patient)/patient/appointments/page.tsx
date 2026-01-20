@@ -569,10 +569,10 @@ export default function PatientAppointmentsPage() {
                 </div>
               </div>
 
-              {/* Appointment Stage Tracker - Only for HealthCard services */}
+              {/* Appointment Stage Tracker - Only for HealthCard services WITH card_type (includes Pink Card) */}
               <AppointmentStageTracker
                 currentStage={selectedAppointment.appointment_stage || null}
-                isHealthCardService={selectedAppointment.services?.category === 'healthcard'}
+                isHealthCardService={(selectedAppointment.services?.category === 'healthcard' || (selectedAppointment.services?.category === 'hiv' && selectedAppointment.card_type === 'pink')) && !!selectedAppointment.card_type}
                 isCheckedIn={selectedAppointment.status === 'checked_in' || selectedAppointment.status === 'in_progress' || selectedAppointment.status === 'completed'}
                 isCompleted={selectedAppointment.status === 'completed'}
               />
@@ -795,8 +795,8 @@ export default function PatientAppointmentsPage() {
                   </div>
                 )}
 
-                {/* Uploaded Documents - Only for HealthCard services */}
-                {selectedAppointment.services?.category === 'healthcard' && (
+                {/* Uploaded Documents - Only for HealthCard services WITH card_type (includes Pink Card) */}
+                {(selectedAppointment.services?.category === 'healthcard' || (selectedAppointment.services?.category === 'hiv' && selectedAppointment.card_type === 'pink')) && selectedAppointment.card_type && (
                   <div>
                     <h4 className="text-sm font-medium text-gray-700 mb-2 flex items-center">
                       <FileText className="w-4 h-4 mr-2" />
