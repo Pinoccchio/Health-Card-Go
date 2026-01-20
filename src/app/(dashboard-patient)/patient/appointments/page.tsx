@@ -11,6 +11,7 @@ import { Drawer } from '@/components/ui/Drawer';
 import { StatusHistoryModal } from '@/components/appointments/StatusHistoryModal';
 import { TimeElapsedBadge } from '@/components/appointments/TimeElapsedBadge';
 import { DocumentReviewPanel } from '@/components/healthcare-admin/DocumentReviewPanel';
+import DownloadLabRequestButton from '@/components/patient/DownloadLabRequestButton';
 import {
   Calendar,
   Clock,
@@ -803,6 +804,21 @@ export default function PatientAppointmentsPage() {
                           ? 'Inside CHO Laboratory'
                           : 'Outside CHO Laboratory'}
                       </span>
+
+                      {/* Download Lab Request Button - Only for Inside CHO */}
+                      {selectedAppointment.lab_location === 'inside_cho' && selectedAppointment.card_type && (
+                        <div className="mt-3 pt-3 border-t border-gray-200">
+                          <p className="text-xs text-gray-600 mb-2">
+                            Download your laboratory request form:
+                          </p>
+                          <DownloadLabRequestButton
+                            healthCardType={selectedAppointment.card_type}
+                            variant="outline"
+                            size="sm"
+                            fullWidth
+                          />
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}

@@ -30,6 +30,7 @@ import {
   getRequiredUploads,
 } from '@/types/appointment';
 import { DocumentUploadForm } from '@/components/patient/DocumentUploadForm';
+import DownloadLabRequestButton from '@/components/patient/DownloadLabRequestButton';
 
 interface Service {
   id: number;
@@ -788,9 +789,23 @@ export default function PatientBookAppointmentPage() {
                                     <p className="text-xs font-semibold text-yellow-700 mb-1">
                                       • Food (Yellow Card):
                                     </p>
-                                    <p className="text-xs text-gray-600 ml-4">
-                                      For food handlers and workers in the food industry. Tests required: Urinalysis, Stool Test, CBC (Complete Blood Count), Chest X-ray.
+                                    <p className="text-xs text-gray-600 ml-4 mb-2">
+                                      For food handlers and workers in the food industry.
                                     </p>
+                                    <p className="text-xs text-gray-700 ml-4 font-medium">Requirements:</p>
+                                    <ul className="text-xs text-gray-600 ml-8 mt-1 space-y-0.5">
+                                      <li>• Valid ID</li>
+                                      <li>• Payment receipt (for test fees and Health Card)</li>
+                                    </ul>
+                                    <p className="text-xs text-gray-700 ml-4 font-medium mt-2">Tests required:</p>
+                                    <ul className="text-xs text-gray-600 ml-8 mt-1 space-y-0.5">
+                                      <li>• Urinalysis</li>
+                                      <li>• Stool Test</li>
+                                      <li>• CBC (Complete Blood Count)</li>
+                                      <li>• Chest X-ray</li>
+                                      <li>• Health Card</li>
+                                      <li>• Laboratory Result</li>
+                                    </ul>
                                   </div>
 
                                   {/* Non-Food (Green) Card */}
@@ -798,9 +813,23 @@ export default function PatientBookAppointmentPage() {
                                     <p className="text-xs font-semibold text-green-700 mb-1">
                                       • Non-Food (Green Card):
                                     </p>
-                                    <p className="text-xs text-gray-600 ml-4">
-                                      For non-food handlers or general employees in other industries. Tests required: Urinalysis, Stool Test, CBC (Complete Blood Count), Chest X-ray.
+                                    <p className="text-xs text-gray-600 ml-4 mb-2">
+                                      For non-food handlers or general employees in other industries.
                                     </p>
+                                    <p className="text-xs text-gray-700 ml-4 font-medium">Requirements:</p>
+                                    <ul className="text-xs text-gray-600 ml-8 mt-1 space-y-0.5">
+                                      <li>• Valid ID</li>
+                                      <li>• Payment receipt (for test fees and Health Card)</li>
+                                    </ul>
+                                    <p className="text-xs text-gray-700 ml-4 font-medium mt-2">Tests required:</p>
+                                    <ul className="text-xs text-gray-600 ml-8 mt-1 space-y-0.5">
+                                      <li>• Urinalysis</li>
+                                      <li>• Stool Test</li>
+                                      <li>• CBC (Complete Blood Count)</li>
+                                      <li>• Chest X-ray</li>
+                                      <li>• Health Card</li>
+                                      <li>• Laboratory Result</li>
+                                    </ul>
                                   </div>
 
                                   {/* Pink Card */}
@@ -808,9 +837,20 @@ export default function PatientBookAppointmentPage() {
                                     <p className="text-xs font-semibold text-pink-700 mb-1">
                                       • Pink Card:
                                     </p>
-                                    <p className="text-xs text-gray-600 ml-4">
-                                      For occupations involving skin-to-skin contact (e.g., massage therapists, health workers). Tests required: Gram Stain, Hepatitis B Test, Syphilis Test, HIV Test.
+                                    <p className="text-xs text-gray-600 ml-4 mb-2">
+                                      For occupations involving skin-to-skin contact (e.g., massage therapists, health workers).
                                     </p>
+                                    <p className="text-xs text-gray-700 ml-4 font-medium">Requirements:</p>
+                                    <ul className="text-xs text-gray-600 ml-8 mt-1 space-y-0.5">
+                                      <li>• Valid ID</li>
+                                      <li>• Payment receipt (for test fees and Health Card)</li>
+                                    </ul>
+                                    <p className="text-xs text-gray-700 ml-4 font-medium mt-2">Tests required:</p>
+                                    <ul className="text-xs text-gray-600 ml-8 mt-1 space-y-0.5">
+                                      <li>• Smearing</li>
+                                      <li>• Pink Card</li>
+                                      <li>• Laboratory Result</li>
+                                    </ul>
                                   </div>
                                 </div>
                               )}
@@ -1029,6 +1069,20 @@ export default function PatientBookAppointmentPage() {
                             <li>Payment Receipt from CHO Treasury</li>
                             <li>Valid Government-Issued ID</li>
                           </ul>
+
+                          {/* Download Lab Request Button */}
+                          {selectedCardType && (
+                            <div className="mt-4 pt-4 border-t border-blue-200">
+                              <p className="text-xs text-blue-700 mb-2 font-medium">
+                                Download your laboratory request form:
+                              </p>
+                              <DownloadLabRequestButton
+                                healthCardType={selectedCardType}
+                                variant="default"
+                                size="sm"
+                              />
+                            </div>
+                          )}
                         </div>
                       )}
 
