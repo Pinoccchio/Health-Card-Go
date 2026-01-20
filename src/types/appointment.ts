@@ -122,9 +122,9 @@ export type AppointmentStatus =
 
 /**
  * Health card type enum
- * - food_handler: Yellow Card - General Health Card (requires Urinalysis, Stool Test, CBC, Chest X-ray)
- * - non_food: Green Card - General Health Card (requires Urinalysis, Stool Test, CBC, Chest X-ray)
- * - pink: Pink Card - Service/Clinical (requires Gram Stain, Hepatitis B, Syphilis, HIV Test)
+ * - food_handler: Yellow Card - Food Handler (requires Urinalysis, Stool Test, CBC, Chest X-ray)
+ * - non_food: Green Card - Non-Food (requires Urinalysis, Stool Test, CBC, Chest X-ray)
+ * - pink: Pink Card - Skin-to-skin contact occupations (requires Smearing)
  */
 export type HealthCardType = 'food_handler' | 'non_food' | 'pink';
 
@@ -177,27 +177,27 @@ export const HEALTH_CARD_TYPES: Record<HealthCardType, {
   badgeColor: string;
 }> = {
   food_handler: {
-    label: 'Yellow Card - General Health Card',
+    label: 'Yellow Card - Food Handler',
     color: 'yellow',
-    description: 'General health clearance for individuals requiring health certification',
-    targetAudience: 'Workers, Service Staff, General Applicants',
+    description: 'For food handlers and workers in the food industry.',
+    targetAudience: 'Food Handlers, Food Industry Workers',
     requiredTests: ['Urinalysis', 'Stool Test', 'CBC (Complete Blood Count)', 'Chest X-ray'],
     badgeColor: 'bg-yellow-100 text-yellow-800 border-yellow-300',
   },
   non_food: {
-    label: 'Green Card - General Health Card',
+    label: 'Green Card - Non-Food',
     color: 'green',
-    description: 'General health clearance for individuals requiring health certification',
-    targetAudience: 'Workers, Service Staff, General Applicants',
+    description: 'For non-food handlers or general employees in other industries.',
+    targetAudience: 'Non-Food Handlers, General Employees',
     requiredTests: ['Urinalysis', 'Stool Test', 'CBC (Complete Blood Count)', 'Chest X-ray'],
     badgeColor: 'bg-green-100 text-green-800 border-green-300',
   },
   pink: {
-    label: 'Pink Card - Service/Clinical',
+    label: 'Pink Card',
     color: 'pink',
-    description: 'For individuals in service industries requiring comprehensive health screening',
-    targetAudience: 'Clinical Staff, Healthcare Workers, Service Industry Personnel',
-    requiredTests: ['Gram Stain', 'Hepatitis B Surface Antigen', 'Syphilis (RPR/VDRL)', 'HIV Screening'],
+    description: 'For occupations involving skin-to-skin contact (e.g., massage therapists, health workers).',
+    targetAudience: 'Massage Therapists, Health Workers',
+    requiredTests: ['Smearing'],
     badgeColor: 'bg-pink-100 text-pink-800 border-pink-300',
   },
 };

@@ -9,6 +9,7 @@ import { getReasonTemplates } from '@/lib/config/appointmentTemplates';
 import { getMinBookingDateString } from '@/lib/utils/timezone';
 import { ProcessingTimeline } from '@/components/appointments/ProcessingTimeline';
 import { ServiceRequirements } from '@/components/patient/ServiceRequirements';
+import DynamicServiceDetails from '@/components/patient/DynamicServiceDetails';
 import {
   getCategoryLabel,
   getAdminRoleLabel,
@@ -217,7 +218,13 @@ export default function PatientBookAppointmentPage() {
    * This draft appointment provides an ID for DocumentUploadForm to upload files
    */
   const createDraftAppointment = async () => {
-    if (!selectedService || !selectedCardType || !selectedLabLocation) {
+    // For Pink Card, enforce inside_cho location
+    let labLocation = selectedLabLocation;
+    if (selectedCardType === 'pink') {
+      labLocation = 'inside_cho';
+    }
+
+    if (!selectedService || !selectedCardType || !labLocation) {
       console.error('❌ [DRAFT] Missing required data for draft creation');
       return null;
     }
@@ -232,7 +239,7 @@ export default function PatientBookAppointmentPage() {
         time_block: 'AM', // Temp time block (will be updated at Step 5)
         status: 'draft', // Draft status
         card_type: selectedCardType,
-        lab_location: selectedLabLocation,
+        lab_location: labLocation,
         reason: 'Draft appointment for document upload', // Placeholder reason
       };
 
@@ -293,6 +300,11 @@ export default function PatientBookAppointmentPage() {
   const handleStep1Continue = async () => {
     if (!selectedService) return;
 
+    // For Pink Card: Auto-set lab_location to 'inside_cho'
+    if (selectedCardType === 'pink') {
+      setSelectedLabLocation('inside_cho');
+    }
+
     // HealthCard: Create draft appointment & go to Step 2 (Upload)
     // HIV/Prenatal: Skip to Step 3 (Date) since no upload needed
     if (isHealthCardService(selectedService)) {
@@ -312,12 +324,23 @@ export default function PatientBookAppointmentPage() {
   };
 
   const handleStep2Continue = () => {
-    // Determine required uploads based on lab location
-    const requiredUploadsCount = selectedLabLocation === 'inside_cho' ? 3 : 1;
+    // Determine required uploads based on card type and lab location
+    let requiredUploadsCount: number;
+
+    if (selectedCardType === 'pink') {
+      // Pink Card: Always inside CHO (3 documents required)
+      requiredUploadsCount = 3;
+    } else if (selectedLabLocation === 'inside_cho') {
+      // Yellow/Green - Inside CHO (3 documents required)
+      requiredUploadsCount = 3;
+    } else {
+      // Yellow/Green - Outside CHO (1 document required)
+      requiredUploadsCount = 1;
+    }
 
     // Check if all required files are uploaded
     if (uploadedDocuments.length < requiredUploadsCount) {
-      if (selectedLabLocation === 'inside_cho') {
+      if (requiredUploadsCount === 3) {
         setError('Please upload all 3 required documents (Lab Request, Payment Receipt, Valid ID) before continuing');
       } else {
         setError('Please upload your Valid ID before continuing');
@@ -325,8 +348,8 @@ export default function PatientBookAppointmentPage() {
       return;
     }
 
-    // Validate checkbox for Outside CHO
-    if (selectedLabLocation === 'outside_cho' && !labResultsConfirmed) {
+    // Validate checkbox for Outside CHO (not applicable for Pink Card)
+    if (selectedLabLocation === 'outside_cho' && selectedCardType !== 'pink' && !labResultsConfirmed) {
       setError('Please confirm that you have obtained laboratory results from an outside facility');
       return;
     }
@@ -698,7 +721,7 @@ export default function PatientBookAppointmentPage() {
                         </div>
                       )}
 
-                      {/* Lab Location Dropdown - Only when card type selected */}
+                      {/* Lab Location Dropdown - For all health card types */}
                       {selectedService && isHealthCardService(selectedService) && selectedCardType && (
                         <div>
                           <label htmlFor="lab-location" className="block text-sm font-semibold text-gray-900 mb-2">
@@ -706,7 +729,7 @@ export default function PatientBookAppointmentPage() {
                           </label>
                           <select
                             id="lab-location"
-                            value={selectedLabLocation || ''}
+                            value={selectedCardType === 'pink' ? 'inside_cho' : (selectedLabLocation || '')}
                             onChange={(e) => {
                               const value = e.target.value as LabLocationType;
                               if (value) {
@@ -715,12 +738,19 @@ export default function PatientBookAppointmentPage() {
                                 setSelectedLabLocation(null);
                               }
                             }}
-                            className="w-full px-4 py-3 border border-gray-300 rounded-md focus:outline-none focus:border-primary-teal focus:ring-1 focus:ring-primary-teal text-gray-900 bg-white"
+                            disabled={selectedCardType === 'pink'}
+                            className="w-full px-4 py-3 border border-gray-300 rounded-md focus:outline-none focus:border-primary-teal focus:ring-1 focus:ring-primary-teal text-gray-900 bg-white disabled:cursor-not-allowed"
                           >
                             <option value="">Select lab location...</option>
                             <option value="inside_cho">Inside CHO Laboratory</option>
                             <option value="outside_cho">Outside CHO Laboratory</option>
                           </select>
+                          {selectedCardType === 'pink' && (
+                            <p className="mt-2 text-xs text-gray-600 flex items-center gap-1">
+                              <Info className="w-3 h-3" />
+                              <span>Pink Card requires laboratory tests at CHO (no outside facilities)</span>
+                            </p>
+                          )}
                         </div>
                       )}
 
@@ -734,7 +764,7 @@ export default function PatientBookAppointmentPage() {
                             Continue
                           </button>
                         )}
-                        {selectedService && isHealthCardService(selectedService) && selectedCardType && selectedLabLocation && (
+                        {selectedService && isHealthCardService(selectedService) && selectedCardType && (selectedCardType === 'pink' || selectedLabLocation) && (
                           <button
                             onClick={handleStep1Continue}
                             className="px-8 py-3 bg-primary-teal text-white font-semibold rounded-md hover:bg-primary-teal/90 transition-colors shadow-md hover:shadow-lg"
@@ -766,111 +796,13 @@ export default function PatientBookAppointmentPage() {
                           if (!service) return null;
 
                           return (
-                            <div className="space-y-4">
-                              {/* Service Description */}
-                              <div>
-                                <h5 className="text-sm font-semibold text-primary-teal mb-2">
-                                  {service.name}
-                                </h5>
-                                <p className="text-sm text-gray-700 leading-relaxed">
-                                  {service.description}
-                                </p>
-                              </div>
-
-                              {/* Health Card Requirements */}
-                              {isHealthCardService(service.id) && (
-                                <div className="space-y-3">
-                                  <h5 className="text-sm font-semibold text-gray-900 mb-2">
-                                    Requirements for Health Card:
-                                  </h5>
-
-                                  {/* Food (Yellow) Card */}
-                                  <div>
-                                    <p className="text-xs font-semibold text-yellow-700 mb-1">
-                                      • Food (Yellow Card):
-                                    </p>
-                                    <p className="text-xs text-gray-600 ml-4 mb-2">
-                                      For food handlers and workers in the food industry.
-                                    </p>
-                                    <p className="text-xs text-gray-700 ml-4 font-medium">Requirements:</p>
-                                    <ul className="text-xs text-gray-600 ml-8 mt-1 space-y-0.5">
-                                      <li>• Valid ID</li>
-                                      <li>• Payment receipt (for test fees and Health Card)</li>
-                                    </ul>
-                                    <p className="text-xs text-gray-700 ml-4 font-medium mt-2">Tests required:</p>
-                                    <ul className="text-xs text-gray-600 ml-8 mt-1 space-y-0.5">
-                                      <li>• Urinalysis</li>
-                                      <li>• Stool Test</li>
-                                      <li>• CBC (Complete Blood Count)</li>
-                                      <li>• Chest X-ray</li>
-                                      <li>• Health Card</li>
-                                      <li>• Laboratory Result</li>
-                                    </ul>
-                                  </div>
-
-                                  {/* Non-Food (Green) Card */}
-                                  <div>
-                                    <p className="text-xs font-semibold text-green-700 mb-1">
-                                      • Non-Food (Green Card):
-                                    </p>
-                                    <p className="text-xs text-gray-600 ml-4 mb-2">
-                                      For non-food handlers or general employees in other industries.
-                                    </p>
-                                    <p className="text-xs text-gray-700 ml-4 font-medium">Requirements:</p>
-                                    <ul className="text-xs text-gray-600 ml-8 mt-1 space-y-0.5">
-                                      <li>• Valid ID</li>
-                                      <li>• Payment receipt (for test fees and Health Card)</li>
-                                    </ul>
-                                    <p className="text-xs text-gray-700 ml-4 font-medium mt-2">Tests required:</p>
-                                    <ul className="text-xs text-gray-600 ml-8 mt-1 space-y-0.5">
-                                      <li>• Urinalysis</li>
-                                      <li>• Stool Test</li>
-                                      <li>• CBC (Complete Blood Count)</li>
-                                      <li>• Chest X-ray</li>
-                                      <li>• Health Card</li>
-                                      <li>• Laboratory Result</li>
-                                    </ul>
-                                  </div>
-
-                                  {/* Pink Card */}
-                                  <div>
-                                    <p className="text-xs font-semibold text-pink-700 mb-1">
-                                      • Pink Card:
-                                    </p>
-                                    <p className="text-xs text-gray-600 ml-4 mb-2">
-                                      For occupations involving skin-to-skin contact (e.g., massage therapists, health workers).
-                                    </p>
-                                    <p className="text-xs text-gray-700 ml-4 font-medium">Requirements:</p>
-                                    <ul className="text-xs text-gray-600 ml-8 mt-1 space-y-0.5">
-                                      <li>• Valid ID</li>
-                                      <li>• Payment receipt (for test fees and Health Card)</li>
-                                    </ul>
-                                    <p className="text-xs text-gray-700 ml-4 font-medium mt-2">Tests required:</p>
-                                    <ul className="text-xs text-gray-600 ml-8 mt-1 space-y-0.5">
-                                      <li>• Smearing</li>
-                                      <li>• Pink Card</li>
-                                      <li>• Laboratory Result</li>
-                                    </ul>
-                                  </div>
-                                </div>
-                              )}
-
-                              {/* Service Requirements */}
-                              {service.requirements && service.requirements.length > 0 && (
-                                <div>
-                                  <h5 className="text-sm font-semibold text-gray-900 mb-2">
-                                    General Requirements:
-                                  </h5>
-                                  <ul className="text-xs text-gray-600 space-y-1">
-                                    {service.requirements.map((req, idx) => (
-                                      <li key={idx} className="flex items-start">
-                                        <span className="mr-2">•</span>
-                                        <span>{req}</span>
-                                      </li>
-                                    ))}
-                                  </ul>
-                                </div>
-                              )}
+                            <div>
+                              {/* Dynamic Service Details - Shows everything from ERRORS.md */}
+                              <DynamicServiceDetails
+                                selectedServiceCategory={service.category}
+                                selectedCardType={selectedCardType || undefined}
+                                selectedLabLocation={selectedLabLocation || undefined}
+                              />
                             </div>
                           );
                         })()}
@@ -1055,11 +987,12 @@ export default function PatientBookAppointmentPage() {
                   {/* Show upload form once draft is created */}
                   {draftAppointmentId && (
                     <>
-                      {/* Info banner for Inside CHO */}
-                      {selectedLabLocation === 'inside_cho' && (
+                      {/* Info banner for Inside CHO (Pink Card or Yellow/Green with Inside CHO selected) */}
+                      {(selectedLabLocation === 'inside_cho' || selectedCardType === 'pink') && (
                         <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
                           <p className="text-sm text-blue-800 font-medium mb-2">
                             <strong>Inside CHO Laboratory</strong>
+                            {selectedCardType === 'pink' && ' (Required for Pink Card)'}
                           </p>
                           <p className="text-sm text-blue-700">
                             Please upload the following 3 required documents:
@@ -1086,8 +1019,8 @@ export default function PatientBookAppointmentPage() {
                         </div>
                       )}
 
-                      {/* Info banner for Outside CHO */}
-                      {selectedLabLocation === 'outside_cho' && (
+                      {/* Info banner for Outside CHO (Only for Yellow/Green cards) */}
+                      {selectedLabLocation === 'outside_cho' && selectedCardType !== 'pink' && (
                         <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
                           <p className="text-sm text-blue-800 font-medium mb-2">
                             <strong>Outside CHO Laboratory</strong>
@@ -1147,8 +1080,8 @@ export default function PatientBookAppointmentPage() {
                       onClick={handleStep2Continue}
                       disabled={
                         creatingDraft ||
-                        uploadedDocuments.length < (selectedLabLocation === 'inside_cho' ? 3 : 1) ||
-                        (selectedLabLocation === 'outside_cho' && !labResultsConfirmed)
+                        uploadedDocuments.length < (selectedCardType === 'pink' || selectedLabLocation === 'inside_cho' ? 3 : 1) ||
+                        (selectedLabLocation === 'outside_cho' && selectedCardType !== 'pink' && !labResultsConfirmed)
                       }
                       className="px-8 py-3 bg-primary-teal text-white font-semibold rounded-md hover:bg-primary-teal/90 transition-colors shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
                     >

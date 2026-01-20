@@ -305,6 +305,16 @@ export async function POST(request: NextRequest) {
       insertData.card_type = card_type;
     }
     if (lab_location) {
+      // PINK CARD VALIDATION: Pink Card must use inside_cho
+      if (card_type === 'pink' && lab_location !== 'inside_cho') {
+        return NextResponse.json(
+          {
+            error: 'Pink Card requires laboratory tests at CHO. Outside laboratory testing is not available for this card type.',
+          },
+          { status: 400 }
+        );
+      }
+
       insertData.lab_location = lab_location;
 
       // Set verification status for HealthCard (Service 12)
@@ -314,6 +324,17 @@ export async function POST(request: NextRequest) {
       } else {
         // HIV and Prenatal don't require verification
         insertData.verification_status = 'approved'; // Auto-approved
+      }
+    }
+
+    // AUTO-SET LAB LOCATION FOR PINK CARD
+    // If card_type is pink but lab_location not provided, auto-set to inside_cho
+    if (card_type === 'pink' && !lab_location) {
+      insertData.lab_location = 'inside_cho';
+
+      // Set verification status for Pink Card
+      if (service_id === 12) {
+        insertData.verification_status = 'pending';
       }
     }
 
