@@ -117,3 +117,32 @@ export function validateProfileForm(data: Partial<ProfileFormData>): ValidationE
 export function hasValidationErrors(errors: ValidationErrors): boolean {
   return Object.keys(errors).length > 0;
 }
+
+/**
+ * Calculate age from date of birth
+ * @param dateOfBirth - Date string in YYYY-MM-DD format
+ * @returns Age in years
+ */
+export function calculateAge(dateOfBirth: string): number {
+  const birthDate = new Date(dateOfBirth);
+  const today = new Date();
+  let age = today.getFullYear() - birthDate.getFullYear();
+  const monthDiff = today.getMonth() - birthDate.getMonth();
+
+  // Adjust if birthday hasn't occurred this year
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+    age--;
+  }
+
+  return age;
+}
+
+/**
+ * Validate if user is 18 years or older
+ * @param dateOfBirth - Date string in YYYY-MM-DD format
+ * @returns true if age >= 18, false otherwise
+ */
+export function isAgeValid(dateOfBirth: string): boolean {
+  const age = calculateAge(dateOfBirth);
+  return age >= 18;
+}

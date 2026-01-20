@@ -18,6 +18,7 @@ import {
   ForgotPasswordData,
   ResetPasswordData,
 } from '@/types/auth';
+import { isAgeValid, calculateAge } from '@/lib/validators/profileValidation';
 import type { Database } from '@/lib/supabase/types';
 
 type Profile = Database['public']['Tables']['profiles']['Row'];
@@ -325,6 +326,25 @@ export function AuthProvider({ children, initialUser }: AuthProviderProps) {
           }
 
           console.log('✅ [AUTH CONTEXT] No duplicate found, proceeding with auth user creation');
+        }
+
+        // AGE VALIDATION: Check if patient is 18 years or older
+        if (data.role === 'patient' && data.dateOfBirth) {
+          console.log('🔍 [AUTH CONTEXT] Validating age requirement...');
+
+          if (!isAgeValid(data.dateOfBirth)) {
+            const age = calculateAge(data.dateOfBirth);
+            console.error('❌ [AUTH CONTEXT] Age validation failed:', {
+              dateOfBirth: data.dateOfBirth,
+              age: age,
+            });
+
+            const errorMessage = `You must be 18 years or older to register. You are currently ${age} years old.`;
+            setError(errorMessage);
+            throw new Error(errorMessage);
+          }
+
+          console.log('✅ [AUTH CONTEXT] Age validation passed');
         }
 
         console.log('🔐 [AUTH CONTEXT] Calling Supabase signUp...');

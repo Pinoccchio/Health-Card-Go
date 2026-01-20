@@ -32,6 +32,7 @@ import {
   isPasswordValid,
   type PasswordValidationRules,
 } from '@/lib/validators/passwordValidation';
+import { isAgeValid, calculateAge } from '@/lib/validators/profileValidation';
 
 interface Barangay {
   id: number;
@@ -147,6 +148,9 @@ export default function RegisterPage() {
       }
       if (!formData.dateOfBirth) {
         newErrors.dateOfBirth = 'Date of birth is required';
+      } else if (!isAgeValid(formData.dateOfBirth)) {
+        const age = calculateAge(formData.dateOfBirth);
+        newErrors.dateOfBirth = `You must be 18 years or older to register. You are currently ${age} years old.`;
       }
       if (!formData.gender) {
         newErrors.gender = 'Please select your gender';
@@ -252,6 +256,19 @@ export default function RegisterPage() {
    */
   const handleChange = (field: string, value: any) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
+
+    // Real-time age validation for dateOfBirth field
+    if (field === 'dateOfBirth' && value && formData.role === 'patient') {
+      if (!isAgeValid(value)) {
+        const age = calculateAge(value);
+        setErrors((prev) => ({
+          ...prev,
+          dateOfBirth: `You must be 18 years or older to register. You are currently ${age} years old.`,
+        }));
+        return;
+      }
+    }
+
     // Clear error for this field
     if (errors[field]) {
       setErrors((prev) => {
