@@ -958,7 +958,8 @@
       "completed": "Nakumpleto",
       "cancelled": "Nakansela",
       "no_show": "Hindi Dumating",
-      "pending": "Naghihintay"
+      "pending": "Naghihintay",
+      "rescheduled": "Muling Naka-iskedyul"
     },
     "notification_type": {
       "appointment_reminder": "Paalala ng Appointment",

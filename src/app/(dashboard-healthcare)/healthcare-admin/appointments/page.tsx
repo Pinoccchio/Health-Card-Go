@@ -122,7 +122,7 @@ export default function HealthcareAdminAppointmentsPage() {
   const [datesLoading, setDatesLoading] = useState(true);
   const loading = appointmentsLoading || datesLoading; // Combined loading state - waits for BOTH fetches
   const [error, setError] = useState('');
-  const [filter, setFilter] = useState<'all' | 'pending' | 'scheduled' | 'checked_in' | 'in_progress' | 'completed' | 'cancelled' | 'no_show'>('all');
+  const [filter, setFilter] = useState<'all' | 'pending' | 'scheduled' | 'checked_in' | 'in_progress' | 'completed' | 'cancelled' | 'no_show' | 'rescheduled'>('all');
   const [dateFilter, setDateFilter] = useState<string>('all');
   const [successMessage, setSuccessMessage] = useState('');
 
@@ -2079,12 +2079,6 @@ export default function HealthcareAdminAppointmentsPage() {
               appointmentId={selectedAppointment.id}
               currentStage={selectedAppointment.appointment_stage}
               onStageUpdate={() => {
-                fetchAppointments(currentPage);
-                setShowCheckupModal(false);
-                setIsDrawerOpen(false);
-                setSelectedAppointment(null);
-              }}
-              onReschedule={() => {
                 fetchAppointments(currentPage);
                 setShowCheckupModal(false);
                 setIsDrawerOpen(false);

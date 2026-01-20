@@ -124,8 +124,35 @@ export async function POST(
       // Don't fail the request, just log the error
     }
 
-    // Create notification for patient (to be implemented)
-    // TODO: Implement notification system to notify patient about reschedule
+    // Recalculate queue numbers for remaining appointments on same day
+    const { error: recalcError } = await supabase.rpc('recalculate_queue_numbers', {
+      target_date: appointment.appointment_date,
+      time_block_param: appointment.time_block,
+    });
+
+    if (recalcError) {
+      console.error('[API] Error recalculating queue numbers:', recalcError);
+      // Don't fail the request, just log the error
+    }
+
+    // Create notification for patient
+    const { error: notifError } = await supabase.from('notifications').insert({
+      user_id: appointment.patient_id,
+      title: 'Appointment Rescheduled',
+      message: `Your appointment on ${new Date(appointment.appointment_date).toLocaleDateString()} requires additional laboratory testing. Please book a new appointment for follow-up tests in approximately 1 week.`,
+      type: 'appointment_reschedule',
+      read: false,
+      metadata: {
+        appointment_id: appointmentId,
+        reason: reason,
+        reschedule_type: 'retest_required',
+      },
+    });
+
+    if (notifError) {
+      console.error('[API] Error creating notification:', notifError);
+      // Don't fail the request, just log the error
+    }
 
     return NextResponse.json({
       success: true,

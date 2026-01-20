@@ -113,7 +113,8 @@ export type AppointmentStatus =
   | 'in_progress'   // Appointment in progress
   | 'completed'     // Appointment completed
   | 'cancelled'     // Cancelled by patient or admin
-  | 'no_show';      // Patient did not arrive
+  | 'no_show'       // Patient did not arrive
+  | 'rescheduled';  // Requires additional testing, patient needs to reschedule
 
 // ============================================================================
 // HEALTH CARD TYPES

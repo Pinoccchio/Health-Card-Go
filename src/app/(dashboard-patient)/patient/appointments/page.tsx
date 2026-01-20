@@ -116,7 +116,7 @@ export default function PatientAppointmentsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [cancellingId, setCancellingId] = useState<string | null>(null);
-  const [filter, setFilter] = useState<'all' | 'pending' | 'scheduled' | 'checked_in' | 'in_progress' | 'completed' | 'cancelled' | 'no_show'>('all');
+  const [filter, setFilter] = useState<'all' | 'pending' | 'scheduled' | 'checked_in' | 'in_progress' | 'completed' | 'cancelled' | 'no_show' | 'rescheduled'>('all');
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
   // Cancel confirmation dialog state
@@ -434,6 +434,7 @@ export default function PatientAppointmentsPage() {
     if (filter === 'completed') return apt.status === 'completed';
     if (filter === 'cancelled') return apt.status === 'cancelled';
     if (filter === 'no_show') return apt.status === 'no_show';
+    if (filter === 'rescheduled') return apt.status === 'rescheduled';
     return true;
   });
 
@@ -939,6 +940,24 @@ export default function PatientAppointmentsPage() {
                         {t('drawer.cannot_cancel_24h')}
                       </p>
                     )}
+                  </div>
+                )}
+
+                {/* Book New Appointment Button for Rescheduled Appointments */}
+                {selectedAppointment.status === 'rescheduled' && (
+                  <div className="space-y-3">
+                    <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+                      <p className="text-sm text-amber-800">
+                        <span className="font-medium">Reschedule Required:</span> Your appointment requires additional laboratory testing. Please book a new appointment for follow-up tests in approximately 1 week.
+                      </p>
+                    </div>
+                    <a
+                      href="/patient/book-appointment"
+                      className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-primary-teal text-white rounded-md hover:bg-primary-teal/90 font-medium text-sm transition-colors"
+                    >
+                      <Calendar className="w-4 h-4" />
+                      Book New Appointment
+                    </a>
                   </div>
                 )}
 

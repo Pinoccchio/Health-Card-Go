@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { X, Stethoscope, CheckCircle, AlertCircle, Calendar } from 'lucide-react';
+import { X, Stethoscope, CheckCircle, AlertCircle, Calendar, Loader2 } from 'lucide-react';
 import { useToast } from '@/lib/contexts/ToastContext';
 
 interface CheckupStageModalProps {
@@ -10,7 +10,6 @@ interface CheckupStageModalProps {
   appointmentId: string;
   currentStage: string | null;
   onStageUpdate: () => void;
-  onReschedule: () => void;
 }
 
 type DoctorDecision = 'approve' | 'retest' | null;
@@ -21,7 +20,6 @@ export default function CheckupStageModal({
   appointmentId,
   currentStage,
   onStageUpdate,
-  onReschedule,
 }: CheckupStageModalProps) {
   const { success: showSuccess, error: showError } = useToast();
   const [decision, setDecision] = useState<DoctorDecision>(null);
@@ -94,9 +92,41 @@ export default function CheckupStageModal({
     setShowRescheduleConfirm(true);
   };
 
-  const confirmReschedule = () => {
-    onClose();
-    onReschedule();
+  const confirmReschedule = async () => {
+    setIsSubmitting(true);
+    setError(null);
+
+    try {
+      const response = await fetch(`/api/appointments/${appointmentId}/reschedule`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          reason: 'Laboratory results require additional testing. Patient needs to reschedule for follow-up tests in approximately 1 week.',
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to reschedule appointment');
+      }
+
+      showSuccess('Appointment rescheduled successfully - Patient will be notified');
+      setShowRescheduleConfirm(false);
+      setDecision(null);
+      setError(null);
+      onClose();
+      onStageUpdate();
+    } catch (err) {
+      console.error('[CheckupStageModal] Error rescheduling:', err);
+      const errorMessage = err instanceof Error ? err.message : 'Failed to reschedule appointment';
+      setError(errorMessage);
+      showError(errorMessage);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleClose = () => {
@@ -146,16 +176,27 @@ export default function CheckupStageModal({
           <div className="flex items-center justify-end gap-3 p-6 border-t border-gray-200">
             <button
               onClick={() => setShowRescheduleConfirm(false)}
-              className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+              disabled={isSubmitting}
+              className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Go Back
             </button>
             <button
               onClick={confirmReschedule}
-              className="px-6 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors flex items-center gap-2"
+              disabled={isSubmitting}
+              className="px-6 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <Calendar className="w-4 h-4" />
-              Confirm Reschedule
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Rescheduling...
+                </>
+              ) : (
+                <>
+                  <Calendar className="w-4 h-4" />
+                  Confirm Reschedule
+                </>
+              )}
             </button>
           </div>
         </div>

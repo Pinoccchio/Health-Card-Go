@@ -958,7 +958,8 @@
       "completed": "Nahuman",
       "cancelled": "Nakansela",
       "no_show": "Wala Miabot",
-      "pending": "Naghulat"
+      "pending": "Naghulat",
+      "rescheduled": "Gi-reschedule"
     },
     "notification_type": {
       "appointment_reminder": "Pahinumdom sa Appointment",

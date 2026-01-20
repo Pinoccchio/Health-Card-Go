@@ -139,24 +139,11 @@ export async function POST(
       );
     }
 
-    // Step 3: Log to appointment_status_history
-    await adminClient
-      .from('appointment_status_history')
-      .insert({
-        appointment_id: appointmentId,
-        change_type: 'no_show',
-        from_status: appointment.status,
-        to_status: 'no_show',
-        changed_by: profile.id,
-        reason: reason || 'Manually marked as no-show by healthcare admin',
-        metadata: {
-          manual: true,
-          marked_by_role: profile.role,
-          no_show_count: newNoShowCount,
-        },
-      });
+    // Note: Status history is automatically logged by database trigger (log_appointment_status_change)
+    // The trigger captures from_status='scheduled/checked_in/in_progress', to_status='no_show',
+    // changed_by=user.id, and change_type='no_show' automatically
 
-    // Step 4: Send notification to patient
+    // Step 3: Send notification to patient
     const notificationMessage = newNoShowCount >= 2
       ? `Your appointment #${appointment.appointment_number} on ${appointment.appointment_date} was marked as no-show. This is strike ${newNoShowCount}/2. Your account has been suspended for 1 month.`
       : `Your appointment #${appointment.appointment_number} on ${appointment.appointment_date} was marked as no-show. This is strike ${newNoShowCount}/2.`;

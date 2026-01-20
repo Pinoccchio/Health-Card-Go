@@ -19,7 +19,8 @@ export type AppointmentStatus =
   | 'in_progress'
   | 'completed'
   | 'cancelled'
-  | 'no_show';
+  | 'no_show'
+  | 'rescheduled';
 
 export interface StatusColorConfig {
   label: string;
@@ -76,6 +77,12 @@ export const APPOINTMENT_STATUS_CONFIG: Record<AppointmentStatus, StatusColorCon
     color: 'bg-red-100 text-red-800',
     timeline: 'bg-red-500',
     icon: AlertCircle,
+  },
+  rescheduled: {
+    label: 'Rescheduled',
+    color: 'bg-amber-100 text-amber-800',
+    timeline: 'bg-amber-500',
+    icon: Calendar,
   },
 };
 

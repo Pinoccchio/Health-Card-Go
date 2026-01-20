@@ -962,7 +962,8 @@
       "in_progress": "In Progress",
       "completed": "Completed",
       "cancelled": "Cancelled",
-      "no_show": "No Show"
+      "no_show": "No Show",
+      "rescheduled": "Rescheduled"
     },
     "notification_type": {
       "appointment_reminder": "Appointment Reminder",

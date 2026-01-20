@@ -150,25 +150,8 @@ export async function PUT(
       );
     }
 
-    // Log stage transition in status history
-    const { error: historyError } = await supabase.from('appointment_status_history').insert({
-      appointment_id: appointmentId,
-      from_status: appointment.status,
-      to_status: updatedAppointment.status,
-      changed_by: user.id,
-      change_type: 'status_change',
-      metadata: {
-        previous_stage: appointment.appointment_stage,
-        new_stage: stage,
-        notes: notes || null,
-        change_reason: 'stage_progression',
-      },
-    });
-
-    if (historyError) {
-      console.error('[API] Error logging stage history:', historyError);
-      // Don't fail the request, just log the error
-    }
+    // Note: Status history is automatically logged by database trigger (log_appointment_status_change)
+    // No manual insert needed - trigger captures from_status, to_status, changed_by, and change_type
 
     return NextResponse.json({
       success: true,
