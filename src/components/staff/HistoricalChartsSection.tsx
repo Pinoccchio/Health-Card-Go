@@ -117,7 +117,7 @@ export function HistoricalChartsSection({
 
         {/* Disease type distribution - takes 40% */}
         <div className="lg:col-span-2">
-          <HistoricalDiseaseChart data={chartData} timeRangeMonths={timeRangeMonths} />
+          <HistoricalDiseaseChart data={chartData} timeRangeMonths={timeRangeMonths} diseaseType={diseaseType} />
         </div>
       </div>
 

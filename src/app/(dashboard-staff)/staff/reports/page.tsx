@@ -47,12 +47,9 @@ export default function StaffReportsPage() {
   const diseaseOptions = [
     { id: 'all', label: 'All Diseases' },
     { id: 'dengue', label: 'Dengue' },
-    { id: 'hiv_aids', label: 'HIV/AIDS' },
-    { id: 'pregnancy_complications', label: 'Pregnancy' },
-    { id: 'malaria', label: 'Malaria' },
     { id: 'measles', label: 'Measles' },
-    { id: 'rabies', label: 'Rabies' },
-    { id: 'other', label: 'Other' },
+    { id: 'malaria', label: 'Malaria' },
+    { id: 'rabies', label: 'Animal Bite (Rabies)' },
   ];
 
   // Fetch summary statistics and barangays

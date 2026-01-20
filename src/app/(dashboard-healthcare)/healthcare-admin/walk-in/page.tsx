@@ -883,57 +883,6 @@ export default function WalkInQueuePage() {
             </div>
           </div>
 
-          {/* Statistics Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <ProfessionalCard variant="flat" className="bg-gradient-to-br from-teal-50 to-teal-100 border-l-4 border-l-teal-500">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-600">Total Queue</p>
-                  <p className="text-3xl font-bold text-gray-900">{statistics.total}</p>
-                </div>
-                <div className="w-12 h-12 bg-teal-500 rounded-xl flex items-center justify-center shadow-lg">
-                  <Users className="w-6 h-6 text-white" />
-                </div>
-              </div>
-            </ProfessionalCard>
-
-            <ProfessionalCard variant="flat" className="bg-gradient-to-br from-purple-50 to-purple-100 border-l-4 border-l-purple-500">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-600">Waiting</p>
-                  <p className="text-3xl font-bold text-gray-900">{statistics.checked_in}</p>
-                </div>
-                <div className="w-12 h-12 bg-purple-500 rounded-xl flex items-center justify-center shadow-lg">
-                  <Clock className="w-6 h-6 text-white" />
-                </div>
-              </div>
-            </ProfessionalCard>
-
-            <ProfessionalCard variant="flat" className="bg-gradient-to-br from-amber-50 to-amber-100 border-l-4 border-l-amber-500">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-600">In Progress</p>
-                  <p className="text-3xl font-bold text-gray-900">{statistics.in_progress}</p>
-                </div>
-                <div className="w-12 h-12 bg-amber-500 rounded-xl flex items-center justify-center shadow-lg">
-                  <AlertCircle className="w-6 h-6 text-white" />
-                </div>
-              </div>
-            </ProfessionalCard>
-
-            <ProfessionalCard variant="flat" className="bg-gradient-to-br from-green-50 to-green-100 border-l-4 border-l-green-500">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-600">Completed</p>
-                  <p className="text-3xl font-bold text-gray-900">{statistics.completed}</p>
-                </div>
-                <div className="w-12 h-12 bg-green-500 rounded-xl flex items-center justify-center shadow-lg">
-                  <CheckCircle className="w-6 h-6 text-white" />
-                </div>
-              </div>
-            </ProfessionalCard>
-          </div>
-
           {/* Queue Table */}
           <div className="bg-white rounded-lg shadow p-6">
             <div className="flex items-center gap-2 mb-4">

@@ -233,7 +233,8 @@ export function aggregateHistoricalByBarangay(
  */
 export function aggregateHistoricalByDiseaseType(
   statistics: any[],
-  monthsBack: number | 'all' = 24
+  monthsBack: number | 'all' = 24,
+  diseaseType?: string
 ): HistoricalDiseaseTypeData[] {
   // Filter statistics by date range
   const cutoffDate = monthsBack === 'all'
@@ -242,7 +243,14 @@ export function aggregateHistoricalByDiseaseType(
 
   const filteredStats = statistics.filter(s => {
     if (!s.record_date) return false;
-    return new Date(s.record_date) >= cutoffDate;
+    const dateMatches = new Date(s.record_date) >= cutoffDate;
+
+    // Filter by disease type if specified (and not 'all')
+    if (diseaseType && diseaseType !== 'all') {
+      return dateMatches && s.disease_type === diseaseType;
+    }
+
+    return dateMatches;
   });
 
   const diseaseMap: Record<string, { totalCases: number; customName?: string; rawType: string }> = {};

@@ -18,15 +18,16 @@ ChartJS.register(ArcElement, Tooltip, Legend);
 interface HistoricalDiseaseChartProps {
   data: any[];
   timeRangeMonths?: number | 'all';
+  diseaseType?: string;
 }
 
-export default function HistoricalDiseaseChart({ data, timeRangeMonths = 24 }: HistoricalDiseaseChartProps) {
+export default function HistoricalDiseaseChart({ data, timeRangeMonths = 24, diseaseType }: HistoricalDiseaseChartProps) {
   const chartData = useMemo(() => {
     if (!data || data.length === 0) {
       return null;
     }
 
-    const aggregated = aggregateHistoricalByDiseaseType(data, timeRangeMonths);
+    const aggregated = aggregateHistoricalByDiseaseType(data, timeRangeMonths, diseaseType);
 
     return {
       labels: aggregated.map((d) => d.type),
@@ -41,12 +42,12 @@ export default function HistoricalDiseaseChart({ data, timeRangeMonths = 24 }: H
         },
       ],
     };
-  }, [data, timeRangeMonths]);
+  }, [data, timeRangeMonths, diseaseType]);
 
   const diseaseStats = useMemo(() => {
     if (!data || data.length === 0) return [];
-    return aggregateHistoricalByDiseaseType(data, timeRangeMonths);
-  }, [data, timeRangeMonths]);
+    return aggregateHistoricalByDiseaseType(data, timeRangeMonths, diseaseType);
+  }, [data, timeRangeMonths, diseaseType]);
 
   const options: ChartOptions<'doughnut'> = {
     responsive: true,
