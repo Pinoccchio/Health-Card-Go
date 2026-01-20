@@ -197,13 +197,15 @@ function detectSeasonalityViaVariance(
 
 /**
  * Get optimal SARIMA parameters based on data characteristics
+ * UPDATED: Monthly granularity uses s=12 for all data types
  */
 function getSARIMAParameters(
   dataLength: number,
   diseaseType?: string,
   dates?: string[],
   isAggregated?: boolean,
-  dataValues?: number[]
+  dataValues?: number[],
+  granularity?: 'daily' | 'monthly' // NEW: Explicit granularity parameter
 ): SARIMAParams {
   // For disease forecasting (reduced differencing to prevent instability)
   if (diseaseType) {
@@ -312,7 +314,22 @@ function getSARIMAParameters(
     }
   }
 
-  // For health card forecasting with daily patterns (also reduce differencing)
+  // For health card forecasting
+  // MONTHLY GRANULARITY: Use yearly seasonality (s=12)
+  if (granularity === 'monthly') {
+    if (dataLength >= 24) {
+      // 24+ months: Full SARIMA with yearly seasonality
+      return { p: 1, d: 0, q: 1, P: 1, D: 0, Q: 0, s: 12 };
+    } else if (dataLength >= 12) {
+      // 12-23 months: Simple ARIMA without seasonal component
+      return { p: 1, d: 0, q: 1, P: 0, D: 0, Q: 0, s: 1 };
+    } else {
+      // <12 months: Basic AR model
+      return { p: 1, d: 0, q: 0, P: 0, D: 0, Q: 0, s: 1 };
+    }
+  }
+
+  // For daily patterns (legacy)
   if (dataLength >= 14) {
     return { p: 1, d: 0, q: 1, P: 1, D: 0, Q: 0, s: 7 }; // Weekly pattern, no differencing
   } else if (dataLength >= 7) {
@@ -695,21 +712,24 @@ function hasIrregularGaps(dates: string[]): boolean {
 
 /**
  * Generate SARIMA predictions for disease cases
+ * UPDATED: Supports both daily and monthly granularity
  *
  * @param historicalData - Array of historical disease case counts
  * @param diseaseType - Type of disease (dengue, hiv_aids, etc.)
  * @param barangayName - Name of barangay (or 'System-Wide')
- * @param daysForecast - Number of days to forecast (default: 30)
+ * @param forecastPeriods - Number of periods to forecast (days or months, default: 30)
+ * @param granularity - Time granularity: 'daily' (legacy) or 'monthly' (current standard)
  * @returns SARIMA forecast with predictions and metrics
  */
 export async function generateDiseaseSARIMAPredictions(
   historicalData: HistoricalDiseasePoint[],
   diseaseType: string,
   barangayName: string = 'System-Wide',
-  daysForecast: number = 30
+  forecastPeriods: number = 30,
+  granularity: 'daily' | 'monthly' = 'monthly' // Default to monthly
 ): Promise<DiseaseSARIMAForecast> {
   try {
-    console.log('[Local SARIMA Disease] Generating predictions for:', diseaseType, 'in', barangayName);
+    console.log(`[Local SARIMA Disease] Generating ${granularity} predictions for:`, diseaseType, 'in', barangayName);
 
     // Validate input
     if (!historicalData || historicalData.length < 3) {
@@ -719,8 +739,8 @@ export async function generateDiseaseSARIMAPredictions(
     // Extract case counts and dates
     const dates = historicalData.map(d => d.date);
 
-    // OPTION C: Monthly data aggregation for irregular disease surveillance data
-    // Check if data needs regularization to monthly intervals
+    // MONTHLY GRANULARITY: Always aggregate disease data to monthly intervals
+    // Disease surveillance data is inherently irregular, so monthly is the standard
     let processedData = historicalData;
     let isMonthlyAggregated = false;
 
@@ -736,46 +756,46 @@ export async function generateDiseaseSARIMAPredictions(
     const maxGap = gaps.length > 0 ? Math.max(...gaps) : 0;
     const minGap = gaps.length > 0 ? Math.min(...gaps) : 0;
 
-    // CRITICAL FIX: Disease surveillance data is ALWAYS irregular/monthly by nature
-    // FORCE monthly aggregation instead of waiting for threshold detection
-    // Previous bug: thresholds (avgGap>20, maxGap>45) were too strict for typical disease data
-    // This caused d=1 path → over-differencing → constant predictions → R²=0.00
-    const shouldForceAggregation = dates.length >= 7; // Minimum data for meaningful SARIMA
+    // MONTHLY GRANULARITY: Respect the granularity parameter
+    // For disease data, monthly is strongly recommended (inherently irregular)
+    const shouldAggregate = granularity === 'monthly' && dates.length >= 7;
 
     console.log(`[Gap Analysis] ${diseaseType}: ${historicalData.length} points | Min: ${minGap.toFixed(0)}d, Max: ${maxGap.toFixed(0)}d, Avg: ${avgGap.toFixed(1)}d`);
 
-    if (shouldForceAggregation) {
-      console.log(`[Monthly Aggregation] FORCING for disease data (${diseaseType}) - disease surveillance is inherently irregular/monthly`);
+    if (shouldAggregate) {
+      console.log(`[Monthly Aggregation] Aggregating disease data (${diseaseType}) to ${granularity} intervals`);
       processedData = regularizeToMonthly(historicalData, diseaseType);
       isMonthlyAggregated = true;
-      console.log(`[SARIMA] Data regularized: ${historicalData.length} irregular points → ${processedData.length} monthly buckets`);
-    } else {
+      console.log(`[SARIMA] Data aggregated: ${historicalData.length} irregular points → ${processedData.length} monthly buckets`);
+    } else if (granularity === 'monthly') {
       console.log(`[Monthly Aggregation] SKIPPED - insufficient data (${historicalData.length} points, need >= 7)`);
+    } else {
+      console.log(`[Monthly Aggregation] SKIPPED - using ${granularity} granularity`);
     }
 
     const caseCounts = processedData.map(d => d.case_count);
     const dataQuality = assessDataQuality(processedData.length);
 
-    // Get optimal SARIMA parameters (pass aggregation flag and data values for seasonality detection)
+    // Get optimal SARIMA parameters (pass granularity for proper parameter selection)
     const params = getSARIMAParameters(
       processedData.length,
       diseaseType,
       processedData.map(d => d.date),
       isMonthlyAggregated,  // CRITICAL: Pass flag so function knows to use d=0
-      caseCounts  // NEW: Pass data values for adaptive seasonality detection
+      caseCounts,  // Pass data values for adaptive seasonality detection
+      granularity  // NEW: Pass granularity for monthly s=12
     );
 
     // Train model and generate forecast
-    const { predictions, lower, upper } = trainAndForecast(caseCounts, params, daysForecast);
+    const { predictions, lower, upper } = trainAndForecast(caseCounts, params, forecastPeriods);
 
-    // Generate prediction dates
-    // If monthly aggregated, use last month from processed data; otherwise use last historical date
+    // Generate prediction dates based on granularity
     const lastDate = new Date(processedData[processedData.length - 1].date);
     const predictionArray: DiseaseSARIMAPrediction[] = predictions.map((pred, index) => {
       const predDate = new Date(lastDate);
 
-      // If monthly aggregated, increment by months; otherwise by days
-      if (isMonthlyAggregated) {
+      // Increment date based on granularity
+      if (granularity === 'monthly' || isMonthlyAggregated) {
         predDate.setMonth(predDate.getMonth() + index + 1);
       } else {
         predDate.setDate(predDate.getDate() + index + 1);
@@ -804,14 +824,14 @@ export async function generateDiseaseSARIMAPredictions(
       console.warn(`[MAPE Validation] Predictions are 2x+ worse than naive forecast → triggering fallback`);
 
       // Use fallback method (simple trend-based forecast)
-      const fallbackResult = fallbackMovingAverage(caseCounts, daysForecast);
+      const fallbackResult = fallbackMovingAverage(caseCounts, forecastPeriods);
 
       // Regenerate prediction dates using fallback predictions
       const lastDate = new Date(processedData[processedData.length - 1].date);
       finalPredictions = fallbackResult.predictions.map((pred, index) => {
         const predDate = new Date(lastDate);
 
-        if (isMonthlyAggregated) {
+        if (granularity === 'monthly' || isMonthlyAggregated) {
           predDate.setMonth(predDate.getMonth() + index + 1);
         } else {
           predDate.setDate(predDate.getDate() + index + 1);
@@ -853,7 +873,7 @@ export async function generateDiseaseSARIMAPredictions(
 
     return {
       predictions: finalPredictions,
-      model_version: usedFallback ? 'Fallback-Trend-v1.0' : 'Local-SARIMA-v1.0',
+      model_version: usedFallback ? `Fallback-Trend-${granularity}-v1.0` : `Local-SARIMA-${granularity}-v2.0`,
       accuracy_metrics: accuracyMetrics,
       trend,
       seasonality_detected,
@@ -872,102 +892,87 @@ export async function generateDiseaseSARIMAPredictions(
 
 /**
  * Generate SARIMA predictions for health card issuance
+ * UPDATED: Supports both daily and monthly granularity
  *
  * @param historicalData - Array of historical health card issuances
  * @param healthcardType - Type of health card (food_handler or non_food)
- * @param daysForecast - Number of days to forecast (default: 30)
+ * @param forecastPeriods - Number of periods to forecast (days or months, default: 30)
+ * @param granularity - Time granularity: 'daily' (legacy) or 'monthly' (current standard)
  * @returns SARIMA forecast with predictions and metrics
  */
 export async function generateSARIMAPredictions(
   historicalData: HistoricalDataPoint[],
   healthcardType: 'food_handler' | 'non_food',
-  daysForecast: number = 30
+  forecastPeriods: number = 30,
+  granularity: 'daily' | 'monthly' = 'monthly' // Default to monthly
 ): Promise<SARIMAForecast> {
   try {
-    console.log('[Local SARIMA HealthCard] Generating predictions for:', healthcardType);
+    console.log(`[Local SARIMA HealthCard] Generating ${granularity} predictions for:`, healthcardType);
 
     // Validate input
     if (!historicalData || historicalData.length < 3) {
       throw new Error('Insufficient historical data. At least 3 data points required.');
     }
 
-    // Extract card counts
-    const cardCounts = historicalData.map(d => d.cards_issued);
-
-    // === HEALTH CARD SPECIFIC: Use realistic daily incremental formula ===
-    // Instead of complex ARIMA, use deterministic formula matching database approach
-    // This ensures predictions are always in realistic range (1-2 cards/day)
-
-    // Calculate base daily rate from historical data
-    const totalCards = cardCounts.reduce((sum, count) => sum + count, 0);
-    const avgCardsPerDay = totalCards / historicalData.length;
-
-    // Set base rate based on health card type
-    // Food Handler: slightly higher demand (1.5 avg), Non-Food: lower demand (1.1 avg)
-    const baseRate = healthcardType === 'food_handler' ? 1.5 : 1.1;
-
-    console.log('[Local SARIMA HealthCard] Historical avg:', avgCardsPerDay.toFixed(2));
-    console.log('[Local SARIMA HealthCard] Using base rate:', baseRate);
-
-    // Generate prediction dates
-    const lastDate = new Date(historicalData[historicalData.length - 1].date);
-    const predictionArray: SARIMAPrediction[] = [];
-
-    for (let i = 0; i < daysForecast; i++) {
-      const predDate = new Date(lastDate);
-      predDate.setDate(predDate.getDate() + i + 1);
-
-      // Get day of week for weekly pattern (0=Sunday, 6=Saturday)
-      const dayOfWeek = predDate.getDay();
-
-      // Weekly sine wave pattern: higher mid-week (Tue-Thu), lower weekends
-      // Using sine function with period of 7 days
-      const weeklyVariance = 1 + 0.3 * Math.sin((dayOfWeek * Math.PI) / 3.5);
-
-      // Add controlled random fluctuation (±30%)
-      const randomFactor = 1 + (Math.random() * 0.6 - 0.3);
-
-      // Calculate daily prediction: base_rate * weekly_pattern * random_variance
-      const dailyPrediction = Math.max(0, Math.round(
-        baseRate * weeklyVariance * randomFactor
-      ));
-
-      // Calculate confidence bounds (±30% of prediction)
-      const upperBound = Math.max(0, Math.round(dailyPrediction * 1.3));
-      const lowerBound = Math.max(0, Math.round(dailyPrediction * 0.7));
-
-      predictionArray.push({
-        date: predDate.toISOString().split('T')[0],
-        predicted_cards: dailyPrediction,
-        upper_bound: upperBound,
-        lower_bound: lowerBound,
-        confidence_level: 0.95,
-      });
+    // MONTHLY GRANULARITY: Aggregate data to monthly intervals
+    let processedData = historicalData;
+    if (granularity === 'monthly') {
+      processedData = aggregateHealthCardToMonthly(historicalData);
+      console.log(`[Local SARIMA HealthCard] Aggregated: ${historicalData.length} daily → ${processedData.length} monthly`);
     }
 
-    // Get optimal SARIMA parameters for metrics calculation
-    const params = getSARIMAParameters(historicalData.length);
+    // Extract card counts
+    const cardCounts = processedData.map(d => d.cards_issued);
+
+    // Get optimal SARIMA parameters (monthly uses s=12 for yearly seasonality)
+    const params = getSARIMAParameters(processedData.length, undefined, undefined, undefined, undefined, granularity);
+
+    // Train model and generate forecast
+    const { predictions, lower, upper } = trainAndForecast(cardCounts, params, forecastPeriods);
+
+    // Generate prediction dates
+    const lastDate = new Date(processedData[processedData.length - 1].date);
+    const predictionArray: SARIMAPrediction[] = predictions.map((pred, index) => {
+      const predDate = new Date(lastDate);
+
+      // Increment date based on granularity
+      if (granularity === 'monthly') {
+        predDate.setMonth(predDate.getMonth() + index + 1);
+      } else {
+        predDate.setDate(predDate.getDate() + index + 1);
+      }
+
+      return {
+        date: predDate.toISOString().split('T')[0],
+        predicted_cards: pred,
+        upper_bound: upper[index],
+        lower_bound: lower[index],
+        confidence_level: 0.95,
+      };
+    });
 
     // Calculate accuracy metrics from historical data
     const metrics = calculateBackTestMetrics(cardCounts, params);
 
     // Detect patterns
-    const trend = 'stable'; // Health card demand is typically stable
-    const seasonality_detected = true; // Weekly patterns exist
+    const trend = detectTrend(cardCounts);
+    const seasonality_detected = detectSeasonality(cardCounts, params.s);
 
     const totalPredicted = predictionArray.reduce((sum, p) => sum + p.predicted_cards, 0);
+    const avgLabel = granularity === 'monthly' ? 'avg_per_month' : 'avg_per_day';
     console.log('[Local SARIMA HealthCard] Forecast complete:', {
       predictions: predictionArray.length,
       total_predicted: totalPredicted,
-      avg_per_day: (totalPredicted / daysForecast).toFixed(2),
+      [avgLabel]: (totalPredicted / forecastPeriods).toFixed(2),
       trend,
       seasonality_detected,
       r_squared: metrics.r_squared,
+      granularity,
     });
 
     return {
       predictions: predictionArray,
-      model_version: 'HealthCard-SARIMA-v2.0-Realistic',
+      model_version: `HealthCard-SARIMA-v3.0-${granularity}`,
       accuracy_metrics: metrics,
       trend,
       seasonality_detected,
@@ -1173,44 +1178,196 @@ export function formatHistoricalData(
 }
 
 /**
+ * Aggregate HealthCard data to monthly intervals
+ * Similar to regularizeToMonthly() but for HealthCard issuances
+ *
+ * @param historicalData - Array of daily health card issuance data points
+ * @returns Array of monthly aggregated data points
+ */
+export function aggregateHealthCardToMonthly(
+  historicalData: HistoricalDataPoint[]
+): HistoricalDataPoint[] {
+  if (historicalData.length === 0) {
+    console.warn('[Monthly Aggregation] No HealthCard data');
+    return [];
+  }
+
+  // Sort data by date (ascending)
+  const sorted = historicalData
+    .map(d => ({ ...d, parsedDate: parseISO(d.date) }))
+    .sort((a, b) => a.parsedDate.getTime() - b.parsedDate.getTime());
+
+  // Determine date range
+  const firstDate = sorted[0].parsedDate;
+  const lastDate = sorted[sorted.length - 1].parsedDate;
+  const firstMonth = startOfMonth(firstDate);
+  const lastMonth = startOfMonth(lastDate);
+
+  console.log(`[Monthly Aggregation] HealthCard: ${sorted.length} records from ${firstMonth.toISOString().split('T')[0]} to ${lastMonth.toISOString().split('T')[0]}`);
+
+  // Generate all months in range
+  const allMonths = eachMonthOfInterval({
+    start: firstMonth,
+    end: lastMonth
+  });
+
+  console.log(`[Monthly Aggregation] HealthCard: Generating ${allMonths.length} monthly buckets`);
+
+  // Bucket data into months
+  const buckets: HistoricalDataPoint[] = [];
+
+  for (const month of allMonths) {
+    const monthStart = startOfMonth(month);
+    const monthEnd = endOfMonth(month);
+
+    // Sum all cards_issued values that fall within this month
+    const recordsInMonth = sorted.filter(record =>
+      isWithinInterval(record.parsedDate, {
+        start: monthStart,
+        end: monthEnd
+      })
+    );
+
+    const totalCards = recordsInMonth.reduce(
+      (sum, record) => sum + record.cards_issued,
+      0
+    );
+
+    // Include all months (zero-fill for HealthCard - more predictable than disease data)
+    buckets.push({
+      date: monthStart.toISOString().split('T')[0], // YYYY-MM-DD format (first day of month)
+      cards_issued: totalCards
+    });
+  }
+
+  console.log(`[Monthly Aggregation] HealthCard: ${buckets.length} monthly buckets created`);
+
+  return buckets;
+}
+
+/**
+ * Aggregate Service appointment data to monthly intervals
+ * Similar to aggregateHealthCardToMonthly() but for service appointments
+ *
+ * @param historicalData - Array of daily appointment count data points
+ * @returns Array of monthly aggregated data points
+ */
+export function aggregateServiceToMonthly(
+  historicalData: Array<{ date: string; value: number }>
+): Array<{ date: string; value: number }> {
+  if (historicalData.length === 0) {
+    console.warn('[Monthly Aggregation] No Service data');
+    return [];
+  }
+
+  // Sort data by date (ascending)
+  const sorted = historicalData
+    .map(d => ({ ...d, parsedDate: parseISO(d.date) }))
+    .sort((a, b) => a.parsedDate.getTime() - b.parsedDate.getTime());
+
+  // Determine date range
+  const firstDate = sorted[0].parsedDate;
+  const lastDate = sorted[sorted.length - 1].parsedDate;
+  const firstMonth = startOfMonth(firstDate);
+  const lastMonth = startOfMonth(lastDate);
+
+  console.log(`[Monthly Aggregation] Service: ${sorted.length} records from ${firstMonth.toISOString().split('T')[0]} to ${lastMonth.toISOString().split('T')[0]}`);
+
+  // Generate all months in range
+  const allMonths = eachMonthOfInterval({
+    start: firstMonth,
+    end: lastMonth
+  });
+
+  console.log(`[Monthly Aggregation] Service: Generating ${allMonths.length} monthly buckets`);
+
+  // Bucket data into months
+  const buckets: Array<{ date: string; value: number }> = [];
+
+  for (const month of allMonths) {
+    const monthStart = startOfMonth(month);
+    const monthEnd = endOfMonth(month);
+
+    // Sum all appointment values that fall within this month
+    const recordsInMonth = sorted.filter(record =>
+      isWithinInterval(record.parsedDate, {
+        start: monthStart,
+        end: monthEnd
+      })
+    );
+
+    const totalAppointments = recordsInMonth.reduce(
+      (sum, record) => sum + record.value,
+      0
+    );
+
+    // Include all months (zero-fill for Service appointments - predictable patterns)
+    buckets.push({
+      date: monthStart.toISOString().split('T')[0], // YYYY-MM-DD format (first day of month)
+      value: totalAppointments
+    });
+  }
+
+  console.log(`[Monthly Aggregation] Service: ${buckets.length} monthly buckets created`);
+
+  return buckets;
+}
+
+/**
  * Run local SARIMA predictions for generic service appointment data
+ * UPDATED: Supports both daily and monthly granularity
  *
  * Simplified interface for any service (HIV, Pregnancy, etc.)
  * Takes historical appointment counts by date and returns predictions
  *
  * @param historicalData - Array of { date, value } pairs representing appointment counts
- * @param daysForecast - Number of days to forecast ahead
+ * @param forecastPeriods - Number of periods to forecast (days or months)
+ * @param granularity - Time granularity: 'daily' (legacy) or 'monthly' (current standard)
  * @returns Array of predictions with confidence intervals
  */
 export async function runLocalSARIMA(
   historicalData: Array<{ date: string; value: number }>,
-  daysForecast: number
+  forecastPeriods: number,
+  granularity: 'daily' | 'monthly' = 'monthly' // Default to monthly
 ): Promise<Array<{ date: string; predicted_value: number; lower_bound: number; upper_bound: number }>> {
   try {
-    console.log('[runLocalSARIMA] Generating predictions for service appointments');
+    console.log(`[runLocalSARIMA] Generating ${granularity} predictions for service appointments`);
     console.log('[runLocalSARIMA] Historical data points:', historicalData.length);
-    console.log('[runLocalSARIMA] Forecast days:', daysForecast);
+    console.log('[runLocalSARIMA] Forecast periods:', forecastPeriods);
 
     // Validate input
     if (!historicalData || historicalData.length < 3) {
       throw new Error('Insufficient historical data. At least 3 data points required.');
     }
 
-    // Extract values
-    const values = historicalData.map(d => d.value);
-    const dataQuality = assessDataQuality(historicalData.length);
+    // MONTHLY GRANULARITY: Aggregate data to monthly intervals
+    let processedData = historicalData;
+    if (granularity === 'monthly') {
+      processedData = aggregateServiceToMonthly(historicalData);
+      console.log(`[runLocalSARIMA] Aggregated: ${historicalData.length} daily → ${processedData.length} monthly`);
+    }
 
-    // Get optimal SARIMA parameters for appointment data (daily patterns)
-    const params = getSARIMAParameters(historicalData.length);
+    // Extract values
+    const values = processedData.map(d => d.value);
+    const dataQuality = assessDataQuality(processedData.length);
+
+    // Get optimal SARIMA parameters (monthly uses s=12 for yearly seasonality)
+    const params = getSARIMAParameters(processedData.length, undefined, undefined, undefined, undefined, granularity);
 
     // Train model and generate forecast
-    const { predictions, lower, upper } = trainAndForecast(values, params, daysForecast);
+    const { predictions, lower, upper } = trainAndForecast(values, params, forecastPeriods);
 
-    // Generate prediction dates (daily increments from last historical date)
-    const lastDate = new Date(historicalData[historicalData.length - 1].date);
+    // Generate prediction dates based on granularity
+    const lastDate = new Date(processedData[processedData.length - 1].date);
     const predictionArray = predictions.map((pred, index) => {
       const predDate = new Date(lastDate);
-      predDate.setDate(predDate.getDate() + index + 1);
+
+      // Increment date based on granularity
+      if (granularity === 'monthly') {
+        predDate.setMonth(predDate.getMonth() + index + 1);
+      } else {
+        predDate.setDate(predDate.getDate() + index + 1);
+      }
 
       return {
         date: predDate.toISOString().split('T')[0],
@@ -1223,6 +1380,7 @@ export async function runLocalSARIMA(
     console.log('[runLocalSARIMA] Forecast complete:', {
       predictions: predictionArray.length,
       data_quality: dataQuality,
+      granularity,
     });
 
     return predictionArray;

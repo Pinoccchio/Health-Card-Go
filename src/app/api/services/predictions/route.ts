@@ -38,8 +38,11 @@ export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams;
     const serviceIdParam = searchParams.get('service_id');
     const barangayIdParam = searchParams.get('barangay_id');
-    const daysBack = parseInt(searchParams.get('days_back') || '30');
-    const daysForecast = parseInt(searchParams.get('days_forecast') || '30');
+
+    // MONTHLY GRANULARITY SUPPORT: Accept both legacy and new parameters
+    const granularity = searchParams.get('granularity') || 'monthly'; // Default to monthly
+    const periodsBack = parseInt(searchParams.get('months_back') || searchParams.get('days_back') || '12');
+    const periodsForecast = parseInt(searchParams.get('months_forecast') || searchParams.get('days_forecast') || '12');
 
     // Validate required parameters
     if (!serviceIdParam) {
@@ -58,15 +61,20 @@ export async function GET(request: NextRequest) {
     console.log('[Service Predictions API] Query params:', {
       serviceId,
       barangayId,
-      daysBack,
-      daysForecast,
+      periodsBack,
+      periodsForecast,
+      granularity,
       userId: user.id,
     });
 
-    // Calculate date range
+    // Calculate date range based on granularity
     const endDate = new Date();
     const startDate = new Date();
-    startDate.setDate(startDate.getDate() - daysBack);
+    if (granularity === 'monthly') {
+      startDate.setMonth(startDate.getMonth() - periodsBack);
+    } else {
+      startDate.setDate(startDate.getDate() - periodsBack);
+    }
 
     // ========================================================================
     // Fetch Historical Appointment Data
@@ -158,14 +166,20 @@ export async function GET(request: NextRequest) {
     // ========================================================================
 
     const forecastStartDate = new Date(endDate);
-    forecastStartDate.setDate(forecastStartDate.getDate() + 1);
     const forecastEndDate = new Date(endDate);
-    forecastEndDate.setDate(forecastEndDate.getDate() + daysForecast);
+    if (granularity === 'monthly') {
+      forecastStartDate.setMonth(forecastStartDate.getMonth() + 1);
+      forecastEndDate.setMonth(forecastEndDate.getMonth() + periodsForecast);
+    } else {
+      forecastStartDate.setDate(forecastStartDate.getDate() + 1);
+      forecastEndDate.setDate(forecastEndDate.getDate() + periodsForecast);
+    }
 
     let predictionsQuery = supabase
       .from('service_predictions')
-      .select('prediction_date, predicted_appointments, prediction_data')
+      .select('prediction_date, predicted_appointments, prediction_data, granularity')
       .eq('service_id', serviceId)
+      .eq('granularity', granularity) // Filter by granularity
       .gte('prediction_date', forecastStartDate.toISOString().split('T')[0])
       .lte('prediction_date', forecastEndDate.toISOString().split('T')[0])
       .order('prediction_date', { ascending: true });
@@ -214,11 +228,11 @@ export async function GET(request: NextRequest) {
     // Fallback: Run SARIMA Predictions On-Fly (if no cached predictions)
     // ========================================================================
     else if (historicalData.length >= 7) {
-      console.log('[Service Predictions API] No cached predictions found, generating on-fly...');
+      console.log(`[Service Predictions API] No cached predictions found, generating ${granularity} predictions on-fly...`);
 
       try {
-        predictions = await runLocalSARIMA(historicalData, daysForecast);
-        console.log(`[Service Predictions API] Generated ${predictions.length} predictions on-fly`);
+        predictions = await runLocalSARIMA(historicalData, periodsForecast, granularity as 'daily' | 'monthly');
+        console.log(`[Service Predictions API] Generated ${predictions.length} ${granularity} predictions on-fly`);
         usedCache = false;
       } catch (sarimaError) {
         console.error('[Service Predictions API] SARIMA error:', sarimaError);
@@ -288,8 +302,9 @@ export async function GET(request: NextRequest) {
       metadata: {
         service_id: serviceId,
         barangay_id: barangayId,
-        days_back: daysBack,
-        days_forecast: daysForecast,
+        periods_back: periodsBack,
+        periods_forecast: periodsForecast,
+        granularity: granularity,
         historical_data_points: historicalData.length,
         prediction_points: predictions.length,
         total_appointments: historicalData.reduce((sum, { value }) => sum + value, 0),

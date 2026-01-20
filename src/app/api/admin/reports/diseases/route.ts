@@ -141,15 +141,6 @@ export async function GET(request: NextRequest) {
       return acc;
     }, {});
 
-    // Severity breakdown
-    const severityBreakdown = filteredDiseases.reduce((acc: any, disease: any) => {
-      const sev = disease.severity || 'unknown';
-      if (!acc[sev]) {
-        acc[sev] = { severity: sev, count: 0 };
-      }
-      acc[sev].count++;
-      return acc;
-    }, {});
 
     // Barangay breakdown
     const barangayBreakdown = filteredDiseases.reduce((acc: any, disease: any) => {
@@ -225,7 +216,6 @@ export async function GET(request: NextRequest) {
     const responseData = {
       summary,
       disease_breakdown: Object.values(diseaseBreakdown).sort((a: any, b: any) => b.count - a.count),
-      severity_breakdown: Object.values(severityBreakdown),
       barangay_breakdown: Object.values(barangayBreakdown).sort((a: any, b: any) => b.count - a.count).slice(0, 15),
       trend_data: trendArray,
       table_data: tableData,
@@ -236,7 +226,6 @@ export async function GET(request: NextRequest) {
       records: {
         diseases: filteredDiseases.length,
         diseaseTypes: Object.values(diseaseBreakdown).length,
-        severityLevels: Object.values(severityBreakdown).length,
         barangays: Object.values(barangayBreakdown).length,
         trendPoints: trendArray.length,
         tableRows: tableData.length,

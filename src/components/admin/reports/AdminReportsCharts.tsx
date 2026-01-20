@@ -187,16 +187,6 @@ export default function AdminReportsCharts({ data, type }: AdminReportsChartsPro
       }],
     };
 
-    // Severity breakdown
-    const severityData = {
-      labels: data.severity_breakdown?.map((s: any) => s.severity.toUpperCase()) || [],
-      datasets: [{
-        label: 'Cases',
-        data: data.severity_breakdown?.map((s: any) => s.count) || [],
-        backgroundColor: [chartColors.green, chartColors.yellow, chartColors.orange, chartColors.red],
-      }],
-    };
-
     // Trend data
     const trendData = {
       labels: data.trend_data?.map((t: any) => t.date) || [],
@@ -214,10 +204,6 @@ export default function AdminReportsCharts({ data, type }: AdminReportsChartsPro
         <div className="bg-white p-4 rounded-lg shadow">
           <h4 className="text-sm font-semibold text-gray-700 mb-4">Cases by Disease Type</h4>
           <Bar data={diseaseData} options={{ responsive: true, maintainAspectRatio: true }} />
-        </div>
-        <div className="bg-white p-4 rounded-lg shadow">
-          <h4 className="text-sm font-semibold text-gray-700 mb-4">Cases by Severity</h4>
-          <Pie data={severityData} options={{ responsive: true, maintainAspectRatio: true }} />
         </div>
         <div className="bg-white p-4 rounded-lg shadow lg:col-span-2">
           <h4 className="text-sm font-semibold text-gray-700 mb-4">Disease Cases Trend</h4>

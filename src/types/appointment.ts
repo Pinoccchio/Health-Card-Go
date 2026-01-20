@@ -121,8 +121,8 @@ export type AppointmentStatus =
 
 /**
  * Health card type enum
- * - food_handler: Yellow Card - Food Handlers (requires Urinalysis, Stool Test, CBC, Chest X-ray)
- * - non_food: Green Card - Non-Food Handlers (requires Urinalysis, Stool Test, CBC, Chest X-ray)
+ * - food_handler: Yellow Card - General Health Card (requires Urinalysis, Stool Test, CBC, Chest X-ray)
+ * - non_food: Green Card - General Health Card (requires Urinalysis, Stool Test, CBC, Chest X-ray)
  * - pink: Pink Card - Service/Clinical (requires Gram Stain, Hepatitis B, Syphilis, HIV Test)
  */
 export type HealthCardType = 'food_handler' | 'non_food' | 'pink';
@@ -176,18 +176,18 @@ export const HEALTH_CARD_TYPES: Record<HealthCardType, {
   badgeColor: string;
 }> = {
   food_handler: {
-    label: 'Yellow Card - Food Handler',
+    label: 'Yellow Card - General Health Card',
     color: 'yellow',
-    description: 'For individuals working in food service, restaurants, canteens, and food production',
-    targetAudience: 'Food Handlers, Cooks, Restaurant Staff, Canteen Workers',
+    description: 'General health clearance for individuals requiring health certification',
+    targetAudience: 'Workers, Service Staff, General Applicants',
     requiredTests: ['Urinalysis', 'Stool Test', 'CBC (Complete Blood Count)', 'Chest X-ray'],
     badgeColor: 'bg-yellow-100 text-yellow-800 border-yellow-300',
   },
   non_food: {
-    label: 'Green Card - Non-Food Handler',
+    label: 'Green Card - General Health Card',
     color: 'green',
-    description: 'For individuals in non-food service industries requiring health clearance',
-    targetAudience: 'Service Workers, Retail Staff, Office Workers',
+    description: 'General health clearance for individuals requiring health certification',
+    targetAudience: 'Workers, Service Staff, General Applicants',
     requiredTests: ['Urinalysis', 'Stool Test', 'CBC (Complete Blood Count)', 'Chest X-ray'],
     badgeColor: 'bg-green-100 text-green-800 border-green-300',
   },

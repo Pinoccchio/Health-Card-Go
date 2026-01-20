@@ -1238,7 +1238,16 @@ export default function HealthcareAdminAppointmentsPage() {
                 { id: 'completed', label: 'Completed', count: statistics.completed, color: 'green', icon: CheckCircle },
                 { id: 'cancelled', label: 'Cancelled', count: statistics.cancelled, color: 'gray', icon: XCircle },
                 { id: 'no_show', label: 'No Show', count: statistics.no_show, color: 'red', icon: AlertCircle },
-              ].map((statusFilter) => {
+              ]
+                .filter((statusFilter) => {
+                  // Hide "pending" tab for HIV (16) and Pregnancy (17) services
+                  // since their appointments skip pending and go directly to scheduled
+                  if (statusFilter.id === 'pending' && (user?.assigned_service_id === 16 || user?.assigned_service_id === 17)) {
+                    return false;
+                  }
+                  return true;
+                })
+                .map((statusFilter) => {
                 const Icon = statusFilter.icon;
                 const isActive = filter === statusFilter.id;
                 const colorClasses = {

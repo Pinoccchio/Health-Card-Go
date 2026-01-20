@@ -33,7 +33,7 @@
     "health_card": "Health Card",
     "feedback": "Feedback",
     "book_appointment": "Mag-book ug Appointment",
-    "disease_surveillance": "Pagsubay sa Sakit",
+    "disease_surveillance": "Pagmonitor sa Sakit",
     "login": "Login",
     "home": "Home",
     "about": "Mahitungod Kanamo",
@@ -274,7 +274,7 @@
     }
   },
   "disease_surveillance": {
-    "title": "Pagsubay sa Sakit",
+    "title": "Pagmonitor sa Sakit",
     "description": "Subaysubaya ang mga outbreak ug trend sa sakit sa Dakbayan sa Panabo",
     "heatmap": "Mapa sa Sakit",
     "statistics": "Estadistika sa Sakit",

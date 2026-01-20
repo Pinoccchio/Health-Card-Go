@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/server';
 import { NextRequest, NextResponse } from 'next/server';
-import { getPhilippineTime, isValidBookingDate, isWeekday } from '@/lib/utils/timezone';
+import { getPhilippineTime, isValidBookingDate, isWeekday, isHoliday } from '@/lib/utils/timezone';
 import {
   TimeBlock,
   TimeBlockInfo,
@@ -51,6 +51,21 @@ export async function GET(request: NextRequest) {
         success: true,
         available: false,
         reason: 'Appointments are only available Monday through Friday',
+        slots: [],
+      });
+    }
+
+    // Check if date is a holiday
+    const { data: holidays, error: holidaysError } = await supabase
+      .from('holidays')
+      .select('holiday_date, holiday_name');
+
+    if (!holidaysError && holidays && isHoliday(date, holidays)) {
+      const holiday = holidays.find(h => h.holiday_date === date);
+      return NextResponse.json({
+        success: true,
+        available: false,
+        reason: `${date} is a holiday (${holiday?.holiday_name || 'Holiday'}). Appointments are not available.`,
         slots: [],
       });
     }

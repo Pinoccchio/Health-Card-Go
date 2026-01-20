@@ -52,7 +52,10 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const serviceId = body.service_id;
     const barangayId = body.barangay_id || null;
-    const daysForecast = body.days_forecast || 30;
+
+    // MONTHLY GRANULARITY SUPPORT: Accept both legacy and new parameters
+    const granularity = body.granularity || 'monthly'; // Default to monthly
+    const forecastPeriods = body.months_forecast || body.days_forecast || 12; // Default 12 months
     const autoSave = body.auto_save !== false; // Default true
 
     // Validate service_id
@@ -92,7 +95,8 @@ export async function POST(request: NextRequest) {
     console.log('[Generate Service Predictions API] Parameters:', {
       serviceId,
       barangayId,
-      daysForecast,
+      forecastPeriods,
+      granularity,
       autoSave,
       userId: user.id,
       userRole: profile.role,
@@ -183,11 +187,12 @@ export async function POST(request: NextRequest) {
     // Generate Predictions with Local SARIMA
     // ========================================================================
 
-    console.log('[Generate Service Predictions API] Running local SARIMA...');
-    const predictions = await runLocalSARIMA(historicalData, daysForecast);
+    console.log(`[Generate Service Predictions API] Running local SARIMA with ${granularity} granularity...`);
+    const predictions = await runLocalSARIMA(historicalData, forecastPeriods, granularity as 'daily' | 'monthly');
 
     console.log('[Generate Service Predictions API] Local SARIMA forecast received:', {
       predictions: predictions.length,
+      granularity,
       dataQuality,
     });
 
@@ -240,14 +245,15 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      // Insert new predictions
+      // Insert new predictions with granularity
       const predictionsToInsert = predictions.map((pred) => ({
         service_id: serviceId,
         barangay_id: barangayId,
         prediction_date: pred.date,
         predicted_appointments: pred.predicted_value,
         confidence_level: 0.95,
-        model_version: 'Local-SARIMA-v1.0',
+        model_version: `Local-SARIMA-${granularity}-v2.0`,
+        granularity: granularity, // NEW: Store granularity
         prediction_data: {
           upper_bound: pred.upper_bound,
           lower_bound: pred.lower_bound,
@@ -291,14 +297,15 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: `Successfully generated ${predictions.length} predictions using local SARIMA`,
+      message: `Successfully generated ${predictions.length} ${granularity} predictions using local SARIMA`,
       data: {
         service_id: serviceId,
         barangay_id: barangayId,
-        days_forecast: daysForecast,
+        forecast_periods: forecastPeriods,
+        granularity: granularity,
         predictions: predictions,
         model_metadata: {
-          version: 'Local-SARIMA-v1.0',
+          version: `Local-SARIMA-${granularity}-v2.0`,
           accuracy_metrics: accuracyMetrics,
           trend: 'stable',
           seasonality_detected: false,

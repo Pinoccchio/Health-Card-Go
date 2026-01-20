@@ -55,8 +55,11 @@ interface ServiceSARIMAChartProps {
   serviceId: number;
   serviceName: string;
   barangayId?: number | null;
-  daysBack?: number;
-  daysForecast?: number;
+  monthsBack?: number; // NEW: Monthly granularity
+  monthsForecast?: number; // NEW: Monthly granularity
+  daysBack?: number; // Legacy support
+  daysForecast?: number; // Legacy support
+  granularity?: 'daily' | 'monthly'; // NEW: Granularity parameter
   showTitle?: boolean;
   height?: number;
 }
@@ -65,11 +68,17 @@ export default function ServiceSARIMAChart({
   serviceId,
   serviceName,
   barangayId = null,
-  daysBack = 30,
-  daysForecast = 30,
+  monthsBack,
+  monthsForecast,
+  daysBack,
+  daysForecast,
+  granularity = 'monthly', // Default to monthly
   showTitle = true,
   height = 400,
 }: ServiceSARIMAChartProps) {
+  // Use monthly by default, fallback to daily
+  const periodsBack = granularity === 'monthly' ? (monthsBack || 12) : (daysBack || 30);
+  const periodsForecast = granularity === 'monthly' ? (monthsForecast || 12) : (daysForecast || 30);
   const [chartData, setChartData] = useState<ServiceSARIMAData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -78,10 +87,10 @@ export default function ServiceSARIMAChart({
   // Get service-specific color scheme
   const getServiceColor = (serviceId: number) => {
     const colors: Record<number, { primary: string; light: string }> = {
-      12: { primary: 'rgb(234, 179, 8)', light: 'rgba(234, 179, 8, 0.2)' }, // Food Handler - Yellow
-      13: { primary: 'rgb(234, 179, 8)', light: 'rgba(234, 179, 8, 0.2)' }, // Food Renewal - Yellow
-      14: { primary: 'rgb(34, 197, 94)', light: 'rgba(34, 197, 94, 0.2)' }, // Non-Food - Green
-      15: { primary: 'rgb(34, 197, 94)', light: 'rgba(34, 197, 94, 0.2)' }, // Non-Food Renewal - Green
+      12: { primary: 'rgb(234, 179, 8)', light: 'rgba(234, 179, 8, 0.2)' }, // Yellow Card - General Health Card
+      13: { primary: 'rgb(234, 179, 8)', light: 'rgba(234, 179, 8, 0.2)' }, // Yellow Card Renewal - General
+      14: { primary: 'rgb(34, 197, 94)', light: 'rgba(34, 197, 94, 0.2)' }, // Green Card - General Health Card
+      15: { primary: 'rgb(34, 197, 94)', light: 'rgba(34, 197, 94, 0.2)' }, // Green Card Renewal - General
       16: { primary: 'rgb(236, 72, 153)', light: 'rgba(236, 72, 153, 0.2)' }, // HIV - Pink
       17: { primary: 'rgb(147, 51, 234)', light: 'rgba(147, 51, 234, 0.2)' }, // Pregnancy - Purple
     };
@@ -97,9 +106,17 @@ export default function ServiceSARIMAChart({
 
         const params = new URLSearchParams({
           service_id: serviceId.toString(),
-          days_back: daysBack.toString(),
-          days_forecast: daysForecast.toString(),
+          granularity: granularity,
         });
+
+        // Add period parameters based on granularity
+        if (granularity === 'monthly') {
+          params.append('months_back', periodsBack.toString());
+          params.append('months_forecast', periodsForecast.toString());
+        } else {
+          params.append('days_back', periodsBack.toString());
+          params.append('days_forecast', periodsForecast.toString());
+        }
 
         if (barangayId !== null) {
           params.append('barangay_id', barangayId.toString());
@@ -129,7 +146,20 @@ export default function ServiceSARIMAChart({
     }
 
     fetchPredictions();
-  }, [serviceId, barangayId, daysBack, daysForecast]);
+  }, [serviceId, barangayId, periodsBack, periodsForecast, granularity]);
+
+  // Format date labels based on granularity
+  const formatDateLabel = (dateStr: string): string => {
+    if (granularity === 'monthly') {
+      // Format as "Jan 2025", "Feb 2025"
+      const date = new Date(dateStr);
+      return date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+    } else {
+      // Format as "Jan 15" for daily
+      const date = new Date(dateStr);
+      return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    }
+  };
 
   // Build Chart.js configuration
   const getChartConfig = () => {
@@ -138,7 +168,7 @@ export default function ServiceSARIMAChart({
     const colors = getServiceColor(serviceId);
 
     const data = {
-      labels: chartData.dates,
+      labels: chartData.dates.map(formatDateLabel),
       datasets: [
         // Actual values (solid line)
         {
@@ -410,7 +440,9 @@ export default function ServiceSARIMAChart({
             <Database className="w-5 h-5 text-blue-600" />
           </div>
           <p className="text-3xl font-bold text-blue-900">{totalHistorical}</p>
-          <p className="text-xs text-blue-600 mt-1">Last {daysBack} days</p>
+          <p className="text-xs text-blue-600 mt-1">
+            Last {periodsBack} {granularity === 'monthly' ? 'months' : 'days'}
+          </p>
         </div>
 
         {/* Card 2: Predicted Total */}
@@ -420,7 +452,9 @@ export default function ServiceSARIMAChart({
             <TrendingUp className="w-5 h-5 text-purple-600" />
           </div>
           <p className="text-3xl font-bold text-purple-900">{Math.round(totalPredicted)}</p>
-          <p className="text-xs text-purple-600 mt-1">Next {daysForecast} days</p>
+          <p className="text-xs text-purple-600 mt-1">
+            Next {periodsForecast} {granularity === 'monthly' ? 'months' : 'days'}
+          </p>
         </div>
 
         {/* Card 3: Location */}

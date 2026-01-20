@@ -33,7 +33,7 @@
     "health_card": "Health Card",
     "feedback": "Feedback",
     "book_appointment": "Mag-book ng Appointment",
-    "disease_surveillance": "Pagsubaybay sa Sakit",
+    "disease_surveillance": "Pagmonitor sa Sakit",
     "login": "Mag-login",
     "home": "Home",
     "about": "Tungkol sa Amin",
@@ -274,7 +274,7 @@
     }
   },
   "disease_surveillance": {
-    "title": "Pagsubaybay sa Sakit",
+    "title": "Pagmonitor sa Sakit",
     "description": "Subaybayan ang mga outbreak at trend ng sakit sa Lungsod ng Panabo",
     "heatmap": "Mapa ng Sakit",
     "statistics": "Estadistika ng Sakit",

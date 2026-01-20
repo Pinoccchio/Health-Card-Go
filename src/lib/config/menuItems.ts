@@ -50,7 +50,7 @@ export const SUPER_ADMIN_MENU_ITEMS: MenuItem[] = [
     icon: Briefcase,
   },
   {
-    label: 'Disease Surveillance',
+    label: 'Disease Monitoring',
     href: '/admin/disease-surveillance',
     icon: Activity,
   },
@@ -162,7 +162,7 @@ export const PATIENT_MENU_ITEMS: MenuItem[] = [
 
 /**
  * Menu items for Staff (role_id: 5)
- * Disease surveillance staff - handles ALL diseases (Measles, Rabies, Malaria, Dengue, etc.)
+ * Disease monitoring staff - handles ALL diseases (Measles, Rabies, Malaria, Dengue, etc.)
  * NO appointment management
  */
 export const STAFF_MENU_ITEMS: MenuItem[] = [
@@ -172,7 +172,7 @@ export const STAFF_MENU_ITEMS: MenuItem[] = [
     icon: LayoutDashboard,
   },
   {
-    label: 'Disease Surveillance',
+    label: 'Disease Monitoring',
     href: '/staff/disease-surveillance',
     icon: Activity,
   },

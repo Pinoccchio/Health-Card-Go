@@ -33,7 +33,7 @@
     "health_card": "Health Card",
     "feedback": "Feedback",
     "book_appointment": "Book Appointment",
-    "disease_surveillance": "Disease Surveillance",
+    "disease_surveillance": "Disease Monitoring",
     "login": "Login",
     "home": "Home",
     "about": "About Us",
@@ -274,7 +274,7 @@
     }
   },
   "disease_surveillance": {
-    "title": "Disease Surveillance",
+    "title": "Disease Monitoring",
     "description": "Track disease outbreaks and trends in Panabo City",
     "heatmap": "Disease Heatmap",
     "statistics": "Disease Statistics",

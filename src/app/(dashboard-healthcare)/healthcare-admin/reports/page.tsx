@@ -183,8 +183,9 @@ export default function HealthcareAdminReportsPage() {
         if (!isHealthCardService(service.id) && activeTab === 'healthcard-forecast') {
           const servicePredParams = new URLSearchParams({
             service_id: service.id.toString(),
-            days_back: '30',
-            days_forecast: '30',
+            months_back: '12',
+            months_forecast: '12',
+            granularity: 'monthly',
           });
 
           if (barangayId) servicePredParams.append('barangay_id', barangayId.toString());
@@ -223,8 +224,9 @@ export default function HealthcareAdminReportsPage() {
           const healthcardType = getHealthCardType(service.id);
           const sarimaParams = new URLSearchParams({
             healthcard_type: healthcardType,
-            days_back: '30',
-            days_forecast: '30',
+            months_back: '12',
+            months_forecast: '12',
+            granularity: 'monthly',
           });
 
           if (barangayId) sarimaParams.append('barangay_id', barangayId.toString());
@@ -240,8 +242,9 @@ export default function HealthcareAdminReportsPage() {
           // This is the ONLY source for metrics display (calculated from overlapping data)
           const chartParams = new URLSearchParams({
             healthcard_type: healthcardType,
-            days_back: '30',
-            days_forecast: '30',
+            months_back: '12',
+            months_forecast: '12',
+            granularity: 'monthly',
           });
 
           if (barangayId) chartParams.append('barangay_id', barangayId.toString());
@@ -284,12 +287,14 @@ export default function HealthcareAdminReportsPage() {
         ? {
             healthcard_type: getHealthCardType(service.id),
             barangay_id: barangayId || null,
-            days_forecast: 30,
+            months_forecast: 12,
+            granularity: 'monthly',
           }
         : {
             service_id: service.id,
             barangay_id: barangayId || null,
-            days_forecast: 30,
+            months_forecast: 12,
+            granularity: 'monthly',
             auto_save: true,
           };
 
@@ -310,7 +315,7 @@ export default function HealthcareAdminReportsPage() {
 
         setGenerationStatus({
           type: 'success',
-          message: `Successfully generated ${predictionsCount} predictions for the next 30 days`,
+          message: `Successfully generated ${predictionsCount} monthly predictions for the next 12 months`,
         });
 
         // Force chart to reload with new cached predictions
@@ -321,8 +326,9 @@ export default function HealthcareAdminReportsPage() {
           const healthcardType = getHealthCardType(service.id);
           const chartParams = new URLSearchParams({
             healthcard_type: healthcardType,
-            days_back: '30',
-            days_forecast: '30',
+            months_back: '12',
+            months_forecast: '12',
+            granularity: 'monthly',
           });
           if (barangayId) chartParams.append('barangay_id', barangayId.toString());
 
@@ -334,8 +340,9 @@ export default function HealthcareAdminReportsPage() {
         } else {
           const servicePredParams = new URLSearchParams({
             service_id: service.id.toString(),
-            days_back: '30',
-            days_forecast: '30',
+            months_back: '12',
+            months_forecast: '12',
+            granularity: 'monthly',
           });
           if (barangayId) servicePredParams.append('barangay_id', barangayId.toString());
 
@@ -612,8 +619,9 @@ export default function HealthcareAdminReportsPage() {
                         key={predictionRefreshKey} // Force reload when predictions are regenerated
                         healthcardType={getHealthCardType(service.id) as HealthCardType}
                         barangayId={barangayId || null}
-                        daysBack={30}
-                        daysForecast={30}
+                        monthsBack={12}
+                        monthsForecast={12}
+                        granularity="monthly"
                         showTitle={true}
                         height={450}
                       />
@@ -633,8 +641,9 @@ export default function HealthcareAdminReportsPage() {
                         serviceId={service.id}
                         serviceName={service.name}
                         barangayId={barangayId || null}
-                        daysBack={30}
-                        daysForecast={30}
+                        monthsBack={12}
+                        monthsForecast={12}
+                        granularity="monthly"
                         showTitle={true}
                         height={450}
                       />

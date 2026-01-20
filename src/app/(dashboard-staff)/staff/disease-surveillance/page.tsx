@@ -242,7 +242,7 @@ export default function StaffDiseaseSurveillancePage() {
   return (
     <DashboardLayout
       roleId={5}
-      pageTitle="Disease Surveillance"
+      pageTitle="Disease Monitoring"
       pageDescription="Record and monitor disease cases across Panabo City"
     >
       <Container size="full">

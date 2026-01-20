@@ -2,7 +2,7 @@
  * HealthCard SARIMA Types
  *
  * Type definitions for health card issuance tracking and SARIMA predictions.
- * Supports Food Handler and Non-Food health cards with location-based forecasting.
+ * Supports General health cards (Yellow and Green card types) with location-based forecasting.
  */
 
 import { Database } from './supabase';
@@ -13,8 +13,8 @@ import { Database } from './supabase';
 
 /**
  * Health card classification based on service type
- * - food_handler: Services 12, 13 (Food Handler Processing & Renewal)
- * - non_food: Services 14, 15 (Non-Food Processing & Renewal)
+ * - food_handler: Services 12, 13 (Yellow Card - General Health Card Processing & Renewal)
+ * - non_food: Services 14, 15 (Green Card - General Health Card Processing & Renewal)
  */
 export type HealthCardType = 'food_handler' | 'non_food';
 
@@ -231,10 +231,10 @@ export interface HealthCardPredictionsFilters {
  * Maps service IDs to health card types
  */
 export const SERVICE_TO_HEALTHCARD_TYPE: Record<number, HealthCardType> = {
-  12: 'food_handler', // Food Handler Health Card Processing
-  13: 'food_handler', // Food Handler Health Card Renewal
-  14: 'non_food', // Non-Food Health Card Processing
-  15: 'non_food', // Non-Food Health Card Renewal
+  12: 'food_handler', // Yellow Card - General Health Card Processing
+  13: 'food_handler', // Yellow Card - General Health Card Renewal
+  14: 'non_food', // Green Card - General Health Card Processing
+  15: 'non_food', // Green Card - General Health Card Renewal
 };
 
 /**
@@ -249,8 +249,8 @@ export const HEALTHCARD_TYPE_TO_SERVICES: Record<HealthCardType, number[]> = {
  * Human-readable labels for health card types
  */
 export const HEALTHCARD_TYPE_LABELS: Record<HealthCardType, string> = {
-  food_handler: 'Food Handler',
-  non_food: 'Non-Food Handler',
+  food_handler: 'General (Yellow Card)',
+  non_food: 'General (Green Card)',
 };
 
 /**

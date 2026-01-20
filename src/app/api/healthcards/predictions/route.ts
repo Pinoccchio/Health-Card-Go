@@ -25,6 +25,7 @@ import {
 import {
   isValidHealthCardType,
   generateSARIMADateRange,
+  generateSARIMADateRangeMonthly,
   getHealthCardTypeLabel,
 } from '@/lib/utils/healthcardHelpers';
 import { transformHealthCardSARIMAData } from '@/lib/utils/healthcardChartTransformers';
@@ -50,8 +51,11 @@ export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams;
     const healthcardTypeParam = searchParams.get('healthcard_type');
     const barangayIdParam = searchParams.get('barangay_id');
-    const daysBack = parseInt(searchParams.get('days_back') || '30');
-    const daysForecast = parseInt(searchParams.get('days_forecast') || '30');
+
+    // MONTHLY GRANULARITY SUPPORT: Accept both legacy and new parameters
+    const granularity = searchParams.get('granularity') || 'monthly'; // Default to monthly
+    const periodsBack = parseInt(searchParams.get('months_back') || searchParams.get('days_back') || '12');
+    const periodsForecast = parseInt(searchParams.get('months_forecast') || searchParams.get('days_forecast') || '12');
     const includeConfidence = searchParams.get('include_confidence') !== 'false';
 
     // Validate required parameters
@@ -81,14 +85,17 @@ export async function GET(request: NextRequest) {
     console.log('[HealthCard Predictions API] Query params:', {
       healthcardType,
       barangayId,
-      daysBack,
-      daysForecast,
+      periodsBack,
+      periodsForecast,
+      granularity,
       includeConfidence,
       userId: user.id,
     });
 
-    // Generate date range
-    const dateRange = generateSARIMADateRange(daysBack, daysForecast);
+    // Generate date range based on granularity
+    const dateRange = granularity === 'monthly'
+      ? generateSARIMADateRangeMonthly(periodsBack, periodsForecast)
+      : generateSARIMADateRange(periodsBack, periodsForecast);
 
     // ========================================================================
     // Fetch Historical Statistics
@@ -201,6 +208,7 @@ export async function GET(request: NextRequest) {
         confidence_level,
         model_version,
         prediction_data,
+        granularity,
         created_at,
         barangays(
           id,
@@ -210,6 +218,7 @@ export async function GET(request: NextRequest) {
       `
       )
       .eq('healthcard_type', healthcardType)
+      .eq('granularity', granularity) // Filter by granularity
       .gte('prediction_date', dateRange.start_date)
       .lte('prediction_date', dateRange.end_date)
       .order('prediction_date', { ascending: true });
@@ -305,8 +314,8 @@ export async function GET(request: NextRequest) {
         healthcard_type: healthcardType,
         barangay_id: barangayId,
         barangay_name: barangayName,
-        days_historical: daysBack,
-        days_forecast: daysForecast,
+        days_historical: periodsBack,
+        days_forecast: periodsForecast,
         total_data_points: transformedData.dates.length,
         model_version: predictions?.[0]?.model_version || 'SARIMA(1,1,1)(1,1,1,7)',
         // Data quality indicators

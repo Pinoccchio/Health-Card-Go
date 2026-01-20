@@ -398,8 +398,8 @@ export default function AdminDiseaseSurveillancePage() {
   return (
     <DashboardLayout
       roleId={1}
-      pageTitle="Disease Surveillance & Analytics"
-      pageDescription="Comprehensive disease surveillance with predictive analytics and outbreak detection"
+      pageTitle="Disease Monitoring & Analytics"
+      pageDescription="Comprehensive disease monitoring with predictive analytics and outbreak detection"
     >
       <Container size="full">
         {/* Error Alert */}

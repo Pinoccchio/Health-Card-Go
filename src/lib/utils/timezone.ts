@@ -212,3 +212,39 @@ export function isWeekday(dateString: string): boolean {
   const day = date.getDay();
   return day !== 0 && day !== 6; // 0 = Sunday, 6 = Saturday
 }
+
+/**
+ * Check if a date is a holiday (client-side cache check)
+ * This is a synchronous function that checks against a cached list of holidays
+ * @param dateString Date string (YYYY-MM-DD)
+ * @param holidays Array of holiday objects with holiday_date field
+ * @returns true if date is a holiday
+ */
+export function isHoliday(dateString: string, holidays: { holiday_date: string }[]): boolean {
+  return holidays.some(holiday => holiday.holiday_date === dateString);
+}
+
+/**
+ * Check if a date is available for booking (not weekend, not holiday)
+ * @param dateString Date string (YYYY-MM-DD)
+ * @param holidays Array of holiday objects
+ * @returns true if date is available for booking
+ */
+export function isDateAvailableForBooking(dateString: string, holidays: { holiday_date: string }[]): boolean {
+  // Check if weekend
+  if (!isWeekday(dateString)) {
+    return false;
+  }
+
+  // Check if holiday
+  if (isHoliday(dateString, holidays)) {
+    return false;
+  }
+
+  // Check if meets minimum booking date requirement
+  if (!isValidBookingDate(dateString)) {
+    return false;
+  }
+
+  return true;
+}

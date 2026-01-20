@@ -288,6 +288,35 @@ export function generateSARIMADateRange(
 }
 
 /**
+ * Generate date range for monthly SARIMA predictions
+ *
+ * @param monthsBack - Number of months to look back
+ * @param monthsForecast - Number of months to forecast
+ * @returns Object with start_date and end_date
+ */
+export function generateSARIMADateRangeMonthly(
+  monthsBack: number = 12,
+  monthsForecast: number = 12
+): {
+  start_date: string;
+  end_date: string;
+  today: string;
+} {
+  const today = new Date();
+  const startDate = new Date(today);
+  startDate.setMonth(startDate.getMonth() - monthsBack);
+
+  const endDate = new Date(today);
+  endDate.setMonth(endDate.getMonth() + monthsForecast);
+
+  return {
+    start_date: startDate.toISOString().split('T')[0],
+    end_date: endDate.toISOString().split('T')[0],
+    today: today.toISOString().split('T')[0],
+  };
+}
+
+/**
  * Check if date is in the future
  *
  * @param dateString - Date string (YYYY-MM-DD)

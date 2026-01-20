@@ -7,7 +7,7 @@
  * - Historical actual issuances (solid line)
  * - Predicted future issuances (dashed line)
  * - 95% confidence intervals (shaded area)
- * - Separate views for Food Handler vs Non-Food
+ * - Separate views for Yellow Card (General) vs Green Card (General)
  */
 
 import React, { useEffect, useState } from 'react';
@@ -52,8 +52,11 @@ ChartJS.register(
 interface HealthCardSARIMAChartProps {
   healthcardType: HealthCardType;
   barangayId?: number | null;
-  daysBack?: number;
-  daysForecast?: number;
+  monthsBack?: number; // NEW: Monthly granularity
+  monthsForecast?: number; // NEW: Monthly granularity
+  daysBack?: number; // Legacy support
+  daysForecast?: number; // Legacy support
+  granularity?: 'daily' | 'monthly'; // NEW: Granularity parameter
   showTitle?: boolean;
   height?: number;
 }
@@ -61,11 +64,17 @@ interface HealthCardSARIMAChartProps {
 export default function HealthCardSARIMAChart({
   healthcardType,
   barangayId = null,
-  daysBack = 30,
-  daysForecast = 30,
+  monthsBack,
+  monthsForecast,
+  daysBack,
+  daysForecast,
+  granularity = 'monthly', // Default to monthly
   showTitle = true,
   height = 400,
 }: HealthCardSARIMAChartProps) {
+  // Use monthly by default, fallback to daily
+  const periodsBack = granularity === 'monthly' ? (monthsBack || 12) : (daysBack || 30);
+  const periodsForecast = granularity === 'monthly' ? (monthsForecast || 12) : (daysForecast || 30);
   const [chartData, setChartData] = useState<HealthCardSARIMAData | null>(null);
   const [metadata, setMetadata] = useState<HealthCardPredictionsResponse['metadata'] | null>(null);
   const [loading, setLoading] = useState(true);
@@ -94,9 +103,16 @@ export default function HealthCardSARIMAChart({
 
         const params = new URLSearchParams({
           healthcard_type: healthcardType,
-          days_back: daysBack.toString(),
-          days_forecast: daysForecast.toString(),
+          granularity: granularity,
         });
+
+        if (granularity === 'monthly') {
+          params.append('months_back', periodsBack.toString());
+          params.append('months_forecast', periodsForecast.toString());
+        } else {
+          params.append('days_back', periodsBack.toString());
+          params.append('days_forecast', periodsForecast.toString());
+        }
 
         if (barangayId !== null) {
           params.append('barangay_id', barangayId.toString());
@@ -126,7 +142,18 @@ export default function HealthCardSARIMAChart({
     }
 
     fetchPredictions();
-  }, [healthcardType, barangayId, daysBack, daysForecast]);
+  }, [healthcardType, barangayId, periodsBack, periodsForecast, granularity]);
+
+  // Helper: Format date labels based on granularity
+  const formatDateLabel = (dateStr: string): string => {
+    if (granularity === 'monthly') {
+      const date = new Date(dateStr);
+      return date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+    } else {
+      const date = new Date(dateStr);
+      return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    }
+  };
 
   // Build Chart.js configuration
   const getChartConfig = () => {
@@ -136,7 +163,7 @@ export default function HealthCardSARIMAChart({
     const lightColor = getHealthCardTypeLightColor(healthcardType);
 
     const data = {
-      labels: chartData.dates,
+      labels: chartData.dates.map(formatDateLabel),
       datasets: [
         // Actual issuances (solid line)
         {
@@ -389,7 +416,9 @@ export default function HealthCardSARIMAChart({
             <span className="text-xs font-medium text-blue-900">Total Historical</span>
           </div>
           <p className="text-2xl font-bold text-blue-900">{chartData.total_historical}</p>
-          <p className="text-xs text-blue-700 mt-1">Last {daysBack} days</p>
+          <p className="text-xs text-blue-700 mt-1">
+            Last {periodsBack} {granularity === 'monthly' ? 'months' : 'days'}
+          </p>
         </div>
 
         <div className="bg-green-50 p-4 rounded-lg border border-green-200">
@@ -398,7 +427,9 @@ export default function HealthCardSARIMAChart({
             <span className="text-xs font-medium text-green-900">Predicted Total</span>
           </div>
           <p className="text-2xl font-bold text-green-900">{chartData.total_predicted}</p>
-          <p className="text-xs text-green-700 mt-1">Next {daysForecast} days</p>
+          <p className="text-xs text-green-700 mt-1">
+            Next {periodsForecast} {granularity === 'monthly' ? 'months' : 'days'}
+          </p>
         </div>
 
         <div className="bg-purple-50 p-4 rounded-lg border border-purple-200">

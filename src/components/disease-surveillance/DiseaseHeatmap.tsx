@@ -17,6 +17,7 @@ interface HeatmapData {
   barangay_id: number;
   barangay_name: string;
   coordinates: any; // Can be GeoJSON or {lat, lng}
+  population?: number; // Barangay population for percentage calculation
   statistics: {
     total_cases: number;
     active_cases: number;
@@ -138,17 +139,28 @@ export default function DiseaseHeatmap({ data, diseaseType }: DiseaseHeatmapProp
           return;
         }
 
-        // Color based on risk level
-        const getColor = (risk: string) => {
-          switch (risk) {
-            case 'critical': return '#dc2626'; // red-600
-            case 'high': return '#ea580c'; // orange-600
-            case 'medium': return '#ca8a04'; // yellow-600
-            default: return '#16a34a'; // green-600
+        // Calculate percentage-based risk level
+        // Formula: (cases / population) * 100
+        // High Risk: >= 70%, Medium Risk: 50-69%, Low Risk: <= 49%
+        const calculateRiskPercentage = (cases: number, population: number): number => {
+          if (population === 0) return 0;
+          return (cases / population) * 100;
+        };
+
+        const calculateRiskLevel = (percentage: number): { level: string; color: string } => {
+          if (percentage >= 70) {
+            return { level: 'HIGH RISK', color: '#dc2626' }; // red-600
+          } else if (percentage >= 50) {
+            return { level: 'MEDIUM RISK', color: '#ea580c' }; // orange-600
+          } else {
+            return { level: 'LOW RISK', color: '#16a34a' }; // green-600
           }
         };
 
-        const color = getColor(barangay.risk_level);
+        const population = barangay.population || 5610; // Default population if not provided
+        const riskPercentage = calculateRiskPercentage(barangay.statistics.total_cases, population);
+        const risk = calculateRiskLevel(riskPercentage);
+        const color = risk.color;
 
         // Calculate circle radius based on case count (10-30px range)
         const baseCases = barangay.statistics.total_cases;
@@ -190,15 +202,18 @@ export default function DiseaseHeatmap({ data, diseaseType }: DiseaseHeatmapProp
               <div class="flex justify-between">
                 <span>Risk Level:</span>
                 <span class="font-semibold ${
-                  barangay.risk_level === 'critical' ? 'text-red-600' :
-                  barangay.risk_level === 'high' ? 'text-orange-600' :
-                  barangay.risk_level === 'medium' ? 'text-yellow-600' :
+                  riskPercentage >= 70 ? 'text-red-600' :
+                  riskPercentage >= 50 ? 'text-orange-600' :
                   'text-green-600'
-                }">${barangay.risk_level.toUpperCase()}</span>
+                }">${risk.level} (${riskPercentage.toFixed(2)}%)</span>
               </div>
               <div class="flex justify-between">
                 <span>Total Cases:</span>
                 <span class="font-semibold">${barangay.statistics.total_cases}</span>
+              </div>
+              <div class="flex justify-between">
+                <span>Population:</span>
+                <span class="font-semibold">${population.toLocaleString()}</span>
               </div>
             </div>
 
@@ -250,22 +265,21 @@ export default function DiseaseHeatmap({ data, diseaseType }: DiseaseHeatmapProp
         <div className="space-y-1">
           <div className="flex items-center gap-2 text-xs">
             <div className="w-4 h-4 rounded-full bg-red-600"></div>
-            <span>Critical</span>
+            <span>High Risk (≥70%)</span>
           </div>
           <div className="flex items-center gap-2 text-xs">
             <div className="w-4 h-4 rounded-full bg-orange-600"></div>
-            <span>High</span>
-          </div>
-          <div className="flex items-center gap-2 text-xs">
-            <div className="w-4 h-4 rounded-full bg-yellow-600"></div>
-            <span>Medium</span>
+            <span>Medium Risk (50-69%)</span>
           </div>
           <div className="flex items-center gap-2 text-xs">
             <div className="w-4 h-4 rounded-full bg-green-600"></div>
-            <span>Low</span>
+            <span>Low Risk (≤49%)</span>
           </div>
         </div>
         <p className="text-xs text-gray-500 mt-2 italic">
+          Formula: (cases / population) × 100
+        </p>
+        <p className="text-xs text-gray-500 italic">
           Circle size = case count
         </p>
       </div>

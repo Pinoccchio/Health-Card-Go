@@ -21,6 +21,7 @@ export interface BarangayDB {
   name: string;
   code: string;
   coordinates: Coordinates | null;
+  population: number | null;
   created_at: string;
   updated_at: string;
 }
@@ -34,6 +35,7 @@ export interface Barangay {
   name: string;
   code: string;
   coordinates?: Coordinates;
+  population?: number | null;
   created_at?: string;
   updated_at?: string;
 }

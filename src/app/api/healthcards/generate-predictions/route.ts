@@ -54,7 +54,10 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const healthcardTypeParam = body.healthcard_type;
     const barangayId = body.barangay_id || null;
-    const daysForecast = body.days_forecast || 30;
+
+    // MONTHLY GRANULARITY SUPPORT: Accept both legacy and new parameters
+    const granularity = body.granularity || 'monthly'; // Default to monthly
+    const forecastPeriods = body.months_forecast || body.days_forecast || 12; // Default 12 months
     const autoSave = body.auto_save !== false; // Default true
 
     // Validate healthcard type
@@ -101,7 +104,8 @@ export async function POST(request: NextRequest) {
     console.log('[Generate Predictions API] Parameters:', {
       healthcardType,
       barangayId,
-      daysForecast,
+      forecastPeriods,
+      granularity,
       autoSave,
       serviceIds,
     });
@@ -171,11 +175,12 @@ export async function POST(request: NextRequest) {
     // Generate Predictions with Local SARIMA
     // ========================================================================
 
-    console.log('[Generate Predictions API] Running local SARIMA...');
+    console.log(`[Generate Predictions API] Running local SARIMA with ${granularity} granularity...`);
     const forecast = await generateSARIMAPredictions(
       historicalData,
       healthcardType,
-      daysForecast
+      forecastPeriods,
+      granularity as 'daily' | 'monthly'
     );
 
     console.log('[Generate Predictions API] Local SARIMA forecast received:', {
@@ -223,7 +228,7 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      // Insert new predictions
+      // Insert new predictions with granularity
       const predictionsToInsert = validatedPredictions.map((pred) => ({
         healthcard_type: healthcardType,
         barangay_id: barangayId,
@@ -231,6 +236,7 @@ export async function POST(request: NextRequest) {
         predicted_cards: pred.predicted_cards,
         confidence_level: pred.confidence_level,
         model_version: forecast.model_version,
+        granularity: granularity, // NEW: Store granularity
         prediction_data: {
           upper_bound: pred.upper_bound,
           lower_bound: pred.lower_bound,
@@ -270,13 +276,15 @@ export async function POST(request: NextRequest) {
     // Build Response
     // ========================================================================
 
+    const periodLabel = granularity === 'monthly' ? 'months' : 'days';
     return NextResponse.json({
       success: true,
-      message: `Successfully generated ${validatedPredictions.length} predictions using local SARIMA`,
+      message: `Successfully generated ${validatedPredictions.length} ${granularity} predictions using local SARIMA`,
       data: {
         healthcard_type: healthcardType,
         barangay_id: barangayId,
-        days_forecast: daysForecast,
+        forecast_periods: forecastPeriods,
+        granularity: granularity,
         predictions: validatedPredictions,
         model_metadata: {
           version: forecast.model_version,

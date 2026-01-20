@@ -120,6 +120,7 @@ export async function GET(request: NextRequest) {
         barangay_id: barangay.id,
         barangay_name: barangay.name,
         coordinates: barangay.coordinates, // GeoJSON
+        population: barangay.population, // Population for percentage-based risk calculation
         statistics: {
           total_cases: totalCases,
           active_cases: activeCases,

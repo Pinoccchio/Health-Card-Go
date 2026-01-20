@@ -71,10 +71,6 @@ export default function AdminExportButtons({
         excelData.diseaseBreakdown = data.disease_breakdown;
       }
 
-      if (data.severity_breakdown) {
-        excelData.severityBreakdown = data.severity_breakdown;
-      }
-
       if (data.barangay_breakdown) {
         excelData.barangayBreakdown = data.barangay_breakdown;
       }
