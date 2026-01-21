@@ -1139,21 +1139,24 @@ export default function PatientBookAppointmentPage({
                               <p className="text-sm text-blue-800 mb-2">
                                 📥 Need the lab request form? Download it here:
                               </p>
-                              <a
-                                href={
-                                  selectedCardType === 'food_handler'
-                                    ? '/templates/lab-request-yellow-card.html'
-                                    : selectedCardType === 'non_food'
-                                    ? '/templates/lab-request-green-card.html'
-                                    : '/templates/lab-request-pink-card.html'
-                                }
-                                download={
-                                  selectedCardType === 'food_handler'
-                                    ? 'Lab_Request_Yellow_Card.html'
-                                    : selectedCardType === 'non_food'
-                                    ? 'Lab_Request_Green_Card.html'
-                                    : 'Lab_Request_Pink_Card.html'
-                                }
+                              <button
+                                onClick={() => {
+                                  // Open the form in a new window that auto-prints
+                                  const cardTypeMap = {
+                                    'food_handler': 'yellow',
+                                    'non_food': 'green',
+                                    'pink': 'pink'
+                                  };
+                                  const type = cardTypeMap[selectedCardType as keyof typeof cardTypeMap];
+                                  const printWindow = window.open(`/api/lab-request-pdf?type=${type}&print=true`, '_blank');
+                                  if (printWindow) {
+                                    printWindow.onload = () => {
+                                      setTimeout(() => {
+                                        printWindow.print();
+                                      }, 500);
+                                    };
+                                  }
+                                }}
                                 className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm font-medium"
                               >
                                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1164,8 +1167,11 @@ export default function PatientBookAppointmentPage({
                                 Download {
                                   selectedCardType === 'food_handler' ? 'Yellow' :
                                   selectedCardType === 'non_food' ? 'Green' : 'Pink'
-                                } Card Lab Request Form
-                              </a>
+                                } Card Lab Request Form (PDF)
+                              </button>
+                              <p className="text-xs text-blue-600 mt-2">
+                                💡 Tip: Form will open in a new window. Use "Save as PDF" when printing.
+                              </p>
                             </div>
                           )}
                         </div>
