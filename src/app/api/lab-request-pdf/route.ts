@@ -1,10 +1,82 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { createClient } from '@/lib/supabase/server';
 
-// HTML template generator
-function generateLabRequestHTML(cardType: 'yellow' | 'green' | 'pink') {
+// Type definitions for lab fees
+interface LabFee {
+  card_type: 'food_handler' | 'non_food' | 'pink';
+  stool_exam_fee: number | null;
+  urinalysis_fee: number | null;
+  cbc_fee: number | null;
+  smearing_fee: number | null;
+  card_fee: number;
+  total_fee: number;
+}
+
+// Default fallback fees if database fetch fails
+const FALLBACK_FEES = {
+  food_handler: {
+    stool_exam_fee: 33,
+    urinalysis_fee: 33,
+    cbc_fee: 34,
+    card_fee: 70,
+    total_fee: 170
+  },
+  non_food: {
+    stool_exam_fee: 33,
+    urinalysis_fee: 33,
+    cbc_fee: 34,
+    card_fee: 70,
+    total_fee: 170
+  },
+  pink: {
+    smearing_fee: 60,
+    card_fee: 100,
+    total_fee: 160
+  }
+};
+
+// Fetch lab fees from database
+async function fetchLabFees(): Promise<Record<string, LabFee>> {
+  try {
+    const supabase = await createClient();
+
+    const { data: fees, error } = await supabase
+      .from('lab_fees')
+      .select('*')
+      .eq('is_active', true);
+
+    if (error || !fees || fees.length === 0) {
+      console.error('Failed to fetch lab fees, using fallback values:', error);
+      return FALLBACK_FEES as any;
+    }
+
+    // Transform array to object keyed by card_type
+    const feesMap: Record<string, LabFee> = {};
+    fees.forEach(fee => {
+      feesMap[fee.card_type] = fee;
+    });
+
+    return feesMap;
+  } catch (error) {
+    console.error('Error fetching lab fees:', error);
+    return FALLBACK_FEES as any;
+  }
+}
+
+// HTML template generator with dynamic fees
+function generateLabRequestHTML(cardType: 'yellow' | 'green' | 'pink', fees: Record<string, LabFee>) {
   const isYellow = cardType === 'yellow';
   const isGreen = cardType === 'green';
   const isPink = cardType === 'pink';
+
+  // Get the appropriate fees based on card type
+  const cardTypeMapping = {
+    'yellow': 'food_handler',
+    'green': 'non_food',
+    'pink': 'pink'
+  };
+  const dbCardType = cardTypeMapping[cardType];
+  const currentFees = fees[dbCardType] || FALLBACK_FEES[dbCardType];
 
   const commonStyles = `
     <style>
@@ -92,6 +164,10 @@ function generateLabRequestHTML(cardType: 'yellow' | 'green' | 'pink') {
   `;
 
   if (isPink) {
+    const smearingFee = currentFees.smearing_fee || FALLBACK_FEES.pink.smearing_fee;
+    const cardFee = currentFees.card_fee;
+    const totalFee = currentFees.total_fee;
+
     return `<!DOCTYPE html>
 <html>
 <head>
@@ -121,15 +197,15 @@ function generateLabRequestHTML(cardType: 'yellow' | 'green' | 'pink') {
       <table>
         <tr>
           <td>Smearing Test</td>
-          <td class="fee-cell">₱60</td>
+          <td class="fee-cell">₱${smearingFee}</td>
         </tr>
         <tr>
           <td>Pink Card</td>
-          <td class="fee-cell">₱100</td>
+          <td class="fee-cell">₱${cardFee}</td>
         </tr>
         <tr class="total-row">
           <td>Total</td>
-          <td class="fee-cell">₱160</td>
+          <td class="fee-cell">₱${totalFee}</td>
         </tr>
       </table>
     </div>
@@ -156,6 +232,13 @@ function generateLabRequestHTML(cardType: 'yellow' | 'green' | 'pink') {
   }
 
   // Yellow or Green card
+  const stoolFee = currentFees.stool_exam_fee || 33;
+  const urinalysisFee = currentFees.urinalysis_fee || 33;
+  const cbcFee = currentFees.cbc_fee || 34;
+  const cardFee = currentFees.card_fee;
+  const labTestsTotal = stoolFee + urinalysisFee + cbcFee;
+  const totalFee = currentFees.total_fee;
+
   return `<!DOCTYPE html>
 <html>
 <head>
@@ -188,7 +271,7 @@ function generateLabRequestHTML(cardType: 'yellow' | 'green' | 'pink') {
       <table>
         <tr>
           <td>Stool Exam, Urinalysis, and CBC</td>
-          <td class="fee-cell">₱100</td>
+          <td class="fee-cell">₱${labTestsTotal}</td>
         </tr>
         <tr>
           <td>X-ray</td>
@@ -196,11 +279,11 @@ function generateLabRequestHTML(cardType: 'yellow' | 'green' | 'pink') {
         </tr>
         <tr>
           <td>Health Card</td>
-          <td class="fee-cell">₱70</td>
+          <td class="fee-cell">₱${cardFee}</td>
         </tr>
         <tr class="total-row">
           <td>Total</td>
-          <td class="fee-cell">₱170</td>
+          <td class="fee-cell">₱${totalFee}</td>
         </tr>
       </table>
     </div>
@@ -238,8 +321,11 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Generate HTML
-    let html = generateLabRequestHTML(type);
+    // Fetch current lab fees from database
+    const fees = await fetchLabFees();
+
+    // Generate HTML with dynamic fees
+    let html = generateLabRequestHTML(type, fees);
 
     // If print mode, add auto-print script
     if (shouldPrint) {
