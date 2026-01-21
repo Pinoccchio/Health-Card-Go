@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Laboratory Request - Pink Card</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        h1 {
+            text-align: center;
+            border-bottom: 2px solid black;
+            padding-bottom: 10px;
+        }
+        .form-group {
+            margin: 20px 0;
+        }
+        .form-group label {
+            display: block;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        .form-field {
+            border-bottom: 1px solid black;
+            min-height: 30px;
+            margin-bottom: 10px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+        th, td {
+            border: 1px solid black;
+            padding: 10px;
+            text-align: left;
+        }
+        th {
+            background-color: #f0f0f0;
+        }
+        .checkbox {
+            width: 20px;
+            height: 20px;
+            border: 1px solid black;
+            display: inline-block;
+            margin-right: 10px;
+            vertical-align: middle;
+        }
+        .total-row {
+            font-weight: bold;
+            background-color: #f0f0f0;
+        }
+        @media print {
+            body {
+                margin: 0;
+                padding: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <h1>LABORATORY REQUEST FORM</h1>
+    <h2 style="text-align: center;">City Health Office - Panabo City</h2>
+    <h3 style="text-align: center; color: #ec4899;">PINK CARD</h3>
+
+    <div class="form-group">
+        <label>Name:</label>
+        <div class="form-field"></div>
+    </div>
+
+    <div class="form-group">
+        <label>Type of Healthcare:</label>
+        <div>
+            <span class="checkbox" style="background: #ec4899;">✓</span> Pink Card (Social Hygiene)
+        </div>
+    </div>
+
+    <h3>Laboratory Tests Required:</h3>
+    <table>
+        <thead>
+            <tr>
+                <th>Test</th>
+                <th>Fee</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>Smearing Test</td>
+                <td>₱60</td>
+            </tr>
+            <tr>
+                <td>Pink Card Fee</td>
+                <td>₱100</td>
+            </tr>
+            <tr class="total-row">
+                <td>Total</td>
+                <td>₱160</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <div class="form-group">
+        <label>Date:</label>
+        <div class="form-field"></div>
+    </div>
+
+    <div class="form-group">
+        <label>Signature:</label>
+        <div class="form-field"></div>
+    </div>
+
+    <p style="text-align: center; margin-top: 40px; font-size: 12px;">
+        This form is for laboratory request purposes only.<br>
+        Please proceed to CHO Treasury for payment after laboratory tests.<br>
+        <strong>Note:</strong> Pink Card services are conducted at Inside CHO Laboratory only.
+    </p>
+</body>
+</html>

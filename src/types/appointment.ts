@@ -212,13 +212,13 @@ export const LAB_LOCATIONS: Record<LabLocationType, {
 }> = {
   inside_cho: {
     label: 'Inside CHO Laboratory',
-    description: 'Laboratory tests will be conducted at the City Health Office. Upload payment receipt and valid ID.',
-    requiredUploads: ['payment_receipt', 'valid_id'], // Payment receipt (resibo) + Valid ID
+    description: 'Laboratory tests will be conducted at the City Health Office. Upload lab request form, payment receipt, and valid ID.',
+    requiredUploads: ['lab_request', 'payment_receipt', 'valid_id'], // Lab request + Payment receipt (resibo) + Valid ID
   },
   outside_cho: {
     label: 'Outside CHO Laboratory',
-    description: 'Laboratory tests conducted at an external facility. Upload valid ID only.',
-    requiredUploads: ['valid_id'], // Valid ID only (lab results already from external lab)
+    description: 'Laboratory tests conducted at an external facility. Upload lab results and valid ID.',
+    requiredUploads: ['lab_request', 'valid_id'], // Lab results + Valid ID
   },
 };
 
@@ -232,8 +232,8 @@ export const UPLOAD_FILE_TYPES: Record<UploadFileType, {
   maxSizeMB: number;
 }> = {
   lab_request: {
-    label: 'Laboratory Results',
-    description: 'Lab results from external laboratory (for Outside CHO only)',
+    label: 'Laboratory Request/Results',
+    description: 'Lab request form (Inside CHO) or Lab results from external laboratory (Outside CHO)',
     acceptedFormats: ['image/jpeg', 'image/png', 'application/pdf'],
     maxSizeMB: 5,
   },
