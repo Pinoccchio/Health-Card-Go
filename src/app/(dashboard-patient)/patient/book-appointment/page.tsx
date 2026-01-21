@@ -1125,12 +1125,11 @@ export default function PatientBookAppointmentPage({
                             {selectedCardType === 'pink' && ' (Required for Pink Card)'}
                           </p>
                           <p className="text-sm text-blue-700">
-                            Please upload the following 3 required documents in order:
+                            Please upload the following 2 required documents:
                           </p>
                           <ul className="mt-2 text-sm text-blue-700 list-disc list-inside space-y-1">
-                            <li>1. Laboratory Request Form from CHO</li>
-                            <li>2. Payment Receipt (Resibo) from CHO Treasury</li>
-                            <li>3. Valid Government-Issued ID</li>
+                            <li>1. Payment Receipt (Resibo) from CHO Treasury</li>
+                            <li>2. Valid Government-Issued ID</li>
                           </ul>
 
                           {/* Download Lab Request Form Button */}
@@ -1184,12 +1183,8 @@ export default function PatientBookAppointmentPage({
                             <strong>Outside CHO Laboratory</strong>
                           </p>
                           <p className="text-sm text-blue-700">
-                            Please upload the following 2 required documents:
+                            Please upload your Valid Government-Issued ID.
                           </p>
-                          <ul className="mt-2 text-sm text-blue-700 list-disc list-inside space-y-1">
-                            <li>1. Laboratory Results from external lab</li>
-                            <li>2. Valid Government-Issued ID</li>
-                          </ul>
                         </div>
                       )}
 
@@ -1198,8 +1193,8 @@ export default function PatientBookAppointmentPage({
                         appointmentId={draftAppointmentId}
                         requiredUploads={
                           selectedLabLocation === 'inside_cho'
-                            ? ['lab_request', 'payment_receipt', 'valid_id']
-                            : ['lab_request', 'valid_id']
+                            ? ['payment_receipt', 'valid_id']
+                            : ['valid_id']
                         }
                         onUploadsComplete={handleUploadsComplete}
                         disabled={false}
@@ -1245,7 +1240,7 @@ export default function PatientBookAppointmentPage({
                       onClick={handleStep2Continue}
                       disabled={
                         creatingDraft ||
-                        uploadedDocuments.length < (selectedLabLocation === 'inside_cho' ? 3 : 2) ||
+                        uploadedDocuments.length < (selectedLabLocation === 'inside_cho' ? 2 : 1) ||
                         (selectedLabLocation === 'outside_cho' && selectedCardType !== 'pink' && !labResultsConfirmed)
                       }
                       className="px-8 py-3 bg-primary-teal text-white font-semibold rounded-md hover:bg-primary-teal/90 transition-colors shadow-md disabled:opacity-50 disabled:cursor-not-allowed"

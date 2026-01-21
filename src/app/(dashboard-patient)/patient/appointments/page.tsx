@@ -158,11 +158,29 @@ export default function PatientAppointmentsPage() {
   const fetchAppointments = async () => {
     setLoading(true);
     try {
+      // First, trigger cleanup of expired drafts (fire-and-forget, don't await)
+      fetch('/api/appointments/cleanup-drafts', { method: 'POST' })
+        .then(res => res.json())
+        .then(data => {
+          if (data.success && data.data?.cancelled_count > 0) {
+            console.log(`✅ [CLEANUP] Cleaned up ${data.data.cancelled_count} expired draft appointments`);
+          }
+        })
+        .catch(err => console.error('[CLEANUP] Error cleaning up drafts:', err));
+
       const response = await fetch('/api/appointments');
       const data = await response.json();
 
       if (data.success) {
-        setAppointments(data.data || []);
+        // Filter out cancelled drafts (appointments with status 'cancelled' and appointment_number = 0)
+        const filteredAppointments = (data.data || []).filter((apt: Appointment) => {
+          // Exclude cancelled drafts (these have appointment_number = 0)
+          if (apt.status === 'cancelled' && apt.appointment_number === 0) {
+            return false;
+          }
+          return true;
+        });
+        setAppointments(filteredAppointments);
       } else {
         setError(data.error || t('errors.failed_to_load'));
       }

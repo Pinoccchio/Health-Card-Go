@@ -25,6 +25,7 @@ export default function LabFeesManagementPage() {
   // Edit form state
   const [testFee, setTestFee] = useState(0);
   const [cardFee, setCardFee] = useState(0);
+  const [testPackageFee, setTestPackageFee] = useState(0);
   const [stoolExamFee, setStoolExamFee] = useState<number | null>(null);
   const [urinalysisFee, setUrinalysisFee] = useState<number | null>(null);
   const [cbcFee, setCbcFee] = useState<number | null>(null);
@@ -46,6 +47,11 @@ export default function LabFeesManagementPage() {
       setCbcFee(fee.cbc_fee ?? null);
       setSmearingFee(fee.smearing_fee ?? null);
       setXrayFee(fee.xray_fee ?? null);
+      // Calculate combined package fee for Yellow/Green cards
+      if (cardType === 'food_handler' || cardType === 'non_food') {
+        const packageTotal = (fee.stool_exam_fee || 0) + (fee.urinalysis_fee || 0) + (fee.cbc_fee || 0);
+        setTestPackageFee(packageTotal);
+      }
       setChangeReason('');
       setShowEditModal(true);
     }
@@ -151,16 +157,7 @@ export default function LabFeesManagementPage() {
                     Card Type
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Stool Exam
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Urinalysis
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    CBC
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Smearing
+                    Laboratory Tests
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Card Fee
@@ -185,16 +182,12 @@ export default function LabFeesManagementPage() {
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {fee.stool_exam_fee !== null && fee.stool_exam_fee !== undefined ? `₱${fee.stool_exam_fee.toLocaleString()}` : '—'}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {fee.urinalysis_fee !== null && fee.urinalysis_fee !== undefined ? `₱${fee.urinalysis_fee.toLocaleString()}` : '—'}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {fee.cbc_fee !== null && fee.cbc_fee !== undefined ? `₱${fee.cbc_fee.toLocaleString()}` : '—'}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {fee.smearing_fee !== null && fee.smearing_fee !== undefined ? `₱${fee.smearing_fee.toLocaleString()}` : '—'}
+                      {fee.card_type === 'pink' ? (
+                        fee.smearing_fee !== null && fee.smearing_fee !== undefined ?
+                          `Smearing: ₱${fee.smearing_fee.toLocaleString()}` : '—'
+                      ) : (
+                        `Stool, Urinalysis, CBC: ₱${((fee.stool_exam_fee || 0) + (fee.urinalysis_fee || 0) + (fee.cbc_fee || 0)).toLocaleString()}`
+                      )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       ₱{fee.card_fee.toLocaleString()}
@@ -250,55 +243,37 @@ export default function LabFeesManagementPage() {
               </h3>
 
               <div className="space-y-4">
-                {/* Individual Test Fees Section */}
+                {/* Laboratory Test Fees Section */}
                 <div className="border-b border-gray-200 pb-4">
-                  <h4 className="text-sm font-semibold text-gray-700 mb-3">Individual Test Fees</h4>
+                  <h4 className="text-sm font-semibold text-gray-700 mb-3">Laboratory Test Fees</h4>
 
-                  {/* Yellow Card & Green Card: Show Stool Exam, Urinalysis, CBC */}
+                  {/* Yellow Card & Green Card: Show combined package */}
                   {(selectedCardType === 'food_handler' || selectedCardType === 'non_food') && (
-                    <>
-                      <div className="mb-3">
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Stool Examination (₱)
-                        </label>
-                        <input
-                          type="number"
-                          min="0"
-                          value={stoolExamFee ?? ''}
-                          onChange={(e) => setStoolExamFee(e.target.value ? parseInt(e.target.value) : null)}
-                          placeholder="e.g., 33"
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-teal"
-                        />
-                      </div>
-
-                      <div className="mb-3">
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Urinalysis (₱)
-                        </label>
-                        <input
-                          type="number"
-                          min="0"
-                          value={urinalysisFee ?? ''}
-                          onChange={(e) => setUrinalysisFee(e.target.value ? parseInt(e.target.value) : null)}
-                          placeholder="e.g., 33"
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-teal"
-                        />
-                      </div>
-
-                      <div className="mb-3">
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          CBC (Complete Blood Count) (₱)
-                        </label>
-                        <input
-                          type="number"
-                          min="0"
-                          value={cbcFee ?? ''}
-                          onChange={(e) => setCbcFee(e.target.value ? parseInt(e.target.value) : null)}
-                          placeholder="e.g., 34"
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-teal"
-                        />
-                      </div>
-                    </>
+                    <div className="mb-3">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Stool Exam, Urinalysis, and CBC (Combined Package) (₱)
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        value={testPackageFee}
+                        onChange={(e) => {
+                          const packageFee = parseInt(e.target.value) || 0;
+                          setTestPackageFee(packageFee);
+                          // Distribute the package fee among the three tests
+                          const perTest = Math.floor(packageFee / 3);
+                          const remainder = packageFee - (perTest * 3);
+                          setStoolExamFee(perTest);
+                          setUrinalysisFee(perTest);
+                          setCbcFee(perTest + remainder); // Add remainder to CBC
+                        }}
+                        placeholder="e.g., 100"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-teal"
+                      />
+                      <p className="text-xs text-gray-500 mt-1">
+                        This is a combined package price for all three tests
+                      </p>
+                    </div>
                   )}
 
                   {/* Pink Card: Show Smearing only */}
@@ -339,20 +314,16 @@ export default function LabFeesManagementPage() {
                   <p className="text-2xl font-bold text-gray-900">
                     ₱{(
                       cardFee +
-                      (stoolExamFee || 0) +
-                      (urinalysisFee || 0) +
-                      (cbcFee || 0) +
-                      (smearingFee || 0) +
-                      (xrayFee || 0)
+                      ((selectedCardType === 'food_handler' || selectedCardType === 'non_food')
+                        ? testPackageFee
+                        : (smearingFee || 0))
                     ).toLocaleString()}
                   </p>
                   <p className="text-xs text-gray-500 mt-1">
                     Tests: ₱{(
-                      (stoolExamFee || 0) +
-                      (urinalysisFee || 0) +
-                      (cbcFee || 0) +
-                      (smearingFee || 0) +
-                      (xrayFee || 0)
+                      (selectedCardType === 'food_handler' || selectedCardType === 'non_food')
+                        ? testPackageFee
+                        : (smearingFee || 0)
                     ).toLocaleString()} + Card: ₱{cardFee.toLocaleString()}
                   </p>
                 </div>

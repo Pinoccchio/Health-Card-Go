@@ -622,6 +622,11 @@ export async function GET(request: NextRequest) {
       query = query.neq('status', 'draft');
     }
 
+    // ALWAYS exclude cancelled drafts (these are leftover drafts with appointment_number = 0)
+    // These are not real appointments, just cancelled placeholder drafts
+    // Use composite filter: exclude records where status is 'cancelled' AND appointment_number is 0
+    query = query.or('status.neq.cancelled,and(status.eq.cancelled,appointment_number.neq.0)');
+
     if (date) {
       query = query.eq('appointment_date', date);
     }
