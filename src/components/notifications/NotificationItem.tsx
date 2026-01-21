@@ -1,5 +1,6 @@
-import { Bell, CheckCircle, XCircle, MessageSquare, Calendar, Info, Eye } from 'lucide-react';
+import { Bell, CheckCircle, XCircle, MessageSquare, Calendar, Info, Eye, RefreshCw } from 'lucide-react';
 import { useTranslations } from 'next-intl';
+import { useRouter } from 'next/navigation';
 import { Notification } from '@/hooks/useNotifications';
 import { useNotificationContext } from '@/lib/contexts/NotificationContext';
 import { translateNotification } from '@/lib/notifications/translateNotification';
@@ -40,6 +41,7 @@ const typeConfig = {
 export default function NotificationItem({ notification, onMarkAsRead, onViewDetails }: NotificationItemProps) {
   const t = useTranslations();
   const tNotifications = useTranslations('notifications');
+  const router = useRouter();
   const { markAsRead } = useNotificationContext();
   const isUnread = !notification.read_at;
   const config = typeConfig[notification.type] || typeConfig.general;
@@ -47,6 +49,11 @@ export default function NotificationItem({ notification, onMarkAsRead, onViewDet
 
   // Translate notification content
   const translatedNotification = translateNotification(notification, t);
+
+  // Parse action from data field (format: "...action=Action Label")
+  const actionLabel = notification.data?.includes('action=')
+    ? notification.data.split('action=')[1]?.split('|')[0]
+    : null;
 
   const formatTimestamp = (timestamp: string) => {
     const date = new Date(timestamp);
@@ -80,6 +87,23 @@ export default function NotificationItem({ notification, onMarkAsRead, onViewDet
     e.stopPropagation();
     if (onViewDetails) {
       onViewDetails(notification);
+    }
+  };
+
+  const handleActionClick = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    // Mark as read
+    if (isUnread) {
+      try {
+        await markAsRead(notification.id);
+        onMarkAsRead(notification.id);
+      } catch (error) {
+        console.error('Failed to mark notification as read:', error);
+      }
+    }
+    // Navigate to link (rebook URL)
+    if (notification.link) {
+      router.push(notification.link);
     }
   };
 
@@ -124,16 +148,29 @@ export default function NotificationItem({ notification, onMarkAsRead, onViewDet
               {tNotifications(`types.${notification.type}`, { defaultValue: notification.type.replace(/_/g, ' ') })}
             </span>
 
-            {/* View Details Button */}
-            {onViewDetails && (
-              <button
-                onClick={handleViewDetails}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-primary-teal hover:bg-primary-teal hover:text-white border border-primary-teal rounded-lg transition-colors"
-              >
-                <Eye className="w-3.5 h-3.5" />
-                {tNotifications('view_details')}
-              </button>
-            )}
+            <div className="flex items-center gap-2">
+              {/* Rebook Action Button (for cancellation notifications) */}
+              {actionLabel && notification.type === 'cancellation' && (
+                <button
+                  onClick={handleActionClick}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-primary-teal hover:bg-teal-700 rounded-lg transition-colors shadow-sm"
+                >
+                  <RefreshCw className="w-3.5 h-3.5" />
+                  {actionLabel}
+                </button>
+              )}
+
+              {/* View Details Button */}
+              {onViewDetails && (
+                <button
+                  onClick={handleViewDetails}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-primary-teal hover:bg-primary-teal hover:text-white border border-primary-teal rounded-lg transition-colors"
+                >
+                  <Eye className="w-3.5 h-3.5" />
+                  {tNotifications('view_details')}
+                </button>
+              )}
+            </div>
           </div>
         </div>
       </div>

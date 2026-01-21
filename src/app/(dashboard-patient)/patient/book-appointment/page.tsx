@@ -50,7 +50,11 @@ interface Service {
   }>;
 }
 
-export default function PatientBookAppointmentPage() {
+export default function PatientBookAppointmentPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ rebook?: string }>;
+}) {
   const t = useTranslations('book_appointment');
   const [step, setStep] = useState(1);
   const [services, setServices] = useState<Service[]>([]);
@@ -85,6 +89,53 @@ export default function PatientBookAppointmentPage() {
 
   // Service availability state
   const [serviceAvailableDays, setServiceAvailableDays] = useState<string[]>([]);
+
+  // Rebook state
+  const [rebookAppointmentId, setRebookAppointmentId] = useState<string | null>(null);
+  const [rebookData, setRebookData] = useState<any | null>(null);
+  const [isRebooking, setIsRebooking] = useState(false);
+
+  // Load rebook data if rebook parameter exists
+  useEffect(() => {
+    const loadRebookData = async () => {
+      const params = await searchParams;
+      const rebookId = params?.rebook;
+
+      if (rebookId) {
+        setRebookAppointmentId(rebookId);
+        setIsRebooking(true);
+
+        try {
+          const response = await fetch(`/api/appointments/${rebookId}/rebook`);
+          const data = await response.json();
+
+          if (data.success && data.appointment) {
+            setRebookData(data.appointment);
+            // Pre-fill service, card type, and lab location
+            setSelectedService(data.appointment.service_id);
+            if (data.appointment.card_type) {
+              setSelectedCardType(data.appointment.card_type);
+            }
+            if (data.appointment.lab_location) {
+              setSelectedLabLocation(data.appointment.lab_location);
+            }
+            if (data.appointment.reason) {
+              setReason(data.appointment.reason);
+            }
+          } else {
+            setError('Failed to load cancelled appointment details');
+            setIsRebooking(false);
+          }
+        } catch (err) {
+          console.error('Error loading rebook data:', err);
+          setError('Failed to load cancelled appointment details');
+          setIsRebooking(false);
+        }
+      }
+    };
+
+    loadRebookData();
+  }, [searchParams]);
 
   // Load services and check suspension status on mount
   useEffect(() => {
@@ -648,6 +699,54 @@ export default function PatientBookAppointmentPage() {
               </div>
             )}
 
+            {/* Rebook Banner */}
+            {isRebooking && rebookData && (
+              <div className="mb-6 p-5 bg-blue-50 border-l-4 border-blue-500 rounded-md">
+                <div className="flex items-start">
+                  <Info className="w-5 h-5 text-blue-600 mt-0.5 mr-3 flex-shrink-0" />
+                  <div className="flex-1">
+                    <h3 className="font-semibold text-blue-900 mb-2">
+                      Rebooking Cancelled Appointment
+                    </h3>
+                    <div className="space-y-1 text-sm text-blue-800">
+                      <p>
+                        <strong>Service:</strong> {rebookData.service_name}
+                      </p>
+                      {rebookData.card_type && (
+                        <p>
+                          <strong>Card Type:</strong>{' '}
+                          {rebookData.card_type === 'food_handler'
+                            ? 'Yellow Card (Food Handler)'
+                            : rebookData.card_type === 'non_food'
+                            ? 'Green Card (Non-Food Handler)'
+                            : rebookData.card_type === 'pink'
+                            ? 'Pink Card'
+                            : rebookData.card_type}
+                        </p>
+                      )}
+                      <p>
+                        <strong>Previous appointment:</strong> {new Date(rebookData.previous_date).toLocaleDateString('en-US', {
+                          weekday: 'long',
+                          year: 'numeric',
+                          month: 'long',
+                          day: 'numeric',
+                        })}{' '}
+                        at {rebookData.previous_time} ({rebookData.previous_time_block})
+                      </p>
+                      {rebookData.cancellation_reason && (
+                        <p>
+                          <strong>Cancellation reason:</strong> {rebookData.cancellation_reason}
+                        </p>
+                      )}
+                    </div>
+                    <p className="text-sm text-blue-700 mt-3 pt-3 border-t border-blue-200">
+                      Your service type and card details have been pre-filled. Please select a new date and time for your appointment.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Step 1: Select Service */}
             {step === 1 && (
               <div>
@@ -674,8 +773,14 @@ export default function PatientBookAppointmentPage() {
                     <div className="lg:col-span-2 space-y-6">
                       {/* Main Service Dropdown */}
                       <div>
-                        <label htmlFor="main-service" className="block text-sm font-semibold text-gray-900 mb-2">
+                        <label htmlFor="main-service" className="block text-sm font-semibold text-gray-900 mb-2 flex items-center gap-2">
                           Main Service
+                          {isRebooking && (
+                            <span className="inline-flex items-center gap-1 text-xs font-normal text-blue-600">
+                              <Lock className="w-3 h-3" />
+                              Pre-filled
+                            </span>
+                          )}
                         </label>
                         <select
                           id="main-service"
@@ -692,7 +797,10 @@ export default function PatientBookAppointmentPage() {
                               setSelectedLabLocation(null);
                             }
                           }}
-                          className="w-full px-4 py-3 border border-gray-300 rounded-md focus:outline-none focus:border-primary-teal focus:ring-1 focus:ring-primary-teal text-gray-900 bg-white"
+                          disabled={isRebooking}
+                          className={`w-full px-4 py-3 border border-gray-300 rounded-md focus:outline-none focus:border-primary-teal focus:ring-1 focus:ring-primary-teal text-gray-900 ${
+                            isRebooking ? 'bg-gray-100 cursor-not-allowed' : 'bg-white'
+                          }`}
                         >
                           <option value="">Select a service...</option>
                           {services.map((service) => (
@@ -706,8 +814,14 @@ export default function PatientBookAppointmentPage() {
                       {/* Card Type Dropdown - Only for HealthCard */}
                       {selectedService && isHealthCardService(selectedService) && (
                         <div>
-                          <label htmlFor="card-type" className="block text-sm font-semibold text-gray-900 mb-2">
+                          <label htmlFor="card-type" className="block text-sm font-semibold text-gray-900 mb-2 flex items-center gap-2">
                             Card Type
+                            {isRebooking && selectedCardType && (
+                              <span className="inline-flex items-center gap-1 text-xs font-normal text-blue-600">
+                                <Lock className="w-3 h-3" />
+                                Pre-filled
+                              </span>
+                            )}
                           </label>
                           <select
                             id="card-type"
@@ -720,7 +834,10 @@ export default function PatientBookAppointmentPage() {
                                 setSelectedCardType(null);
                               }
                             }}
-                            className="w-full px-4 py-3 border-2 border-primary-teal rounded-md focus:outline-none focus:border-primary-teal focus:ring-2 focus:ring-primary-teal/20 text-gray-900 bg-white font-medium"
+                            disabled={isRebooking && !!selectedCardType}
+                            className={`w-full px-4 py-3 border-2 border-primary-teal rounded-md focus:outline-none focus:border-primary-teal focus:ring-2 focus:ring-primary-teal/20 text-gray-900 font-medium ${
+                              isRebooking && selectedCardType ? 'bg-gray-100 cursor-not-allowed' : 'bg-white'
+                            }`}
                           >
                             <option value="" className="text-gray-500">Select a card type</option>
                             <option value="food_handler">Food (Yellow)</option>
@@ -733,8 +850,14 @@ export default function PatientBookAppointmentPage() {
                       {/* Lab Location Dropdown - For all health card types */}
                       {selectedService && isHealthCardService(selectedService) && selectedCardType && (
                         <div>
-                          <label htmlFor="lab-location" className="block text-sm font-semibold text-gray-900 mb-2">
+                          <label htmlFor="lab-location" className="block text-sm font-semibold text-gray-900 mb-2 flex items-center gap-2">
                             Laboratory Location
+                            {isRebooking && selectedLabLocation && (
+                              <span className="inline-flex items-center gap-1 text-xs font-normal text-blue-600">
+                                <Lock className="w-3 h-3" />
+                                Pre-filled
+                              </span>
+                            )}
                           </label>
                           <select
                             id="lab-location"
@@ -747,8 +870,10 @@ export default function PatientBookAppointmentPage() {
                                 setSelectedLabLocation(null);
                               }
                             }}
-                            disabled={selectedCardType === 'pink'}
-                            className="w-full px-4 py-3 border border-gray-300 rounded-md focus:outline-none focus:border-primary-teal focus:ring-1 focus:ring-primary-teal text-gray-900 bg-white disabled:cursor-not-allowed"
+                            disabled={selectedCardType === 'pink' || (isRebooking && !!selectedLabLocation)}
+                            className={`w-full px-4 py-3 border border-gray-300 rounded-md focus:outline-none focus:border-primary-teal focus:ring-1 focus:ring-primary-teal text-gray-900 disabled:cursor-not-allowed ${
+                              (selectedCardType === 'pink' || (isRebooking && selectedLabLocation)) ? 'bg-gray-100' : 'bg-white'
+                            }`}
                           >
                             <option value="">Select lab location...</option>
                             <option value="inside_cho">Inside CHO Laboratory</option>

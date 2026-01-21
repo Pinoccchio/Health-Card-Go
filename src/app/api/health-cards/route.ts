@@ -1,9 +1,17 @@
 import { createClient } from '@/lib/supabase/server';
 import { NextResponse } from 'next/server';
+import {
+  getExpirationInfo,
+  getExpirationStatus,
+  getDaysRemaining,
+  isHealthCardExpired,
+  formatExpiryDate,
+  getStatusLabel,
+} from '@/lib/utils/healthCardExpiration';
 
 /**
  * GET /api/health-cards
- * Fetch the authenticated patient's health card
+ * Fetch the authenticated patient's health card with expiration information
  */
 export async function GET() {
   try {
@@ -97,9 +105,9 @@ export async function GET() {
       barangayName = barangay?.name || 'Unknown';
     }
 
-    // Get health card
+    // Get health card with expiration status from the view
     const { data: healthCard, error: cardError } = await supabase
-      .from('health_cards')
+      .from('health_cards_with_status')
       .select('*')
       .eq('patient_id', patient.id)
       .single();
@@ -117,6 +125,11 @@ export async function GET() {
         { status: 404 }
       );
     }
+
+    // Calculate expiration information
+    const expirationInfo = getExpirationInfo(healthCard.expiry_date);
+    const expirationStatus = getExpirationStatus(healthCard.expiry_date);
+    const statusLabel = getStatusLabel(expirationStatus);
 
     // Extract blood type from medical_history JSON if available
     const bloodType = patient.medical_history?.blood_type || null;
@@ -139,10 +152,19 @@ export async function GET() {
         current_medications: patient.current_medications,
         emergency_contact: profile.emergency_contact,
         medical_history: patient.medical_history,
+      },
+      expiration: {
+        expiry_date: healthCard.expiry_date,
+        formatted_expiry_date: formatExpiryDate(healthCard.expiry_date),
+        is_expired: isHealthCardExpired(healthCard.expiry_date),
+        days_remaining: getDaysRemaining(healthCard.expiry_date),
+        status: expirationStatus,
+        status_label: statusLabel,
+        warning_message: expirationInfo.warningMessage,
       }
     };
 
-    console.log('[HEALTH CARD API] Success - returning health card data');
+    console.log('[HEALTH CARD API] Success - returning health card data with expiration info');
 
     return NextResponse.json({
       success: true,

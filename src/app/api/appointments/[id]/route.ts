@@ -438,10 +438,10 @@ export async function PATCH(
             type: 'cancellation',
             title: 'notifications.appointment_cancelled.title',
             message: 'notifications.appointment_cancelled.message',
-            link: '/patient/appointments',
-            data: `appointment_number=${queueNumber}|date=${appointmentWithPatient.appointment_date}|time=${appointmentWithPatient.appointment_time}|reason=${reason || ''}`
+            link: `/patient/book-appointment?rebook=${appointmentId}`,
+            data: `appointment_number=${queueNumber}|date=${appointmentWithPatient.appointment_date}|time=${appointmentWithPatient.appointment_time}|reason=${reason || ''}|appointment_id=${appointmentId}|action=Rebook Appointment`
           });
-          console.log(`✅ [NOTIFICATION] Cancellation notification sent for appointment #${queueNumber}`);
+          console.log(`✅ [NOTIFICATION] Cancellation notification sent for appointment #${queueNumber} with rebook action`);
 
           // Recalculate queue numbers for remaining appointments
           try {

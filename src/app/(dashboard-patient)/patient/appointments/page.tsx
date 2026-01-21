@@ -13,6 +13,7 @@ import { TimeElapsedBadge } from '@/components/appointments/TimeElapsedBadge';
 import { DocumentReviewPanel } from '@/components/healthcare-admin/DocumentReviewPanel';
 import DownloadLabRequestButton from '@/components/patient/DownloadLabRequestButton';
 import AppointmentStageTracker from '@/components/appointments/AppointmentStageTracker';
+import { ExpirationStatus } from '@/components/health-card/ExpirationStatus';
 import {
   Calendar,
   Clock,
@@ -34,6 +35,7 @@ import {
   Mail,
   Heart,
   Droplet,
+  CreditCard,
 } from 'lucide-react';
 import { canCancelAppointment as canCancelByTimezone } from '@/lib/utils/timezone';
 import { APPOINTMENT_STATUS_CONFIG } from '@/lib/constants/colors';
@@ -46,6 +48,12 @@ import {
   TIME_BLOCKS,
   getHealthCardTypeInfo,
 } from '@/types/appointment';
+import {
+  calculateExpiryDate,
+  getExpirationInfo,
+  formatExpiryDate,
+  issuesHealthCard,
+} from '@/lib/utils/healthCardExpiration';
 
 interface Appointment {
   id: string;
@@ -419,6 +427,49 @@ export default function PatientAppointmentsPage() {
         return (
           <div className="text-sm text-gray-700 line-clamp-2 max-w-xs">
             {value}
+          </div>
+        );
+      },
+    },
+    {
+      header: 'Card Expiration',
+      accessor: 'card_expiration',
+      sortable: false,
+      render: (_: any, row: Appointment) => {
+        // Only show for completed appointments that issue health cards
+        if (row.status !== 'completed' || !row.completed_at) {
+          return <span className="text-gray-400 text-xs italic">N/A</span>;
+        }
+
+        // Check if this appointment actually issues a health card
+        if (!issuesHealthCard(row.service_id, row.card_type)) {
+          return <span className="text-gray-400 text-xs italic">N/A</span>;
+        }
+
+        const expiryDate = calculateExpiryDate(row.completed_at);
+        const expirationInfo = getExpirationInfo(expiryDate);
+
+        return (
+          <div className="flex flex-col gap-1">
+            <ExpirationStatus
+              status={expirationInfo.status}
+              daysRemaining={expirationInfo.daysRemaining}
+              showIcon={true}
+              showDays={false}
+            />
+            {expirationInfo.daysRemaining !== null && (
+              <span className={`text-xs font-medium ${
+                expirationInfo.isExpired
+                  ? 'text-red-600'
+                  : expirationInfo.status === 'expiring_soon'
+                  ? 'text-yellow-600'
+                  : 'text-green-600'
+              }`}>
+                {expirationInfo.isExpired
+                  ? `${Math.abs(expirationInfo.daysRemaining)}d past`
+                  : `${expirationInfo.daysRemaining}d left`}
+              </span>
+            )}
           </div>
         );
       },
@@ -918,6 +969,77 @@ export default function PatientAppointmentsPage() {
                           <span className="text-gray-900">{new Date(selectedAppointment.completed_at).toLocaleString()}</span>
                         </div>
                       )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Health Card Expiration Status - Only for completed appointments that issue health cards */}
+                {selectedAppointment.status === 'completed' && selectedAppointment.completed_at && issuesHealthCard(selectedAppointment.service_id, selectedAppointment.card_type) && (
+                  <div>
+                    <h4 className="text-sm font-medium text-gray-700 mb-2 flex items-center">
+                      <CreditCard className="w-4 h-4 mr-2" />
+                      Health Card Status
+                    </h4>
+                    <div className="bg-gray-50 rounded-md p-4">
+                      {(() => {
+                        const expiryDate = calculateExpiryDate(selectedAppointment.completed_at!);
+                        const expirationInfo = getExpirationInfo(expiryDate);
+
+                        return (
+                          <div className="space-y-3">
+                            {/* Status Badge */}
+                            <div className="flex items-center justify-between">
+                              <span className="text-sm text-gray-600">Expiration Status:</span>
+                              <ExpirationStatus
+                                status={expirationInfo.status}
+                                daysRemaining={expirationInfo.daysRemaining}
+                                showIcon={true}
+                                showDays={false}
+                              />
+                            </div>
+
+                            {/* Expiry Date */}
+                            <div className="flex items-center justify-between">
+                              <span className="text-sm text-gray-600">Expires On:</span>
+                              <span className="text-sm font-medium text-gray-900">
+                                {formatExpiryDate(expiryDate)}
+                              </span>
+                            </div>
+
+                            {/* Days Remaining */}
+                            {expirationInfo.daysRemaining !== null && (
+                              <div className="flex items-center justify-between">
+                                <span className="text-sm text-gray-600">
+                                  {expirationInfo.isExpired ? 'Days Past Expiry:' : 'Days Remaining:'}
+                                </span>
+                                <span className={`text-sm font-semibold ${
+                                  expirationInfo.isExpired
+                                    ? 'text-red-600'
+                                    : expirationInfo.status === 'expiring_soon'
+                                    ? 'text-yellow-600'
+                                    : 'text-green-600'
+                                }`}>
+                                  {expirationInfo.isExpired
+                                    ? Math.abs(expirationInfo.daysRemaining)
+                                    : expirationInfo.daysRemaining}{' '}
+                                  {Math.abs(expirationInfo.daysRemaining) === 1 ? 'day' : 'days'}
+                                </span>
+                              </div>
+                            )}
+
+                            {/* Warning Message */}
+                            {expirationInfo.warningMessage && (
+                              <div className={`mt-3 p-3 rounded-md text-xs ${
+                                expirationInfo.isExpired
+                                  ? 'bg-red-50 text-red-700 border border-red-200'
+                                  : 'bg-yellow-50 text-yellow-700 border border-yellow-200'
+                              }`}>
+                                {expirationInfo.warningMessage}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })()}
                     </div>
                   </div>
                 )}

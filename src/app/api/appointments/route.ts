@@ -396,7 +396,7 @@ export async function POST(request: NextRequest) {
       user_id: profile.id,
       type: 'general',
       title: 'Appointment Confirmed',
-      message: `Your appointment for ${service.name} on ${appointment_date} in the ${blockInfo} has been confirmed. Queue number: #${nextQueueNumber}.`,
+      message: `Your appointment for ${service.name} on ${appointment_date} in the ${blockInfo} has been confirmed. Queue number: #${appointment.appointment_number}.`,
       link: '/patient/appointments',
     });
 

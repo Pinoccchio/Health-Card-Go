@@ -292,3 +292,87 @@ export const HEALTHCARD_TYPE_COLORS: Record<HealthCardType, {
 export type HealthCardPredictionRow = Database['public']['Tables']['healthcard_predictions']['Row'];
 export type HealthCardPredictionInsert = Database['public']['Tables']['healthcard_predictions']['Insert'];
 export type HealthCardPredictionUpdate = Database['public']['Tables']['healthcard_predictions']['Update'];
+
+// ============================================================================
+// Health Card Expiration Types
+// ============================================================================
+
+/**
+ * Health card expiration status
+ * - active: Card is valid and has more than 30 days remaining
+ * - expiring_soon: Card has 30 days or less remaining
+ * - expired: Card has passed the expiry date
+ * - pending: Card has not been issued yet (no expiry date)
+ */
+export type HealthCardExpirationStatus = 'active' | 'expiring_soon' | 'expired' | 'pending';
+
+/**
+ * Comprehensive expiration information for a health card
+ */
+export interface HealthCardExpiration {
+  expiry_date: string | null; // ISO date string
+  formatted_expiry_date: string; // Human-readable format
+  is_expired: boolean;
+  is_active: boolean; // From health_cards.is_active column
+  days_remaining: number | null; // Positive = days left, Negative = days past expiry
+  status: HealthCardExpirationStatus;
+  status_label: string; // Human-readable status
+  warning_message?: string; // Message to display to user
+}
+
+/**
+ * Health card with expiration data (from API response)
+ */
+export interface HealthCardWithExpiration {
+  id: string;
+  patient_id: string;
+  card_number: string;
+  qr_code_data: string;
+  issue_date: string;
+  expiry_date: string | null;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+
+  // Expiration information
+  expiration: HealthCardExpiration;
+
+  // Patient information (if joined)
+  patient?: {
+    id: string;
+    patient_number: string;
+    first_name: string;
+    last_name: string;
+    date_of_birth: string;
+    gender: string;
+    contact_number: string;
+    blood_type?: string | null;
+    barangay: string;
+    barangay_id: number;
+    allergies?: string | null;
+    current_medications?: string | null;
+    emergency_contact: any;
+    medical_history?: any;
+  };
+}
+
+/**
+ * Response from health card expiration check API
+ */
+export interface HealthCardExpirationCheckResponse {
+  success: boolean;
+  data?: {
+    health_card_id: string;
+    patient_id: string;
+    expiry_date: string | null;
+    formatted_expiry_date: string;
+    is_expired: boolean;
+    is_active: boolean;
+    days_remaining: number | null;
+    status: HealthCardExpirationStatus;
+    status_label: string;
+    warning_message?: string;
+    expiration_info: HealthCardExpiration;
+  };
+  error?: string;
+}
