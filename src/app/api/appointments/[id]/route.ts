@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createClient as createSupabaseClient } from '@supabase/supabase-js';
 import { logAuditAction, AUDIT_ACTIONS, AUDIT_ENTITIES } from '@/lib/utils/auditLog';
 import { getBlockDefaultTime, type TimeBlock } from '@/types/appointment';
+import { createAppointmentConfirmationNotification } from '@/lib/notifications/createNotification';
 
 /**
  * PATCH /api/appointments/[id]
@@ -337,6 +338,65 @@ export async function PATCH(
 
       updateData.appointment_number = queueNum;
       console.log(`✅ [QUEUE NUMBER] Assigned queue #${queueNum} for date ${finalDate}, service ${finalServiceId}`);
+
+      // Send confirmation notification when draft converts to pending
+      // First, delete any old draft notifications with queue #0
+      const { data: patient } = await adminClient
+        .from('patients')
+        .select('user_id')
+        .eq('id', appointment.patient_id)
+        .single();
+
+      if (patient?.user_id) {
+        // Delete old draft notifications with #0
+        await adminClient
+          .from('notifications')
+          .delete()
+          .eq('user_id', patient.user_id)
+          .like('message', '%Queue number: #0%')
+          .is('read_at', null);
+
+        // Get service information
+        const { data: service } = await adminClient
+          .from('services')
+          .select('name')
+          .eq('id', finalServiceId)
+          .single();
+
+        // Send new confirmation notification with correct queue number
+        const finalTimeBlock = updateData.time_block || appointment.time_block;
+
+        try {
+          const notificationResult = await createAppointmentConfirmationNotification(
+            adminClient,
+            patient.user_id,
+            service?.name || 'Service',
+            finalDate,
+            finalTimeBlock,
+            queueNum
+          );
+
+          if (!notificationResult.success) {
+            console.error(`[NOTIFICATION] Failed to send notification: ${notificationResult.error}`);
+            // Fallback: Try direct insert as backup
+            const blockInfo = finalTimeBlock === 'AM'
+              ? 'Morning (8:00 AM - 12:00 PM)'
+              : 'Afternoon (1:00 PM - 5:00 PM)';
+
+            await adminClient.from('notifications').insert({
+              user_id: patient.user_id,
+              type: 'general',
+              title: 'Appointment Confirmed',
+              message: `Your appointment for ${service?.name || 'Service'} on ${finalDate} in the ${blockInfo} has been confirmed. Queue number: #${queueNum}.`,
+              link: '/patient/appointments',
+            });
+          } else {
+            console.log(`✅ [NOTIFICATION] Sent confirmation notification with queue #${queueNum} to user ${patient.user_id}`);
+          }
+        } catch (error) {
+          console.error('[NOTIFICATION] Error sending notification:', error);
+        }
+      }
     }
 
     // Clear timestamps when reverting to earlier status

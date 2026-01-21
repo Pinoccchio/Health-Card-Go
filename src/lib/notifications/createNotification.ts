@@ -130,3 +130,47 @@ export async function createFeedbackRequestNotification(
     link: `/patient/feedback?appointment=${appointmentId}`,
   });
 }
+
+/**
+ * Creates an appointment confirmation notification with queue number
+ * Uses the provided Supabase client directly for immediate insertion
+ */
+export async function createAppointmentConfirmationNotification(
+  supabase: SupabaseClient,
+  userId: string,
+  serviceName: string,
+  appointmentDate: string,
+  timeBlock: 'AM' | 'PM',
+  queueNumber: number
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const blockInfo = timeBlock === 'AM'
+      ? 'Morning (8:00 AM - 12:00 PM)'
+      : 'Afternoon (1:00 PM - 5:00 PM)';
+
+    const message = `Your appointment for ${serviceName} on ${appointmentDate} in the ${blockInfo} has been confirmed. Queue number: #${queueNumber}.`;
+
+    // Use the provided Supabase client directly
+    const { error } = await supabase.from('notifications').insert({
+      user_id: userId,
+      type: 'general',
+      title: 'Appointment Confirmed',
+      message: message,
+      link: '/patient/appointments'
+    });
+
+    if (error) {
+      console.error('Error creating appointment notification:', error);
+      return { success: false, error: error.message };
+    }
+
+    console.log(`✅ Appointment notification created for user ${userId}: Queue #${queueNumber}`);
+    return { success: true };
+  } catch (error) {
+    console.error('Unexpected error creating appointment notification:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error',
+    };
+  }
+}

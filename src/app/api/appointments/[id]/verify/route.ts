@@ -179,7 +179,7 @@ export async function PATCH(
       title: notificationTitle,
       message: notificationMessage,
       link: '/patient/appointments',
-      data: `appointment_id=${appointmentId}|verification_status=${verification_status}|notes=${verification_notes || ''}`,
+      data: `appointment_id=${appointmentId}|verification_status=${verification_status}|notes=${notes || ''}`,
     });
 
     if (notificationError) {

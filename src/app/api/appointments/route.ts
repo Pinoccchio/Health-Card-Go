@@ -10,6 +10,7 @@ import {
   formatTimeBlock,
   type CreateAppointmentRequest,
 } from '@/types/appointment';
+import { createAppointmentConfirmationNotification } from '@/lib/notifications/createNotification';
 
 /**
  * POST /api/appointments
@@ -390,15 +391,37 @@ export async function POST(request: NextRequest) {
     // Note: Status history is automatically created by the log_appointment_status_on_insert trigger
     // No manual insert needed here
 
-    // Create notification for patient
-    const blockInfo = formatTimeBlock(time_block);
-    await supabase.from('notifications').insert({
-      user_id: profile.id,
-      type: 'general',
-      title: 'Appointment Confirmed',
-      message: `Your appointment for ${service.name} on ${appointment_date} in the ${blockInfo} has been confirmed. Queue number: #${appointment.appointment_number}.`,
-      link: '/patient/appointments',
-    });
+    // Create notification for patient (only for non-draft appointments)
+    // Draft appointments will send notification when converted to pending with actual queue number
+    if (!isDraft && appointment) {
+      try {
+        const notificationResult = await createAppointmentConfirmationNotification(
+          supabase,
+          profile.id,
+          service.name,
+          appointment_date,
+          time_block,
+          appointment.appointment_number
+        );
+
+        if (!notificationResult.success) {
+          console.error(`[APPOINTMENT] Failed to send notification: ${notificationResult.error}`);
+          // Fallback: Try direct insert as backup
+          const blockInfo = formatTimeBlock(time_block);
+          await supabase.from('notifications').insert({
+            user_id: profile.id,
+            type: 'general',
+            title: 'Appointment Confirmed',
+            message: `Your appointment for ${service.name} on ${appointment_date} in the ${blockInfo} has been confirmed. Queue number: #${appointment.appointment_number}.`,
+            link: '/patient/appointments',
+          });
+        } else {
+          console.log(`✅ [APPOINTMENT] Notification sent successfully to user ${profile.id} with queue #${appointment.appointment_number}`);
+        }
+      } catch (error) {
+        console.error('[APPOINTMENT] Error sending notification:', error);
+      }
+    }
 
     return NextResponse.json({
       success: true,
