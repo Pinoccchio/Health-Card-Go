@@ -6,7 +6,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
+import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import {
   getExpirationInfo,
@@ -43,7 +43,23 @@ interface CheckExpirationResponse {
 
 export async function POST(request: NextRequest): Promise<NextResponse<CheckExpirationResponse>> {
   try {
-    const supabase = createRouteHandlerClient({ cookies });
+    const cookieStore = await cookies();
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          getAll() {
+            return cookieStore.getAll();
+          },
+          setAll(cookiesToSet) {
+            cookiesToSet.forEach(({ name, value, options }) => {
+              cookieStore.set(name, value, options);
+            });
+          },
+        },
+      }
+    );
 
     // Verify authentication
     const {
@@ -72,8 +88,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<CheckExpi
     // Query health card from database using the view that includes calculated status
     let query = supabase
       .from('health_cards_with_status')
-      .select('*')
-      .single();
+      .select('*');
 
     if (health_card_id) {
       query = query.eq('id', health_card_id);
@@ -81,7 +96,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<CheckExpi
       query = query.eq('patient_id', patient_id);
     }
 
-    const { data: healthCard, error: queryError } = await query;
+    const { data: healthCard, error: queryError } = await query.single();
 
     if (queryError || !healthCard) {
       return NextResponse.json(
