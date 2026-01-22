@@ -32,6 +32,9 @@ import ServiceSARIMAMetrics from '@/components/healthcare-admin/ServiceSARIMAMet
 import HealthCardSARIMAChart from '@/components/healthcare-admin/HealthCardSARIMAChart';
 import HealthCardSARIMAMetrics from '@/components/healthcare-admin/HealthCardSARIMAMetrics';
 import { AppointmentStatusChart } from '@/components/charts';
+import { HealthcardStatsSummary } from '@/components/staff/HealthcardStatsSummary';
+import { HealthcardStatisticsTable } from '@/components/staff/HealthcardStatisticsTable';
+import { EditHealthcardStatisticModal } from '@/components/staff/EditHealthcardStatisticModal';
 
 interface HIVRecord {
   id: string;
@@ -114,6 +117,28 @@ export default function HIVManagementPage() {
   const [appointmentStats, setAppointmentStats] = useState<any[]>([]);
   const [appointmentStatsLoading, setAppointmentStatsLoading] = useState(true);
 
+  // Pink Card Statistics state
+  const [pinkCardStats, setPinkCardStats] = useState<any[]>([]);
+  const [pinkCardSummary, setPinkCardSummary] = useState({
+    total_records: 0,
+    total_cards_issued: 0,
+    food_handler_cards: 0,
+    non_food_cards: 0,
+    pink_cards: 0,
+    date_range: {
+      earliest: null as string | null,
+      latest: null as string | null,
+    },
+  });
+  const [pinkCardFilters, setPinkCardFilters] = useState({
+    barangay_id: 'all',
+    start_date: '',
+    end_date: '',
+  });
+  const [pinkCardLoading, setPinkCardLoading] = useState(true);
+  const [editingPinkCard, setEditingPinkCard] = useState<any | null>(null);
+  const [deletingPinkCard, setDeletingPinkCard] = useState<any | null>(null);
+
   useEffect(() => {
     // Check if the healthcare admin has HIV category
     if (user) {
@@ -136,8 +161,16 @@ export default function HIVManagementPage() {
     if (hasAccess) {
       fetchHIVRecords();
       fetchAppointmentStatistics();
+      fetchPinkCardStatistics();
     }
   }, [filters, hasAccess]);
+
+  // Separate useEffect for pink card filters
+  useEffect(() => {
+    if (hasAccess) {
+      fetchPinkCardStatistics();
+    }
+  }, [pinkCardFilters, hasAccess]);
 
   const fetchBarangays = async () => {
     try {
@@ -232,6 +265,38 @@ export default function HIVManagementPage() {
     }
   };
 
+  const fetchPinkCardStatistics = async () => {
+    setPinkCardLoading(true);
+    try {
+      const params = new URLSearchParams({
+        healthcard_type: 'pink',
+        ...(pinkCardFilters.barangay_id !== 'all' && { barangay_id: pinkCardFilters.barangay_id }),
+        ...(pinkCardFilters.start_date && { start_date: pinkCardFilters.start_date }),
+        ...(pinkCardFilters.end_date && { end_date: pinkCardFilters.end_date }),
+      });
+
+      const response = await fetch(`/api/healthcards/historical?${params.toString()}`);
+      const data = await response.json();
+
+      if (data.success) {
+        setPinkCardStats(data.data?.records || []);
+        setPinkCardSummary(data.data?.summary || {
+          total_records: 0,
+          total_cards_issued: 0,
+          food_handler_cards: 0,
+          non_food_cards: 0,
+          pink_cards: 0,
+          date_range: { earliest: null, latest: null },
+        });
+      }
+    } catch (err) {
+      console.error('Error fetching pink card statistics:', err);
+      toast.error('Failed to load pink card statistics');
+    } finally {
+      setPinkCardLoading(false);
+    }
+  };
+
   const handleGenerateAppointmentPredictions = async () => {
     setIsGeneratingAppointmentPredictions(true);
     setAppointmentGenerationStatus({ type: 'idle' });
@@ -300,6 +365,37 @@ export default function HIVManagementPage() {
     }
   };
 
+  // Pink Card Edit Handler
+  const handlePinkCardEditSuccess = () => {
+    setEditingPinkCard(null);
+    fetchPinkCardStatistics();
+    toast.success('Pink card record updated successfully');
+  };
+
+  // Pink Card Delete Handler
+  const handleDeletePinkCard = async () => {
+    if (!deletingPinkCard) return;
+
+    try {
+      const response = await fetch(`/api/healthcards/historical/${deletingPinkCard.id}`, {
+        method: 'DELETE',
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        setDeletingPinkCard(null);
+        fetchPinkCardStatistics();
+        toast.success('Pink card record deleted successfully');
+      } else {
+        toast.error(data.error || 'Failed to delete record');
+      }
+    } catch (error) {
+      console.error('Delete error:', error);
+      toast.error('Failed to delete record');
+    }
+  };
+
   // Show loading state while checking access
   if (hasAccess === null) {
     return (
@@ -356,12 +452,12 @@ export default function HIVManagementPage() {
           {/* Page Header */}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="p-3 bg-teal-100 rounded-lg">
-                <Shield className="w-6 h-6 text-[#20C997]" />
+              <div className="p-3 bg-pink-100 rounded-lg">
+                <CreditCard className="w-6 h-6 text-pink-600" />
               </div>
               <div>
-                <h1 className="text-2xl font-bold text-gray-900">HIV/AIDS Disease Management</h1>
-                <p className="text-sm text-gray-600">Track and manage HIV/AIDS cases across all barangays</p>
+                <h1 className="text-2xl font-bold text-gray-900">HIV & Pink Card Management</h1>
+                <p className="text-sm text-gray-600">Manage Pink Card issuance and HIV Testing & Counseling appointments</p>
               </div>
             </div>
           </div>
@@ -407,65 +503,99 @@ export default function HIVManagementPage() {
             </button>
           </div>
 
-          {/* Summary Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
-            <div className="bg-white rounded-lg shadow p-4 border border-gray-200">
-              <div className="flex items-center gap-2 mb-2">
-                <Activity className="w-5 h-5 text-gray-600" />
-                <h3 className="text-sm font-medium text-gray-700">Total Cases</h3>
-              </div>
-              <p className="text-2xl font-bold text-gray-900">{summary.total_cases}</p>
-            </div>
+          {/* Pink Card Summary */}
+          <HealthcardStatsSummary
+            summary={pinkCardSummary}
+            loading={pinkCardLoading}
+            pinkCardOnly={true}
+          />
 
-            <div className="bg-red-50 rounded-lg shadow p-4 border border-red-200">
-              <div className="flex items-center gap-2 mb-2">
-                <AlertTriangle className="w-5 h-5 text-red-600" />
-                <h3 className="text-sm font-medium text-red-700">Active Cases</h3>
-              </div>
-              <p className="text-2xl font-bold text-red-900">{summary.active_cases}</p>
-            </div>
-
-            <div className="bg-yellow-50 rounded-lg shadow p-4 border border-yellow-200">
-              <div className="flex items-center gap-2 mb-2">
-                <Activity className="w-5 h-5 text-yellow-600" />
-                <h3 className="text-sm font-medium text-yellow-700">Under Treatment</h3>
-              </div>
-              <p className="text-2xl font-bold text-yellow-900">{summary.under_treatment}</p>
-            </div>
-
-            <div className="bg-green-50 rounded-lg shadow p-4 border border-green-200">
-              <div className="flex items-center gap-2 mb-2">
-                <TrendingUp className="w-5 h-5 text-green-600" />
-                <h3 className="text-sm font-medium text-green-700">Recovered</h3>
-              </div>
-              <p className="text-2xl font-bold text-green-900">{summary.recovered}</p>
-            </div>
-
-            <div className="bg-gray-50 rounded-lg shadow p-4 border border-gray-300">
-              <div className="flex items-center gap-2 mb-2">
-                <FileText className="w-5 h-5 text-gray-600" />
-                <h3 className="text-sm font-medium text-gray-700">Deceased</h3>
-              </div>
-              <p className="text-2xl font-bold text-gray-900">{summary.deceased}</p>
-            </div>
-
-            <div className="bg-purple-50 rounded-lg shadow p-4 border border-purple-200">
-              <div className="flex items-center gap-2 mb-2">
-                <MapPin className="w-5 h-5 text-purple-600" />
-                <h3 className="text-sm font-medium text-purple-700">Most Affected</h3>
-              </div>
-              <p className="text-sm font-bold text-purple-900 truncate">
-                {summary.most_affected_barangay || 'N/A'}
-              </p>
-            </div>
+          {/* Appointment Status Chart */}
+          <div className="bg-white rounded-lg shadow p-6 border border-gray-200">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">HIV Counseling Appointment Status Breakdown</h3>
+            <AppointmentStatusChart data={appointmentStats} loading={appointmentStatsLoading} />
           </div>
 
-          {/* Filters */}
-          <div className="bg-white rounded-lg shadow p-4 border border-gray-200">
-            <div className="flex items-center gap-2 mb-4">
-              <Filter className="w-4 h-4 text-gray-600" />
-              <h3 className="text-sm font-semibold text-gray-900">Filter Records</h3>
+          {/* Pink Card Filters & Table Section */}
+          <div className="bg-white rounded-lg shadow border border-gray-200">
+            {/* Filters */}
+            <div className="p-4 border-b border-gray-200">
+              <div className="flex items-center gap-2 mb-4">
+                <Filter className="w-4 h-4 text-gray-600" />
+                <h3 className="text-sm font-semibold text-gray-900">Filter Pink Card Records</h3>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {/* Barangay Filter */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Barangay
+                  </label>
+                  <select
+                    value={pinkCardFilters.barangay_id}
+                    onChange={(e) => setPinkCardFilters({ ...pinkCardFilters, barangay_id: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pink-500"
+                  >
+                    <option value="all">All Barangays</option>
+                    {barangays.map((barangay) => (
+                      <option key={barangay.id} value={barangay.id}>
+                        {barangay.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Start Date */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Start Date
+                  </label>
+                  <input
+                    type="date"
+                    value={pinkCardFilters.start_date}
+                    onChange={(e) => setPinkCardFilters({ ...pinkCardFilters, start_date: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pink-500"
+                  />
+                </div>
+
+                {/* End Date */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    End Date
+                  </label>
+                  <input
+                    type="date"
+                    value={pinkCardFilters.end_date}
+                    onChange={(e) => setPinkCardFilters({ ...pinkCardFilters, end_date: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pink-500"
+                  />
+                </div>
+              </div>
             </div>
+
+            {/* Pink Card Statistics Table */}
+            <HealthcardStatisticsTable
+              statistics={pinkCardStats}
+              onEdit={setEditingPinkCard}
+              onDelete={setDeletingPinkCard}
+            />
+          </div>
+
+          {/* HIV Disease Surveillance Section (Moved to Bottom) */}
+          <div className="bg-white rounded-lg shadow border border-gray-200">
+            <div className="p-4 border-b border-gray-200">
+              <div className="flex items-center gap-2">
+                <Shield className="w-5 h-5 text-teal-600" />
+                <h3 className="text-lg font-semibold text-gray-900">HIV/AIDS Disease Surveillance</h3>
+              </div>
+              <p className="text-sm text-gray-600 mt-1">Track HIV/AIDS disease cases (optional reference data)</p>
+            </div>
+
+            {/* Disease Filters */}
+            <div className="p-4 border-b border-gray-200">
+              <div className="flex items-center gap-2 mb-4">
+                <Filter className="w-4 h-4 text-gray-600" />
+                <h3 className="text-sm font-semibold text-gray-900">Filter Records</h3>
+              </div>
             <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-1">Barangay</label>
@@ -535,13 +665,13 @@ export default function HIVManagementPage() {
                 />
               </div>
             </div>
-          </div>
-
-          {/* Records Table */}
-          <div className="bg-white rounded-lg shadow border border-gray-200">
-            <div className="px-6 py-4 border-b border-gray-200">
-              <h3 className="text-lg font-semibold text-gray-900">HIV/AIDS Cases</h3>
             </div>
+
+            {/* Records Table */}
+            <div className="p-4">
+              <div className="mb-3">
+                <h3 className="text-lg font-semibold text-gray-900">HIV/AIDS Cases</h3>
+              </div>
             <div className="overflow-x-auto">
               {loading ? (
                 <div className="p-12 text-center">
@@ -617,6 +747,7 @@ export default function HIVManagementPage() {
                   </tbody>
                 </table>
               )}
+            </div>
             </div>
           </div>
 
@@ -755,8 +886,35 @@ export default function HIVManagementPage() {
         onClose={() => setIsPinkCardImportOpen(false)}
         onImportSuccess={() => {
           toast.success('Pink card data imported successfully');
+          fetchPinkCardStatistics();
           setPinkCardPredictionKey(prev => prev + 1);
         }}
+      />
+
+      {/* Pink Card Edit Modal */}
+      {editingPinkCard && (
+        <EditHealthcardStatisticModal
+          record={editingPinkCard}
+          isOpen={!!editingPinkCard}
+          onClose={() => setEditingPinkCard(null)}
+          onSuccess={handlePinkCardEditSuccess}
+          barangays={barangays}
+        />
+      )}
+
+      {/* Pink Card Delete Confirmation */}
+      <ConfirmDialog
+        isOpen={!!deletingPinkCard}
+        onClose={() => setDeletingPinkCard(null)}
+        onConfirm={handleDeletePinkCard}
+        title="Delete Pink Card Record"
+        message={
+          deletingPinkCard
+            ? `Are you sure you want to delete the record from ${format(new Date(deletingPinkCard.record_date), 'MMMM d, yyyy')}? This action cannot be undone.`
+            : ''
+        }
+        confirmText="Delete"
+        variant="danger"
       />
       </Container>
     </DashboardLayout>

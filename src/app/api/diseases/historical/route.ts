@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
     // Get user profile and check role
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
-      .select('id, role')
+      .select('id, role, admin_category')
       .eq('id', user.id)
       .single();
 
@@ -34,10 +34,15 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Only Staff and Super Admin can view historical disease statistics
-    if (profile.role !== 'staff' && profile.role !== 'super_admin') {
+    // Only Staff, Super Admin, and HIV/Pregnancy Healthcare Admins can view historical disease statistics
+    const isStaff = profile.role === 'staff';
+    const isSuperAdmin = profile.role === 'super_admin';
+    const isHIVAdmin = profile.role === 'healthcare_admin' && profile.admin_category === 'hiv';
+    const isPregnancyAdmin = profile.role === 'healthcare_admin' && profile.admin_category === 'pregnancy';
+
+    if (!isStaff && !isSuperAdmin && !isHIVAdmin && !isPregnancyAdmin) {
       return NextResponse.json(
-        { success: false, error: 'Only Staff and Super Admins can view historical disease statistics' },
+        { success: false, error: 'Unauthorized to view disease statistics' },
         { status: 403 }
       );
     }
@@ -196,7 +201,7 @@ export async function POST(request: NextRequest) {
     // Get user profile and check role
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
-      .select('id, role')
+      .select('id, role, admin_category')
       .eq('id', user.id)
       .single();
 
@@ -207,10 +212,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Only Staff and Super Admin can create historical disease statistics
-    if (profile.role !== 'staff' && profile.role !== 'super_admin') {
+    // Only Staff, Super Admin, and HIV/Pregnancy Healthcare Admins can create historical disease statistics
+    const isStaff = profile.role === 'staff';
+    const isSuperAdmin = profile.role === 'super_admin';
+    const isHIVAdmin = profile.role === 'healthcare_admin' && profile.admin_category === 'hiv';
+    const isPregnancyAdmin = profile.role === 'healthcare_admin' && profile.admin_category === 'pregnancy';
+
+    if (!isStaff && !isSuperAdmin && !isHIVAdmin && !isPregnancyAdmin) {
       return NextResponse.json(
-        { success: false, error: 'Only Staff and Super Admins can create historical disease statistics' },
+        { success: false, error: 'Unauthorized to create disease statistics' },
         { status: 403 }
       );
     }

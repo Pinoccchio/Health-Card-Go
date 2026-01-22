@@ -42,14 +42,16 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Allow: Staff, Super Admin, and Healthcare Admin with healthcard category
+    // Allow: Staff, Super Admin, and Healthcare Admins (healthcard, hiv, pregnancy categories)
     const isStaff = profile.role === 'staff';
     const isSuperAdmin = profile.role === 'super_admin';
     const isHealthcardAdmin = profile.role === 'healthcare_admin' && profile.admin_category === 'healthcard';
+    const isHIVAdmin = profile.role === 'healthcare_admin' && profile.admin_category === 'hiv';
+    const isPregnancyAdmin = profile.role === 'healthcare_admin' && profile.admin_category === 'pregnancy';
 
-    if (!isStaff && !isSuperAdmin && !isHealthcardAdmin) {
+    if (!isStaff && !isSuperAdmin && !isHealthcardAdmin && !isHIVAdmin && !isPregnancyAdmin) {
       return NextResponse.json(
-        { success: false, error: 'Only Staff, Super Admins, and HealthCard Admins can view healthcard statistics' },
+        { success: false, error: 'Unauthorized to view healthcard statistics' },
         { status: 403 }
       );
     }
@@ -120,61 +122,74 @@ export async function GET(request: NextRequest) {
       .gte('record_date', startDate || '2000-01-01')
       .lte('record_date', endDate || '2099-12-31');
 
-    // ALSO fetch completed appointments data for summary
-    // Determine service IDs to query based on healthcard_type filter
-    let appointmentServiceIds: number[] = [12, 13, 14, 15]; // All healthcard services by default
-    if (healthcardType === 'food_handler') {
-      appointmentServiceIds = [12, 13]; // Yellow Card
-    } else if (healthcardType === 'non_food') {
-      appointmentServiceIds = [14, 15]; // Green Card
-    } else if (healthcardType === 'pink') {
-      appointmentServiceIds = [16]; // Pink Card uses Service 16
-    }
-
-    // Query appointments table for completed appointments
-    let appointmentsQuery = supabase
-      .from('appointments')
-      .select('id, completed_at, service_id')
-      .eq('status', 'completed')
-      .not('completed_at', 'is', null)
-      .in('service_id', appointmentServiceIds);
-
-    // Apply date filters if present
-    if (startDate) {
-      appointmentsQuery = appointmentsQuery.gte('completed_at', `${startDate}T00:00:00`);
-    }
-    if (endDate) {
-      appointmentsQuery = appointmentsQuery.lte('completed_at', `${endDate}T23:59:59`);
-    }
-
-    const { data: appointmentsData } = await appointmentsQuery;
-
-    // Count appointments by healthcard type based on service_id
-    const appointmentsByType = {
-      food_handler: appointmentsData?.filter(a => [12, 13].includes(a.service_id)).length || 0,
-      non_food: appointmentsData?.filter(a => [14, 15].includes(a.service_id)).length || 0,
-      pink: appointmentsData?.filter(a => a.service_id === 16).length || 0,
+    // PINK CARDS: Use ONLY healthcard_statistics data (no appointment blending)
+    // HIV admin tracks pink card issuances via Excel imports, not appointments
+    // For yellow/green cards: blend appointments with Excel data
+    let appointmentsData: any[] = [];
+    let appointmentsByType = {
+      food_handler: 0,
+      non_food: 0,
+      pink: 0,
     };
 
-    // Merge counts from Excel imports and appointments
+    // Only blend appointment data for yellow/green cards (healthcard admin)
+    // Pink cards are tracked separately in healthcard_statistics table only
+    if (healthcardType !== 'pink') {
+      // Determine service IDs to query based on healthcard_type filter
+      let appointmentServiceIds: number[] = [12, 13, 14, 15]; // All healthcard services by default
+      if (healthcardType === 'food_handler') {
+        appointmentServiceIds = [12, 13]; // Yellow Card
+      } else if (healthcardType === 'non_food') {
+        appointmentServiceIds = [14, 15]; // Green Card
+      }
+
+      // Query appointments table for completed appointments
+      let appointmentsQuery = supabase
+        .from('appointments')
+        .select('id, completed_at, service_id')
+        .eq('status', 'completed')
+        .not('completed_at', 'is', null)
+        .in('service_id', appointmentServiceIds);
+
+      // Apply date filters if present
+      if (startDate) {
+        appointmentsQuery = appointmentsQuery.gte('completed_at', `${startDate}T00:00:00`);
+      }
+      if (endDate) {
+        appointmentsQuery = appointmentsQuery.lte('completed_at', `${endDate}T23:59:59`);
+      }
+
+      const { data: fetchedAppointments } = await appointmentsQuery;
+      appointmentsData = fetchedAppointments || [];
+
+      // Count appointments by healthcard type based on service_id
+      appointmentsByType = {
+        food_handler: appointmentsData.filter(a => [12, 13].includes(a.service_id)).length,
+        non_food: appointmentsData.filter(a => [14, 15].includes(a.service_id)).length,
+        pink: 0, // Never blend pink cards with appointments
+      };
+    }
+
+    // Calculate summary from Excel imports ONLY (no appointment blending for pink)
     const summary = {
       total_records: count || 0,
-      total_cards_issued: (summaryData?.reduce((sum, r) => sum + r.cards_issued, 0) || 0) + (appointmentsData?.length || 0),
+      total_cards_issued: (summaryData?.reduce((sum, r) => sum + r.cards_issued, 0) || 0) + appointmentsData.length,
       food_handler_cards: (summaryData?.filter(r => r.healthcard_type === 'food_handler').reduce((sum, r) => sum + r.cards_issued, 0) || 0) + appointmentsByType.food_handler,
       non_food_cards: (summaryData?.filter(r => r.healthcard_type === 'non_food').reduce((sum, r) => sum + r.cards_issued, 0) || 0) + appointmentsByType.non_food,
-      pink_cards: (summaryData?.filter(r => r.healthcard_type === 'pink').reduce((sum, r) => sum + r.cards_issued, 0) || 0) + appointmentsByType.pink,
+      pink_cards: summaryData?.filter(r => r.healthcard_type === 'pink').reduce((sum, r) => sum + r.cards_issued, 0) || 0, // Excel only, no appointments
       date_range: {
         earliest: null as any,
         latest: null as any,
       },
     };
 
-    // Calculate date range from BOTH sources
+    // Calculate date range from Excel data only (for pink) or both sources (for yellow/green)
     const allDates: number[] = [];
     if (summaryData && summaryData.length > 0) {
       allDates.push(...summaryData.map(r => new Date(r.record_date).getTime()));
     }
-    if (appointmentsData && appointmentsData.length > 0) {
+    // Only include appointment dates for non-pink cards
+    if (healthcardType !== 'pink' && appointmentsData.length > 0) {
       allDates.push(...appointmentsData.map(a => new Date(a.completed_at!).getTime()));
     }
 

@@ -65,7 +65,7 @@ export function HealthcardStatisticsTable({
     }
   };
 
-  if (statistics.length === 0) {
+  if (!statistics || statistics.length === 0) {
     return (
       <div className="bg-white rounded-lg shadow border border-gray-200 p-12 text-center">
         <div className="flex flex-col items-center">

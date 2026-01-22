@@ -17,9 +17,10 @@ interface HealthcardStatsSummaryProps {
   };
   loading?: boolean;
   showPinkCards?: boolean; // NEW: Control visibility of pink cards
+  pinkCardOnly?: boolean; // NEW: Show ONLY pink cards (for HIV admin)
 }
 
-export function HealthcardStatsSummary({ summary, loading, showPinkCards = true }: HealthcardStatsSummaryProps) {
+export function HealthcardStatsSummary({ summary, loading, showPinkCards = true, pinkCardOnly = false }: HealthcardStatsSummaryProps) {
   const formatDateRange = () => {
     if (!summary.date_range.earliest || !summary.date_range.latest) {
       return 'No data';
@@ -125,45 +126,76 @@ export function HealthcardStatsSummary({ summary, loading, showPinkCards = true 
       <div className="bg-white rounded-lg shadow p-6 border border-gray-200">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-sm font-medium text-gray-600">Card Type Distribution</p>
-            <div className="mt-2 space-y-1">
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-700 flex items-center gap-1">
-                  <span className="w-2 h-2 bg-yellow-500 rounded-full"></span>
-                  Yellow Card:
-                </span>
-                <span className="text-sm font-bold text-gray-900">
-                  {calculatePercentage(summary.food_handler_cards, summary.total_cards_issued)}%
-                </span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-700 flex items-center gap-1">
-                  <span className="w-2 h-2 bg-green-500 rounded-full"></span>
-                  Green Card:
-                </span>
-                <span className="text-sm font-bold text-gray-900">
-                  {calculatePercentage(summary.non_food_cards, summary.total_cards_issued)}%
-                </span>
-              </div>
-              {showPinkCards && (
+            <p className="text-sm font-medium text-gray-600">
+              {pinkCardOnly ? 'Pink Card Statistics' : 'Card Type Distribution'}
+            </p>
+            {pinkCardOnly ? (
+              // Pink Card Only View (for HIV admin)
+              <div className="mt-2 space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-gray-700 flex items-center gap-1">
                     <span className="w-2 h-2 bg-pink-500 rounded-full"></span>
-                    Pink Card:
+                    Total Pink Cards:
                   </span>
-                  <span className="text-sm font-bold text-gray-900">
-                    {calculatePercentage(summary.pink_cards, summary.total_cards_issued)}%
+                  <span className="text-2xl font-bold text-pink-600">
+                    {summary.pink_cards.toLocaleString()}
                   </span>
                 </div>
-              )}
-            </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-gray-500">
+                    100% of records
+                  </span>
+                  <span className="text-xs font-semibold text-gray-700">
+                    {summary.total_cards_issued.toLocaleString()} total
+                  </span>
+                </div>
+              </div>
+            ) : (
+              // All Card Types View (for healthcard admin)
+              <div className="mt-2 space-y-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-gray-700 flex items-center gap-1">
+                    <span className="w-2 h-2 bg-yellow-500 rounded-full"></span>
+                    Yellow Card:
+                  </span>
+                  <span className="text-sm font-bold text-gray-900">
+                    {calculatePercentage(summary.food_handler_cards, summary.total_cards_issued)}%
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-gray-700 flex items-center gap-1">
+                    <span className="w-2 h-2 bg-green-500 rounded-full"></span>
+                    Green Card:
+                  </span>
+                  <span className="text-sm font-bold text-gray-900">
+                    {calculatePercentage(summary.non_food_cards, summary.total_cards_issued)}%
+                  </span>
+                </div>
+                {showPinkCards && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-700 flex items-center gap-1">
+                      <span className="w-2 h-2 bg-pink-500 rounded-full"></span>
+                      Pink Card:
+                    </span>
+                    <span className="text-sm font-bold text-gray-900">
+                      {calculatePercentage(summary.pink_cards, summary.total_cards_issued)}%
+                    </span>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
-          <div className="w-12 h-12 bg-teal-100 rounded-lg flex items-center justify-center">
-            <PieChart className="w-6 h-6 text-teal-600" />
+          <div className={`w-12 h-12 rounded-lg flex items-center justify-center ${
+            pinkCardOnly ? 'bg-pink-100' : 'bg-teal-100'
+          }`}>
+            <PieChart className={`w-6 h-6 ${pinkCardOnly ? 'text-pink-600' : 'text-teal-600'}`} />
           </div>
         </div>
         <p className="text-xs text-gray-500 mt-2">
-          {summary.food_handler_cards.toLocaleString()} yellow, {summary.non_food_cards.toLocaleString()} green{showPinkCards && `, ${summary.pink_cards.toLocaleString()} pink`}
+          {pinkCardOnly
+            ? `HIV-related health cards only`
+            : `${summary.food_handler_cards.toLocaleString()} yellow, ${summary.non_food_cards.toLocaleString()} green${showPinkCards ? `, ${summary.pink_cards.toLocaleString()} pink` : ''}`
+          }
         </p>
       </div>
     </div>
