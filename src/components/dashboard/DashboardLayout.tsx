@@ -74,10 +74,11 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
     // Not wrapped in AnnouncementProvider, ignore
   }
 
-  // Memoize assigned_service_id to prevent unnecessary re-renders
+  // Memoize assigned_service_id and admin_category to prevent unnecessary re-renders
   // Extracts primitive value from user object to avoid reference equality issues
   // Only updates when the actual service ID value changes, not when user object reference changes
   const assignedServiceId = useMemo(() => user?.assigned_service_id, [user?.assigned_service_id]);
+  const adminCategory = useMemo(() => user?.admin_category, [user?.admin_category]);
 
   // Helper function to preserve badges when updating menu items
   // Merges existing badges from current menu into new menu items
@@ -109,9 +110,9 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
 
       try {
         if (roleId === 2 && assignedServiceId) {
-          // Healthcare Admin - fetch dynamic menu based on assigned service
-          console.log('📋 Loading dynamic menu for Healthcare Admin with service:', assignedServiceId);
-          const dynamicMenuItems = await getHealthcareAdminMenuItems(assignedServiceId);
+          // Healthcare Admin - fetch dynamic menu based on assigned service and admin category
+          console.log('📋 Loading dynamic menu for Healthcare Admin with service:', assignedServiceId, 'category:', adminCategory);
+          const dynamicMenuItems = await getHealthcareAdminMenuItems(assignedServiceId, adminCategory);
 
           // CRITICAL FIX: Preserve existing badges when updating menu
           // Use functional setState to merge badges from current menu into new menu
@@ -157,7 +158,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
     }
 
     loadMenuItems();
-  }, [roleId, assignedServiceId]);
+  }, [roleId, assignedServiceId, adminCategory]);
 
   // ✨ VISITOR-TRIGGERED AUTOMATIC NO-SHOW DETECTION ✨
   // When Healthcare Admin visits dashboard → automatically check for overdue appointments

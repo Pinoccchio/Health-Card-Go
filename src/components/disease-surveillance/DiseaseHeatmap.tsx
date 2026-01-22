@@ -4,6 +4,7 @@ import { useEffect, useRef } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { getDiseaseDisplayName } from '@/lib/constants/diseaseConstants';
+import { useOutbreakData } from '@/contexts/OutbreakDataContext';
 
 // Fix Leaflet default icon issue with Next.js
 delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -39,12 +40,24 @@ interface HeatmapData {
 interface DiseaseHeatmapProps {
   data: HeatmapData[];
   diseaseType: string;
+  outbreakRiskFilter?: string;
 }
 
-export default function DiseaseHeatmap({ data, diseaseType }: DiseaseHeatmapProps) {
+interface OutbreakData {
+  barangay_id?: number;
+  barangay_name?: string;
+  disease_type: string;
+  risk_level: 'critical' | 'high' | 'medium';
+  total_cases: number;
+}
+
+export default function DiseaseHeatmap({ data, diseaseType, outbreakRiskFilter = 'all' }: DiseaseHeatmapProps) {
   const mapRef = useRef<L.Map | null>(null);
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const layerGroupRef = useRef<L.LayerGroup | null>(null);
+
+  // Use outbreak data from context (eliminates duplicate API call)
+  const { outbreaks } = useOutbreakData();
 
   // Effect 1: Initialize map ONCE (runs only on mount)
   useEffect(() => {
@@ -69,30 +82,85 @@ export default function DiseaseHeatmap({ data, diseaseType }: DiseaseHeatmapProp
 
     // Cleanup only on unmount
     return () => {
-      if (layerGroupRef.current) {
-        layerGroupRef.current.clearLayers();
-        layerGroupRef.current = null;
-      }
-      if (mapRef.current) {
-        mapRef.current.remove();
-        mapRef.current = null;
+      try {
+        if (mapRef.current) {
+          // Stop any ongoing animations/transitions
+          mapRef.current.stop();
+
+          // Remove all event listeners
+          mapRef.current.off();
+
+          // Clear layers before removing map
+          if (layerGroupRef.current) {
+            layerGroupRef.current.clearLayers();
+            layerGroupRef.current.remove();
+            layerGroupRef.current = null;
+          }
+
+          // Finally remove the map
+          mapRef.current.remove();
+          mapRef.current = null;
+        }
+      } catch (error) {
+        console.error('Error cleaning up map:', error);
       }
     };
   }, []); // Empty deps - initialize once
 
-  // Effect 2: Update data layers when data or diseaseType changes
+  // Effect 3: Update data layers when data, diseaseType, or outbreaks change
   useEffect(() => {
+    // Safety checks - ensure map and layer group are ready
     if (!mapRef.current || !layerGroupRef.current || !data || data.length === 0) return;
+
+    // Additional check: ensure map container still exists and map is loaded
+    if (!mapContainerRef.current || !mapRef.current._container) return;
+
+    // Check if map is fully loaded and not in transition
+    if (!mapRef.current._loaded || !mapRef.current._panes) {
+      console.warn('Map not fully loaded, skipping layer update');
+      return;
+    }
 
     try {
       // Clear previous markers safely using LayerGroup
-      layerGroupRef.current.clearLayers();
+      if (layerGroupRef.current && layerGroupRef.current._layers) {
+        layerGroupRef.current.clearLayers();
+      } else {
+        return; // Don't proceed if layer group is null or invalid
+      }
 
       const bounds = L.latLngBounds([]);
 
       // Add circle markers for each barangay with cases
       data.forEach((barangay) => {
         if (!barangay.coordinates) return;
+
+        // Find outbreak for this barangay (before coordinate parsing for filtering)
+        const barangayOutbreak = outbreaks.find(
+          o => o.barangay_id === barangay.barangay_id ||
+               (o.barangay_name && o.barangay_name.toLowerCase() === barangay.barangay_name.toLowerCase())
+        );
+
+        // Apply outbreak risk filter
+        if (outbreakRiskFilter !== 'all') {
+          if (outbreakRiskFilter === 'none') {
+            // Show only barangays with no outbreaks (but may have cases)
+            if (barangayOutbreak) return; // Skip if has outbreak
+          } else {
+            // Show only specific risk levels (critical, high, medium)
+            const riskLevelMap: { [key: string]: string } = {
+              'critical': 'critical',
+              'high': 'high',
+              'medium': 'medium'
+            };
+            const targetRiskLevel = riskLevelMap[outbreakRiskFilter];
+
+            // Skip if no outbreak OR outbreak doesn't match filter
+            if (!barangayOutbreak || barangayOutbreak.risk_level !== targetRiskLevel) {
+              return;
+            }
+          }
+        }
 
         // Parse coordinates
         let coords = barangay.coordinates;
@@ -139,28 +207,33 @@ export default function DiseaseHeatmap({ data, diseaseType }: DiseaseHeatmapProp
           return;
         }
 
-        // Calculate percentage-based risk level
-        // Formula: (cases / population) * 100
-        // High Risk: >= 70%, Medium Risk: 50-69%, Low Risk: <= 49%
-        const calculateRiskPercentage = (cases: number, population: number): number => {
-          if (population === 0) return 0;
-          return (cases / population) * 100;
-        };
+        // Determine color based on outbreak risk level (outbreak already found above)
+        let color: string;
+        let riskLevel: string;
 
-        const calculateRiskLevel = (percentage: number): { level: string; color: string } => {
-          if (percentage >= 70) {
-            return { level: 'HIGH RISK', color: '#dc2626' }; // red-600
-          } else if (percentage >= 50) {
-            return { level: 'MEDIUM RISK', color: '#ea580c' }; // orange-600
+        if (barangayOutbreak) {
+          // Use outbreak detection risk level
+          if (barangayOutbreak.risk_level === 'critical') {
+            color = '#dc2626'; // red-600
+            riskLevel = 'CRITICAL OUTBREAK';
+          } else if (barangayOutbreak.risk_level === 'high') {
+            color = '#ea580c'; // orange-600
+            riskLevel = 'HIGH RISK OUTBREAK';
           } else {
-            return { level: 'LOW RISK', color: '#16a34a' }; // green-600
+            color = '#f59e0b'; // amber-500 (yellow)
+            riskLevel = 'MEDIUM RISK OUTBREAK';
           }
-        };
+        } else if (barangay.statistics.total_cases > 0) {
+          // Has cases but no outbreak detected
+          color = '#16a34a'; // green-600
+          riskLevel = 'LOW RISK';
+        } else {
+          // No cases
+          color = '#9ca3af'; // gray-400
+          riskLevel = 'NO CASES';
+        }
 
-        const population = barangay.population || 5610; // Default population if not provided
-        const riskPercentage = calculateRiskPercentage(barangay.statistics.total_cases, population);
-        const risk = calculateRiskLevel(riskPercentage);
-        const color = risk.color;
+        const population = barangay.population || 5610;
 
         // Calculate circle radius based on case count (10-30px range)
         const baseCases = barangay.statistics.total_cases;
@@ -200,13 +273,21 @@ export default function DiseaseHeatmap({ data, diseaseType }: DiseaseHeatmapProp
 
             <div class="space-y-1 text-sm mb-3">
               <div class="flex justify-between">
-                <span>Risk Level:</span>
+                <span>Status:</span>
                 <span class="font-semibold ${
-                  riskPercentage >= 70 ? 'text-red-600' :
-                  riskPercentage >= 50 ? 'text-orange-600' :
-                  'text-green-600'
-                }">${risk.level} (${riskPercentage.toFixed(2)}%)</span>
+                  barangayOutbreak
+                    ? barangayOutbreak.risk_level === 'critical' ? 'text-red-600'
+                      : barangayOutbreak.risk_level === 'high' ? 'text-orange-600'
+                      : 'text-amber-500'
+                    : barangay.statistics.total_cases > 0 ? 'text-green-600' : 'text-gray-400'
+                }">${riskLevel}</span>
               </div>
+              ${barangayOutbreak ? `
+              <div class="flex justify-between">
+                <span>Outbreak Cases:</span>
+                <span class="font-semibold text-red-600">${barangayOutbreak.total_cases || 0}</span>
+              </div>
+              ` : ''}
               <div class="flex justify-between">
                 <span>Total Cases:</span>
                 <span class="font-semibold">${barangay.statistics.total_cases}</span>
@@ -247,13 +328,20 @@ export default function DiseaseHeatmap({ data, diseaseType }: DiseaseHeatmapProp
       });
 
       // Fit map bounds to show all circles
-      if (bounds.isValid() && mapRef.current) {
-        mapRef.current.fitBounds(bounds, { padding: [50, 50] });
+      if (bounds.isValid() && mapRef.current && mapRef.current._container && mapContainerRef.current) {
+        try {
+          // Additional check: ensure map has valid panes before fitBounds
+          if (mapRef.current._loaded && mapRef.current._panes) {
+            mapRef.current.fitBounds(bounds, { padding: [50, 50], animate: false });
+          }
+        } catch (fitBoundsError) {
+          console.warn('Could not fit bounds, map may be in transition:', fitBoundsError);
+        }
       }
     } catch (error) {
       console.error('Error updating map layers:', error);
     }
-  }, [data, diseaseType]); // Update when data or disease type changes
+  }, [data, diseaseType, outbreaks, outbreakRiskFilter]); // Update when data, disease type, outbreaks, or filter change
 
   return (
     <div className="relative">
@@ -261,23 +349,31 @@ export default function DiseaseHeatmap({ data, diseaseType }: DiseaseHeatmapProp
 
       {/* Legend */}
       <div className="absolute bottom-4 right-4 bg-white p-3 rounded-lg shadow-lg border border-gray-200 z-[1000]">
-        <h4 className="text-xs font-semibold text-gray-700 mb-2">Risk Level</h4>
+        <h4 className="text-xs font-semibold text-gray-700 mb-2">Outbreak Status</h4>
         <div className="space-y-1">
           <div className="flex items-center gap-2 text-xs">
             <div className="w-4 h-4 rounded-full bg-red-600"></div>
-            <span>High Risk (≥70%)</span>
+            <span>Critical Outbreak</span>
           </div>
           <div className="flex items-center gap-2 text-xs">
             <div className="w-4 h-4 rounded-full bg-orange-600"></div>
-            <span>Medium Risk (50-69%)</span>
+            <span>High Risk Outbreak</span>
+          </div>
+          <div className="flex items-center gap-2 text-xs">
+            <div className="w-4 h-4 rounded-full bg-amber-500"></div>
+            <span>Medium Risk Outbreak</span>
           </div>
           <div className="flex items-center gap-2 text-xs">
             <div className="w-4 h-4 rounded-full bg-green-600"></div>
-            <span>Low Risk (≤49%)</span>
+            <span>Low Risk (No Outbreak)</span>
+          </div>
+          <div className="flex items-center gap-2 text-xs">
+            <div className="w-4 h-4 rounded-full bg-gray-400"></div>
+            <span>No Cases</span>
           </div>
         </div>
         <p className="text-xs text-gray-500 mt-2 italic">
-          Formula: (cases / population) × 100
+          Colors based on outbreak detection
         </p>
         <p className="text-xs text-gray-500 italic">
           Circle size = case count

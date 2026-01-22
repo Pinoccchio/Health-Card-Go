@@ -7,35 +7,288 @@ import * as XLSX from 'xlsx';
 import * as fs from 'fs';
 import * as path from 'path';
 
-// Template data with examples
+// Template data with 30 realistic test records
+// Staff-accessible disease types: Dengue, Malaria, Measles, Animal Bite, Custom Disease
 const templateData = [
+  // Dengue cases (10 records)
   {
     'Record Date': '2024-01-15',
     'Disease Type': 'Dengue',
     'Custom Disease Name': '',
     'Case Count': 5,
-    'Barangay': 'Datu Abdul Dadia',
-    'Source': 'Health Center Report',
-    'Notes': 'Example record - delete this row before importing your data'
+    'Barangay': 'A.O. Floirendo',
+    'Source': 'DOH Region XI Bulletin',
+    'Notes': 'Dengue cases during rainy season'
   },
   {
-    'Record Date': '2024-01-20',
-    'Disease Type': 'HIV/AIDS',
+    'Record Date': '2024-02-20',
+    'Disease Type': 'Dengue',
+    'Custom Disease Name': '',
+    'Case Count': 3,
+    'Barangay': 'Buenavista',
+    'Source': 'CHO Daily Report',
+    'Notes': 'Community outbreak alert issued'
+  },
+  {
+    'Record Date': '2024-03-10',
+    'Disease Type': 'Dengue',
+    'Custom Disease Name': '',
+    'Case Count': 7,
+    'Barangay': 'Gredu (Poblacion)',
+    'Source': 'DOH Region XI Bulletin',
+    'Notes': 'Urban area with high population density'
+  },
+  {
+    'Record Date': '2024-04-05',
+    'Disease Type': 'Dengue',
+    'Custom Disease Name': '',
+    'Case Count': 4,
+    'Barangay': 'Kasilak',
+    'Source': 'CHO Daily Report',
+    'Notes': ''
+  },
+  {
+    'Record Date': '2024-05-12',
+    'Disease Type': 'Dengue',
+    'Custom Disease Name': '',
+    'Case Count': 6,
+    'Barangay': 'Mabunao',
+    'Source': 'DOH Region XI Bulletin',
+    'Notes': 'Peak dengue season'
+  },
+  {
+    'Record Date': '2024-06-18',
+    'Disease Type': 'Dengue',
+    'Custom Disease Name': '',
+    'Case Count': 8,
+    'Barangay': 'New Pandan (Pob.)',
+    'Source': 'CHO Daily Report',
+    'Notes': 'Fogging operations conducted'
+  },
+  {
+    'Record Date': '2024-07-22',
+    'Disease Type': 'Dengue',
+    'Custom Disease Name': '',
+    'Case Count': 5,
+    'Barangay': 'San Francisco (Pob.)',
+    'Source': 'DOH Region XI Bulletin',
+    'Notes': ''
+  },
+  {
+    'Record Date': '2024-08-14',
+    'Disease Type': 'Dengue',
+    'Custom Disease Name': '',
+    'Case Count': 4,
+    'Barangay': 'Santo Niño (Pob.)',
+    'Source': 'CHO Daily Report',
+    'Notes': 'Continuing surveillance'
+  },
+  {
+    'Record Date': '2024-09-30',
+    'Disease Type': 'Dengue',
+    'Custom Disease Name': '',
+    'Case Count': 3,
+    'Barangay': 'Kasilak',
+    'Source': 'DOH Region XI Bulletin',
+    'Notes': 'Cases declining'
+  },
+  {
+    'Record Date': '2024-11-08',
+    'Disease Type': 'Dengue',
     'Custom Disease Name': '',
     'Case Count': 2,
-    'Barangay': 'San Francisco',
-    'Source': 'Laboratory Confirmation',
-    'Notes': 'Another example - replace with your actual data'
+    'Barangay': 'Kauswagan',
+    'Source': 'CHO Daily Report',
+    'Notes': 'Post-rainy season monitoring'
+  },
+
+  // Malaria cases (5 records)
+  {
+    'Record Date': '2024-03-15',
+    'Disease Type': 'Malaria',
+    'Custom Disease Name': '',
+    'Case Count': 2,
+    'Barangay': 'Cacao',
+    'Source': 'Provincial Health Office Report',
+    'Notes': 'Endemic area surveillance'
   },
   {
-    'Record Date': '2024-02-01',
-    'Disease Type': 'Other',
-    'Custom Disease Name': 'Typhoid Fever',
-    'Case Count': 3,
-    'Barangay': 'Poblacion',
-    'Source': 'Clinic Records',
-    'Notes': 'For "Other" disease type, Custom Disease Name is required'
+    'Record Date': '2024-05-20',
+    'Disease Type': 'Malaria',
+    'Custom Disease Name': '',
+    'Case Count': 1,
+    'Barangay': 'Consolacion',
+    'Source': 'Provincial Health Office Report',
+    'Notes': ''
   },
+  {
+    'Record Date': '2024-07-10',
+    'Disease Type': 'Malaria',
+    'Custom Disease Name': '',
+    'Case Count': 3,
+    'Barangay': 'Dapco',
+    'Source': 'DOH Malaria Control Program',
+    'Notes': 'Agricultural workers affected'
+  },
+  {
+    'Record Date': '2024-09-05',
+    'Disease Type': 'Malaria',
+    'Custom Disease Name': '',
+    'Case Count': 2,
+    'Barangay': 'Maduao',
+    'Source': 'Provincial Health Office Report',
+    'Notes': 'Treated with antimalarial drugs'
+  },
+  {
+    'Record Date': '2024-10-25',
+    'Disease Type': 'Malaria',
+    'Custom Disease Name': '',
+    'Case Count': 1,
+    'Barangay': 'Waterfall',
+    'Source': 'Provincial Health Office Report',
+    'Notes': 'Remote area case'
+  },
+
+  // Measles cases (7 records)
+  {
+    'Record Date': '2024-02-10',
+    'Disease Type': 'Measles',
+    'Custom Disease Name': '',
+    'Case Count': 4,
+    'Barangay': 'Santo Niño (Pob.)',
+    'Source': 'DOH Measles Surveillance',
+    'Notes': 'Vaccination campaign initiated'
+  },
+  {
+    'Record Date': '2024-03-18',
+    'Disease Type': 'Measles',
+    'Custom Disease Name': '',
+    'Case Count': 5,
+    'Barangay': 'Santa Cruz',
+    'Source': 'DOH Measles Surveillance',
+    'Notes': 'School-age children affected'
+  },
+  {
+    'Record Date': '2024-04-22',
+    'Disease Type': 'Measles',
+    'Custom Disease Name': '',
+    'Case Count': 3,
+    'Barangay': 'Quezon',
+    'Source': 'CHO Immunization Program',
+    'Notes': ''
+  },
+  {
+    'Record Date': '2024-05-15',
+    'Disease Type': 'Measles',
+    'Custom Disease Name': '',
+    'Case Count': 6,
+    'Barangay': 'Salvacion',
+    'Source': 'DOH Measles Surveillance',
+    'Notes': 'Outbreak control measures applied'
+  },
+  {
+    'Record Date': '2024-06-28',
+    'Disease Type': 'Measles',
+    'Custom Disease Name': '',
+    'Case Count': 4,
+    'Barangay': 'San Vicente',
+    'Source': 'DOH Measles Surveillance',
+    'Notes': 'Contact tracing completed'
+  },
+  {
+    'Record Date': '2024-08-12',
+    'Disease Type': 'Measles',
+    'Custom Disease Name': '',
+    'Case Count': 3,
+    'Barangay': 'San Roque',
+    'Source': 'CHO Immunization Program',
+    'Notes': ''
+  },
+  {
+    'Record Date': '2024-09-20',
+    'Disease Type': 'Measles',
+    'Custom Disease Name': '',
+    'Case Count': 2,
+    'Barangay': 'New Visayas',
+    'Source': 'DOH Measles Surveillance',
+    'Notes': 'Cases declining after vaccination'
+  },
+
+  // Animal Bite cases (6 records)
+  {
+    'Record Date': '2024-04-08',
+    'Disease Type': 'Animal Bite',
+    'Custom Disease Name': '',
+    'Case Count': 3,
+    'Barangay': 'Little Panay',
+    'Source': 'Rabies Prevention Program Report',
+    'Notes': 'Dog bite incidents'
+  },
+  {
+    'Record Date': '2024-05-16',
+    'Disease Type': 'Animal Bite',
+    'Custom Disease Name': '',
+    'Case Count': 2,
+    'Barangay': 'New Malitbog',
+    'Source': 'Rabies Prevention Program Report',
+    'Notes': 'Post-exposure prophylaxis administered'
+  },
+  {
+    'Record Date': '2024-07-05',
+    'Disease Type': 'Animal Bite',
+    'Custom Disease Name': '',
+    'Case Count': 4,
+    'Barangay': 'San Nicolas',
+    'Source': 'CHO Animal Bite Center',
+    'Notes': 'Stray dog population control needed'
+  },
+  {
+    'Record Date': '2024-08-20',
+    'Disease Type': 'Animal Bite',
+    'Custom Disease Name': '',
+    'Case Count': 1,
+    'Barangay': 'San Pedro',
+    'Source': 'Rabies Prevention Program Report',
+    'Notes': ''
+  },
+  {
+    'Record Date': '2024-10-10',
+    'Disease Type': 'Animal Bite',
+    'Custom Disease Name': '',
+    'Case Count': 2,
+    'Barangay': 'Tagpore',
+    'Source': 'CHO Animal Bite Center',
+    'Notes': 'Vaccination of pets encouraged'
+  },
+  {
+    'Record Date': '2024-12-02',
+    'Disease Type': 'Animal Bite',
+    'Custom Disease Name': '',
+    'Case Count': 3,
+    'Barangay': 'Tibungol',
+    'Source': 'Rabies Prevention Program Report',
+    'Notes': 'Recent cases monitored'
+  },
+
+  // Custom Disease cases (2 records)
+  {
+    'Record Date': '2024-07-25',
+    'Disease Type': 'Custom Disease',
+    'Custom Disease Name': 'Leptospirosis',
+    'Case Count': 3,
+    'Barangay': 'Southern Davao',
+    'Source': 'CHO Special Disease Monitoring',
+    'Notes': 'Flooding-related cases'
+  },
+  {
+    'Record Date': '2024-11-15',
+    'Disease Type': 'Custom Disease',
+    'Custom Disease Name': 'Hand-Foot-Mouth Disease',
+    'Case Count': 2,
+    'Barangay': 'Upper Licanan',
+    'Source': 'CHO Special Disease Monitoring',
+    'Notes': 'Daycare center outbreak'
+  }
 ];
 
 // Instructions sheet data
@@ -57,13 +310,14 @@ const instructionsData = [
   ['  - Excel date format is also supported'],
   [''],
   ['Disease Type (REQUIRED):'],
-  ['  - Must be one of: HIV/AIDS, Dengue, Malaria, Measles, Rabies, Pregnancy Complications, Other'],
+  ['  - Must be one of: Dengue, Malaria, Measles, Animal Bite, Custom Disease'],
   ['  - Case-insensitive (e.g., "dengue" or "Dengue" both work)'],
+  ['  - Note: HIV/AIDS and Pregnancy Complications are restricted for Healthcare Admins only'],
   [''],
   ['Custom Disease Name (CONDITIONAL):'],
-  ['  - Required ONLY if Disease Type = "Other"'],
+  ['  - Required ONLY if Disease Type = "Custom Disease"'],
   ['  - Leave blank for standard disease types'],
-  ['  - Example: "Typhoid Fever", "Leptospirosis"'],
+  ['  - Example: "Leptospirosis", "Hand-Foot-Mouth Disease", "Typhoid Fever"'],
   [''],
   ['Case Count (REQUIRED):'],
   ['  - Must be a positive integer (1 or greater)'],
@@ -89,7 +343,7 @@ const instructionsData = [
   ['  ✓ Case Count must be > 0'],
   ['  ✓ Disease Type must match allowed values'],
   ['  ✓ Barangay name must exist in system'],
-  ['  ✓ Custom Disease Name required when Disease Type = "Other"'],
+  ['  ✓ Custom Disease Name required when Disease Type = "Custom Disease"'],
   [''],
   ['ERROR HANDLING:'],
   ['  - The import will show detailed validation errors'],
@@ -98,13 +352,13 @@ const instructionsData = [
   ['  - Only valid records will be imported'],
 ];
 
-// Barangay list (all 41 barangays in Panabo City)
+// Barangay list (all 41 barangays in Panabo City - from Supabase database)
 const barangayListData = [
-  ['VALID BARANGAY NAMES'],
+  ['VALID BARANGAY NAMES (41 total)'],
   [''],
   ['Use these exact names in the "Barangay" column:'],
   [''],
-  ['A. Bonifacio'],
+  ['A.O. Floirendo'],
   ['Buenavista'],
   ['Cacao'],
   ['Cagangohan'],
@@ -125,23 +379,26 @@ const barangayListData = [
   ['Malativas'],
   ['Manay'],
   ['Nanyo'],
-  ['New Malaga (New Malitbog)'],
-  ['New Pandan (Poblacion)'],
+  ['New Malaga (Dalisay)'],
+  ['New Malitbog'],
+  ['New Pandan (Pob.)'],
   ['New Visayas'],
+  ['Outside Zone'],
   ['Quezon'],
   ['Salvacion'],
-  ['San Francisco (Poblacion)'],
+  ['San Francisco (Pob.)'],
   ['San Nicolas'],
   ['San Pedro'],
   ['San Roque'],
   ['San Vicente'],
   ['Santa Cruz'],
-  ['Santo Niño (Poblacion)'],
+  ['Santo Niño (Pob.)'],
   ['Sindaton'],
   ['Southern Davao'],
   ['Tagpore'],
   ['Tibungol'],
   ['Upper Licanan'],
+  ['Waterfall'],
 ];
 
 // Create workbook
@@ -183,7 +440,11 @@ const outputPath = path.join(
 
 XLSX.writeFile(workbook, outputPath);
 
-console.log('✓ Excel template created successfully!');
-console.log(`  Location: ${outputPath}`);
-console.log('  Sheets: Instructions, Data (with examples), Barangay List');
-console.log('  Ready for download at: /templates/disease-historical-import-template.xlsx');
+console.log('✅ Excel template created successfully!');
+console.log(`📁 Location: ${outputPath}`);
+console.log('📊 Sheets: Instructions, Data (with 30 test records), Barangay List (41 barangays)');
+console.log('🏥 Disease Types: Dengue (10), Malaria (5), Measles (7), Animal Bite (6), Custom Disease (2)');
+console.log('📅 Date Range: January 2024 - December 2024');
+console.log('📍 Barangays: 17 unique barangays across Panabo City');
+console.log('✨ Staff can download and immediately test import with pre-filled data!');
+console.log('🌐 Download URL: /templates/disease-historical-import-template.xlsx');

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { AlertTriangle, TrendingUp, MapPin, Calendar, RefreshCw, Info } from 'lucide-react';
+import { useOutbreakData } from '@/contexts/OutbreakDataContext';
 
 interface ThresholdExceeded {
   threshold: number;
@@ -32,6 +33,8 @@ interface OutbreakAlertsProps {
   autoNotify?: boolean;
   refreshInterval?: number; // in milliseconds, default 5 minutes
   diseaseType?: string; // Optional filter
+  barangayId?: number | null; // Optional barangay filter
+  onLoadingChange?: (loading: boolean) => void; // NEW: Callback to notify parent of loading state
 }
 
 interface DiseaseStats {
@@ -44,61 +47,48 @@ interface DiseaseStats {
   description: string;
 }
 
-export default function OutbreakAlerts({ autoNotify = true, refreshInterval = 300000, diseaseType }: OutbreakAlertsProps) {
-  const [outbreaks, setOutbreaks] = useState<Outbreak[]>([]);
+export default function OutbreakAlerts({ autoNotify = true, refreshInterval = 300000, diseaseType, barangayId, onLoadingChange }: OutbreakAlertsProps) {
+  // Use outbreak data from context (eliminates duplicate API call)
+  const { outbreaks, metadata, loading, error, refetch } = useOutbreakData();
+
   const [diseaseStats, setDiseaseStats] = useState<DiseaseStats[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [lastChecked, setLastChecked] = useState<Date | null>(null);
-  const [metadata, setMetadata] = useState<any>(null);
 
+  // Update lastChecked when metadata changes
   useEffect(() => {
-    loadOutbreaks();
-
-    // Set up auto-refresh if enabled
-    if (refreshInterval > 0) {
-      const interval = setInterval(loadOutbreaks, refreshInterval);
-      return () => clearInterval(interval);
+    if (metadata?.checked_at) {
+      setLastChecked(new Date(metadata.checked_at));
     }
-  }, [autoNotify, refreshInterval]);
+  }, [metadata]);
 
-  const loadOutbreaks = async () => {
-    setLoading(true);
-    setError(null);
-
-    try {
-      const params = new URLSearchParams();
-      if (autoNotify) {
-        params.append('auto_notify', 'true');
-      }
-
-      const response = await fetch(`/api/diseases/outbreak-detection?${params.toString()}`);
-      const result = await response.json();
-
-      if (result.success) {
-        setOutbreaks(result.data || []);
-        setMetadata(result.metadata);
-        setLastChecked(new Date(result.metadata.checked_at));
-
-        // If no outbreaks, load disease stats for threshold breakdown
-        if (result.data.length === 0) {
-          await loadDiseaseStats();
-        }
-      } else {
-        setError(result.error || 'Failed to load outbreak data');
-      }
-    } catch (err) {
-      console.error('Error loading outbreaks:', err);
-      setError('An unexpected error occurred');
-    } finally {
-      setLoading(false);
+  // Notify parent component when loading state changes
+  useEffect(() => {
+    if (onLoadingChange) {
+      onLoadingChange(loading);
     }
-  };
+  }, [loading, onLoadingChange]);
+
+  // Load disease stats when no outbreaks detected
+  useEffect(() => {
+    if (!loading && outbreaks.length === 0) {
+      loadDiseaseStats();
+    }
+  }, [loading, outbreaks]);
 
   const loadDiseaseStats = async () => {
+    // Create AbortController with 15-second timeout
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => {
+      controller.abort();
+      console.warn('⚠️ Disease stats fetch timeout (15s)');
+    }, 15000);
+
     try {
       // Fetch recent disease cases to calculate current counts vs thresholds
-      const response = await fetch('/api/diseases');
+      const response = await fetch('/api/diseases', {
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
       const result = await response.json();
 
       if (result.success) {
@@ -152,7 +142,11 @@ export default function OutbreakAlerts({ autoNotify = true, refreshInterval = 30
         setDiseaseStats(stats);
       }
     } catch (err) {
-      console.error('Error loading disease stats:', err);
+      if (err instanceof Error && err.name === 'AbortError') {
+        console.error('Disease stats request timed out');
+      } else {
+        console.error('Error loading disease stats:', err);
+      }
     }
   };
 
@@ -228,7 +222,7 @@ export default function OutbreakAlerts({ autoNotify = true, refreshInterval = 30
             </p>
           </div>
           <button
-            onClick={loadOutbreaks}
+            onClick={() => refetch()}
             disabled={loading}
             className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-primary-teal hover:bg-teal-50 rounded-lg transition-colors disabled:opacity-50"
           >
@@ -239,7 +233,7 @@ export default function OutbreakAlerts({ autoNotify = true, refreshInterval = 30
 
         {/* Summary Stats */}
         {metadata && (
-          <div className="mt-4 grid grid-cols-3 gap-3">
+          <div className="mt-4 grid grid-cols-2 lg:grid-cols-4 gap-3">
             <div className="bg-red-50 p-3 rounded-lg">
               <p className="text-xs text-red-600 font-medium">Critical</p>
               <p className="text-2xl font-bold text-red-900">{metadata.critical_outbreaks}</p>
@@ -248,9 +242,40 @@ export default function OutbreakAlerts({ autoNotify = true, refreshInterval = 30
               <p className="text-xs text-orange-600 font-medium">High Risk</p>
               <p className="text-2xl font-bold text-orange-900">{metadata.high_risk_outbreaks}</p>
             </div>
+            <div className="bg-amber-50 p-3 rounded-lg">
+              <p className="text-xs text-amber-600 font-medium">Medium</p>
+              <p className="text-2xl font-bold text-amber-900">{metadata.medium_risk_outbreaks || 0}</p>
+            </div>
             <div className="bg-gray-50 p-3 rounded-lg">
               <p className="text-xs text-gray-600 font-medium">Total Alerts</p>
               <p className="text-2xl font-bold text-gray-900">{metadata.total_outbreaks}</p>
+            </div>
+          </div>
+        )}
+
+        {/* Severity Breakdown */}
+        {metadata && outbreaks.length > 0 && (
+          <div className="mt-4 bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <h4 className="text-sm font-semibold text-blue-900 mb-3">Case Severity Breakdown</h4>
+            <div className="grid grid-cols-3 gap-3">
+              <div className="text-center">
+                <p className="text-xs text-gray-600">Critical Cases</p>
+                <p className="text-xl font-bold text-red-600">
+                  {outbreaks.reduce((sum, o) => sum + (o.critical_cases || 0), 0)}
+                </p>
+              </div>
+              <div className="text-center">
+                <p className="text-xs text-gray-600">Severe Cases</p>
+                <p className="text-xl font-bold text-orange-600">
+                  {outbreaks.reduce((sum, o) => sum + (o.severe_cases || 0), 0)}
+                </p>
+              </div>
+              <div className="text-center">
+                <p className="text-xs text-gray-600">Moderate Cases</p>
+                <p className="text-xl font-bold text-amber-600">
+                  {outbreaks.reduce((sum, o) => sum + (o.moderate_cases || 0), 0)}
+                </p>
+              </div>
             </div>
           </div>
         )}

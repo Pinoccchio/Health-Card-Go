@@ -1,6 +1,7 @@
 /**
  * Disease type constants and helper functions
  * Used across the application for consistent disease name display
+ * Updated to support role-based filtering
  */
 
 export const DISEASE_TYPE_LABELS: Record<string, string> = {
@@ -8,21 +9,92 @@ export const DISEASE_TYPE_LABELS: Record<string, string> = {
   dengue: 'Dengue',
   malaria: 'Malaria',
   measles: 'Measles',
-  rabies: 'Rabies',
+  animal_bite: 'Animal Bite',
   pregnancy_complications: 'Pregnancy Complications',
+  custom_disease: 'Custom Disease',
   other: 'Other',
 };
 
 /**
+ * Disease types accessible by Staff role
+ * Excludes HIV/AIDS and Pregnancy Complications (handled by Healthcare Admins)
+ */
+export const STAFF_DISEASE_TYPES = [
+  'dengue',
+  'malaria',
+  'measles',
+  'animal_bite',
+  'custom_disease',
+] as const;
+
+/**
+ * Disease types for Healthcare Admin with HIV category
+ */
+export const HIV_ADMIN_DISEASE_TYPES = [
+  'hiv_aids',
+] as const;
+
+/**
+ * Disease types for Healthcare Admin with Pregnancy category
+ */
+export const PREGNANCY_ADMIN_DISEASE_TYPES = [
+  'pregnancy_complications',
+] as const;
+
+/**
+ * All disease types (for Super Admin and reports)
+ */
+export const ALL_DISEASE_TYPES = [
+  'hiv_aids',
+  'dengue',
+  'malaria',
+  'measles',
+  'animal_bite',
+  'pregnancy_complications',
+  'custom_disease',
+  'other',
+] as const;
+
+/**
+ * Get disease types based on user role and admin category
+ */
+export function getDiseaseTypesForRole(
+  role: string,
+  adminCategory?: string | null
+): readonly string[] {
+  if (role === 'super_admin') {
+    return ALL_DISEASE_TYPES;
+  }
+
+  if (role === 'staff') {
+    return STAFF_DISEASE_TYPES;
+  }
+
+  if (role === 'healthcare_admin') {
+    if (adminCategory === 'hiv') {
+      return HIV_ADMIN_DISEASE_TYPES;
+    }
+    if (adminCategory === 'pregnancy') {
+      return PREGNANCY_ADMIN_DISEASE_TYPES;
+    }
+    // Other healthcare admin categories don't manage diseases directly
+    return [];
+  }
+
+  // Patients and other roles don't manage diseases
+  return [];
+}
+
+/**
  * Get display name for a disease
- * For custom diseases (type='other'), returns the custom_disease_name
+ * For custom diseases (type='custom_disease' or 'other'), returns the custom_disease_name
  * For standard diseases, returns the formatted label
  */
 export function getDiseaseDisplayName(
   diseaseType: string,
   customDiseaseName: string | null | undefined
 ): string {
-  if (diseaseType === 'other' && customDiseaseName) {
+  if ((diseaseType === 'other' || diseaseType === 'custom_disease') && customDiseaseName) {
     return customDiseaseName;
   }
   return DISEASE_TYPE_LABELS[diseaseType] || diseaseType;

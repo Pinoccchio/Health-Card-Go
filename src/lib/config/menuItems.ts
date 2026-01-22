@@ -16,6 +16,7 @@ import {
   Shield,
   CreditCard,
   DollarSign,
+  Heart,
 } from 'lucide-react';
 import { MenuItem } from '@/components/dashboard';
 import { RoleId } from '@/types/auth';
@@ -168,8 +169,9 @@ export const PATIENT_MENU_ITEMS: MenuItem[] = [
 
 /**
  * Menu items for Staff (role_id: 5)
- * Disease monitoring staff - handles ALL diseases (Measles, Rabies, Malaria, Dengue, etc.)
- * NO appointment management
+ * Disease monitoring staff - handles specific diseases (Dengue, Malaria, Measles, Animal Bite, Custom Disease)
+ * Excludes HIV and Pregnancy complications (handled by Healthcare Admins)
+ * NO appointment management, NO healthcard statistics
  */
 export const STAFF_MENU_ITEMS: MenuItem[] = [
   {
@@ -178,23 +180,8 @@ export const STAFF_MENU_ITEMS: MenuItem[] = [
     icon: LayoutDashboard,
   },
   {
-    label: 'Disease Monitoring',
+    label: 'Disease Surveillance Hub',
     href: '/staff/disease-surveillance',
-    icon: Activity,
-  },
-  {
-    label: 'HealthCard Statistics',
-    href: '/staff/healthcard-statistics',
-    icon: CreditCard,
-  },
-  {
-    label: 'Reports',
-    href: '/staff/reports',
-    icon: FileText,
-  },
-  {
-    label: 'Analytics',
-    href: '/staff/analytics',
     icon: Activity,
   },
   {
@@ -231,16 +218,19 @@ export const EDUCATION_ADMIN_MENU_ITEMS: MenuItem[] = [
  * Returns menu items for Pattern 5: Dual Access (Appointments + Walk-in Queue)
  *
  * @param assignedServiceId - The service ID assigned to the Healthcare Admin
+ * @param adminCategory - The admin category (healthcard, hiv, pregnancy, etc.)
  * @returns Promise<MenuItem[]> - Array of menu items tailored to the service capabilities
  *
  * PATTERN 5 - Dual Access (ALL 3 Services: 12, 16, 17):
  * - ALL services show BOTH "Appointments" AND "Walk-in Queue"
  * - Dashboard, Patients, Reports, Announcements (always shown)
  * - Disease Map removed (requires_medical_record = false for all services)
- * - Total: 6 menu items for all Healthcare Admins
+ * - HealthCard Statistics shown only for 'healthcard' admin category
+ * - Total: 6-7 menu items depending on admin category
  */
 export async function getHealthcareAdminMenuItems(
-  assignedServiceId: number | null
+  assignedServiceId: number | null,
+  adminCategory?: string | null
 ): Promise<MenuItem[]> {
   // If no service assigned, return minimal menu with warning
   if (!assignedServiceId) {
@@ -277,6 +267,40 @@ export async function getHealthcareAdminMenuItems(
       href: '/healthcare-admin/patients',
       icon: Users,
     },
+  ];
+
+  // Add category-specific menu items based on admin category
+  if (adminCategory === 'healthcard') {
+    menuItems.push({
+      label: 'HealthCard Statistics',
+      href: '/healthcare-admin/healthcard-statistics',
+      icon: CreditCard,
+    });
+    console.log('✅ Added HealthCard Statistics menu for healthcard admin');
+  }
+
+  // Add HIV Disease Management for HIV admins
+  if (adminCategory === 'hiv') {
+    menuItems.push({
+      label: 'HIV Disease Management',
+      href: '/healthcare-admin/hiv-management',
+      icon: Shield,
+    });
+    console.log('✅ Added HIV Disease Management menu for HIV admin');
+  }
+
+  // Add Pregnancy Complications Management for pregnancy admins
+  if (adminCategory === 'pregnancy') {
+    menuItems.push({
+      label: 'Pregnancy Management',
+      href: '/healthcare-admin/pregnancy-management',
+      icon: Heart,
+    });
+    console.log('✅ Added Pregnancy Complications Management menu for pregnancy admin');
+  }
+
+  // Add Reports and Announcements at the end
+  menuItems.push(
     {
       label: 'Reports',
       href: '/healthcare-admin/reports',
@@ -286,10 +310,10 @@ export async function getHealthcareAdminMenuItems(
       label: 'Announcements',
       href: '/healthcare-admin/announcements',
       icon: Megaphone,
-    },
-  ];
+    }
+  );
 
-  console.log('✅ Pattern 5 menu generated:', menuItems.length, 'items (Appointments + Walk-in Queue)');
+  console.log(`✅ Pattern 5 menu generated: ${menuItems.length} items (Appointments + Walk-in Queue${adminCategory === 'healthcard' ? ' + HealthCard Statistics' : ''})`);
   return menuItems;
 }
 

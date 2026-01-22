@@ -47,7 +47,12 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { records } = body;
 
+    console.log(`\n📥 Disease Data Import Request`);
+    console.log(`   User: ${profile.role} (${user.email})`);
+    console.log(`   Records to import: ${records?.length || 0}`);
+
     if (!records || !Array.isArray(records)) {
+      console.error(`❌ Invalid request body - records is not an array`);
       return NextResponse.json(
         { success: false, error: 'Invalid request body. Expected { records: Array }' },
         { status: 400 }
@@ -55,6 +60,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (records.length === 0) {
+      console.error(`❌ No records provided in request`);
       return NextResponse.json(
         { success: false, error: 'No records provided' },
         { status: 400 }
@@ -62,6 +68,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (records.length > 1000) {
+      console.error(`❌ Too many records: ${records.length} (max 1000)`);
       return NextResponse.json(
         { success: false, error: 'Too many records. Maximum 1000 records per import.' },
         { status: 400 }
@@ -69,19 +76,23 @@ export async function POST(request: NextRequest) {
     }
 
     // Fetch barangays for validation
+    console.log(`🔍 Fetching barangays for validation...`);
     const { data: barangays, error: barangaysError } = await supabase
       .from('barangays')
       .select('id, name, code');
 
     if (barangaysError || !barangays) {
-      console.error('Error fetching barangays:', barangaysError);
+      console.error('❌ Error fetching barangays:', barangaysError);
       return NextResponse.json(
         { success: false, error: 'Failed to fetch barangays for validation' },
         { status: 500 }
       );
     }
 
+    console.log(`✅ Fetched ${barangays.length} barangays for validation`);
+
     // Validate each record
+    console.log(`🔄 Validating ${records.length} records...`);
     const validRecords = [];
     const errors = [];
 
@@ -104,6 +115,7 @@ export async function POST(request: NextRequest) {
           disease_type: record.disease_type,
           custom_disease_name: record.custom_disease_name || null,
           case_count: record.case_count,
+          severity: record.severity || 'moderate', // Default to moderate if not provided
           barangay_id: record.barangay_id,
           source: record.source || 'Excel Import',
           notes: record.notes || null,
@@ -113,8 +125,16 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    console.log(`\n📊 Validation Summary:`);
+    console.log(`   Valid Records: ${validRecords.length}`);
+    console.log(`   Invalid Records: ${errors.length}`);
+
     // If there are validation errors, return them
     if (errors.length > 0 && validRecords.length === 0) {
+      console.error(`❌ All records failed validation`);
+      errors.slice(0, 5).forEach(err => {
+        console.error(`   Row ${err.row}:`, err.errors.map(e => e.message).join(', '));
+      });
       return NextResponse.json(
         {
           success: false,
@@ -128,6 +148,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Insert valid records in batch
+    console.log(`\n💾 Inserting ${validRecords.length} valid records into database...`);
     let insertedCount = 0;
     const insertErrors = [];
 
@@ -185,7 +206,13 @@ export async function POST(request: NextRequest) {
       }
 
       insertedCount = inserted?.length || 0;
+      console.log(`✅ Successfully inserted ${insertedCount} records`);
     }
+
+    console.log(`\n🎉 Import Complete!`);
+    console.log(`   Total Records: ${records.length}`);
+    console.log(`   Imported: ${insertedCount}`);
+    console.log(`   Failed: ${errors.length}`);
 
     // Return success response
     return NextResponse.json({

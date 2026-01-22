@@ -51,6 +51,15 @@ export async function createClient() {
           }
         },
       },
+      global: {
+        fetch: (url, options = {}) => {
+          // Add timeout to prevent connection hangs
+          return fetch(url, {
+            ...options,
+            signal: AbortSignal.timeout(30000), // 30 second timeout
+          });
+        },
+      },
     }
   );
 }
@@ -88,6 +97,15 @@ export function createAdminClient() {
         },
         setAll() {
           // Admin client doesn't need cookies
+        },
+      },
+      global: {
+        fetch: (url, options = {}) => {
+          // Add timeout to prevent connection hangs
+          return fetch(url, {
+            ...options,
+            signal: AbortSignal.timeout(30000), // 30 second timeout
+          });
         },
       },
     }

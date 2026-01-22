@@ -13,6 +13,7 @@ export interface HistoricalRecord {
   disease_type: string;          // Must match DISEASE_TYPE_LABELS keys
   custom_disease_name?: string;  // Required if disease_type = 'other'
   case_count: number;            // Must be > 0
+  severity?: string;             // critical, severe, moderate, mild (defaults to moderate)
   barangay_id: number;           // FK to barangays table
   barangay_name?: string;        // For display only (not inserted)
   source?: string;               // Optional source reference
@@ -52,22 +53,47 @@ export async function parseDiseasesExcel(
   };
 
   try {
+    console.log('📂 Starting Excel file parsing...');
+    console.log(`   File: ${file.name} (${(file.size / 1024).toFixed(2)} KB)`);
+
     // Read file as array buffer
     const arrayBuffer = await file.arrayBuffer();
     const workbook = XLSX.read(arrayBuffer, { type: 'array', cellDates: true });
 
-    // Get first sheet (assuming data is in first sheet)
-    const sheetName = workbook.SheetNames[0];
+    console.log(`📊 Excel workbook loaded successfully`);
+    console.log(`   Available sheets: ${workbook.SheetNames.join(', ')}`);
+
+    // Look for the "Data" sheet specifically (template has Instructions, Data, Barangay List sheets)
+    let sheetName = workbook.SheetNames.find(name => name === 'Data');
+
+    if (sheetName) {
+      console.log(`✅ Found "Data" sheet - using it for import`);
+    } else {
+      console.log(`⚠️  No "Data" sheet found, searching for valid data sheet...`);
+      // Fallback: If no "Data" sheet, try to find first sheet with required columns
+      for (const name of workbook.SheetNames) {
+        const ws = workbook.Sheets[name];
+        const testData = XLSX.utils.sheet_to_json(ws, { raw: false, dateNF: 'yyyy-mm-dd' });
+        if (testData.length > 0 && testData[0]['Record Date']) {
+          sheetName = name;
+          console.log(`✅ Using sheet "${sheetName}" for data import`);
+          break;
+        }
+      }
+    }
+
     if (!sheetName) {
+      console.error(`❌ No valid data sheet found in workbook`);
       result.errors.push({
         row: 0,
         field: 'file',
-        message: 'Excel file has no sheets',
+        message: 'Excel file must contain a "Data" sheet with the required columns. Please use the template file.',
       });
       return result;
     }
 
     const worksheet = workbook.Sheets[sheetName];
+    console.log(`📋 Reading data from sheet: "${sheetName}"`);
 
     // Convert sheet to JSON (header row = 1)
     const data: any[] = XLSX.utils.sheet_to_json(worksheet, {
@@ -76,8 +102,10 @@ export async function parseDiseasesExcel(
     });
 
     result.totalRows = data.length;
+    console.log(`📝 Parsed ${data.length} data rows from Excel`);
 
     if (data.length === 0) {
+      console.error(`❌ No data rows found in sheet`);
       result.errors.push({
         row: 0,
         field: 'file',
@@ -88,6 +116,7 @@ export async function parseDiseasesExcel(
 
     // Check for maximum rows limit (prevent excessive imports)
     if (data.length > 1000) {
+      console.error(`❌ Too many rows: ${data.length} (max 1000)`);
       result.errors.push({
         row: 0,
         field: 'file',
@@ -99,9 +128,15 @@ export async function parseDiseasesExcel(
     // Validate required columns exist
     const requiredColumns = ['Record Date', 'Disease Type', 'Case Count', 'Barangay'];
     const firstRow = data[0];
+    const availableColumns = Object.keys(firstRow);
+    console.log(`🔍 Validating columns...`);
+    console.log(`   Required: ${requiredColumns.join(', ')}`);
+    console.log(`   Found: ${availableColumns.join(', ')}`);
+
     const missingColumns = requiredColumns.filter(col => !(col in firstRow));
 
     if (missingColumns.length > 0) {
+      console.error(`❌ Missing required columns: ${missingColumns.join(', ')}`);
       result.errors.push({
         row: 0,
         field: 'columns',
@@ -109,6 +144,9 @@ export async function parseDiseasesExcel(
       });
       return result;
     }
+
+    console.log(`✅ All required columns found`);
+    console.log(`\n🔄 Starting row-by-row validation...`);
 
     // Parse each row
     for (let i = 0; i < data.length; i++) {
@@ -225,6 +263,25 @@ export async function parseDiseasesExcel(
         }
       }
 
+      // Parse Severity (optional, defaults to moderate)
+      const severity = row['Severity']?.toString().trim().toLowerCase();
+      if (severity) {
+        const validSeverities = ['critical', 'severe', 'moderate', 'mild'];
+        if (!validSeverities.includes(severity)) {
+          rowErrors.push({
+            row: rowNum,
+            field: 'Severity',
+            message: 'Severity must be one of: critical, severe, moderate, mild',
+            value: severity,
+          });
+        } else {
+          record.severity = severity;
+        }
+      } else {
+        // Default to moderate if not provided
+        record.severity = 'moderate';
+      }
+
       // Parse Barangay
       const barangayName = row['Barangay']?.toString().trim();
       if (!barangayName) {
@@ -275,6 +332,22 @@ export async function parseDiseasesExcel(
 
     // Set success if at least some records are valid
     result.success = result.validRows > 0;
+
+    console.log(`\n📊 Parsing Summary:`);
+    console.log(`   Total Rows: ${result.totalRows}`);
+    console.log(`   Valid Records: ${result.validRows}`);
+    console.log(`   Errors: ${result.errors.length}`);
+    console.log(`   Warnings: ${result.warnings.length}`);
+
+    if (result.success) {
+      console.log(`✅ Parsing completed successfully - ${result.validRows} records ready for import`);
+    } else {
+      console.error(`❌ Parsing failed - ${result.errors.length} validation errors found`);
+      // Log first 5 errors for debugging
+      result.errors.slice(0, 5).forEach(error => {
+        console.error(`   Row ${error.row}: ${error.field} - ${error.message}`);
+      });
+    }
 
     return result;
 
@@ -432,6 +505,19 @@ export function validateHistoricalRecord(
       message: 'Case count must be greater than 0',
       value: record.case_count,
     });
+  }
+
+  // Validate severity (optional, but must be valid if provided)
+  if (record.severity) {
+    const validSeverities = ['critical', 'severe', 'moderate', 'mild'];
+    if (!validSeverities.includes(record.severity.toLowerCase())) {
+      errors.push({
+        row: 0,
+        field: 'severity',
+        message: 'Severity must be one of: critical, severe, moderate, mild',
+        value: record.severity,
+      });
+    }
   }
 
   // Validate barangay_id

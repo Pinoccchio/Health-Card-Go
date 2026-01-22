@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { DashboardLayout } from '@/components/dashboard';
 import { Container, ConfirmDialog } from '@/components/ui';
 import HealthcardExcelImportModal from '@/components/staff/HealthcardExcelImportModal';
@@ -8,17 +9,19 @@ import { EditHealthcardStatisticModal } from '@/components/staff/EditHealthcardS
 import { HealthcardStatsSummary } from '@/components/staff/HealthcardStatsSummary';
 import { HealthcardStatisticsTable } from '@/components/staff/HealthcardStatisticsTable';
 import { useToast } from '@/lib/contexts/ToastContext';
+import { useAuth } from '@/lib/auth';
 import {
   CreditCard,
   Upload,
   Download,
   Filter,
   FileText,
+  AlertCircle,
 } from 'lucide-react';
 
 interface HealthcardStatistic {
   id: string;
-  healthcard_type: 'food_handler' | 'non_food' | 'pink'; // UPDATED: Added pink
+  healthcard_type: 'food_handler' | 'non_food' | 'pink';
   record_date: string;
   cards_issued: number;
   barangay_id: number | null;
@@ -42,14 +45,17 @@ const HEALTHCARD_TYPES = [
   { value: 'all', label: 'All Types' },
   { value: 'food_handler', label: 'Yellow Card - General' },
   { value: 'non_food', label: 'Green Card - General' },
-  { value: 'pink', label: 'Pink Card - Service/Clinical' }, // ADDED: Pink Card
+  { value: 'pink', label: 'Pink Card - Service/Clinical' },
 ];
 
-export default function StaffHealthcardStatisticsPage() {
+export default function HealthcareAdminHealthcardStatisticsPage() {
+  const router = useRouter();
+  const { user } = useAuth();
   const [statistics, setStatistics] = useState<HealthcardStatistic[]>([]);
   const [barangays, setBarangays] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [isExcelImportOpen, setIsExcelImportOpen] = useState(false);
+  const [hasAccess, setHasAccess] = useState<boolean | null>(null);
   const toast = useToast();
 
   // Edit Modal State
@@ -67,7 +73,7 @@ export default function StaffHealthcardStatisticsPage() {
     total_cards_issued: 0,
     food_handler_cards: 0,
     non_food_cards: 0,
-    pink_cards: 0, // ADDED: Pink Card count
+    pink_cards: 0,
     date_range: {
       earliest: null,
       latest: null,
@@ -83,12 +89,28 @@ export default function StaffHealthcardStatisticsPage() {
   });
 
   useEffect(() => {
-    fetchBarangays();
-  }, []);
+    // Check if the healthcare admin has healthcard category
+    if (user) {
+      const isHealthcardAdmin = user.role === 'healthcare_admin' && user.admin_category === 'healthcard';
+      const isSuperAdmin = user.role === 'super_admin';
+
+      if (!isHealthcardAdmin && !isSuperAdmin) {
+        setHasAccess(false);
+        toast.error('You do not have permission to access this page. This page is only for Healthcare Admins with HealthCard category.');
+        router.push('/healthcare-admin/dashboard');
+      } else {
+        setHasAccess(true);
+        fetchBarangays();
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
 
   useEffect(() => {
-    fetchStatistics();
-  }, [filters]);
+    if (hasAccess) {
+      fetchStatistics();
+    }
+  }, [filters, hasAccess]);
 
   const fetchBarangays = async () => {
     try {
@@ -191,11 +213,56 @@ export default function StaffHealthcardStatisticsPage() {
     }
   };
 
+  // Show loading state while checking access
+  if (hasAccess === null) {
+    return (
+      <DashboardLayout
+        roleId={2}
+        pageTitle="HealthCard Statistics"
+        pageDescription="Manage healthcard issuance data"
+      >
+        <Container size="full">
+          <div className="flex items-center justify-center min-h-[400px]">
+            <div className="text-center">
+              <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+              <p className="mt-2 text-sm text-gray-500">Checking access permissions...</p>
+            </div>
+          </div>
+        </Container>
+      </DashboardLayout>
+    );
+  }
+
+  // Show access denied message if no access
+  if (hasAccess === false) {
+    return (
+      <DashboardLayout
+        roleId={2}
+        pageTitle="HealthCard Statistics"
+        pageDescription="Access Denied"
+      >
+        <Container size="full">
+          <div className="flex items-center justify-center min-h-[400px]">
+            <div className="text-center max-w-md">
+              <div className="p-3 bg-red-100 rounded-full inline-block mb-4">
+                <AlertCircle className="w-8 h-8 text-red-600" />
+              </div>
+              <h2 className="text-xl font-semibold text-gray-900 mb-2">Access Denied</h2>
+              <p className="text-gray-600">
+                You do not have permission to access this page. This page is only available to Healthcare Admins with HealthCard category.
+              </p>
+            </div>
+          </div>
+        </Container>
+      </DashboardLayout>
+    );
+  }
+
   return (
     <DashboardLayout
-      roleId={5}
+      roleId={2}
       pageTitle="HealthCard Statistics"
-      pageDescription="Import and manage historical healthcard issuance data"
+      pageDescription="Import and manage healthcard issuance data"
     >
       <Container size="full">
         <div className="space-y-6">
@@ -207,7 +274,7 @@ export default function StaffHealthcardStatisticsPage() {
               </div>
               <div>
                 <h1 className="text-2xl font-bold text-gray-900">HealthCard Statistics</h1>
-                <p className="text-sm text-gray-600">Historical healthcard issuance data for SARIMA prediction training</p>
+                <p className="text-sm text-gray-600">Manage healthcard issuance data and generate forecasts</p>
               </div>
             </div>
           </div>
@@ -240,7 +307,7 @@ export default function StaffHealthcardStatisticsPage() {
           <div className="bg-white rounded-lg shadow p-4 border border-gray-200">
             <div className="flex items-center gap-2 mb-4">
               <Filter className="w-4 h-4 text-gray-600" />
-              <h3 className="text-sm font-semibold text-gray-900">Filter Historical Data</h3>
+              <h3 className="text-sm font-semibold text-gray-900">Filter Data</h3>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               {/* HealthCard Type Filter */}

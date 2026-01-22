@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { X, Upload, FileSpreadsheet, CheckCircle2, AlertCircle, Download, Loader2 } from 'lucide-react';
 import { parseDiseasesExcel, type ParseResult } from '@/lib/utils/excelParser';
 
@@ -23,22 +23,27 @@ export default function ExcelImportModal({
   const [barangays, setBarangays] = useState<Array<{ id: number; name: string; code: string }>>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Fetch barangays on mount
-  useState(() => {
+  // Fetch barangays when modal opens
+  useEffect(() => {
     if (isOpen) {
+      console.log('📍 Fetching barangays for Excel validation...');
       fetchBarangays();
     }
-  });
+  }, [isOpen]);
 
   const fetchBarangays = async () => {
     try {
       const response = await fetch('/api/barangays');
       const data = await response.json();
+      console.log(`📍 Barangays API response:`, data);
       if (data.success && data.data) {
+        console.log(`✅ Loaded ${data.data.length} barangays for validation`);
         setBarangays(data.data);
+      } else {
+        console.error(`❌ Failed to fetch barangays:`, data);
       }
     } catch (error) {
-      console.error('Error fetching barangays:', error);
+      console.error('❌ Error fetching barangays:', error);
     }
   };
 
@@ -78,8 +83,13 @@ export default function ExcelImportModal({
 
     try {
       // Ensure barangays are loaded
+      console.log(`🔍 Current barangays state: ${barangays.length} barangays loaded`);
       if (barangays.length === 0) {
+        console.log(`⚠️  No barangays loaded, fetching now...`);
         await fetchBarangays();
+      } else {
+        console.log(`✅ Using ${barangays.length} cached barangays for validation`);
+        console.log(`   Sample barangays:`, barangays.slice(0, 5).map(b => b.name).join(', '));
       }
 
       const result = await parseDiseasesExcel(selectedFile, barangays);

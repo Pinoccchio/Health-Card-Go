@@ -83,9 +83,32 @@ export async function GET(request: NextRequest) {
     if (error) {
       console.error('Error fetching historical disease statistics:', error);
       return NextResponse.json(
-        { success: false, error: 'Failed to fetch historical disease statistics' },
+        {
+          success: false,
+          error: 'Failed to fetch historical disease statistics',
+          details: error.message,
+          hint: error.hint || '',
+          code: error.code || ''
+        },
         { status: 500 }
       );
+    }
+
+    // Handle empty results gracefully
+    if (!statistics || statistics.length === 0) {
+      return NextResponse.json({
+        success: true,
+        data: [],
+        count: 0,
+        summary: {
+          totalRecords: 0,
+          totalCases: 0,
+          earliestDate: null,
+          latestDate: null,
+          mostCommonDisease: null,
+          diseaseTypeCounts: {},
+        },
+      });
     }
 
     // Calculate summary statistics
@@ -127,8 +150,25 @@ export async function GET(request: NextRequest) {
 
   } catch (error: any) {
     console.error('Error in GET historical diseases API:', error);
+
+    // Handle timeout errors specifically
+    if (error.name === 'AbortError' || error.message?.includes('timeout')) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Database connection timeout. Please try again.',
+          details: error.message || 'Connection timed out after 30 seconds',
+        },
+        { status: 504 } // Gateway Timeout
+      );
+    }
+
     return NextResponse.json(
-      { success: false, error: error.message },
+      {
+        success: false,
+        error: error.message || 'An unexpected error occurred',
+        details: error.toString(),
+      },
       { status: 500 }
     );
   }

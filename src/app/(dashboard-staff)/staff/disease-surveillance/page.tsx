@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { DashboardLayout } from '@/components/dashboard';
 import { Container } from '@/components/ui';
 import { ProfessionalCard } from '@/components/ui/ProfessionalCard';
@@ -12,8 +12,19 @@ import { HistoricalStatsSummary } from '@/components/staff/HistoricalStatsSummar
 import { HistoricalStatisticsTable } from '@/components/staff/HistoricalStatisticsTable';
 import { EditHistoricalRecordModal } from '@/components/staff/EditHistoricalRecordModal';
 import { HistoricalStatisticsReportGenerator } from '@/components/staff/HistoricalStatisticsReportGenerator';
+import { GeographicOutbreakReportGenerator } from '@/components/staff/GeographicOutbreakReportGenerator';
+import { TrendsAnalysisReportGenerator } from '@/components/staff/TrendsAnalysisReportGenerator';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { useToast } from '@/lib/contexts/ToastContext';
+import DiseaseHeatmap from '@/components/disease-surveillance/DiseaseHeatmap';
+import OutbreakAlerts from '@/components/disease-surveillance/OutbreakAlerts';
+import { HistoricalChartsSection } from '@/components/staff/HistoricalChartsSection';
+import { OutbreakDataProvider } from '@/contexts/OutbreakDataContext';
+import {
+  STAFF_DISEASE_TYPES,
+  DISEASE_TYPE_LABELS,
+  getDiseaseDisplayName as getDiseaseName
+} from '@/lib/constants/diseaseConstants';
 import {
   Activity,
   PlusCircle,
@@ -34,6 +45,10 @@ import {
   Trash2,
   Upload,
   Download,
+  BarChart3,
+  LineChart,
+  RefreshCw,
+  Info,
 } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -67,15 +82,11 @@ interface DiseaseRecord {
   };
 }
 
-const DISEASE_TYPES = [
-  { value: 'dengue', label: 'Dengue' },
-  { value: 'hiv_aids', label: 'HIV/AIDS' },
-  { value: 'pregnancy_complications', label: 'Pregnancy Complications' },
-  { value: 'malaria', label: 'Malaria' },
-  { value: 'measles', label: 'Measles' },
-  { value: 'rabies', label: 'Rabies' },
-  { value: 'other', label: 'Other (Custom Disease)' },
-];
+// Staff-specific disease types (excludes HIV/AIDS and Pregnancy Complications)
+const DISEASE_TYPES = STAFF_DISEASE_TYPES.map(type => ({
+  value: type,
+  label: DISEASE_TYPE_LABELS[type] || type,
+}));
 
 const SEVERITY_LEVELS = [
   { value: 'mild', label: 'Mild' },
@@ -92,21 +103,32 @@ const STATUS_OPTIONS = [
 ];
 
 /**
- * Get display name for disease type
- * Shows custom_disease_name for 'other' type, otherwise shows standard label
+ * Get display name for disease type - delegates to imported function
+ * Shows custom_disease_name for 'custom_disease' or 'other' type, otherwise shows standard label
  */
 function getDiseaseDisplayName(diseaseType: string, customDiseaseName?: string): string {
-  if (diseaseType === 'other' && customDiseaseName) {
-    return customDiseaseName;
-  }
-  return DISEASE_TYPES.find(d => d.value === diseaseType)?.label || diseaseType;
+  return getDiseaseName(diseaseType, customDiseaseName);
+}
+
+type TabType = 'data-management' | 'geographic-view' | 'analytics';
+type TimeRange = 6 | 12 | 24 | 'all';
+type DiseaseType = 'all' | 'dengue' | 'malaria' | 'measles' | 'animal_bite' | 'custom_disease';
+
+interface SummaryStats {
+  totalCases: number;
+  affectedBarangays: number;
+  mostAffectedBarangay: string;
+  dateRange: string;
 }
 
 export default function StaffDiseaseSurveillancePage() {
+  const [activeTab, setActiveTab] = useState<TabType>('data-management');
   const [barangays, setBarangays] = useState<any[]>([]);
   const [isHistoricalFormOpen, setIsHistoricalFormOpen] = useState(false);
   const [isExcelImportOpen, setIsExcelImportOpen] = useState(false);
   const [isHistoricalStatsReportOpen, setIsHistoricalStatsReportOpen] = useState(false);
+  const [isGeographicReportOpen, setIsGeographicReportOpen] = useState(false);
+  const [isTrendsReportOpen, setIsTrendsReportOpen] = useState(false);
 
   // Toast notifications
   const toast = useToast();
@@ -136,15 +158,87 @@ export default function StaffDiseaseSurveillancePage() {
   const [historicalRecordToDelete, setHistoricalRecordToDelete] = useState<any | null>(null);
   const [deleteHistoricalLoading, setDeleteHistoricalLoading] = useState(false);
 
+  // Geographic view and analytics states (from analytics page)
+  const [diseaseFilter, setDiseaseFilter] = useState<DiseaseType>('all');
+  const [barangayFilter, setBarangayFilter] = useState<number | null>(null);
+  const [timeRange, setTimeRange] = useState<TimeRange>(24);
+  const [heatmapData, setHeatmapData] = useState<any>(null);
+  const [historicalData, setHistoricalData] = useState<any[]>([]);
+  const [stats, setStats] = useState<SummaryStats>({
+    totalCases: 0,
+    affectedBarangays: 0,
+    mostAffectedBarangay: '-',
+    dateRange: '-',
+  });
+  const [loading, setLoading] = useState(true);
+  const [chartsLoading, setChartsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [outbreakRiskFilter, setOutbreakRiskFilter] = useState<string>('all');
+  const [outbreakAlertsLoading, setOutbreakAlertsLoading] = useState(false);
+  const [loadingTimeout, setLoadingTimeout] = useState(false);
+  const [abortController, setAbortController] = useState<AbortController | null>(null);
+
+  // Timeout fallback: Force render after 30 seconds to prevent infinite loading
+  useEffect(() => {
+    if (loading || chartsLoading || outbreakAlertsLoading) {
+      setLoadingTimeout(false);
+      const timer = setTimeout(() => {
+        console.warn('⚠️ Loading timeout reached (30s) - forcing render');
+        setLoadingTimeout(true);
+      }, 30000); // 30 seconds
+
+      return () => clearTimeout(timer);
+    }
+  }, [loading, chartsLoading, outbreakAlertsLoading]);
+
   useEffect(() => {
     fetchBarangays();
-    fetchHistoricalStatistics();
-  }, []);
+    if (activeTab === 'data-management') {
+      fetchHistoricalStatistics();
+    } else if (activeTab === 'geographic-view' || activeTab === 'analytics') {
+      setLoading(true);
+      setChartsLoading(true);
+      // Load heatmap and charts in parallel using Promise.all
+      Promise.all([loadHeatmapData(), loadChartsData()])
+        .catch((err) => {
+          console.error('Error loading geographic data:', err);
+        });
+    }
+
+    // Cleanup: abort on unmount or tab change
+    return () => {
+      if (abortController) {
+        abortController.abort();
+      }
+    };
+  }, [activeTab]);
 
   // Fetch historical statistics when filters change
   useEffect(() => {
-    fetchHistoricalStatistics();
+    if (activeTab === 'data-management') {
+      fetchHistoricalStatistics();
+    }
   }, [historicalFilters]);
+
+  // Fetch geographic data when filters change
+  useEffect(() => {
+    if (activeTab === 'geographic-view' || activeTab === 'analytics') {
+      setLoading(true);
+      setChartsLoading(true);
+      // Load heatmap and charts in parallel using Promise.all
+      Promise.all([loadHeatmapData(), loadChartsData()])
+        .catch((err) => {
+          console.error('Error loading geographic data:', err);
+        });
+    }
+
+    // Cleanup: abort on filter change
+    return () => {
+      if (abortController) {
+        abortController.abort();
+      }
+    };
+  }, [diseaseFilter, barangayFilter, timeRange]);
 
   const fetchBarangays = async () => {
     try {
@@ -200,6 +294,124 @@ export default function StaffDiseaseSurveillancePage() {
     }
   };
 
+  const loadHeatmapData = async () => {
+    // Cancel previous request if still pending
+    if (abortController) {
+      abortController.abort();
+    }
+
+    // Create new AbortController for this request
+    const controller = new AbortController();
+    setAbortController(controller);
+
+    // Timeout after 15 seconds
+    const timeoutId = setTimeout(() => {
+      controller.abort();
+      console.warn('⚠️ Heatmap data fetch timeout (15s)');
+    }, 15000);
+
+    try {
+      setError(null);
+      const params = new URLSearchParams();
+
+      if (diseaseFilter !== 'all') {
+        params.append('disease_type', diseaseFilter);
+      }
+      if (barangayFilter) {
+        params.append('barangay_id', barangayFilter.toString());
+      }
+
+      // Apply time range filter
+      if (timeRange !== 'all') {
+        const startDate = new Date();
+        startDate.setMonth(startDate.getMonth() - timeRange);
+        params.append('start_date', startDate.toISOString().split('T')[0]);
+      }
+
+      const response = await fetch(`/api/diseases/heatmap-data?${params.toString()}`, {
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
+
+      const data = await response.json();
+
+      if (data.success) {
+        setHeatmapData(data.data);
+
+        // Update stats from heatmap metadata
+        if (data.data?.metadata) {
+          const { metadata } = data.data;
+          setStats({
+            totalCases: metadata.total_cases || 0,
+            affectedBarangays: metadata.affected_barangays || 0,
+            mostAffectedBarangay: metadata.most_affected_barangay || '-',
+            dateRange: metadata.date_range || '-',
+          });
+        }
+      } else {
+        setError(data.error || 'Failed to load heatmap data');
+      }
+    } catch (err) {
+      // Don't set error if request was aborted
+      if (err instanceof Error && err.name === 'AbortError') {
+        console.warn('[Heatmap] Request aborted');
+      } else {
+        console.error('Failed to load heatmap data:', err);
+        setError('Failed to load disease distribution data');
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadChartsData = async () => {
+    // Create AbortController with 15-second timeout
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => {
+      controller.abort();
+      console.warn('⚠️ Charts data fetch timeout (15s)');
+    }, 15000);
+
+    try {
+      setChartsLoading(true);
+
+      const params = new URLSearchParams();
+      if (diseaseFilter !== 'all') {
+        params.append('disease_type', diseaseFilter);
+      }
+      if (barangayFilter) {
+        params.append('barangay_id', barangayFilter.toString());
+      }
+
+      // Apply time range
+      if (timeRange !== 'all') {
+        const startDate = new Date();
+        startDate.setMonth(startDate.getMonth() - timeRange);
+        params.append('start_date', startDate.toISOString().split('T')[0]);
+      }
+
+      const response = await fetch(`/api/diseases/historical?${params.toString()}`, {
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
+
+      const data = await response.json();
+
+      if (data.success) {
+        setHistoricalData(data.data || []);
+      }
+    } catch (err) {
+      // Don't log error if request was aborted
+      if (err instanceof Error && err.name === 'AbortError') {
+        console.warn('[Charts] Request aborted');
+      } else {
+        console.error('Failed to load historical data:', err);
+      }
+    } finally {
+      setChartsLoading(false);
+    }
+  };
+
 
   const handleEditHistoricalRecord = (record: any) => {
     setEditingHistoricalRecord(record);
@@ -238,16 +450,92 @@ export default function StaffDiseaseSurveillancePage() {
     }
   };
 
+  // Memoized disease options for staff
+  const diseaseOptions = useMemo(() => [
+    { id: 'all', label: 'All Diseases', color: 'blue' },
+    ...STAFF_DISEASE_TYPES.map(type => ({
+      id: type,
+      label: DISEASE_TYPE_LABELS[type],
+      color: type === 'dengue' ? 'red' :
+             type === 'malaria' ? 'yellow' :
+             type === 'measles' ? 'orange' :
+             type === 'animal_bite' ? 'gray' :
+             type === 'custom_disease' ? 'slate' : 'blue'
+    }))
+  ], []);
+
+  const selectedDiseaseLabel = useMemo(() =>
+    diseaseOptions.find(d => d.id === diseaseFilter)?.label ?? 'All Diseases',
+    [diseaseFilter, diseaseOptions]
+  );
+
+  const selectedBarangayLabel = useMemo(() => {
+    if (!barangayFilter) return '';
+    const barangay = barangays.find(b => b.id === barangayFilter);
+    return barangay ? `in ${barangay.name}` : '';
+  }, [barangayFilter, barangays]);
+
 
   return (
     <DashboardLayout
       roleId={5}
-      pageTitle="Disease Monitoring"
-      pageDescription="Record and monitor disease cases across Panabo City"
+      pageTitle="Disease Surveillance Hub"
+      pageDescription="Comprehensive disease monitoring and analytics for Panabo City"
     >
       <Container size="full">
-        {/* Historical Statistics */}
-        <div className="space-y-6">
+        {/* Page Header */}
+        <div className="mb-6 bg-gradient-to-r from-blue-50 to-cyan-50 rounded-xl p-6 border border-blue-100">
+          <div className="flex items-center gap-3 mb-2">
+            <div className="p-2 bg-blue-100 rounded-lg">
+              <Activity className="w-6 h-6 text-blue-600" />
+            </div>
+            <h1 className="text-2xl font-bold text-gray-900">Disease Surveillance Hub</h1>
+          </div>
+          <p className="text-gray-600">Record, monitor, and analyze disease cases with geographic visualization and predictive analytics</p>
+        </div>
+
+        {/* Tab Navigation */}
+        <div className="mb-6 bg-white rounded-lg shadow-sm border border-gray-200">
+          <div className="flex border-b border-gray-200">
+            <button
+              onClick={() => setActiveTab('data-management')}
+              className={`flex items-center gap-2 px-6 py-4 text-sm font-medium transition-colors ${
+                activeTab === 'data-management'
+                  ? 'text-primary-teal border-b-2 border-primary-teal bg-teal-50/50'
+                  : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+              }`}
+            >
+              <Database className="w-4 h-4" />
+              Data Management
+            </button>
+            <button
+              onClick={() => setActiveTab('geographic-view')}
+              className={`flex items-center gap-2 px-6 py-4 text-sm font-medium transition-colors ${
+                activeTab === 'geographic-view'
+                  ? 'text-primary-teal border-b-2 border-primary-teal bg-teal-50/50'
+                  : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+              }`}
+            >
+              <MapPin className="w-4 h-4" />
+              Geographic View
+            </button>
+            <button
+              onClick={() => setActiveTab('analytics')}
+              className={`flex items-center gap-2 px-6 py-4 text-sm font-medium transition-colors ${
+                activeTab === 'analytics'
+                  ? 'text-primary-teal border-b-2 border-primary-teal bg-teal-50/50'
+                  : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+              }`}
+            >
+              <BarChart3 className="w-4 h-4" />
+              Analytics & Trends
+            </button>
+          </div>
+        </div>
+
+        {/* Tab Content */}
+        {activeTab === 'data-management' && (
+          <div className="space-y-6">
             {/* Action Bar for Historical Statistics */}
             <div className="flex justify-end gap-3">
               <a
@@ -373,6 +661,385 @@ export default function StaffDiseaseSurveillancePage() {
               />
             )}
           </div>
+        )}
+
+        {/* Geographic View Tab */}
+        {activeTab === 'geographic-view' && (
+          <OutbreakDataProvider
+            diseaseType={diseaseFilter}
+            barangayId={barangayFilter}
+            autoRefresh={false}
+          >
+            <div className="space-y-6">
+            {/* Statistics Cards */}
+            {!loading && heatmapData?.metadata && (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <ProfessionalCard className="bg-white">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="flex items-center gap-2 mb-1">
+                        <Activity className="w-4 h-4 text-red-500" />
+                        <p className="text-sm text-gray-600 font-medium">Total Cases</p>
+                      </div>
+                      <p className="text-2xl font-bold text-gray-900">{stats.totalCases.toLocaleString()}</p>
+                      <p className="text-xs text-gray-500 mt-1">{selectedDiseaseLabel}</p>
+                    </div>
+                  </div>
+                </ProfessionalCard>
+
+                <ProfessionalCard className="bg-white">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="flex items-center gap-2 mb-1">
+                        <MapPin className="w-4 h-4 text-blue-500" />
+                        <p className="text-sm text-gray-600 font-medium">Affected Barangays</p>
+                      </div>
+                      <p className="text-2xl font-bold text-gray-900">{stats.affectedBarangays}</p>
+                      <p className="text-xs text-gray-500 mt-1">Out of 41 barangays</p>
+                    </div>
+                  </div>
+                </ProfessionalCard>
+
+                <ProfessionalCard className="bg-white">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="flex items-center gap-2 mb-1">
+                        <AlertTriangle className="w-4 h-4 text-yellow-500" />
+                        <p className="text-sm text-gray-600 font-medium">Most Affected</p>
+                      </div>
+                      <p className="text-lg font-bold text-gray-900 truncate">{stats.mostAffectedBarangay}</p>
+                      <p className="text-xs text-gray-500 mt-1">Highest case count</p>
+                    </div>
+                  </div>
+                </ProfessionalCard>
+
+                <ProfessionalCard className="bg-white">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="flex items-center gap-2 mb-1">
+                        <Calendar className="w-4 h-4 text-green-500" />
+                        <p className="text-sm text-gray-600 font-medium">Date Range</p>
+                      </div>
+                      <p className="text-sm font-bold text-gray-900">{stats.dateRange}</p>
+                      <p className="text-xs text-gray-500 mt-1">Analysis period</p>
+                    </div>
+                  </div>
+                </ProfessionalCard>
+              </div>
+            )}
+
+            {/* Filters */}
+            <ProfessionalCard>
+              <div className="space-y-4">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2">
+                    <Filter className="w-5 h-5 text-gray-600" />
+                    <h3 className="text-lg font-semibold text-gray-900">Filter Options</h3>
+                  </div>
+                  <button
+                    onClick={() => setIsGeographicReportOpen(true)}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors flex items-center gap-2 shadow-sm"
+                    title="Generate Geographic Outbreak Report"
+                  >
+                    <FileText className="w-4 h-4" />
+                    Generate Report
+                  </button>
+                </div>
+
+                {/* Disease Type Filter */}
+                <div>
+                  <label className="text-sm font-medium text-gray-700 mb-2 block">Disease Type</label>
+                  <div className="flex flex-wrap gap-2">
+                    {diseaseOptions.map((disease) => (
+                      <button
+                        key={disease.id}
+                        onClick={() => setDiseaseFilter(disease.id as DiseaseType)}
+                        className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
+                          diseaseFilter === disease.id
+                            ? 'bg-primary-teal text-white shadow-md'
+                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                        }`}
+                      >
+                        {disease.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Barangay and Time Range Filters */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-sm font-medium text-gray-700 mb-2 block">Barangay</label>
+                    <select
+                      value={barangayFilter || ''}
+                      onChange={(e) => setBarangayFilter(e.target.value ? Number(e.target.value) : null)}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-teal focus:border-transparent"
+                    >
+                      <option value="">All Barangays</option>
+                      {barangays.map(barangay => (
+                        <option key={barangay.id} value={barangay.id}>
+                          {barangay.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="text-sm font-medium text-gray-700 mb-2 block">Time Range</label>
+                    <select
+                      value={timeRange}
+                      onChange={(e) => setTimeRange(e.target.value as TimeRange)}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-teal focus:border-transparent"
+                    >
+                      <option value={6}>Last 6 Months</option>
+                      <option value={12}>Last 12 Months</option>
+                      <option value={24}>Last 24 Months</option>
+                      <option value="all">All Time</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+            </ProfessionalCard>
+
+            {/* Main Content - Vertical Layout */}
+            {(loading || outbreakAlertsLoading) && !loadingTimeout ? (
+              <div className="space-y-6">
+                {/* Loading State for Both Map and Outbreak Alerts */}
+                <ProfessionalCard>
+                  <div className="h-96 flex items-center justify-center">
+                    <div className="text-center">
+                      <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-primary-teal"></div>
+                      <p className="mt-4 text-base font-medium text-gray-700">Loading geographic data...</p>
+                      <p className="mt-1 text-sm text-gray-500">Please wait while we fetch disease and outbreak information</p>
+                    </div>
+                  </div>
+                </ProfessionalCard>
+              </div>
+            ) : (
+              <div className="space-y-6">
+                {/* Timeout Warning */}
+                {loadingTimeout && (
+                  <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded-lg">
+                    <div className="flex">
+                      <div className="flex-shrink-0">
+                        <svg className="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
+                          <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                        </svg>
+                      </div>
+                      <div className="ml-3">
+                        <p className="text-sm text-yellow-700">
+                          <strong>Loading timeout:</strong> Data is taking longer than expected to load. The page is displayed with potentially incomplete data. Try refreshing or changing filters.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Disease Heatmap - Full Width */}
+                <ProfessionalCard>
+                  <div className="flex items-center justify-between mb-4">
+                    <div>
+                      <h3 className="text-lg font-semibold text-gray-900">Disease Distribution Heatmap</h3>
+                      <p className="text-sm text-gray-600 mt-1">
+                        Geographic visualization of {selectedDiseaseLabel} {selectedBarangayLabel}
+                      </p>
+                    </div>
+                    <button
+                      onClick={loadHeatmapData}
+                      disabled={loading}
+                      className="p-2 text-gray-600 hover:text-primary-teal hover:bg-gray-50 rounded-lg transition-colors"
+                      title="Refresh heatmap"
+                    >
+                      <RefreshCw className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
+                    </button>
+                  </div>
+
+                  {/* Outbreak Risk Level Filter for Map */}
+                  <div className="mb-4">
+                    <label className="text-sm font-medium text-gray-700 mb-2 block">Filter Map by Outbreak Risk Level</label>
+                    <select
+                      value={outbreakRiskFilter}
+                      onChange={(e) => setOutbreakRiskFilter(e.target.value)}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-teal focus:border-transparent"
+                    >
+                      <option value="all">Show All Outbreaks</option>
+                      <option value="critical">Critical Only</option>
+                      <option value="high">High Risk Only</option>
+                      <option value="medium">Medium Risk Only</option>
+                      <option value="none">No Outbreaks (Low Risk)</option>
+                    </select>
+                  </div>
+
+                  {error ? (
+                    <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                      <p className="text-sm text-red-800">{error}</p>
+                    </div>
+                  ) : (
+                    <DiseaseHeatmap
+                      data={heatmapData}
+                      diseaseType={diseaseFilter}
+                      outbreakRiskFilter={outbreakRiskFilter}
+                    />
+                  )}
+                </ProfessionalCard>
+
+                {/* Outbreak Alerts - Full Width */}
+                <ProfessionalCard>
+                  <OutbreakAlerts
+                    diseaseType={diseaseFilter}
+                    barangayId={barangayFilter}
+                    autoRefresh={true}
+                    refreshInterval={60000} // Refresh every minute
+                    onLoadingChange={setOutbreakAlertsLoading}
+                  />
+                </ProfessionalCard>
+              </div>
+            )}
+
+            {/* Information Panel */}
+            <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
+              <div className="flex items-start gap-3">
+                <Info className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+                <div>
+                  <h4 className="text-sm font-medium text-blue-900 mb-2">About Geographic View</h4>
+                  <div className="text-sm text-blue-800 space-y-1">
+                    <p>• The heatmap shows disease distribution across all barangays in real-time</p>
+                    <p>• Darker colors and larger circles indicate higher case concentrations</p>
+                    <p>• Outbreak alerts automatically detect unusual disease pattern spikes</p>
+                    <p>• Filter by disease type, barangay, and time range for focused analysis</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          </OutbreakDataProvider>
+        )}
+
+        {/* Analytics & Trends Tab */}
+        {activeTab === 'analytics' && (
+          <div className="space-y-6">
+            {/* Filters */}
+            <ProfessionalCard>
+              <div className="space-y-4">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2">
+                    <Filter className="w-5 h-5 text-gray-600" />
+                    <h3 className="text-lg font-semibold text-gray-900">Analysis Filters</h3>
+                  </div>
+                  <button
+                    onClick={() => setIsTrendsReportOpen(true)}
+                    className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors flex items-center gap-2 shadow-sm"
+                    title="Generate Trends Analysis Report"
+                  >
+                    <FileText className="w-4 h-4" />
+                    Generate Report
+                  </button>
+                </div>
+
+                {/* Disease Type Filter */}
+                <div>
+                  <label className="text-sm font-medium text-gray-700 mb-2 block">Disease Type</label>
+                  <div className="flex flex-wrap gap-2">
+                    {diseaseOptions.map((disease) => (
+                      <button
+                        key={disease.id}
+                        onClick={() => setDiseaseFilter(disease.id as DiseaseType)}
+                        className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
+                          diseaseFilter === disease.id
+                            ? 'bg-primary-teal text-white shadow-md'
+                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                        }`}
+                      >
+                        {disease.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Barangay and Time Range Filters */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-sm font-medium text-gray-700 mb-2 block">Barangay</label>
+                    <select
+                      value={barangayFilter || ''}
+                      onChange={(e) => setBarangayFilter(e.target.value ? Number(e.target.value) : null)}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-teal focus:border-transparent"
+                    >
+                      <option value="">All Barangays</option>
+                      {barangays.map(barangay => (
+                        <option key={barangay.id} value={barangay.id}>
+                          {barangay.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="text-sm font-medium text-gray-700 mb-2 block">Time Range</label>
+                    <select
+                      value={timeRange}
+                      onChange={(e) => setTimeRange(e.target.value as TimeRange)}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-teal focus:border-transparent"
+                    >
+                      <option value={6}>Last 6 Months</option>
+                      <option value={12}>Last 12 Months</option>
+                      <option value={24}>Last 24 Months</option>
+                      <option value="all">All Time</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+            </ProfessionalCard>
+
+            {/* Historical Charts */}
+            <ProfessionalCard>
+              <div className="mb-4">
+                <h3 className="text-lg font-semibold text-gray-900">Historical Statistics & Trends</h3>
+                <p className="text-sm text-gray-600">Disease patterns and predictive analytics over time</p>
+              </div>
+
+              {chartsLoading ? (
+                <div className="h-64 flex items-center justify-center">
+                  <div className="text-center">
+                    <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary-teal"></div>
+                    <p className="mt-2 text-sm text-gray-500">Loading charts...</p>
+                  </div>
+                </div>
+              ) : historicalData.length > 0 ? (
+                <HistoricalChartsSection
+                  historicalStatistics={historicalData}
+                  barangays={barangays}
+                  selectedDisease={diseaseFilter}
+                  selectedBarangay={barangayFilter}
+                />
+              ) : (
+                <div className="h-64 flex items-center justify-center">
+                  <div className="text-center text-gray-500">
+                    <BarChart3 className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+                    <p className="text-sm">No historical data available for the selected filters</p>
+                  </div>
+                </div>
+              )}
+            </ProfessionalCard>
+
+            {/* Information Panel */}
+            <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
+              <div className="flex items-start gap-3">
+                <Info className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+                <div>
+                  <h4 className="text-sm font-medium text-blue-900 mb-2">About Analytics & Trends</h4>
+                  <div className="text-sm text-blue-800 space-y-1">
+                    <p>• View historical disease trends and patterns over time</p>
+                    <p>• Analyze seasonal variations and disease progression</p>
+                    <p>• Compare disease cases across different barangays</p>
+                    <p>• Use predictive analytics for outbreak preparedness</p>
+                    <p>• Filter data by disease type, location, and time range</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Historical Data Import Form */}
         <HistoricalDataForm
@@ -431,6 +1098,30 @@ export default function StaffDiseaseSurveillancePage() {
           isOpen={isHistoricalStatsReportOpen}
           onClose={() => setIsHistoricalStatsReportOpen(false)}
           barangays={barangays}
+        />
+
+        {/* Geographic Outbreak Report Generator */}
+        <GeographicOutbreakReportGenerator
+          isOpen={isGeographicReportOpen}
+          onClose={() => setIsGeographicReportOpen(false)}
+          barangays={barangays}
+          filters={{
+            disease_type: diseaseFilter,
+            barangay_id: barangayFilter,
+            time_range: timeRange.toString(),
+          }}
+        />
+
+        {/* Trends Analysis Report Generator */}
+        <TrendsAnalysisReportGenerator
+          isOpen={isTrendsReportOpen}
+          onClose={() => setIsTrendsReportOpen(false)}
+          barangays={barangays}
+          filters={{
+            disease_type: diseaseFilter,
+            barangay_id: barangayFilter,
+            time_range: timeRange.toString(),
+          }}
         />
       </Container>
     </DashboardLayout>

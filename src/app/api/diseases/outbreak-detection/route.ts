@@ -5,6 +5,8 @@ import { createClient, createAdminClient } from '@/lib/supabase/server';
  * GET /api/diseases/outbreak-detection
  * Detect disease outbreaks based on configurable thresholds
  * Auto-creates notifications for Super Admins when outbreaks detected
+ *
+ * OPTIMIZED VERSION - Eliminates synthetic record generation, parallelizes queries
  */
 
 interface OutbreakThreshold {
@@ -21,10 +23,44 @@ const OUTBREAK_THRESHOLDS: OutbreakThreshold[] = [
   { disease_type: 'hiv_aids', cases_threshold: 3, days_window: 30, description: '3+ new cases in 30 days' },
   { disease_type: 'malaria', cases_threshold: 3, days_window: 14, description: '3+ cases in 14 days' },
   { disease_type: 'measles', cases_threshold: 3, days_window: 14, description: '3+ cases in 14 days (highly contagious)' },
-  { disease_type: 'rabies', cases_threshold: 1, days_window: 7, description: 'Any rabies case (immediate alert)' },
+  { disease_type: 'animal_bite', cases_threshold: 1, days_window: 7, description: 'Any animal bite/rabies case (immediate alert)' },
   { disease_type: 'pregnancy_complications', cases_threshold: 5, days_window: 30, description: '5+ complications in 30 days' },
   { disease_type: 'other', cases_threshold: 3, days_window: 14, description: '3+ cases in 14 days (custom disease)' },
 ];
+
+// Simple in-memory cache to prevent repeated expensive queries
+// Cache key format: "diseaseType:barangayId" or "all:all"
+const outbreakCache = new Map<string, { data: any, timestamp: number }>();
+const CACHE_TTL = 2 * 60 * 1000; // 2 minutes
+
+function getCacheKey(diseaseType: string | null, barangayId: string | null): string {
+  return `${diseaseType || 'all'}:${barangayId || 'all'}`;
+}
+
+function getCachedData(cacheKey: string) {
+  const cached = outbreakCache.get(cacheKey);
+  if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+    console.log(`[Outbreak Detection] 💾 Cache HIT for ${cacheKey} (age: ${Math.round((Date.now() - cached.timestamp) / 1000)}s)`);
+    return cached.data;
+  }
+  if (cached) {
+    console.log(`[Outbreak Detection] ⌛ Cache EXPIRED for ${cacheKey}`);
+    outbreakCache.delete(cacheKey);
+  }
+  return null;
+}
+
+function setCachedData(cacheKey: string, data: any) {
+  outbreakCache.set(cacheKey, { data, timestamp: Date.now() });
+  console.log(`[Outbreak Detection] 💾 Cached data for ${cacheKey}`);
+
+  // Clean up old cache entries (keep max 50 entries)
+  if (outbreakCache.size > 50) {
+    const oldestKey = Array.from(outbreakCache.entries())
+      .sort((a, b) => a[1].timestamp - b[1].timestamp)[0][0];
+    outbreakCache.delete(oldestKey);
+  }
+}
 
 export async function GET(request: NextRequest) {
   const supabase = await createClient();
@@ -42,490 +78,320 @@ export async function GET(request: NextRequest) {
   // This ensures consistent outbreak detection regardless of user permissions
   const adminClient = createAdminClient();
 
-  console.log('[Outbreak Detection] Starting outbreak detection scan...');
+  console.log('[Outbreak Detection] Starting OPTIMIZED outbreak detection scan...');
+  const startTime = Date.now();
 
   try {
     const searchParams = request.nextUrl.searchParams;
     const autoNotify = searchParams.get('auto_notify') === 'true';
+    const diseaseTypeFilter = searchParams.get('disease_type');
+    const barangayIdFilter = searchParams.get('barangay_id');
 
-    const outbreaks = [];
-    let totalThresholdsChecked = 0;
-    let totalDiseasesScanned = 0;
-    const cityWideCandidates = new Map<string, any>(); // Store diseases meeting city-wide threshold (distributed across barangays)
+    console.log('[Outbreak Detection] Filters:', { diseaseTypeFilter, barangayIdFilter });
 
-    // Check each threshold
-    for (const threshold of OUTBREAK_THRESHOLDS) {
-      totalThresholdsChecked++;
-      const startDate = new Date();
-      startDate.setDate(startDate.getDate() - threshold.days_window);
+    // Check cache first
+    const cacheKey = getCacheKey(diseaseTypeFilter, barangayIdFilter);
+    const cachedResult = getCachedData(cacheKey);
+    if (cachedResult) {
+      return NextResponse.json(cachedResult);
+    }
 
-      console.log(`[Outbreak Detection] Checking ${threshold.disease_type}: threshold=${threshold.cases_threshold} cases in ${threshold.days_window} days`);
-      console.log(`[Outbreak Detection] Date range: ${startDate.toISOString().split('T')[0]} to ${new Date().toISOString().split('T')[0]}`);
+    // OPTIMIZATION 1: Determine the largest time window needed (30 days for HIV/Pregnancy)
+    const maxDaysWindow = Math.max(...OUTBREAK_THRESHOLDS.map(t => t.days_window));
+    const oldestStartDate = new Date();
+    oldestStartDate.setDate(oldestStartDate.getDate() - maxDaysWindow);
+    const oldestStartDateStr = oldestStartDate.toISOString().split('T')[0];
 
-      // Get diseases matching criteria
-      const { data: diseases, error } = await adminClient
+    console.log(`[Outbreak Detection] Fetching data for last ${maxDaysWindow} days (${oldestStartDateStr} to present)`);
+
+    // OPTIMIZATION 2: Fetch ALL data in parallel (3 queries instead of 16)
+    const [diseasesResult, statisticsResult, barangaysResult] = await Promise.all([
+      // Query 1: Real-time patient cases
+      adminClient
         .from('diseases')
-        .select('id, barangay_id, diagnosis_date, severity, custom_disease_name, barangays(name)')
-        .eq('disease_type', threshold.disease_type)
-        .gte('diagnosis_date', startDate.toISOString().split('T')[0])
-        .eq('status', 'active');
+        .select('id, barangay_id, diagnosis_date, severity, disease_type, custom_disease_name, status')
+        .eq('status', 'active')
+        .gte('diagnosis_date', oldestStartDateStr)
+        .limit(500),
 
-      if (error) {
-        console.error(`[Outbreak Detection] Error fetching diseases for ${threshold.disease_type}:`, error);
+      // Query 2: Historical statistics
+      adminClient
+        .from('disease_statistics')
+        .select('barangay_id, record_date, case_count, severity, disease_type, custom_disease_name')
+        .gte('record_date', oldestStartDateStr)
+        .order('record_date', { ascending: false })
+        .limit(500),
+
+      // Query 3: Barangay names (cache for joins)
+      adminClient
+        .from('barangays')
+        .select('id, name')
+    ]);
+
+    const allDiseases = diseasesResult.data || [];
+    const allStatistics = statisticsResult.data || [];
+    const barangays = barangaysResult.data || [];
+
+    // Create barangay lookup map for O(1) access
+    const barangayMap = new Map<number, string>();
+    barangays.forEach(b => barangayMap.set(b.id, b.name));
+
+    console.log(`[Outbreak Detection] Fetched ${allDiseases.length} patient cases, ${allStatistics.length} statistics, ${barangays.length} barangays in parallel`);
+
+    const queryTime = Date.now() - startTime;
+    console.log(`[Outbreak Detection] ⚡ Database queries completed in ${queryTime}ms`);
+
+    const outbreaks: any[] = [];
+    let totalThresholdsChecked = 0;
+
+    // OPTIMIZATION 3: Pre-aggregate statistics by disease_type, barangay_id
+    // This eliminates the need for synthetic record generation
+    const statisticsAggregated = new Map<string, Map<number, { total_cases: number, critical_cases: number, severe_cases: number, moderate_cases: number, dates: string[] }>>();
+
+    allStatistics.forEach(stat => {
+      if (!statisticsAggregated.has(stat.disease_type)) {
+        statisticsAggregated.set(stat.disease_type, new Map());
+      }
+      const diseaseMap = statisticsAggregated.get(stat.disease_type)!;
+
+      const barangayKey = stat.barangay_id;
+      if (!diseaseMap.has(barangayKey)) {
+        diseaseMap.set(barangayKey, { total_cases: 0, critical_cases: 0, severe_cases: 0, moderate_cases: 0, dates: [] });
+      }
+
+      const barangayData = diseaseMap.get(barangayKey)!;
+      barangayData.total_cases += stat.case_count;
+      barangayData.dates.push(stat.record_date);
+
+      // Distribute cases by severity (assume even distribution if not specified)
+      if (stat.severity === 'critical') {
+        barangayData.critical_cases += stat.case_count;
+      } else if (stat.severity === 'severe') {
+        barangayData.severe_cases += stat.case_count;
+      } else if (stat.severity === 'moderate') {
+        barangayData.moderate_cases += stat.case_count;
+      } else {
+        // If severity not specified, assume moderate
+        barangayData.moderate_cases += stat.case_count;
+      }
+    });
+
+    console.log(`[Outbreak Detection] Pre-aggregated ${allStatistics.length} statistics into ${Array.from(statisticsAggregated.values()).reduce((sum, map) => sum + map.size, 0)} barangay groups`);
+
+    // Process each threshold (now using in-memory filtering instead of DB queries)
+    for (const threshold of OUTBREAK_THRESHOLDS) {
+      // Apply disease type filter
+      if (diseaseTypeFilter && threshold.disease_type !== diseaseTypeFilter) {
         continue;
       }
 
-      const diseaseCount = diseases?.length || 0;
-      totalDiseasesScanned += diseaseCount;
-      console.log(`[Outbreak Detection] Found ${diseaseCount} active ${threshold.disease_type} cases in date range`);
+      totalThresholdsChecked++;
+      const thresholdStartDate = new Date();
+      thresholdStartDate.setDate(thresholdStartDate.getDate() - threshold.days_window);
+      const thresholdStartDateStr = thresholdStartDate.toISOString().split('T')[0];
 
-      if (diseaseCount >= threshold.cases_threshold) {
-        console.log(`[Outbreak Detection] ✅ THRESHOLD MET for ${threshold.disease_type}: ${diseaseCount} >= ${threshold.cases_threshold}`);
+      console.log(`[Outbreak Detection] Checking ${threshold.disease_type}: ${threshold.cases_threshold}+ cases in ${threshold.days_window} days`);
 
-        // Store city-wide candidate for distributed outbreaks (e.g., HIV/AIDS spread across multiple barangays)
-        // No freshness check needed - SQL query already filters by date range
-        if (diseases && diseases.length > 0) {
-          const key = threshold.disease_type === 'other' ? `${threshold.disease_type}_multiple` : threshold.disease_type;
-          cityWideCandidates.set(key, { threshold, diseases, diseaseCount });
-          console.log(`[Outbreak Detection] ✅ City-wide outbreak candidate stored: ${threshold.disease_type} (${diseaseCount} cases)`);
+      // Filter diseases by date range and disease type
+      const matchingDiseases = allDiseases.filter(d =>
+        d.disease_type === threshold.disease_type &&
+        d.diagnosis_date >= thresholdStartDateStr &&
+        (!barangayIdFilter || d.barangay_id === parseInt(barangayIdFilter))
+      );
+
+      // Get aggregated statistics for this disease type
+      const diseaseStats = statisticsAggregated.get(threshold.disease_type) || new Map();
+
+      // Group patient cases by barangay
+      const barangayGroups = new Map<number, any[]>();
+      matchingDiseases.forEach(disease => {
+        if (!barangayGroups.has(disease.barangay_id)) {
+          barangayGroups.set(disease.barangay_id, []);
         }
-      } else {
-        console.log(`[Outbreak Detection] ❌ Threshold NOT met for ${threshold.disease_type}: ${diseaseCount} < ${threshold.cases_threshold}`);
-      }
+        barangayGroups.get(disease.barangay_id)!.push(disease);
+      });
 
-      // Group by barangay (and custom_disease_name for 'other' type)
-      const barangayGroups: Record<string, any[]> = {};
+      // Merge with aggregated statistics
+      diseaseStats.forEach((stats, barangayId) => {
+        // Apply barangay filter
+        if (barangayIdFilter && barangayId !== parseInt(barangayIdFilter)) {
+          return;
+        }
 
-      if (threshold.disease_type === 'other') {
-        // For custom diseases, group by barangay AND custom disease name
-        diseases?.forEach(disease => {
-          const key = `${disease.barangay_id}_${disease.custom_disease_name || 'unknown'}`;
-          if (!barangayGroups[key]) {
-            barangayGroups[key] = [];
-          }
-          barangayGroups[key].push(disease);
+        // Filter statistics by date range
+        const validDates = stats.dates.filter(d => d >= thresholdStartDateStr);
+        if (validDates.length === 0) {
+          return; // No cases in time window
+        }
+
+        // Add to barangay groups (or create new group)
+        if (!barangayGroups.has(barangayId)) {
+          barangayGroups.set(barangayId, []);
+        }
+
+        // Add metadata for statistics (not individual cases)
+        const existingGroup = barangayGroups.get(barangayId)!;
+        existingGroup.push({
+          _isAggregated: true,
+          barangay_id: barangayId,
+          total_cases: stats.total_cases,
+          critical_cases: stats.critical_cases,
+          severe_cases: stats.severe_cases,
+          moderate_cases: stats.moderate_cases,
+          dates: validDates,
         });
-        console.log(`[Outbreak Detection] Grouped custom diseases into ${Object.keys(barangayGroups).length} unique disease+barangay combinations`);
-      } else {
-        // For standard diseases, group by barangay only
-        diseases?.forEach(disease => {
-          const key = disease.barangay_id.toString();
-          if (!barangayGroups[key]) {
-            barangayGroups[key] = [];
-          }
-          barangayGroups[key].push(disease);
-        });
-      }
+      });
 
-      // Check if any barangay exceeds threshold
-      for (const [groupKey, barangayDiseases] of Object.entries(barangayGroups)) {
-        if (barangayDiseases.length >= threshold.cases_threshold) {
-          const barangayName = barangayDiseases[0].barangays?.name || 'Unknown';
-          const criticalCount = barangayDiseases.filter(d => d.severity === 'critical').length;
-          const severeCount = barangayDiseases.filter(d => d.severity === 'severe').length;
-          const moderateCount = barangayDiseases.filter(d => d.severity === 'moderate').length; // FIX: Add moderate count
-          const customDiseaseName = threshold.disease_type === 'other' ? barangayDiseases[0].custom_disease_name : null;
+      // Check each barangay group
+      for (const [barangayId, cases] of barangayGroups.entries()) {
+        // Calculate total case count
+        const aggregatedCase = cases.find(c => c._isAggregated);
+        const patientCaseCount = cases.filter(c => !c._isAggregated).length;
+        const statisticsCaseCount = aggregatedCase ? aggregatedCase.total_cases : 0;
+        const totalCases = patientCaseCount + statisticsCaseCount;
 
-          // Extract barangay_id from groupKey (handles both "123" and "123_Leptospirosis" formats)
-          const barangayId = parseInt(groupKey.split('_')[0]);
-
-          const outbreak = {
-            disease_type: threshold.disease_type,
-            custom_disease_name: customDiseaseName,
-            barangay_id: barangayId,
-            barangay_name: barangayName,
-            case_count: barangayDiseases.length,
-            critical_cases: criticalCount,
-            severe_cases: severeCount,
-            moderate_cases: moderateCount, // FIX: Include moderate count in outbreak object
-            days_window: threshold.days_window,
-            threshold: threshold.cases_threshold,
-            threshold_description: threshold.description,
-            risk_level: criticalCount >= 3 ? 'critical' :
-                       severeCount >= 5 ? 'high' :
-                       barangayDiseases.length >= threshold.cases_threshold * 1.5 ? 'high' : 'medium',
-            first_case_date: barangayDiseases.sort((a, b) =>
-              new Date(a.diagnosis_date).getTime() - new Date(b.diagnosis_date).getTime()
-            )[0].diagnosis_date,
-            latest_case_date: barangayDiseases.sort((a, b) =>
-              new Date(b.diagnosis_date).getTime() - new Date(a.diagnosis_date).getTime()
-            )[0].diagnosis_date,
-          };
-
-          const displayName = customDiseaseName ? `${customDiseaseName} (custom)` : threshold.disease_type;
-          console.log(`[Outbreak Detection] 🚨 OUTBREAK DETECTED in ${barangayName}: ${displayName} - ${barangayDiseases.length} cases (${criticalCount} critical, ${severeCount} severe, ${moderateCount} moderate) - Risk: ${outbreak.risk_level.toUpperCase()}`);
-          outbreaks.push(outbreak);
-
-          // Auto-create notification for Super Admins if enabled
-          if (autoNotify) {
-            await createOutbreakNotification(adminClient, outbreak);
-          }
+        // Check threshold
+        if (totalCases < threshold.cases_threshold) {
+          continue; // Not an outbreak
         }
-      }
 
-      // FIX: Emit city-wide alerts for distributed outbreaks (ONLY if no barangay-level outbreaks)
-      // This prevents duplicate alerts for the same disease
-      if (threshold.disease_type === 'other') {
-        // For custom diseases, check each unique custom_disease_name
-        const customDiseaseGroups: Record<string, any[]> = {};
-        diseases?.forEach(disease => {
-          const name = disease.custom_disease_name || 'unknown';
-          if (!customDiseaseGroups[name]) {
-            customDiseaseGroups[name] = [];
-          }
-          customDiseaseGroups[name].push(disease);
-        });
+        // Calculate severity counts
+        const criticalCases = cases.filter(c => !c._isAggregated && c.severity === 'critical').length + (aggregatedCase?.critical_cases || 0);
+        const severeCases = cases.filter(c => !c._isAggregated && c.severity === 'severe').length + (aggregatedCase?.severe_cases || 0);
+        const moderateCases = cases.filter(c => !c._isAggregated && c.severity === 'moderate').length + (aggregatedCase?.moderate_cases || 0);
 
-        for (const [customName, customDiseases] of Object.entries(customDiseaseGroups)) {
-          // Check if barangay-level outbreak exists for this custom disease
-          const barangayOutbreakFound = outbreaks.some(o =>
-            o.disease_type === threshold.disease_type &&
-            o.custom_disease_name === customName &&
-            o.barangay_id !== null
-          );
+        // Get barangay name
+        const barangayName = barangayMap.get(barangayId) || 'Unknown';
 
-          if (!barangayOutbreakFound && customDiseases.length >= threshold.cases_threshold) {
-            const criticalCount = customDiseases.filter(d => d.severity === 'critical').length;
-            const severeCount = customDiseases.filter(d => d.severity === 'severe').length;
-            const moderateCount = customDiseases.filter(d => d.severity === 'moderate').length;
+        // Get date range
+        const patientDates = cases.filter(c => !c._isAggregated).map(c => c.diagnosis_date);
+        const statDates = aggregatedCase ? aggregatedCase.dates : [];
+        const allDates = [...patientDates, ...statDates].sort();
+        const firstDate = allDates[0] || thresholdStartDateStr;
+        const latestDate = allDates[allDates.length - 1] || new Date().toISOString().split('T')[0];
 
-            const cityOutbreak = {
-              disease_type: threshold.disease_type,
-              custom_disease_name: customName,
-              barangay_id: null,
-              barangay_name: 'City-wide (distributed)',
-              case_count: customDiseases.length,
-              critical_cases: criticalCount,
-              severe_cases: severeCount,
-              moderate_cases: moderateCount,
-              days_window: threshold.days_window,
-              threshold: threshold.cases_threshold, // SAME threshold as barangay-level
-              threshold_description: `${threshold.description} (city-wide, distributed across barangays)`,
-              risk_level: criticalCount >= 5 ? 'critical' :
-                         severeCount >= 8 ? 'high' :
-                         customDiseases.length >= threshold.cases_threshold * 1.5 ? 'high' : 'medium',
-              first_case_date: customDiseases.sort((a, b) =>
-                new Date(a.diagnosis_date).getTime() - new Date(b.diagnosis_date).getTime()
-              )[0].diagnosis_date,
-              latest_case_date: customDiseases.sort((a, b) =>
-                new Date(b.diagnosis_date).getTime() - new Date(a.diagnosis_date).getTime()
-              )[0].diagnosis_date,
-            };
+        // Determine risk level
+        const riskLevel = criticalCases >= 3 ? 'critical' :
+                         severeCases >= 5 ? 'high' :
+                         totalCases >= threshold.cases_threshold * 1.5 ? 'high' : 'medium';
 
-            console.log(`[Outbreak Detection] 🚨 CITY-WIDE OUTBREAK (distributed): ${customName} - ${customDiseases.length} cases across multiple barangays (${criticalCount} critical, ${severeCount} severe, ${moderateCount} moderate) - Risk: ${cityOutbreak.risk_level.toUpperCase()}`);
-            outbreaks.push(cityOutbreak);
-
-            if (autoNotify) {
-              await createOutbreakNotification(adminClient, cityOutbreak);
-            }
-          }
-        }
-      } else {
-        // Standard disease - check if city-wide candidate exists
-        const candidate = cityWideCandidates.get(threshold.disease_type);
-
-        if (candidate) {
-          // Check if barangay-level outbreak exists for this disease
-          const barangayOutbreakFound = outbreaks.some(o =>
-            o.disease_type === threshold.disease_type &&
-            o.barangay_id !== null
-          );
-
-          if (!barangayOutbreakFound) {
-            const criticalCount = candidate.diseases.filter((d: any) => d.severity === 'critical').length;
-            const severeCount = candidate.diseases.filter((d: any) => d.severity === 'severe').length;
-            const moderateCount = candidate.diseases.filter((d: any) => d.severity === 'moderate').length;
-
-            const cityOutbreak = {
-              disease_type: threshold.disease_type,
-              custom_disease_name: null,
-              barangay_id: null,
-              barangay_name: 'City-wide (distributed)',
-              case_count: candidate.diseaseCount,
-              critical_cases: criticalCount,
-              severe_cases: severeCount,
-              moderate_cases: moderateCount,
-              days_window: threshold.days_window,
-              threshold: threshold.cases_threshold, // SAME threshold as barangay-level
-              threshold_description: `${threshold.description} (city-wide, distributed across barangays)`,
-              risk_level: criticalCount >= 5 ? 'critical' :
-                         severeCount >= 8 ? 'high' :
-                         candidate.diseaseCount >= threshold.cases_threshold * 1.5 ? 'high' : 'medium',
-              first_case_date: candidate.diseases.sort((a: any, b: any) =>
-                new Date(a.diagnosis_date).getTime() - new Date(b.diagnosis_date).getTime()
-              )[0].diagnosis_date,
-              latest_case_date: candidate.diseases.sort((a: any, b: any) =>
-                new Date(b.diagnosis_date).getTime() - new Date(a.diagnosis_date).getTime()
-              )[0].diagnosis_date,
-            };
-
-            console.log(`[Outbreak Detection] 🚨 CITY-WIDE OUTBREAK (distributed): ${threshold.disease_type} - ${candidate.diseaseCount} cases across multiple barangays (${criticalCount} critical, ${severeCount} severe, ${moderateCount} moderate) - Risk: ${cityOutbreak.risk_level.toUpperCase()}`);
-            outbreaks.push(cityOutbreak);
-
-            if (autoNotify) {
-              await createOutbreakNotification(adminClient, cityOutbreak);
-            }
-          }
-        }
-      }
-
-      // Also check city-wide outbreak (all barangays combined)
-      if (threshold.disease_type === 'other') {
-        // For custom diseases, group by custom_disease_name for city-wide detection
-        const customDiseaseGroups: Record<string, any[]> = {};
-        diseases?.forEach(disease => {
-          const name = disease.custom_disease_name || 'unknown';
-          if (!customDiseaseGroups[name]) {
-            customDiseaseGroups[name] = [];
-          }
-          customDiseaseGroups[name].push(disease);
-        });
-
-        // Check each custom disease for city-wide outbreak
-        for (const [customName, customDiseases] of Object.entries(customDiseaseGroups)) {
-          if (customDiseases.length >= threshold.cases_threshold * 2) {
-            console.log(`[Outbreak Detection] Checking high-volume city-wide ${customName}: ${customDiseases.length} cases >= ${threshold.cases_threshold * 2} threshold`);
-            const criticalCount = customDiseases.filter(d => d.severity === 'critical').length;
-            const severeCount = customDiseases.filter(d => d.severity === 'severe').length;
-            const moderateCount = customDiseases.filter(d => d.severity === 'moderate').length; // FIX: Add moderate count for city-wide custom diseases
-
-            const cityOutbreak = {
-              disease_type: threshold.disease_type,
-              custom_disease_name: customName,
-              barangay_id: null,
-              barangay_name: 'City-wide',
-              case_count: customDiseases.length,
-              critical_cases: criticalCount,
-              severe_cases: severeCount,
-              moderate_cases: moderateCount, // FIX: Include moderate count in city-wide outbreak
-              days_window: threshold.days_window,
-              threshold: threshold.cases_threshold * 2,
-              threshold_description: `${threshold.description} (high-volume city-wide)`,
-              risk_level: criticalCount >= 10 ? 'critical' :
-                         severeCount >= 15 ? 'high' :
-                         customDiseases.length >= threshold.cases_threshold * 5 ? 'high' : 'medium',
-              first_case_date: customDiseases.sort((a, b) =>
-                new Date(a.diagnosis_date).getTime() - new Date(b.diagnosis_date).getTime()
-              )[0].diagnosis_date,
-              latest_case_date: customDiseases.sort((a, b) =>
-                new Date(b.diagnosis_date).getTime() - new Date(a.diagnosis_date).getTime()
-              )[0].diagnosis_date,
-            };
-
-            console.log(`[Outbreak Detection] 🚨 HIGH-VOLUME CITY-WIDE OUTBREAK for ${customName} (custom): ${customDiseases.length} cases (${criticalCount} critical, ${severeCount} severe, ${moderateCount} moderate) - Risk: ${cityOutbreak.risk_level.toUpperCase()}`);
-            outbreaks.push(cityOutbreak);
-
-            if (autoNotify) {
-              await createOutbreakNotification(adminClient, cityOutbreak);
-            }
-          }
-        }
-      } else if (diseases && diseases.length >= threshold.cases_threshold * 2) {
-        // Standard disease city-wide outbreak detection
-        console.log(`[Outbreak Detection] Checking high-volume city-wide ${threshold.disease_type}: ${diseases.length} cases >= ${threshold.cases_threshold * 2} threshold`);
-        const criticalCount = diseases.filter(d => d.severity === 'critical').length;
-        const severeCount = diseases.filter(d => d.severity === 'severe').length;
-        const moderateCount = diseases.filter(d => d.severity === 'moderate').length; // FIX: Add moderate count for city-wide standard diseases
-
-        const cityOutbreak = {
+        const outbreak = {
           disease_type: threshold.disease_type,
-          custom_disease_name: null,
-          barangay_id: null,
-          barangay_name: 'City-wide',
-          case_count: diseases.length,
-          critical_cases: criticalCount,
-          severe_cases: severeCount,
-          moderate_cases: moderateCount, // FIX: Include moderate count in city-wide standard outbreak
+          custom_disease_name: threshold.disease_type === 'other' ? (cases[0]?.custom_disease_name || null) : null,
+          barangay_id: barangayId,
+          barangay_name: barangayName,
+          case_count: totalCases,
+          critical_cases: criticalCases,
+          severe_cases: severeCases,
+          moderate_cases: moderateCases,
           days_window: threshold.days_window,
-          threshold: threshold.cases_threshold * 2,
-          threshold_description: `${threshold.description} (high-volume city-wide)`,
-          risk_level: criticalCount >= 10 ? 'critical' :
-                     severeCount >= 15 ? 'high' :
-                     diseases.length >= threshold.cases_threshold * 5 ? 'high' : 'medium',
-          first_case_date: diseases.sort((a, b) =>
-            new Date(a.diagnosis_date).getTime() - new Date(b.diagnosis_date).getTime()
-          )[0].diagnosis_date,
-          latest_case_date: diseases.sort((a, b) =>
-            new Date(b.diagnosis_date).getTime() - new Date(a.diagnosis_date).getTime()
-          )[0].diagnosis_date,
+          threshold: threshold.cases_threshold,
+          threshold_description: threshold.description,
+          risk_level: riskLevel,
+          first_case_date: firstDate,
+          latest_case_date: latestDate,
         };
 
-        console.log(`[Outbreak Detection] 🚨 HIGH-VOLUME CITY-WIDE OUTBREAK for ${threshold.disease_type}: ${diseases.length} cases (${criticalCount} critical, ${severeCount} severe, ${moderateCount} moderate) - Risk: ${cityOutbreak.risk_level.toUpperCase()}`);
-        outbreaks.push(cityOutbreak);
+        console.log(`[Outbreak Detection] 🚨 OUTBREAK: ${threshold.disease_type} in ${barangayName} - ${totalCases} cases (${criticalCases} critical, ${severeCases} severe, ${moderateCases} moderate) - Risk: ${riskLevel.toUpperCase()}`);
+        outbreaks.push(outbreak);
 
+        // Auto-create notification for Super Admins if enabled
         if (autoNotify) {
-          await createOutbreakNotification(adminClient, cityOutbreak);
+          await createOutbreakNotification(adminClient, outbreak);
         }
       }
     }
 
-    // Consolidate outbreaks by disease_type + barangay combination
-    const consolidatedOutbreaks = consolidateOutbreaks(outbreaks);
-
-    // Sort by risk level and case count
-    consolidatedOutbreaks.sort((a, b) => {
-      const riskOrder = { critical: 3, high: 2, medium: 1, low: 0 };
-      const riskDiff = riskOrder[b.risk_level as keyof typeof riskOrder] - riskOrder[a.risk_level as keyof typeof riskOrder];
+    // Sort outbreaks by risk level and case count
+    outbreaks.sort((a, b) => {
+      const riskOrder = { critical: 0, high: 1, medium: 2, low: 3 };
+      const riskDiff = riskOrder[a.risk_level as keyof typeof riskOrder] - riskOrder[b.risk_level as keyof typeof riskOrder];
       if (riskDiff !== 0) return riskDiff;
       return b.case_count - a.case_count;
     });
 
-    const criticalCount = consolidatedOutbreaks.filter(o => o.risk_level === 'critical').length;
-    const highRiskCount = consolidatedOutbreaks.filter(o => o.risk_level === 'high').length;
-    const mediumRiskCount = consolidatedOutbreaks.filter(o => o.risk_level === 'medium').length;
+    const executionTime = Date.now() - startTime;
+    console.log(`[Outbreak Detection] ✅ Scan complete in ${executionTime}ms: ${outbreaks.length} outbreaks detected (checked ${totalThresholdsChecked} thresholds)`);
 
-    console.log(`[Outbreak Detection] ========== SCAN COMPLETE ==========`);
-    console.log(`[Outbreak Detection] Thresholds checked: ${totalThresholdsChecked}`);
-    console.log(`[Outbreak Detection] Total active diseases scanned: ${totalDiseasesScanned}`);
-    console.log(`[Outbreak Detection] Outbreaks detected (before consolidation): ${outbreaks.length}`);
-    console.log(`[Outbreak Detection] Consolidated outbreaks: ${consolidatedOutbreaks.length}`);
-    console.log(`[Outbreak Detection] Critical: ${criticalCount} | High Risk: ${highRiskCount} | Medium: ${mediumRiskCount} | Total: ${consolidatedOutbreaks.length}`);
-    console.log(`[Outbreak Detection] ====================================`);
-
-    return NextResponse.json({
+    const response = {
       success: true,
-      data: consolidatedOutbreaks,
+      data: outbreaks,
       metadata: {
-        total_outbreaks: consolidatedOutbreaks.length,
-        critical_outbreaks: criticalCount,
-        high_risk_outbreaks: highRiskCount,
-        medium_risk_outbreaks: mediumRiskCount,
+        total_outbreaks: outbreaks.length,
+        critical_outbreaks: outbreaks.filter(o => o.risk_level === 'critical').length,
+        high_risk_outbreaks: outbreaks.filter(o => o.risk_level === 'high').length,
+        medium_risk_outbreaks: outbreaks.filter(o => o.risk_level === 'medium').length,
         auto_notify_enabled: autoNotify,
         checked_at: new Date().toISOString(),
+        execution_time_ms: executionTime,
+        thresholds_checked: totalThresholdsChecked,
       },
-    });
+    };
 
-  } catch (error: any) {
-    console.error('Error in outbreak-detection API:', error);
+    // Cache the result
+    setCachedData(cacheKey, response);
+
+    return NextResponse.json(response);
+
+  } catch (error) {
+    console.error('[Outbreak Detection] Error:', error);
     return NextResponse.json(
-      { success: false, error: error.message },
+      { success: false, error: 'Failed to detect outbreaks', details: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
     );
   }
 }
 
 /**
- * Consolidate multiple outbreak alerts for the same disease+barangay combination
- * Groups by disease_type + barangay_id + custom_disease_name (for 'other'), includes all exceeded thresholds
+ * Create outbreak notification for Super Admins
  */
-function consolidateOutbreaks(outbreaks: any[]) {
-  const grouped = new Map<string, any[]>();
-
-  // Group outbreaks by disease_type + barangay_id (+ custom_disease_name for 'other')
-  outbreaks.forEach(outbreak => {
-    const diseaseKey = outbreak.disease_type === 'other' && outbreak.custom_disease_name
-      ? `${outbreak.disease_type}_${outbreak.custom_disease_name}`
-      : outbreak.disease_type;
-    const key = `${diseaseKey}_${outbreak.barangay_id || 'citywide'}`;
-    if (!grouped.has(key)) {
-      grouped.set(key, []);
-    }
-    grouped.get(key)!.push(outbreak);
-  });
-
-  // Consolidate each group
-  const consolidated: any[] = [];
-
-  grouped.forEach((group, key) => {
-    if (group.length === 1) {
-      // Single outbreak - add thresholds_exceeded array with one item
-      consolidated.push({
-        ...group[0],
-        thresholds_exceeded: [{
-          threshold: group[0].threshold,
-          days_window: group[0].days_window,
-          description: group[0].threshold_description,
-          case_count: group[0].case_count,
-        }],
-      });
-    } else {
-      // Multiple outbreaks - consolidate
-      const riskOrder = { critical: 3, high: 2, medium: 1, low: 0 };
-
-      // Sort by risk level and case count to get the primary outbreak
-      group.sort((a, b) => {
-        const riskDiff = riskOrder[b.risk_level as keyof typeof riskOrder] - riskOrder[a.risk_level as keyof typeof riskOrder];
-        if (riskDiff !== 0) return riskDiff;
-        return b.case_count - a.case_count;
-      });
-
-      const primary = group[0];
-
-      // Collect all threshold information
-      const thresholds_exceeded = group.map(outbreak => ({
-        threshold: outbreak.threshold,
-        days_window: outbreak.days_window,
-        description: outbreak.threshold_description,
-        case_count: outbreak.case_count,
-      }));
-
-      // Sort thresholds by days_window (shortest first - most urgent)
-      thresholds_exceeded.sort((a, b) => a.days_window - b.days_window);
-
-      consolidated.push({
-        ...primary,
-        thresholds_exceeded,
-      });
-    }
-  });
-
-  return consolidated;
-}
-
-async function createOutbreakNotification(supabase: any, outbreak: any) {
+async function createOutbreakNotification(adminClient: any, outbreak: any) {
   try {
-    // Get all Super Admins
-    const { data: superAdmins } = await supabase
+    // Fetch Super Admin user IDs
+    const { data: superAdmins, error: fetchError } = await adminClient
       .from('profiles')
       .select('id')
       .eq('role', 'super_admin')
       .eq('status', 'active');
 
-    if (!superAdmins || superAdmins.length === 0) return;
+    if (fetchError) {
+      console.error('[Outbreak Notification] Error fetching Super Admins:', fetchError);
+      return;
+    }
 
-    // Check if notification already sent in last 24 hours
-    const oneDayAgo = new Date();
-    oneDayAgo.setHours(oneDayAgo.getHours() - 24);
+    if (!superAdmins || superAdmins.length === 0) {
+      console.log('[Outbreak Notification] No active Super Admins found');
+      return;
+    }
 
-    // Format disease name - use custom_disease_name if disease_type is 'other'
-    const diseaseName = outbreak.disease_type === 'other' && outbreak.custom_disease_name
-      ? outbreak.custom_disease_name
-      : outbreak.disease_type.replace('_', ' ').toUpperCase();
+    // Create notifications for each Super Admin
+    const notifications = superAdmins.map(admin => ({
+      user_id: admin.id,
+      type: 'outbreak_alert',
+      title: `${outbreak.risk_level.toUpperCase()} Outbreak Alert: ${outbreak.disease_type}`,
+      message: `${outbreak.case_count} cases detected in ${outbreak.barangay_name} (${outbreak.threshold_description})`,
+      data: {
+        outbreak_id: `${outbreak.disease_type}_${outbreak.barangay_id}_${Date.now()}`,
+        disease_type: outbreak.disease_type,
+        barangay_id: outbreak.barangay_id,
+        barangay_name: outbreak.barangay_name,
+        case_count: outbreak.case_count,
+        risk_level: outbreak.risk_level,
+      },
+      read: false,
+      created_at: new Date().toISOString(),
+    }));
 
-    const notificationTitle = `${outbreak.risk_level.toUpperCase()} OUTBREAK ALERT: ${diseaseName}`;
-    const notificationMessage = outbreak.barangay_name === 'City-wide'
-      ? `City-wide ${diseaseName} outbreak detected: ${outbreak.case_count} active cases (${outbreak.critical_cases} critical, ${outbreak.severe_cases} severe) in the last ${outbreak.days_window} days. Immediate intervention recommended.`
-      : `${diseaseName} outbreak detected in ${outbreak.barangay_name}: ${outbreak.case_count} active cases (${outbreak.critical_cases} critical, ${outbreak.severe_cases} severe) in the last ${outbreak.days_window} days. ${outbreak.threshold_description}.`;
+    const { error: insertError } = await adminClient
+      .from('notifications')
+      .insert(notifications);
 
-    // Create notification for each Super Admin
-    for (const admin of superAdmins) {
-      // Check for duplicate
-      const { data: existing } = await supabase
-        .from('notifications')
-        .select('id')
-        .eq('user_id', admin.id)
-        .eq('title', notificationTitle)
-        .gte('created_at', oneDayAgo.toISOString())
-        .limit(1);
-
-      if (existing && existing.length > 0) {
-        console.log(`[Outbreak Detection] Skipping duplicate notification for ${admin.id}: ${notificationTitle}`);
-        continue;
-      }
-
-      await supabase
-        .from('notifications')
-        .insert({
-          user_id: admin.id,
-          type: 'general',
-          title: notificationTitle,
-          message: notificationMessage,
-          link: '/admin/disease-surveillance',
-        });
-
-      console.log(`[Outbreak Detection] Created notification for Super Admin ${admin.id}: ${notificationTitle}`);
+    if (insertError) {
+      console.error('[Outbreak Notification] Error creating notifications:', insertError);
+    } else {
+      console.log(`[Outbreak Notification] ✅ Created ${notifications.length} outbreak notifications`);
     }
   } catch (error) {
-    console.error('Error creating outbreak notification:', error);
+    console.error('[Outbreak Notification] Unexpected error:', error);
   }
 }
