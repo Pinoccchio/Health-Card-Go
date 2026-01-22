@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { DashboardLayout } from '@/components/dashboard';
 import { Container } from '@/components/ui';
 import { ProfessionalCard } from '@/components/ui/ProfessionalCard';
@@ -122,7 +123,13 @@ interface SummaryStats {
 }
 
 export default function StaffDiseaseSurveillancePage() {
-  const [activeTab, setActiveTab] = useState<TabType>('data-management');
+  const searchParams = useSearchParams();
+  const tabParam = searchParams.get('tab') as TabType | null;
+  const [activeTab, setActiveTab] = useState<TabType>(
+    tabParam && ['data-management', 'geographic-view', 'analytics'].includes(tabParam)
+      ? tabParam
+      : 'data-management'
+  );
   const [barangays, setBarangays] = useState<any[]>([]);
   const [isHistoricalFormOpen, setIsHistoricalFormOpen] = useState(false);
   const [isExcelImportOpen, setIsExcelImportOpen] = useState(false);
@@ -479,7 +486,7 @@ export default function StaffDiseaseSurveillancePage() {
   return (
     <DashboardLayout
       roleId={5}
-      pageTitle="Disease Surveillance Hub"
+      pageTitle="Disease Surveillance"
       pageDescription="Comprehensive disease monitoring and analytics for Panabo City"
     >
       <Container size="full">
@@ -489,7 +496,7 @@ export default function StaffDiseaseSurveillancePage() {
             <div className="p-2 bg-blue-100 rounded-lg">
               <Activity className="w-6 h-6 text-blue-600" />
             </div>
-            <h1 className="text-2xl font-bold text-gray-900">Disease Surveillance Hub</h1>
+            <h1 className="text-2xl font-bold text-gray-900">Disease Surveillance</h1>
           </div>
           <p className="text-gray-600">Record, monitor, and analyze disease cases with geographic visualization and predictive analytics</p>
         </div>

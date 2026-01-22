@@ -180,7 +180,7 @@ export const STAFF_MENU_ITEMS: MenuItem[] = [
     icon: LayoutDashboard,
   },
   {
-    label: 'Disease Surveillance Hub',
+    label: 'Disease Surveillance',
     href: '/staff/disease-surveillance',
     icon: Activity,
   },

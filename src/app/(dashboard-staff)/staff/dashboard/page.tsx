@@ -28,6 +28,7 @@ interface DashboardStats {
 interface RecentDiseaseEntry {
   id: string;
   disease_type: string;
+  custom_disease_name?: string;
   diagnosis_date: string;
   barangay_name: string;
   patient_name: string;
@@ -41,7 +42,19 @@ const DISEASE_LABELS: Record<string, string> = {
   malaria: 'Malaria',
   measles: 'Measles',
   rabies: 'Rabies',
+  animal_bite: 'Animal Bite',
 };
+
+/**
+ * Get display name for disease type
+ * Shows custom_disease_name for custom diseases, otherwise uses standard labels
+ */
+function getDiseaseDisplayName(diseaseType: string, customDiseaseName?: string | null): string {
+  if (diseaseType === 'custom_disease' && customDiseaseName) {
+    return customDiseaseName;
+  }
+  return DISEASE_LABELS[diseaseType] || diseaseType;
+}
 
 export default function StaffDashboard() {
   const [stats, setStats] = useState<DashboardStats>({
@@ -63,47 +76,50 @@ export default function StaffDashboard() {
       setLoading(true);
       setError('');
 
-      // Fetch disease statistics
-      const statsRes = await fetch('/api/diseases?limit=1000');
+      // Fetch historical disease statistics (aggregated data)
+      const statsRes = await fetch('/api/diseases/historical?limit=1000');
       const statsData = await statsRes.json();
 
       if (statsData.success) {
-        const diseases = statsData.data || [];
+        const statistics = statsData.data || [];
+
+        // Calculate total cases from disease_statistics
+        const totalCases = statistics.reduce((sum: number, stat: any) => sum + (stat.case_count || 0), 0);
 
         // Calculate this month's cases
         const now = new Date();
         const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-        const thisMonthCases = diseases.filter((d: any) =>
-          new Date(d.diagnosis_date) >= firstDayOfMonth
-        ).length;
+        const thisMonthStats = statistics.filter((s: any) =>
+          new Date(s.record_date) >= firstDayOfMonth
+        );
+        const thisMonthCases = thisMonthStats.reduce((sum: number, stat: any) => sum + (stat.case_count || 0), 0);
 
         // Count unique barangays
         const uniqueBarangays = new Set(
-          diseases.map((d: any) => d.barangay_id).filter(Boolean)
+          statistics.map((s: any) => s.barangay_id).filter(Boolean)
         );
 
         setStats({
-          total_cases: diseases.length,
+          total_cases: totalCases,
           this_month: thisMonthCases,
           active_outbreaks: 0, // Will be calculated from outbreak detection API
           affected_barangays: uniqueBarangays.size,
         });
 
-        // Get recent entries (last 5)
-        const recent = diseases
+        // Get recent entries (last 5) from disease_statistics
+        const recent = statistics
           .sort((a: any, b: any) =>
-            new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+            new Date(b.record_date).getTime() - new Date(a.record_date).getTime()
           )
           .slice(0, 5)
-          .map((d: any) => ({
-            id: d.id,
-            disease_type: d.disease_type,
-            diagnosis_date: d.diagnosis_date,
-            barangay_name: d.barangays?.name || 'Unknown',
-            patient_name: d.patients?.profiles
-              ? `${d.patients.profiles.first_name} ${d.patients.profiles.last_name}`
-              : 'N/A',
-            severity: d.severity,
+          .map((s: any) => ({
+            id: s.id,
+            disease_type: s.disease_type,
+            custom_disease_name: s.custom_disease_name,
+            diagnosis_date: s.record_date,
+            barangay_name: s.barangays?.name || 'Unknown',
+            patient_name: `${s.case_count} case(s)`, // Show case count instead of patient name
+            severity: s.severity,
           }));
         setRecentEntries(recent);
 
@@ -228,30 +244,30 @@ export default function StaffDashboard() {
                 >
                   <PlusCircle className="w-8 h-8 text-primary-teal group-hover:text-white transition-colors" />
                   <div>
-                    <p className="font-medium text-gray-900 group-hover:text-white">Record Disease Case</p>
-                    <p className="text-xs text-gray-500 group-hover:text-white/90">Enter new disease data</p>
+                    <p className="font-medium text-gray-900 group-hover:text-white">Disease Surveillance</p>
+                    <p className="text-xs text-gray-500 group-hover:text-white/90">Data, maps & analytics</p>
                   </div>
                 </Link>
 
                 <Link
-                  href="/staff/reports"
+                  href="/staff/disease-surveillance?tab=geographic-view"
                   className="flex items-center gap-3 p-4 border border-gray-200 rounded-lg hover:border-primary-teal hover:bg-primary-teal/5 transition-all group"
                 >
-                  <FileText className="w-8 h-8 text-gray-600 group-hover:text-primary-teal transition-colors" />
+                  <MapPin className="w-8 h-8 text-gray-600 group-hover:text-primary-teal transition-colors" />
                   <div>
-                    <p className="font-medium text-gray-900">Generate Reports</p>
-                    <p className="text-xs text-gray-500">Export disease data</p>
+                    <p className="font-medium text-gray-900">Geographic View</p>
+                    <p className="text-xs text-gray-500">Outbreak heatmaps</p>
                   </div>
                 </Link>
 
                 <Link
-                  href="/staff/analytics"
+                  href="/staff/disease-surveillance?tab=analytics"
                   className="flex items-center gap-3 p-4 border border-gray-200 rounded-lg hover:border-primary-teal hover:bg-primary-teal/5 transition-all group"
                 >
                   <BarChart3 className="w-8 h-8 text-gray-600 group-hover:text-primary-teal transition-colors" />
                   <div>
-                    <p className="font-medium text-gray-900">View Analytics</p>
-                    <p className="text-xs text-gray-500">Trends and heatmaps</p>
+                    <p className="font-medium text-gray-900">Trends & Analytics</p>
+                    <p className="text-xs text-gray-500">Time-series analysis</p>
                   </div>
                 </Link>
               </div>
@@ -292,7 +308,7 @@ export default function StaffDashboard() {
                         <div className="flex-1">
                           <div className="flex items-center gap-2 mb-1">
                             <span className="font-medium text-gray-900">
-                              {DISEASE_LABELS[entry.disease_type] || entry.disease_type}
+                              {getDiseaseDisplayName(entry.disease_type, entry.custom_disease_name)}
                             </span>
                             {entry.severity && (
                               <span className={`text-xs font-medium ${getSeverityColor(entry.severity)} capitalize`}>
