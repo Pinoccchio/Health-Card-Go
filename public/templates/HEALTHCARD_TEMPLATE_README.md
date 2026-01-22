@@ -19,10 +19,12 @@ Create an Excel file named `healthcard-historical-import-template.xlsx` with the
 
 | Record Date | HealthCard Type | Cards Issued | Barangay | Source | Notes |
 |-------------|----------------|--------------|----------|--------|-------|
-| 2024-01-15 | food_handler | 25 | Datu Abdul Dadia | CHO Manual Count | January batch processing |
-| 2024-01-20 | non_food | 15 | A. O. Floirendo | CHO Manual Count | February batch |
-| 2024-02-01 | food_handler | 30 | Gredu | DOH Regional Data | Q1 2024 data |
-| 2024-02-15 | non_food | 20 | | CHO Records | System-wide (no specific barangay) |
+| 2020-03-15 | food_handler | 45 | Datu Abdul Dadia | CHO Manual Records | Q1 2020 - Pre-pandemic batch |
+| 2020-06-10 | non_food | 32 | Gredu | CHO Manual Records | Q2 2020 - Limited operations |
+| 2021-02-14 | food_handler | 52 | New Pandan (Poblacion) | CHO Manual Records | Q1 2021 - Recovery period |
+| 2022-10-15 | non_food | 39 | | CHO Records | Q4 2022 - Final pre-system batch |
+
+**Note:** Template uses historical dates (2020-2022) to avoid double-counting with live appointment data tracked since 2023.
 
 ### Important Notes:
 
@@ -93,11 +95,13 @@ https://your-domain.com/templates/healthcard-historical-import-template.xlsx
 ### Example Valid Records:
 
 ```
-Record Date    | HealthCard Type | Cards Issued | Barangay            | Source           | Notes
-2024-01-15    | food_handler    | 25          | Datu Abdul Dadia   | CHO Manual Count | January batch
-2024-01-20    | non_food        | 15          | A. O. Floirendo    | DOH Bulletin     | Q1 2024
-2024-02-01    | food_handler    | 30          |                     | CHO Records      | System-wide
+Record Date    | HealthCard Type | Cards Issued | Barangay                | Source              | Notes
+2020-03-15    | food_handler    | 45          | Datu Abdul Dadia       | CHO Manual Records  | Q1 2020
+2021-02-14    | food_handler    | 52          | New Pandan (Poblacion) | CHO Manual Records  | Q1 2021
+2022-10-15    | non_food        | 39          |                         | CHO Records         | Q4 2022
 ```
+
+**Important:** Use historical dates (2020-2022) to avoid double-counting with live appointment data (2023+).
 
 ### Example Invalid Records (Will Be Rejected):
 
@@ -105,8 +109,8 @@ Record Date    | HealthCard Type | Cards Issued | Barangay            | Source  
 # Future date
 2026-12-31    | food_handler    | 25          | Datu Abdul Dadia   | CHO Manual Count | INVALID
 
-# Invalid type
-2024-01-15    | medical         | 25          | Datu Abdul Dadia   | CHO Manual Count | INVALID
+# Invalid type (pink is handled by HIV Admin only)
+2024-01-15    | pink            | 25          | Datu Abdul Dadia   | CHO Manual Count | INVALID
 
 # Negative count
 2024-01-15    | food_handler    | -5          | Datu Abdul Dadia   | CHO Manual Count | INVALID

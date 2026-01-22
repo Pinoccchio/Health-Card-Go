@@ -15,7 +15,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createClient, createAdminClient } from '@/lib/supabase/server';
 import {
   HealthCardPredictionsResponse,
   HealthCardStatistic,
@@ -54,6 +54,11 @@ export async function GET(request: NextRequest) {
 
     // MONTHLY GRANULARITY SUPPORT: Accept both legacy and new parameters
     const granularity = searchParams.get('granularity') || 'monthly'; // Default to monthly
+
+    // Support explicit start_date/end_date OR relative months_back/months_forecast
+    const startDateParam = searchParams.get('start_date'); // Format: YYYY-MM-DD
+    const endDateParam = searchParams.get('end_date'); // Format: YYYY-MM-DD
+
     const periodsBack = parseInt(searchParams.get('months_back') || searchParams.get('days_back') || '12');
     const periodsForecast = parseInt(searchParams.get('months_forecast') || searchParams.get('days_forecast') || '12');
     const includeConfidence = searchParams.get('include_confidence') !== 'false';
@@ -92,14 +97,34 @@ export async function GET(request: NextRequest) {
       userId: user.id,
     });
 
-    // Generate date range based on granularity
-    const dateRange = granularity === 'monthly'
-      ? generateSARIMADateRangeMonthly(periodsBack, periodsForecast)
-      : generateSARIMADateRange(periodsBack, periodsForecast);
+    // Generate date range based on explicit dates OR relative periods
+    let dateRange;
+    if (startDateParam && endDateParam) {
+      // Use explicit date range
+      const today = new Date().toISOString().split('T')[0];
+      const endDate = new Date(endDateParam);
+      endDate.setMonth(endDate.getMonth() + periodsForecast);
+      const forecastEndDate = endDate.toISOString().split('T')[0];
+
+      dateRange = {
+        start_date: startDateParam,
+        end_date: forecastEndDate,
+        today: today,
+      };
+    } else {
+      // Use relative periods (legacy behavior)
+      dateRange = granularity === 'monthly'
+        ? generateSARIMADateRangeMonthly(periodsBack, periodsForecast)
+        : generateSARIMADateRange(periodsBack, periodsForecast);
+    }
 
     // ========================================================================
     // Fetch Historical Statistics
     // ========================================================================
+
+    // Use admin client to bypass RLS for fetching system-wide appointment data
+    // (authentication already verified above)
+    const adminClient = createAdminClient();
 
     // Determine service IDs based on healthcard type
     let serviceIds: number[];
@@ -112,7 +137,7 @@ export async function GET(request: NextRequest) {
       serviceIds = [12];
     }
 
-    let historicalQuery = supabase
+    let historicalQuery = adminClient
       .from('appointments')
       .select(
         `
@@ -171,9 +196,71 @@ export async function GET(request: NextRequest) {
       appointments?.length || 0
     );
 
+    // ========================================================================
+    // Fetch Excel-Imported Historical Statistics
+    // ========================================================================
+
+    let statisticsQuery = adminClient
+      .from('healthcard_statistics')
+      .select('*')
+      .eq('healthcard_type', healthcardType)
+      .gte('record_date', dateRange.start_date)
+      .lte('record_date', dateRange.today);
+
+    // Apply barangay filter if specified
+    if (barangayId !== null) {
+      statisticsQuery = statisticsQuery.eq('barangay_id', barangayId);
+    }
+
+    const { data: importedStats, error: statsError } = await statisticsQuery;
+
+    if (statsError) {
+      console.error(
+        '[HealthCard Predictions API] Statistics query error:',
+        statsError
+      );
+      // Don't fail - just log and continue with appointment data only
+      console.warn('[HealthCard Predictions API] Continuing without imported statistics');
+    }
+
+    console.log(
+      '[HealthCard Predictions API] Found imported statistics:',
+      importedStats?.length || 0
+    );
+
+    // ========================================================================
+    // Merge Both Data Sources
+    // ========================================================================
+
     // Aggregate appointments into statistics
     const statisticsMap = new Map<string, HealthCardStatistic>();
 
+    // First, add Excel-imported statistics
+    importedStats?.forEach((stat: any) => {
+      const key = `${stat.record_date}-${stat.barangay_id || 'null'}`;
+
+      if (statisticsMap.has(key)) {
+        // If already exists from another source, add to count
+        const existing = statisticsMap.get(key)!;
+        existing.card_count += stat.cards_issued;
+      } else {
+        statisticsMap.set(key, {
+          id: key,
+          healthcard_type: healthcardType,
+          barangay_id: stat.barangay_id || null,
+          issue_date: stat.record_date,
+          card_count: stat.cards_issued,
+          barangay_name: null, // Will be populated if needed
+        });
+      }
+    });
+
+    console.log(
+      '[HealthCard Predictions API] Statistics map after imported data:',
+      statisticsMap.size
+    );
+
+    // Then, add real appointment data
     appointments?.forEach((appointment: any) => {
       // Skip if card_type mismatch for pink
       if (healthcardType === 'pink' && appointment.card_type !== 'pink') {
@@ -212,11 +299,24 @@ export async function GET(request: NextRequest) {
 
     const historicalData = Array.from(statisticsMap.values());
 
+    console.log(
+      '[HealthCard Predictions API] Statistics map size:',
+      statisticsMap.size
+    );
+    console.log(
+      '[HealthCard Predictions API] Historical data array length:',
+      historicalData.length
+    );
+    console.log(
+      '[HealthCard Predictions API] Total cards in historical data:',
+      historicalData.reduce((sum, stat) => sum + stat.card_count, 0)
+    );
+
     // ========================================================================
     // Fetch SARIMA Predictions
     // ========================================================================
 
-    let predictionsQuery = supabase
+    let predictionsQuery = adminClient
       .from('healthcard_predictions')
       .select(
         `
@@ -274,7 +374,7 @@ export async function GET(request: NextRequest) {
 
     let barangayName: string | null = null;
     if (barangayId !== null) {
-      const { data: barangayData } = await supabase
+      const { data: barangayData } = await adminClient
         .from('barangays')
         .select('name')
         .eq('id', barangayId)

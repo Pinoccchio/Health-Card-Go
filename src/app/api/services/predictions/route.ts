@@ -14,7 +14,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createClient, createAdminClient } from '@/lib/supabase/server';
 import { runLocalSARIMA } from '@/lib/sarima/localSARIMA';
 
 export async function GET(request: NextRequest) {
@@ -80,7 +80,11 @@ export async function GET(request: NextRequest) {
     // Fetch Historical Appointment Data
     // ========================================================================
 
-    let appointmentsQuery = supabase
+    // Use admin client to bypass RLS for fetching system-wide appointment data
+    // (authentication already verified above)
+    const adminClient = createAdminClient();
+
+    let appointmentsQuery = adminClient
       .from('appointments')
       .select('appointment_date, status')
       .eq('service_id', serviceId)
@@ -91,7 +95,7 @@ export async function GET(request: NextRequest) {
 
     if (barangayId !== null) {
       // Join with patients to filter by barangay
-      appointmentsQuery = supabase
+      appointmentsQuery = adminClient
         .from('appointments')
         .select(`
           appointment_date,
@@ -124,7 +128,33 @@ export async function GET(request: NextRequest) {
     console.log(`[Service Predictions API] Found ${appointments?.length || 0} appointments`);
 
     // ========================================================================
-    // Aggregate Appointments by Date
+    // Fetch Excel-Imported Historical Statistics
+    // ========================================================================
+
+    let statisticsQuery = adminClient
+      .from('service_appointment_statistics')
+      .select('*')
+      .eq('service_id', serviceId)
+      .gte('record_date', startDate.toISOString().split('T')[0])
+      .lte('record_date', endDate.toISOString().split('T')[0])
+      .order('record_date', { ascending: true });
+
+    if (barangayId !== null) {
+      statisticsQuery = statisticsQuery.eq('barangay_id', barangayId);
+    }
+
+    const { data: importedStats, error: statsError } = await statisticsQuery;
+
+    if (statsError) {
+      console.error('[Service Predictions API] Statistics query error:', statsError);
+      // Don't fail - just log and continue with appointment data only
+      console.warn('[Service Predictions API] Continuing without imported statistics');
+    }
+
+    console.log(`[Service Predictions API] Found ${importedStats?.length || 0} imported statistics records`);
+
+    // ========================================================================
+    // Merge Both Data Sources - Aggregate by Date
     // ========================================================================
 
     const appointmentsByDate = new Map<string, number>();
@@ -137,7 +167,15 @@ export async function GET(request: NextRequest) {
       currentDate.setDate(currentDate.getDate() + 1);
     }
 
-    // Count appointments per date
+    // First, add Excel-imported statistics
+    importedStats?.forEach((stat: any) => {
+      const date = stat.record_date;
+      appointmentsByDate.set(date, (appointmentsByDate.get(date) || 0) + stat.appointments_completed);
+    });
+
+    console.log(`[Service Predictions API] Appointments map after imported data: ${appointmentsByDate.size} dates`);
+
+    // Then, add real appointment data
     appointments?.forEach((appointment: any) => {
       const date = appointment.appointment_date;
       appointmentsByDate.set(date, (appointmentsByDate.get(date) || 0) + 1);
@@ -175,7 +213,7 @@ export async function GET(request: NextRequest) {
       forecastEndDate.setDate(forecastEndDate.getDate() + periodsForecast);
     }
 
-    let predictionsQuery = supabase
+    let predictionsQuery = adminClient
       .from('service_predictions')
       .select('prediction_date, predicted_appointments, prediction_data, granularity')
       .eq('service_id', serviceId)
@@ -276,7 +314,7 @@ export async function GET(request: NextRequest) {
     // Get barangay name if filtered
     let barangayName: string | null = null;
     if (barangayId !== null) {
-      const { data: barangay } = await supabase
+      const { data: barangay } = await adminClient
         .from('barangays')
         .select('name')
         .eq('id', barangayId)

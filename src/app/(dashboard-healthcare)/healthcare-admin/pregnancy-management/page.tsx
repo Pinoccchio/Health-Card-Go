@@ -28,6 +28,7 @@ import { format } from 'date-fns';
 import ServiceHistoricalImportModal from '@/components/healthcare-admin/ServiceHistoricalImportModal';
 import ServiceSARIMAChart from '@/components/healthcare-admin/ServiceSARIMAChart';
 import ServiceSARIMAMetrics from '@/components/healthcare-admin/ServiceSARIMAMetrics';
+import { AppointmentStatusChart } from '@/components/charts';
 
 interface PregnancyRecord {
   id: string;
@@ -102,6 +103,10 @@ export default function PregnancyManagementPage() {
   const [isGeneratingPredictions, setIsGeneratingPredictions] = useState(false);
   const [generationStatus, setGenerationStatus] = useState<{ type: 'idle' | 'success' | 'error'; message?: string }>({ type: 'idle' });
 
+  // Appointment Statistics state (for status breakdown chart)
+  const [appointmentStats, setAppointmentStats] = useState<any[]>([]);
+  const [appointmentStatsLoading, setAppointmentStatsLoading] = useState(true);
+
   useEffect(() => {
     // Check if the healthcare admin has pregnancy category
     if (user) {
@@ -123,6 +128,7 @@ export default function PregnancyManagementPage() {
   useEffect(() => {
     if (hasAccess) {
       fetchPregnancyRecords();
+      fetchAppointmentStatistics();
     }
   }, [filters, hasAccess]);
 
@@ -201,6 +207,22 @@ export default function PregnancyManagementPage() {
     }
 
     setSummary(stats);
+  };
+
+  const fetchAppointmentStatistics = async () => {
+    try {
+      setAppointmentStatsLoading(true);
+      const response = await fetch('/api/appointments/statistics?admin_category=pregnancy');
+      const data = await response.json();
+
+      if (data.success) {
+        setAppointmentStats(data.data.monthly || []);
+      }
+    } catch (err) {
+      console.error('Error fetching appointment statistics:', err);
+    } finally {
+      setAppointmentStatsLoading(false);
+    }
   };
 
   const handleGeneratePredictions = async () => {
@@ -536,6 +558,14 @@ export default function PregnancyManagementPage() {
               )}
             </div>
           </div>
+
+          {/* Appointment Status Breakdown Chart */}
+          <AppointmentStatusChart
+            data={appointmentStats}
+            loading={appointmentStatsLoading}
+            title="Monthly Prenatal Appointment Status Breakdown (Completed, Cancelled, No Show)"
+            height={450}
+          />
 
           {/* SARIMA Predictions Section */}
           <div className="bg-white rounded-lg shadow border border-gray-200">

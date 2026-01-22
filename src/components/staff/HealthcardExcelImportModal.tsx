@@ -163,6 +163,26 @@ export default function HealthcardExcelImportModal({
         {/* Body */}
         <div className="flex-1 overflow-y-auto p-6">
           <div className="space-y-6">
+            {/* Important Notice - Appointment-Based System */}
+            <div className="bg-amber-50 border-l-4 border-amber-400 p-4 rounded-r-lg">
+              <div className="flex items-start gap-3">
+                <AlertCircle className="h-5 w-5 text-amber-600 mt-0.5 flex-shrink-0" />
+                <div>
+                  <h4 className="font-semibold text-amber-900 mb-1">
+                    System Auto-Tracks Appointments
+                  </h4>
+                  <p className="text-sm text-amber-800 leading-relaxed">
+                    <strong>Important:</strong> The system automatically counts health cards issued from completed appointments.
+                    Excel imports should be used <strong>ONLY for historical/legacy data</strong> from before system implementation
+                    to avoid double-counting.
+                  </p>
+                  <p className="text-sm text-amber-800 mt-2 leading-relaxed">
+                    SARIMA predictions are primarily based on real appointment data, with Excel imports serving as supplementary historical context.
+                  </p>
+                </div>
+              </div>
+            </div>
+
             {/* Download Template Button */}
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
               <div className="flex items-start gap-3">

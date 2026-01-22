@@ -10,6 +10,7 @@
  */
 
 import * as XLSX from 'xlsx';
+import { validateBarangayName, type Barangay } from './barangayMatcher';
 
 export interface HealthcardHistoricalRecord {
   record_date: string;
@@ -33,7 +34,7 @@ export interface ValidationError {
  */
 export function validateHealthcardHistoricalRecord(
   record: HealthcardHistoricalRecord,
-  barangays: Array<{ id: number; name: string; code: string }>
+  barangays: Barangay[]
 ): string[] {
   const errors: string[] = [];
 
@@ -67,13 +68,11 @@ export function validateHealthcardHistoricalRecord(
     }
   }
 
-  // Validate barangay (optional, but must exist if provided)
+  // Validate barangay using fuzzy matcher (optional, but must exist if provided)
   if (record.barangay && record.barangay.trim() !== '') {
-    const barangayExists = barangays.some(
-      (b) => b.name.toLowerCase() === record.barangay!.toLowerCase().trim()
-    );
-    if (!barangayExists) {
-      errors.push(`Barangay "${record.barangay}" not found. Check spelling.`);
+    const validation = validateBarangayName(record.barangay, barangays);
+    if (!validation.isValid) {
+      errors.push(validation.error!);
     }
   }
 
@@ -114,7 +113,7 @@ export async function parseHealthcardExcel(file: File): Promise<{
       const errors: ValidationError[] = [];
 
       // Fetch barangays for validation (client-side API call)
-      let barangays: Array<{ id: number; name: string; code: string }> = [];
+      let barangays: Barangay[] = [];
       try {
         const response = await fetch('/api/barangays');
         if (response.ok) {
@@ -171,7 +170,7 @@ export async function parseHealthcardExcel(file: File): Promise<{
     const errors: ValidationError[] = [];
 
     // Fetch barangays for validation (client-side API call)
-    let barangays: Array<{ id: number; name: string; code: string }> = [];
+    let barangays: Barangay[] = [];
     try {
       const response = await fetch('/api/barangays');
       if (response.ok) {

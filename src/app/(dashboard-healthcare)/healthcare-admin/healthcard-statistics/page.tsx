@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import HealthCardSARIMAChart from '@/components/healthcare-admin/HealthCardSARIMAChart';
 import HealthCardSARIMAMetrics from '@/components/healthcare-admin/HealthCardSARIMAMetrics';
+import { AppointmentStatusChart } from '@/components/charts';
 
 interface HealthcardStatistic {
   id: string;
@@ -99,6 +100,10 @@ export default function HealthcareAdminHealthcardStatisticsPage() {
   const [isGeneratingPredictions, setIsGeneratingPredictions] = useState(false);
   const [generationStatus, setGenerationStatus] = useState<{ type: 'idle' | 'success' | 'error'; message?: string }>({ type: 'idle' });
 
+  // Appointment Statistics state (for status breakdown chart)
+  const [appointmentStats, setAppointmentStats] = useState<any[]>([]);
+  const [appointmentStatsLoading, setAppointmentStatsLoading] = useState(true);
+
   useEffect(() => {
     // Check if the healthcare admin has healthcard category
     if (user) {
@@ -120,6 +125,7 @@ export default function HealthcareAdminHealthcardStatisticsPage() {
   useEffect(() => {
     if (hasAccess) {
       fetchStatistics();
+      fetchAppointmentStatistics();
     }
   }, [filters, hasAccess]);
 
@@ -180,6 +186,22 @@ export default function HealthcareAdminHealthcardStatisticsPage() {
     }
   };
 
+  const fetchAppointmentStatistics = async () => {
+    try {
+      setAppointmentStatsLoading(true);
+      const response = await fetch('/api/appointments/statistics');
+      const data = await response.json();
+
+      if (data.success) {
+        setAppointmentStats(data.data.monthly || []);
+      }
+    } catch (err) {
+      console.error('Error fetching appointment statistics:', err);
+    } finally {
+      setAppointmentStatsLoading(false);
+    }
+  };
+
   const handleEdit = (record: HealthcardStatistic) => {
     setSelectedRecord(record);
     setIsEditModalOpen(true);
@@ -229,29 +251,52 @@ export default function HealthcareAdminHealthcardStatisticsPage() {
     setGenerationStatus({ type: 'idle' });
 
     try {
-      const response = await fetch('/api/healthcards/generate-predictions', {
+      // Generate predictions for both Yellow (food_handler) and Green (non_food) cards
+      const yellowResponse = await fetch('/api/healthcards/generate-predictions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          healthcard_type: 'food_handler',
           months_forecast: 12,
           granularity: 'monthly',
         }),
       });
 
-      const data = await response.json();
+      const yellowData = await yellowResponse.json();
 
-      if (data.success) {
-        setGenerationStatus({ type: 'success', message: `Generated predictions for ${data.data?.total_predictions || 0} months` });
-        setPredictionRefreshKey(prev => prev + 1);
-        toast.success('Predictions generated successfully');
-      } else {
-        setGenerationStatus({ type: 'error', message: data.error || 'Failed to generate predictions' });
-        toast.error(data.error || 'Failed to generate predictions');
+      if (!yellowData.success) {
+        throw new Error(yellowData.error || 'Failed to generate Yellow card predictions');
       }
+
+      const greenResponse = await fetch('/api/healthcards/generate-predictions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          healthcard_type: 'non_food',
+          months_forecast: 12,
+          granularity: 'monthly',
+        }),
+      });
+
+      const greenData = await greenResponse.json();
+
+      if (!greenData.success) {
+        throw new Error(greenData.error || 'Failed to generate Green card predictions');
+      }
+
+      // Both succeeded
+      const totalPredictions = (yellowData.data?.predictions?.length || 0) + (greenData.data?.predictions?.length || 0);
+      setGenerationStatus({
+        type: 'success',
+        message: `Generated predictions for Yellow and Green cards (${totalPredictions} total)`
+      });
+      setPredictionRefreshKey(prev => prev + 1);
+      toast.success('Predictions generated successfully for both Yellow and Green cards');
     } catch (error) {
       console.error('Generate predictions error:', error);
-      setGenerationStatus({ type: 'error', message: 'An unexpected error occurred' });
-      toast.error('An unexpected error occurred');
+      const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
+      setGenerationStatus({ type: 'error', message: errorMessage });
+      toast.error(errorMessage);
     } finally {
       setIsGeneratingPredictions(false);
     }
@@ -323,7 +368,18 @@ export default function HealthcareAdminHealthcardStatisticsPage() {
             </div>
           </div>
 
-          {/* Action Bar */}
+          {/* Summary Statistics */}
+          <HealthcardStatsSummary summary={summary} loading={loading} showPinkCards={false} />
+
+          {/* Appointment Status Breakdown Chart */}
+          <AppointmentStatusChart
+            data={appointmentStats}
+            loading={appointmentStatsLoading}
+            title="Monthly Appointment Status Breakdown (Completed, Cancelled, No Show)"
+            height={450}
+          />
+
+          {/* Action Bar - Import Historical Data */}
           <div className="flex justify-end gap-3">
             <a
               href="/templates/healthcard-historical-import-template.xlsx"
@@ -343,9 +399,6 @@ export default function HealthcareAdminHealthcardStatisticsPage() {
               Import Excel
             </button>
           </div>
-
-          {/* Summary Statistics */}
-          <HealthcardStatsSummary summary={summary} loading={loading} showPinkCards={false} />
 
           {/* Filters */}
           <div className="bg-white rounded-lg shadow p-4 border border-gray-200">
@@ -448,7 +501,7 @@ export default function HealthcareAdminHealthcardStatisticsPage() {
                 </div>
                 <button
                   onClick={handleGeneratePredictions}
-                  disabled={isGeneratingPredictions || statistics.length === 0}
+                  disabled={isGeneratingPredictions}
                   className="inline-flex items-center gap-2 px-4 py-2 bg-[#20C997] text-white rounded-lg hover:bg-[#1AA179] transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-md"
                 >
                   {isGeneratingPredictions ? (

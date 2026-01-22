@@ -72,9 +72,67 @@ export default function HealthCardSARIMAChart({
   showTitle = true,
   height = 400,
 }: HealthCardSARIMAChartProps) {
+  // Filter state for year selection (simplified - no month picker)
+  const currentYear = new Date().getFullYear();
+
+  // Load saved filter preference or default to current year
+  const [selectedYear, setSelectedYear] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('healthcard_filter_year');
+      return saved ? Number(saved) : currentYear;
+    }
+    return currentYear;
+  });
+
+  const [availableYears, setAvailableYears] = useState<number[]>([currentYear]);
+  const [yearsWithCounts, setYearsWithCounts] = useState<Array<{ year: number; count: number }>>([]);
+  const [selectedMonthsForecast, setSelectedMonthsForecast] = useState(monthsForecast || 12);
+
+  // Fetch available years from database (dynamically detect which years have data)
+  useEffect(() => {
+    async function fetchAvailableYears() {
+      try {
+        const response = await fetch('/api/healthcards/available-years');
+        if (response.ok) {
+          const data = await response.json();
+          if (data.success && data.years && data.years.length > 0) {
+            setAvailableYears(data.years);
+            if (data.yearsWithCounts) {
+              setYearsWithCounts(data.yearsWithCounts);
+            }
+            // Default to the most recent year
+            if (!data.years.includes(selectedYear)) {
+              setSelectedYear(data.years[data.years.length - 1]);
+            }
+          }
+        }
+      } catch (err) {
+        console.error('Failed to fetch available years:', err);
+        // Fallback to hardcoded years if API fails (2023-2026 continuous)
+        setAvailableYears([2023, 2024, 2025, 2026]);
+      }
+    }
+    fetchAvailableYears();
+  }, []);
+
+  // Save filter preference when year changes
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('healthcard_filter_year', selectedYear.toString());
+    }
+  }, [selectedYear]);
+
+  // Format dates as YYYY-MM-DD for January 1 to December 31 of selected year
+  const formatStartDate = () => {
+    return `${selectedYear}-01-01`;
+  };
+
+  const formatEndDate = () => {
+    return `${selectedYear}-12-31`;
+  };
+
   // Use monthly by default, fallback to daily
-  const periodsBack = granularity === 'monthly' ? (monthsBack || 12) : (daysBack || 30);
-  const periodsForecast = granularity === 'monthly' ? (monthsForecast || 12) : (daysForecast || 30);
+  const periodsForecast = granularity === 'monthly' ? selectedMonthsForecast : (daysForecast || 30);
   const [chartData, setChartData] = useState<HealthCardSARIMAData | null>(null);
   const [metadata, setMetadata] = useState<HealthCardPredictionsResponse['metadata'] | null>(null);
   const [loading, setLoading] = useState(true);
@@ -107,10 +165,12 @@ export default function HealthCardSARIMAChart({
         });
 
         if (granularity === 'monthly') {
-          params.append('months_back', periodsBack.toString());
+          // Pass explicit start_date and end_date
+          params.append('start_date', formatStartDate());
+          params.append('end_date', formatEndDate());
           params.append('months_forecast', periodsForecast.toString());
         } else {
-          params.append('days_back', periodsBack.toString());
+          params.append('days_back', (daysBack || 30).toString());
           params.append('days_forecast', periodsForecast.toString());
         }
 
@@ -142,7 +202,7 @@ export default function HealthCardSARIMAChart({
     }
 
     fetchPredictions();
-  }, [healthcardType, barangayId, periodsBack, periodsForecast, granularity]);
+  }, [healthcardType, barangayId, selectedYear, periodsForecast, granularity]);
 
   // Helper: Format date labels based on granularity
   const formatDateLabel = (dateStr: string): string => {
@@ -408,6 +468,71 @@ export default function HealthCardSARIMAChart({
         </div>
       )}
 
+      {/* Year Filter (Industry Standard - Clean Shortcuts Only) */}
+      {granularity === 'monthly' && (
+        <div className="bg-white rounded-lg shadow p-4 border border-gray-200">
+          <div className="flex items-center gap-2 mb-3">
+            <Calendar className="w-4 h-4 text-gray-600" />
+            <h3 className="text-sm font-semibold text-gray-900">Time Range</h3>
+          </div>
+          <div className="space-y-4">
+            {/* Quick Date Shortcuts - This Year, All Time */}
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-2">
+                Select Year
+              </label>
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  onClick={() => setSelectedYear(currentYear)}
+                  className={`px-4 py-3 text-sm font-medium rounded-lg transition-all ${
+                    selectedYear === currentYear
+                      ? 'bg-[#20C997] text-white shadow-md'
+                      : 'bg-gray-50 text-gray-700 hover:bg-gray-100 border border-gray-200'
+                  }`}
+                >
+                  <div className="font-semibold">This Year</div>
+                  <div className="text-xs mt-1 opacity-90">{currentYear}</div>
+                </button>
+                <button
+                  onClick={() => setSelectedYear(availableYears[0])}
+                  className={`px-4 py-3 text-sm font-medium rounded-lg transition-all ${
+                    selectedYear === availableYears[0]
+                      ? 'bg-[#20C997] text-white shadow-md'
+                      : 'bg-gray-50 text-gray-700 hover:bg-gray-100 border border-gray-200'
+                  }`}
+                >
+                  <div className="font-semibold">All Time</div>
+                  <div className="text-xs mt-1 opacity-90">
+                    {availableYears.length > 0 ? `${availableYears[0]}-${currentYear}` : currentYear}
+                  </div>
+                </button>
+              </div>
+              <p className="text-xs text-gray-500 mt-2">
+                Showing data: Jan 1 - Dec 31, {selectedYear}
+              </p>
+            </div>
+
+            {/* Forecast Period */}
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-2">
+                Forecast Period
+              </label>
+              <select
+                value={selectedMonthsForecast}
+                onChange={(e) => setSelectedMonthsForecast(Number(e.target.value))}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#20C997] text-sm"
+              >
+                <option value={3}>3 Months Ahead</option>
+                <option value={6}>6 Months Ahead</option>
+                <option value={12}>12 Months Ahead (1 Year)</option>
+                <option value={18}>18 Months Ahead</option>
+                <option value={24}>24 Months Ahead (2 Years)</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Summary Statistics */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
         <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
@@ -415,9 +540,9 @@ export default function HealthCardSARIMAChart({
             <TrendingUp className="h-4 w-4 text-blue-600" />
             <span className="text-xs font-medium text-blue-900">Total Historical</span>
           </div>
-          <p className="text-2xl font-bold text-blue-900">{chartData.total_historical}</p>
+          <p className="text-2xl font-bold text-blue-900">{metadata?.data_points_count || 0}</p>
           <p className="text-xs text-blue-700 mt-1">
-            Last {periodsBack} {granularity === 'monthly' ? 'months' : 'days'}
+            For the year {selectedYear}
           </p>
         </div>
 
@@ -466,6 +591,13 @@ export default function HealthCardSARIMAChart({
           <p className="text-sm font-bold text-orange-900">
             {getHealthCardTypeLabel(healthcardType)}
           </p>
+          {/* Service ID Mapping:
+              - Food Handler: Services 12 (Pink Card) & 13 (Yellow Card)
+              - Non-Food: Services 14 (Individual) & 15 (Establishment)
+              These service IDs are appointment-based categories. When healthcare admins
+              complete appointments for these services, health cards are auto-generated
+              with the corresponding card_type (food_handler or non_food).
+          */}
           <p className="text-xs text-orange-700 mt-1">
             {healthcardType === 'food_handler' ? 'Services 12-13' : 'Services 14-15'}
           </p>

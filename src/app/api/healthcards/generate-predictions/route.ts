@@ -14,7 +14,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createClient, createAdminClient } from '@/lib/supabase/server';
 import { HealthCardType } from '@/types/healthcard';
 import { isValidHealthCardType } from '@/lib/utils/healthcardHelpers';
 import { generateSARIMAPredictions, formatHistoricalData } from '@/lib/sarima/localSARIMA';
@@ -79,17 +79,48 @@ export async function POST(request: NextRequest) {
     // ========================================================================
 
     // Super Admins can generate for any healthcard type
-    // Healthcare Admins can only generate for their assigned service's healthcard type
+    // Healthcare Admins with 'healthcard' category can generate for Yellow and Green (NOT pink)
+    // Healthcare Admins with 'hiv' category can ONLY generate for Pink cards
     if (profile.role === 'healthcare_admin') {
-      // Check if assigned service matches the requested healthcard type
-      if (!profile.assigned_service_id || !serviceIds.includes(profile.assigned_service_id)) {
-        const assignedType = profile.assigned_service_id
-          ? ([12, 13].includes(profile.assigned_service_id) ? 'food_handler' : 'non_food')
-          : 'none';
+      const { data: fullProfile } = await supabase
+        .from('profiles')
+        .select('admin_category')
+        .eq('id', user.id)
+        .single();
+
+      const adminCategory = fullProfile?.admin_category;
+
+      // HealthCard admins can generate for Yellow and Green cards only
+      if (adminCategory === 'healthcard') {
+        if (healthcardType === 'pink') {
+          return NextResponse.json(
+            {
+              success: false,
+              error: 'Forbidden: HealthCard admins cannot generate predictions for Pink cards. Pink cards are managed by HIV admins.',
+            },
+            { status: 403 }
+          );
+        }
+        // Allow food_handler and non_food
+      }
+      // HIV admins can ONLY generate for Pink cards
+      else if (adminCategory === 'hiv') {
+        if (healthcardType !== 'pink') {
+          return NextResponse.json(
+            {
+              success: false,
+              error: 'Forbidden: HIV admins can only generate predictions for Pink cards.',
+            },
+            { status: 403 }
+          );
+        }
+      }
+      // Other admin categories cannot access this endpoint
+      else {
         return NextResponse.json(
           {
             success: false,
-            error: `Forbidden: Healthcare Admins can only generate predictions for their assigned service type (${assignedType})`,
+            error: `Forbidden: Healthcare Admins with category '${adminCategory}' cannot generate healthcard predictions.`,
           },
           { status: 403 }
         );
@@ -114,7 +145,11 @@ export async function POST(request: NextRequest) {
     // Fetch Historical Data
     // ========================================================================
 
-    let query = supabase
+    // Use admin client to bypass RLS for fetching system-wide appointment data
+    // (authentication already verified above)
+    const adminClient = createAdminClient();
+
+    let query = adminClient
       .from('appointments')
       .select('id, completed_at, service_id, patient_id')
       .eq('status', 'completed')
@@ -125,7 +160,7 @@ export async function POST(request: NextRequest) {
     // Apply barangay filter if specified
     if (barangayId !== null) {
       // Join with patients and profiles to filter by barangay
-      query = supabase
+      query = adminClient
         .from('appointments')
         .select(`
           id,
@@ -164,10 +199,76 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log('[Generate Predictions API] Historical data points:', appointments.length);
+    console.log('[Generate Predictions API] Found appointments:', appointments.length);
+
+    // ========================================================================
+    // Fetch Excel-Imported Historical Statistics
+    // ========================================================================
+
+    let statisticsQuery = adminClient
+      .from('healthcard_statistics')
+      .select('*')
+      .eq('healthcard_type', healthcardType)
+      .order('record_date', { ascending: true });
+
+    // Apply barangay filter if specified
+    if (barangayId !== null) {
+      statisticsQuery = statisticsQuery.eq('barangay_id', barangayId);
+    }
+
+    const { data: importedStats, error: statsError } = await statisticsQuery;
+
+    if (statsError) {
+      console.error('[Generate Predictions API] Statistics query error:', statsError);
+      // Don't fail - just log and continue with appointment data only
+      console.warn('[Generate Predictions API] Continuing without imported statistics');
+    }
+
+    console.log('[Generate Predictions API] Found imported statistics:', importedStats?.length || 0);
+
+    // ========================================================================
+    // Merge Both Data Sources
+    // ========================================================================
+
+    // Aggregate by date (YYYY-MM-DD format)
+    const cardsByDate = new Map<string, number>();
+
+    // First, add Excel-imported statistics
+    importedStats?.forEach((stat: any) => {
+      const date = stat.record_date;
+      cardsByDate.set(date, (cardsByDate.get(date) || 0) + stat.cards_issued);
+    });
+
+    console.log(`[Generate Predictions API] Cards map after imported data: ${cardsByDate.size} dates`);
+
+    // Then, add real appointment data
+    appointments?.forEach((appointment: any) => {
+      const completedDate = new Date(appointment.completed_at).toISOString().split('T')[0];
+      cardsByDate.set(completedDate, (cardsByDate.get(completedDate) || 0) + 1);
+    });
+
+    // Convert to array for SARIMA
+    const mergedAppointments = Array.from(cardsByDate.entries())
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([date, count]) => ({
+        completed_at: date,
+        count: count,
+      }));
+
+    console.log('[Generate Predictions API] Total merged data points:', mergedAppointments.length);
+
+    if (!mergedAppointments || mergedAppointments.length < 7) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: `Insufficient historical data. Found ${mergedAppointments?.length || 0} data points, need at least 7 for accurate predictions.`,
+        },
+        { status: 400 }
+      );
+    }
 
     // Format historical data
-    const historicalData = formatHistoricalData(appointments);
+    const historicalData = formatHistoricalData(mergedAppointments);
 
     console.log('[Generate Predictions API] Formatted data points:', historicalData.length);
 
@@ -295,6 +396,11 @@ export async function POST(request: NextRequest) {
           generated_at: new Date().toISOString(),
         },
         historical_data_points: historicalData.length,
+        data_sources: {
+          appointments: appointments.length,
+          imported_statistics: importedStats?.length || 0,
+          merged_dates: mergedAppointments.length,
+        },
         saved_to_database: autoSave,
         saved_count: savedCount,
       },

@@ -556,12 +556,11 @@ export async function GET(request: NextRequest) {
       query = query.eq('patient_id', patientRecord.id);
 
     } else if (profile.role === 'healthcare_admin') {
-      // Healthcare admins see appointments for their assigned service only
-      console.log('🔍 [HEALTHCARE ADMIN] Assigned service ID:', profile.assigned_service_id);
+      // Healthcare admins see appointments based on their admin_category
+      console.log('🔍 [HEALTHCARE ADMIN] Admin category:', profile.admin_category);
 
-      if (!profile.assigned_service_id) {
-        console.warn('⚠️ [HEALTHCARE ADMIN] No service assigned to this admin');
-        // Return empty array if no service assigned
+      if (!profile.admin_category) {
+        console.warn('⚠️ [HEALTHCARE ADMIN] No admin category assigned');
         return NextResponse.json({
           success: true,
           data: [],
@@ -573,13 +572,47 @@ export async function GET(request: NextRequest) {
             hasNextPage: false,
             hasPreviousPage: false,
           },
-          message: 'No service assigned to your account. Please contact an administrator.'
+          message: 'No service category assigned to your account. Please contact an administrator.'
         });
       }
 
-      // Filter by assigned service ID
-      console.log('✅ [HEALTHCARE ADMIN] Filtering by service_id:', profile.assigned_service_id);
-      query = query.eq('service_id', profile.assigned_service_id);
+      // Filter by admin category using service IDs
+      if (profile.admin_category === 'healthcard') {
+        // Healthcard admin sees services 12-15 (yellow and green cards ONLY, excludes pink)
+        console.log('✅ [HEALTHCARE ADMIN] Filtering healthcard services (12-15), excluding pink cards');
+        query = query.in('service_id', [12, 13, 14, 15]);
+        // Exclude pink cards (healthcard admin only handles yellow and green)
+        query = query.or('card_type.is.null,card_type.neq.pink');
+      } else if (profile.admin_category === 'hiv') {
+        // HIV admin sees service 16 only
+        console.log('✅ [HEALTHCARE ADMIN] Filtering HIV service (16)');
+        query = query.eq('service_id', 16);
+      } else if (profile.admin_category === 'pregnancy') {
+        // Pregnancy admin sees service 17 only
+        console.log('✅ [HEALTHCARE ADMIN] Filtering Pregnancy service (17)');
+        query = query.eq('service_id', 17);
+      } else {
+        // Other categories: fall back to assigned_service_id if available
+        if (profile.assigned_service_id) {
+          console.log('✅ [HEALTHCARE ADMIN] Filtering by assigned service:', profile.assigned_service_id);
+          query = query.eq('service_id', profile.assigned_service_id);
+        } else {
+          console.warn('⚠️ [HEALTHCARE ADMIN] Unknown category and no service assigned');
+          return NextResponse.json({
+            success: true,
+            data: [],
+            pagination: {
+              page,
+              limit,
+              total: 0,
+              totalPages: 0,
+              hasNextPage: false,
+              hasPreviousPage: false,
+            },
+            message: 'Service configuration incomplete. Please contact an administrator.'
+          });
+        }
+      }
 
       if (patientId) {
         query = query.eq('patient_id', patientId);

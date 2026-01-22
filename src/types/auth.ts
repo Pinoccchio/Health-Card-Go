@@ -43,15 +43,17 @@ export const ROLE_NAMES: Record<RoleId, string> = {
 } as const;
 
 /**
- * DEPRECATED: AdminCategory is no longer used.
- * Healthcare Admins are now assigned to specific services via assigned_service_id.
+ * AdminCategory - PRIMARY authorization field for Healthcare Admins
  *
- * Previous categories mapped to services:
- * - healthcard → Health Card Service
- * - hiv → HIV/AIDS Service
- * - pregnancy → Pregnancy Service
- * - laboratory → Laboratory Service
- * - immunization → Immunization Service
+ * This field defines what category of services a Healthcare Admin can access:
+ * - healthcard → Health Card Services (Yellow Card: 12,13 | Green Card: 14,15)
+ * - hiv → HIV/AIDS Services (Pink Card & HIV Testing: 16)
+ * - pregnancy → Pregnancy Services (Prenatal Checkup: 17)
+ * - laboratory → Laboratory Services
+ * - immunization → Immunization Services
+ *
+ * Note: assigned_service_id exists for backward compatibility but admin_category
+ * is the primary field used for authorization throughout the system.
  */
 export type AdminCategory =
   | 'healthcard'
@@ -80,8 +82,8 @@ export interface User {
   first_name: string;
   last_name: string;
   role_id: RoleId;
-  admin_category?: AdminCategory; // DEPRECATED: Use assigned_service_id instead
-  assigned_service_id?: number; // For healthcare admins - references services.id
+  admin_category?: AdminCategory; // PRIMARY: Authorization category for healthcare admins
+  assigned_service_id?: number; // LEGACY: Kept for backward compatibility, use admin_category instead
   status: UserStatus;
   barangay_id?: number;
   barangay_name?: string;

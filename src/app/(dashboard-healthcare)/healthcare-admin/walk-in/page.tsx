@@ -8,7 +8,6 @@ import { Drawer } from '@/components/ui/Drawer';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { StatusHistoryModal } from '@/components/appointments/StatusHistoryModal';
 import { TimeElapsedBadge } from '@/components/appointments/TimeElapsedBadge';
-import { AppointmentCompletionModal } from '@/components/appointments/AppointmentCompletionModal';
 import { WalkInRegistrationModal } from '@/components/walk-in/WalkInRegistrationModal';
 import { EnhancedTable } from '@/components/ui/EnhancedTable';
 import { APPOINTMENT_STATUS_CONFIG } from '@/lib/constants/colors';
@@ -113,8 +112,6 @@ export default function WalkInQueuePage() {
   const [selectedPatient, setSelectedPatient] = useState<WalkInPatient | null>(null);
   const [showDrawer, setShowDrawer] = useState(false);
   const [showStatusHistory, setShowStatusHistory] = useState(false);
-  const [showCompletionModal, setShowCompletionModal] = useState(false);
-  const [appointmentToComplete, setAppointmentToComplete] = useState<any | null>(null);
   const [lastHistoryEntries, setLastHistoryEntries] = useState<Record<string, { id: string; from_status: string | null } | null>>({});
   const [hasMedicalRecords, setHasMedicalRecords] = useState<Record<string, boolean | null>>({});
 
@@ -381,45 +378,34 @@ export default function WalkInQueuePage() {
     }
   };
 
-  // Handle completing a consultation (open completion modal)
-  const handleCompleteConsultation = (appointmentId: string) => {
-    const patient = walkInQueue.find(p => p.appointment_id === appointmentId);
-    if (!patient) return;
+  // Handle completing a consultation (direct completion)
+  const handleCompleteConsultation = async (appointmentId: string) => {
+    try {
+      const response = await fetch(`/api/appointments/${appointmentId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          status: 'completed',
+          completed_at: new Date().toISOString(),
+        }),
+      });
 
-    // Transform WalkInPatient to match AppointmentCompletionModal's expected structure
-    const appointmentData = {
-      id: patient.appointment_id,
-      appointment_number: patient.queue_number,
-      appointment_date: new Date().toISOString().split('T')[0],
-      appointment_time: patient.appointment_time,
-      time_block: (patient.appointment_time.split(':')[0] < '13' ? 'AM' : 'PM') as 'AM' | 'PM',
-      service_id: user?.assigned_service_id || 0,
-      patients: {
-        id: patient.id,
-        patient_number: patient.patient_number,
-        profiles: {
-          first_name: patient.first_name,
-          last_name: patient.last_name,
-          email: patient.email,
-        },
-      },
-    };
+      if (!response.ok) {
+        throw new Error('Failed to complete appointment');
+      }
 
-    setAppointmentToComplete(appointmentData);
-    setSelectedPatient(patient);
-    setShowCompletionModal(true);
-  };
+      // Close UI and show success
+      setShowDrawer(false);
+      setSelectedPatient(null);
+      toast.success('Appointment completed successfully');
+      setRefreshTrigger(prev => prev + 1);
 
-  // Handle completion success
-  const handleCompletionSuccess = () => {
-    setShowCompletionModal(false);
-    setShowDrawer(false);
-    setSelectedPatient(null);
-    setAppointmentToComplete(null);
-    toast.success('Appointment completed successfully');
-    setRefreshTrigger(prev => prev + 1);
-    // Refetch history to update undo button availability
-    setTimeout(() => fetchAllLastHistoryEntries(), 500);
+      // Refetch history to update undo button availability
+      setTimeout(() => fetchAllLastHistoryEntries(), 500);
+    } catch (error) {
+      console.error('Error completing appointment:', error);
+      toast.error('Failed to complete appointment');
+    }
   };
 
   // Handle undo last action
@@ -1235,19 +1221,6 @@ export default function WalkInQueuePage() {
             isOpen={showStatusHistory}
             onClose={() => setShowStatusHistory(false)}
             appointmentId={selectedPatient.appointment_id}
-          />
-        )}
-
-        {/* Appointment Completion Modal */}
-        {appointmentToComplete && (
-          <AppointmentCompletionModal
-            isOpen={showCompletionModal}
-            onClose={() => {
-              setShowCompletionModal(false);
-              setAppointmentToComplete(null);
-            }}
-            appointment={appointmentToComplete}
-            onSuccess={handleCompletionSuccess}
           />
         )}
 

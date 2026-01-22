@@ -9,71 +9,109 @@ import * as path from 'path';
 
 // Template data with VALID, IMPORTABLE examples
 // These records can be imported directly for testing without modification
-// Using mostly system-wide (blank barangay) to avoid validation errors
+// Using historical dates (2020-2022) to avoid double-counting with live appointment data
+// System began tracking appointments in 2023, so these are pre-system historical records
 const templateData = [
+  // 2020 Historical Data (Pre-System)
   {
-    'Record Date': '2024-01-15',
+    'Record Date': '2020-03-15',
     'HealthCard Type': 'food_handler',
-    'Cards Issued': 25,
+    'Cards Issued': 45,
     'Barangay': 'Datu Abdul Dadia',
-    'Source': 'CHO Manual Count',
-    'Notes': 'January 2024 batch processing'
+    'Source': 'CHO Manual Records',
+    'Notes': 'Q1 2020 - Pre-pandemic batch'
   },
   {
-    'Record Date': '2024-01-20',
+    'Record Date': '2020-06-10',
     'HealthCard Type': 'non_food',
-    'Cards Issued': 15,
+    'Cards Issued': 32,
+    'Barangay': 'Gredu',
+    'Source': 'CHO Manual Records',
+    'Notes': 'Q2 2020 - Limited operations due to COVID-19'
+  },
+  {
+    'Record Date': '2020-09-20',
+    'HealthCard Type': 'food_handler',
+    'Cards Issued': 38,
     'Barangay': '',
     'Source': 'DOH Regional Data',
-    'Notes': 'January system-wide processing'
+    'Notes': 'Q3 2020 - Gradual reopening of food establishments'
   },
   {
-    'Record Date': '2024-02-01',
-    'HealthCard Type': 'food_handler',
-    'Cards Issued': 30,
-    'Barangay': '',
-    'Source': 'CHO Records',
-    'Notes': 'Q1 2024 system-wide batch'
-  },
-  {
-    'Record Date': '2024-02-10',
-    'HealthCard Type': 'non_food',
-    'Cards Issued': 18,
-    'Barangay': '',
-    'Source': 'CHO Manual Count',
-    'Notes': 'February system-wide processing'
-  },
-  {
-    'Record Date': '2024-02-15',
-    'HealthCard Type': 'food_handler',
-    'Cards Issued': 22,
-    'Barangay': '',
-    'Source': 'CHO Records',
-    'Notes': 'Mid-February system-wide batch'
-  },
-  {
-    'Record Date': '2024-03-01',
+    'Record Date': '2020-12-05',
     'HealthCard Type': 'non_food',
     'Cards Issued': 28,
     'Barangay': '',
-    'Source': 'DOH Bulletin',
-    'Notes': 'March system-wide processing'
+    'Source': 'CHO Manual Records',
+    'Notes': 'Q4 2020 - Year-end processing'
   },
+
+  // 2021 Historical Data (Pre-System)
   {
-    'Record Date': '2024-03-15',
+    'Record Date': '2021-02-14',
     'HealthCard Type': 'food_handler',
-    'Cards Issued': 35,
-    'Barangay': '',
-    'Source': 'CHO Manual Count',
-    'Notes': 'March mid-month system-wide batch'
+    'Cards Issued': 52,
+    'Barangay': 'New Pandan (Poblacion)',
+    'Source': 'CHO Manual Records',
+    'Notes': 'Q1 2021 - Recovery period processing'
   },
   {
-    'Record Date': '2024-03-20',
+    'Record Date': '2021-05-22',
     'HealthCard Type': 'non_food',
-    'Cards Issued': 20,
+    'Cards Issued': 41,
+    'Barangay': 'San Francisco (Poblacion)',
+    'Source': 'DOH Regional Data',
+    'Notes': 'Q2 2021 - Increased applications'
+  },
+  {
+    'Record Date': '2021-08-18',
+    'HealthCard Type': 'food_handler',
+    'Cards Issued': 47,
     'Barangay': '',
-    'Source': 'CHO Records',
-    'Notes': 'March system-wide processing'
+    'Source': 'CHO Manual Records',
+    'Notes': 'Q3 2021 - Surge in food handler certifications'
+  },
+  {
+    'Record Date': '2021-11-10',
+    'HealthCard Type': 'non_food',
+    'Cards Issued': 35,
+    'Barangay': 'Kasilak',
+    'Source': 'CHO Manual Records',
+    'Notes': 'Q4 2021 - Year-end batch'
+  },
+
+  // 2022 Historical Data (Pre-System)
+  {
+    'Record Date': '2022-01-25',
+    'HealthCard Type': 'food_handler',
+    'Cards Issued': 58,
+    'Barangay': '',
+    'Source': 'CHO Manual Records',
+    'Notes': 'Q1 2022 - High demand from restaurants'
+  },
+  {
+    'Record Date': '2022-04-12',
+    'HealthCard Type': 'non_food',
+    'Cards Issued': 44,
+    'Barangay': 'Dapco',
+    'Source': 'DOH Regional Data',
+    'Notes': 'Q2 2022 - Office workers returning'
+  },
+  {
+    'Record Date': '2022-07-08',
+    'HealthCard Type': 'food_handler',
+    'Cards Issued': 63,
+    'Barangay': 'Mabunao',
+    'Source': 'CHO Manual Records',
+    'Notes': 'Q3 2022 - Peak season processing'
+  },
+  {
+    'Record Date': '2022-10-15',
+    'HealthCard Type': 'non_food',
+    'Cards Issued': 39,
+    'Barangay': '',
+    'Source': 'CHO Manual Records',
+    'Notes': 'Q4 2022 - Final pre-system batch'
   },
 ];
 

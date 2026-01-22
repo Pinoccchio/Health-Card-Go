@@ -4,6 +4,12 @@
  *
  * Imports historical appointment data for services (HIV Testing & Counseling, Prenatal Checkup)
  * Used for SARIMA prediction training data
+ *
+ * Authorization:
+ * - Super Admin: Can import any service data
+ * - Healthcare Admin with admin_category='hiv': Can import service 16 (HIV) data only
+ * - Healthcare Admin with admin_category='pregnancy': Can import service 17 (Pregnancy) data only
+ * - All other roles: Forbidden
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -50,18 +56,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Authorization: Only Healthcare Admin (for their service) or Super Admin
-    const isSuperAdmin = profile.role === 'super_admin';
-    const isHealthcareAdmin = profile.role === 'healthcare_admin';
-
-    if (!isSuperAdmin && !isHealthcareAdmin) {
-      return NextResponse.json(
-        { success: false, error: 'Access denied. Only Healthcare Admins and Super Admins can import data.' },
-        { status: 403 }
-      );
-    }
-
-    // Parse request body
+    // Parse request body first to get service_id
     const body: ImportRequest = await request.json();
     const { records, service_id } = body;
 
@@ -73,12 +68,35 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // For Healthcare Admin, verify they're assigned to this service
-    if (isHealthcareAdmin && profile.assigned_service_id !== service_id) {
+    // Authorization based on admin_category
+    // Super Admins can import any service data
+    // Healthcare Admins must have matching admin_category
+    const isSuperAdmin = profile.role === 'super_admin';
+    const isHealthcareAdmin = profile.role === 'healthcare_admin';
+
+    if (!isSuperAdmin && !isHealthcareAdmin) {
       return NextResponse.json(
-        { success: false, error: 'Access denied. You can only import data for your assigned service.' },
+        { success: false, error: 'Access denied. Only Healthcare Admins and Super Admins can import data.' },
         { status: 403 }
       );
+    }
+
+    // For Healthcare Admin, verify admin_category matches service
+    if (isHealthcareAdmin && !isSuperAdmin) {
+      // Service 16 = HIV Testing & Counseling (requires admin_category='hiv')
+      // Service 17 = Prenatal Checkup (requires admin_category='pregnancy')
+      const requiredCategory = service_id === 16 ? 'hiv' : 'pregnancy';
+
+      if (profile.admin_category !== requiredCategory) {
+        const serviceName = service_id === 16 ? 'HIV' : 'Pregnancy';
+        return NextResponse.json(
+          {
+            success: false,
+            error: `Forbidden: Only ${requiredCategory.toUpperCase()} admins can import ${serviceName} historical data. Your category is '${profile.admin_category}'.`
+          },
+          { status: 403 }
+        );
+      }
     }
 
     // Validate records array
@@ -114,49 +132,79 @@ export async function POST(request: NextRequest) {
       barangays.map(b => [b.name.toLowerCase(), b.id])
     );
 
-    // Process records: Convert appointment data to aggregated monthly format
-    // Since we're importing monthly aggregates, we'll store them in a synthetic appointments structure
-    // OR we can use a dedicated `service_appointment_statistics` table (similar to `healthcard_statistics`)
+    // Process records: Convert monthly appointment data to database records
+    // Group by month and aggregate ALL statuses (completed, cancelled, no_show) into single completed count
+    const monthlyAggregates = new Map<string, {
+      service_id: number;
+      record_date: string;
+      appointments_completed: number;
+      barangay_id: number | null;
+      source: string;
+      notes: string | null;
+    }>();
 
-    // For now, we'll use a simplified approach: Store in JSON metadata format
-    // that the SARIMA API can read for training
-
-    const processedRecords = records.map(record => {
+    records.forEach(record => {
       const barangayId = record.barangay
         ? barangayMap.get(record.barangay.toLowerCase()) || null
         : null;
 
-      return {
-        service_id,
-        appointment_month: record.appointment_month,
-        status: record.status,
-        appointment_count: record.appointment_count,
-        barangay_id: barangayId,
-        source: record.source || 'Excel Import',
-        notes: record.notes || null,
-        created_by_id: user.id,
-        created_at: new Date().toISOString(),
-      };
+      // Convert YYYY-MM to first day of month (YYYY-MM-01)
+      const recordDate = `${record.appointment_month}-01`;
+
+      // Create unique key for each month-barangay combination
+      const key = `${recordDate}|${barangayId || 'null'}`;
+
+      if (!monthlyAggregates.has(key)) {
+        monthlyAggregates.set(key, {
+          service_id,
+          record_date: recordDate,
+          appointments_completed: 0,
+          barangay_id: barangayId,
+          source: record.source || 'Excel Import',
+          notes: record.notes || null,
+        });
+      }
+
+      // Add appointment count (all statuses combined)
+      monthlyAggregates.get(key)!.appointments_completed += record.appointment_count;
     });
 
-    // Since there's no dedicated table yet, let's create temporary storage in service_predictions
-    // metadata field or create a new table. For now, we'll use a workaround:
-    // Store as metadata in the database using a custom table or JSONB field
+    // Convert to array for insertion
+    const insertRecords = Array.from(monthlyAggregates.values()).map(record => ({
+      ...record,
+      created_by_id: user.id,
+    }));
 
-    // TEMPORARY SOLUTION: Store in a metadata table or use existing structure
-    // For production, should create `service_appointment_statistics` table
+    console.log(`📊 [SERVICE IMPORT] Inserting ${insertRecords.length} aggregated monthly records for service ${service_id}`);
 
-    // For now, let's acknowledge the limitation and return success with a note
-    console.log('Service appointment records to import:', processedRecords.length);
+    // Insert into service_appointment_statistics table
+    const { data: insertedData, error: insertError } = await supabase
+      .from('service_appointment_statistics')
+      .insert(insertRecords)
+      .select();
+
+    if (insertError) {
+      console.error('❌ [SERVICE IMPORT] Insert error:', insertError);
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Failed to save appointment statistics',
+          details: insertError.message
+        },
+        { status: 500 }
+      );
+    }
+
+    console.log(`✅ [SERVICE IMPORT] Successfully inserted ${insertedData?.length || 0} records`);
 
     return NextResponse.json({
       success: true,
-      message: `Successfully imported ${processedRecords.length} appointment records`,
+      message: `Successfully imported ${records.length} appointment records (${insertedData?.length} monthly aggregates saved)`,
       data: {
-        imported_count: processedRecords.length,
+        imported_count: records.length,
+        saved_aggregates: insertedData?.length || 0,
         service_id,
       },
-      note: 'Data imported successfully. Historical appointment data is now available for SARIMA predictions.',
     });
 
   } catch (error) {

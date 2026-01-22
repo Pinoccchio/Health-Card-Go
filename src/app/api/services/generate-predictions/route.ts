@@ -14,7 +14,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createClient, createAdminClient } from '@/lib/supabase/server';
 import { runLocalSARIMA } from '@/lib/sarima/localSARIMA';
 
 export async function POST(request: NextRequest) {
@@ -106,7 +106,11 @@ export async function POST(request: NextRequest) {
     // Fetch Historical Appointment Data
     // ========================================================================
 
-    let query = supabase
+    // Use admin client to bypass RLS for fetching system-wide appointment data
+    // (authentication already verified above)
+    const adminClient = createAdminClient();
+
+    let query = adminClient
       .from('appointments')
       .select('appointment_date, status')
       .eq('service_id', serviceId)
@@ -116,7 +120,7 @@ export async function POST(request: NextRequest) {
     // Apply barangay filter if specified
     if (barangayId !== null) {
       // Join with patients to filter by barangay
-      query = supabase
+      query = adminClient
         .from('appointments')
         .select(`
           appointment_date,
@@ -151,16 +155,48 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log('[Generate Service Predictions API] Historical data points:', appointments.length);
+    console.log('[Generate Service Predictions API] Found appointments:', appointments.length);
 
     // ========================================================================
-    // Aggregate Appointments by Date
+    // Fetch Excel-Imported Historical Statistics
+    // ========================================================================
+
+    let statisticsQuery = adminClient
+      .from('service_appointment_statistics')
+      .select('*')
+      .eq('service_id', serviceId)
+      .order('record_date', { ascending: true });
+
+    if (barangayId !== null) {
+      statisticsQuery = statisticsQuery.eq('barangay_id', barangayId);
+    }
+
+    const { data: importedStats, error: statsError } = await statisticsQuery;
+
+    if (statsError) {
+      console.error('[Generate Service Predictions API] Statistics query error:', statsError);
+      // Don't fail - just log and continue with appointment data only
+      console.warn('[Generate Service Predictions API] Continuing without imported statistics');
+    }
+
+    console.log(`[Generate Service Predictions API] Found ${importedStats?.length || 0} imported statistics records`);
+
+    // ========================================================================
+    // Merge Both Data Sources - Aggregate by Date
     // ========================================================================
 
     const appointmentsByDate = new Map<string, number>();
 
-    // Count appointments per date
-    appointments.forEach((appointment: any) => {
+    // First, add Excel-imported statistics
+    importedStats?.forEach((stat: any) => {
+      const date = stat.record_date;
+      appointmentsByDate.set(date, (appointmentsByDate.get(date) || 0) + stat.appointments_completed);
+    });
+
+    console.log(`[Generate Service Predictions API] Appointments map after imported data: ${appointmentsByDate.size} dates`);
+
+    // Then, add real appointment data
+    appointments?.forEach((appointment: any) => {
       const date = appointment.appointment_date;
       appointmentsByDate.set(date, (appointmentsByDate.get(date) || 0) + 1);
     });
@@ -173,7 +209,17 @@ export async function POST(request: NextRequest) {
         value: count,
       }));
 
-    console.log('[Generate Service Predictions API] Aggregated data points:', historicalData.length);
+    console.log('[Generate Service Predictions API] Total merged data points:', historicalData.length);
+
+    if (historicalData.length < 7) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: `Insufficient historical data. Found ${historicalData.length} data points, need at least 7 for accurate predictions.`,
+        },
+        { status: 400 }
+      );
+    }
 
     // Check data quality
     let dataQuality: 'high' | 'moderate' | 'insufficient' = 'high';
@@ -314,6 +360,11 @@ export async function POST(request: NextRequest) {
           generated_at: new Date().toISOString(),
         },
         historical_data_points: historicalData.length,
+        data_sources: {
+          appointments: appointments.length,
+          imported_statistics: importedStats?.length || 0,
+          merged_dates: historicalData.length,
+        },
         saved_to_database: autoSave,
         saved_count: savedCount,
       },

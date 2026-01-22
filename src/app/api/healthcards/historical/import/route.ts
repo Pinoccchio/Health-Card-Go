@@ -1,11 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { validateHealthcardHistoricalRecord } from '@/lib/utils/healthcardExcelParser';
+import { getBarangayId, type Barangay } from '@/lib/utils/barangayMatcher';
 
 /**
  * POST /api/healthcards/historical/import
  * Batch import historical healthcard statistics from Excel
- * (Staff and Super Admin only)
+ * (HealthCard Admin and Super Admin only)
+ *
+ * Authorization:
+ * - Super Admin: Can import any healthcard data
+ * - Healthcare Admin with admin_category='healthcard': Can import healthcard data
+ * - All other roles: Forbidden
  *
  * Request body: { records: Array<HealthcardHistoricalRecord> }
  * Response: { success: boolean, data: { imported_count, failed_count, errors } }
@@ -24,10 +30,10 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    // Get user profile and check role
+    // Get user profile and check role + admin_category
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
-      .select('id, role')
+      .select('id, role, admin_category')
       .eq('id', user.id)
       .single();
 
@@ -38,10 +44,25 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Only Staff and Super Admin can import historical healthcard statistics
-    if (profile.role !== 'staff' && profile.role !== 'super_admin') {
+    // Authorization: Only HealthCard Admins and Super Admins can import healthcard statistics
+    // Super Admins have unrestricted access
+    // Healthcare Admins must have admin_category = 'healthcard'
+    if (profile.role === 'super_admin') {
+      // Super Admins can import any healthcard data
+    } else if (profile.role === 'healthcare_admin') {
+      if (profile.admin_category !== 'healthcard') {
+        return NextResponse.json(
+          {
+            success: false,
+            error: `Forbidden: Only HealthCard admins can import HealthCard historical data. Your category is '${profile.admin_category}'.`
+          },
+          { status: 403 }
+        );
+      }
+    } else {
+      // All other roles (staff, patient, etc.) are forbidden
       return NextResponse.json(
-        { success: false, error: 'Only Staff and Super Admins can import healthcard statistics' },
+        { success: false, error: 'Forbidden: Only HealthCard admins and Super Admins can import HealthCard statistics' },
         { status: 403 }
       );
     }
@@ -84,6 +105,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const barangayList: Barangay[] = barangays;
+
     // Validate each record
     const validRecords = [];
     const errors = [];
@@ -92,8 +115,8 @@ export async function POST(request: NextRequest) {
       const record = records[i];
       const rowNum = i + 1;
 
-      // Validate record
-      const validationErrors = validateHealthcardHistoricalRecord(record, barangays);
+      // Validate record using fuzzy matcher
+      const validationErrors = validateHealthcardHistoricalRecord(record, barangayList);
 
       if (validationErrors.length > 0) {
         errors.push({
@@ -101,14 +124,8 @@ export async function POST(request: NextRequest) {
           errors: validationErrors,
         });
       } else {
-        // Find barangay ID if barangay name provided
-        let barangayId = null;
-        if (record.barangay && record.barangay.trim() !== '') {
-          const barangay = barangays.find(
-            (b) => b.name.toLowerCase() === record.barangay.toLowerCase().trim()
-          );
-          barangayId = barangay?.id || null;
-        }
+        // Find barangay ID using fuzzy matcher
+        const barangayId = getBarangayId(record.barangay, barangayList);
 
         // Prepare record for insertion
         validRecords.push({

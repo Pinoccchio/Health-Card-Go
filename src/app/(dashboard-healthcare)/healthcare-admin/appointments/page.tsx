@@ -9,7 +9,6 @@ import { ProfessionalCard } from '@/components/ui/ProfessionalCard';
 import { EnhancedTable } from '@/components/ui/EnhancedTable';
 import { Drawer } from '@/components/ui/Drawer';
 import { StatusHistoryModal } from '@/components/appointments/StatusHistoryModal';
-import { AppointmentCompletionModal } from '@/components/appointments/AppointmentCompletionModal';
 import { TimeElapsedBadge } from '@/components/appointments/TimeElapsedBadge';
 import { DocumentReviewPanel } from '@/components/healthcare-admin/DocumentReviewPanel';
 import AppointmentStageTracker from '@/components/appointments/AppointmentStageTracker';
@@ -127,10 +126,9 @@ export default function HealthcareAdminAppointmentsPage() {
   const [successMessage, setSuccessMessage] = useState('');
 
   // Date-based queue view state
-  const [selectedDate, setSelectedDate] = useState<string>(() => {
-    const nowPHT = getPhilippineTime();
-    return `${nowPHT.getUTCFullYear()}-${String(nowPHT.getUTCMonth() + 1).padStart(2, '0')}-${String(nowPHT.getUTCDate()).padStart(2, '0')}`;
-  });
+  // Start with 'all' to show all appointments initially
+  // After data loads, we'll set it to the most recent appointment date
+  const [selectedDate, setSelectedDate] = useState<string>('all');
 
   // Get unique dates that have appointments (sorted chronologically)
   // Use allAppointmentsForDates (not paginated) to show all available dates in dropdown
@@ -151,9 +149,8 @@ export default function HealthcareAdminAppointmentsPage() {
   }, [selectedDate, availableDates]);
 
   // Create markedDates Map for calendar (date string -> appointment count)
-  // Only counts active/workload appointments: pending, scheduled, checked_in, in_progress
-  // This represents appointments that need admin attention or action
-  // Historical appointments (completed, cancelled, no_show) are excluded from badge count
+  // Counts ALL appointments (including completed, cancelled, no_show)
+  // This allows healthcare admins to see historical data in the calendar
   const markedDates = useMemo(() => {
     const dateMap = new Map<string, number>();
     allAppointmentsForDates.forEach(apt => {
@@ -192,10 +189,6 @@ export default function HealthcareAdminAppointmentsPage() {
 
   // Medical records check for undo validation (keyed by appointment ID)
   const [hasMedicalRecords, setHasMedicalRecords] = useState<Record<string, boolean | null>>({});
-
-  // Appointment completion modal state
-  const [showCompletionModal, setShowCompletionModal] = useState(false);
-  const [appointmentToComplete, setAppointmentToComplete] = useState<AdminAppointment | null>(null);
 
   // Start consultation confirmation dialog state
   const [showStartDialog, setShowStartDialog] = useState(false);
@@ -272,6 +265,16 @@ export default function HealthcareAdminAppointmentsPage() {
       fetchAllAppointmentsForDates();
     }
   }, [hasAccess]);
+
+  // Auto-select most recent appointment date when data loads
+  useEffect(() => {
+    if (availableDates.length > 0 && selectedDate === 'all') {
+      // Set to most recent date (last in sorted array)
+      const mostRecentDate = availableDates[availableDates.length - 1];
+      console.log('📅 [AUTO-SELECT] Setting selectedDate to most recent:', mostRecentDate);
+      setSelectedDate(mostRecentDate);
+    }
+  }, [availableDates, selectedDate]);
 
   // ✅ FIXED: Reset to page 1 when selectedDate changes
   useEffect(() => {
@@ -387,9 +390,9 @@ export default function HealthcareAdminAppointmentsPage() {
       const params = new URLSearchParams({
         page: '1',
         limit: '1000', // Fetch up to 1000 appointments for date dropdown
-        // Only fetch active appointments for calendar badge count
-        // Excludes: draft (temporary), completed (historical), cancelled (historical), no_show (historical)
-        status: 'pending,scheduled,checked_in,in_progress',
+        // Fetch ALL appointments including completed, cancelled, no_show
+        // This ensures historical dates appear in the dropdown
+        // (No status filter - API defaults to excluding only 'draft')
       });
 
       const response = await fetch(`/api/appointments?${params.toString()}`);
@@ -877,27 +880,33 @@ export default function HealthcareAdminAppointmentsPage() {
     }
   };
 
-  const handleCompleteAppointment = (appointment: AdminAppointment) => {
-    setAppointmentToComplete(appointment);
-    setShowCompletionModal(true);
-  };
+  const handleCompleteAppointment = async (appointment: AdminAppointment) => {
+    try {
+      const response = await fetch(`/api/appointments/${appointment.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          status: 'completed',
+          completed_at: new Date().toISOString(),
+        }),
+      });
 
-  const handleCompletionSuccess = async () => {
-    // Close UI
-    setShowCompletionModal(false);
-    setAppointmentToComplete(null);
-    setIsDrawerOpen(false);
-    setSuccessMessage('Appointment completed successfully');
-    setTimeout(() => setSuccessMessage(''), 3000);
+      if (!response.ok) {
+        throw new Error('Failed to complete appointment');
+      }
 
-    // Refetch appointments and history to get latest data
-    await fetchAppointments();
-    await fetchAllLastHistoryEntries();
-  };
+      // Close UI and show success
+      setIsDrawerOpen(false);
+      setSuccessMessage('Appointment completed successfully');
+      setTimeout(() => setSuccessMessage(''), 3000);
 
-  const handleCompletionCancel = () => {
-    setShowCompletionModal(false);
-    setAppointmentToComplete(null);
+      // Refetch appointments and history
+      await fetchAppointments();
+      await fetchAllLastHistoryEntries();
+    } catch (error) {
+      console.error('Error completing appointment:', error);
+      toast?.error('Failed to complete appointment');
+    }
   };
 
   // Date navigation - jumps to previous/next date in dropdown
@@ -2065,16 +2074,6 @@ export default function HealthcareAdminAppointmentsPage() {
           }
           isLoading={actionLoading}
         />
-
-        {/* Appointment Completion Modal */}
-        {appointmentToComplete && (
-          <AppointmentCompletionModal
-            isOpen={showCompletionModal}
-            onClose={handleCompletionCancel}
-            onSuccess={handleCompletionSuccess}
-            appointment={appointmentToComplete}
-          />
-        )}
 
         {/* Stage Tracking Modals */}
         {selectedAppointment && (

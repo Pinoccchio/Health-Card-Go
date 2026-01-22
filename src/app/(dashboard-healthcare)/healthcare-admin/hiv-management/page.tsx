@@ -31,6 +31,7 @@ import ServiceSARIMAChart from '@/components/healthcare-admin/ServiceSARIMAChart
 import ServiceSARIMAMetrics from '@/components/healthcare-admin/ServiceSARIMAMetrics';
 import HealthCardSARIMAChart from '@/components/healthcare-admin/HealthCardSARIMAChart';
 import HealthCardSARIMAMetrics from '@/components/healthcare-admin/HealthCardSARIMAMetrics';
+import { AppointmentStatusChart } from '@/components/charts';
 
 interface HIVRecord {
   id: string;
@@ -109,6 +110,10 @@ export default function HIVManagementPage() {
   const [appointmentGenerationStatus, setAppointmentGenerationStatus] = useState<{ type: 'idle' | 'success' | 'error'; message?: string }>({ type: 'idle' });
   const [pinkCardGenerationStatus, setPinkCardGenerationStatus] = useState<{ type: 'idle' | 'success' | 'error'; message?: string }>({ type: 'idle' });
 
+  // Appointment Statistics state (for status breakdown chart)
+  const [appointmentStats, setAppointmentStats] = useState<any[]>([]);
+  const [appointmentStatsLoading, setAppointmentStatsLoading] = useState(true);
+
   useEffect(() => {
     // Check if the healthcare admin has HIV category
     if (user) {
@@ -130,6 +135,7 @@ export default function HIVManagementPage() {
   useEffect(() => {
     if (hasAccess) {
       fetchHIVRecords();
+      fetchAppointmentStatistics();
     }
   }, [filters, hasAccess]);
 
@@ -208,6 +214,22 @@ export default function HIVManagementPage() {
     }
 
     setSummary(stats);
+  };
+
+  const fetchAppointmentStatistics = async () => {
+    try {
+      setAppointmentStatsLoading(true);
+      const response = await fetch('/api/appointments/statistics?admin_category=hiv');
+      const data = await response.json();
+
+      if (data.success) {
+        setAppointmentStats(data.data.monthly || []);
+      }
+    } catch (err) {
+      console.error('Error fetching appointment statistics:', err);
+    } finally {
+      setAppointmentStatsLoading(false);
+    }
   };
 
   const handleGenerateAppointmentPredictions = async () => {
@@ -597,6 +619,14 @@ export default function HIVManagementPage() {
               )}
             </div>
           </div>
+
+          {/* Appointment Status Breakdown Chart */}
+          <AppointmentStatusChart
+            data={appointmentStats}
+            loading={appointmentStatsLoading}
+            title="Monthly HIV Counseling Appointment Status Breakdown (Completed, Cancelled, No Show)"
+            height={450}
+          />
 
           {/* Counseling Appointment SARIMA Predictions Section */}
           <div className="bg-white rounded-lg shadow border border-gray-200">

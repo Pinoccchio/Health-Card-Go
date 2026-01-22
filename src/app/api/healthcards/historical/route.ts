@@ -113,24 +113,75 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Calculate summary statistics
+    // Calculate summary statistics from BOTH healthcard_statistics (Excel) AND appointments tables
     const { data: summaryData } = await supabase
       .from('healthcard_statistics')
       .select('cards_issued, healthcard_type, record_date')
       .gte('record_date', startDate || '2000-01-01')
       .lte('record_date', endDate || '2099-12-31');
 
+    // ALSO fetch completed appointments data for summary
+    // Determine service IDs to query based on healthcard_type filter
+    let appointmentServiceIds: number[] = [12, 13, 14, 15]; // All healthcard services by default
+    if (healthcardType === 'food_handler') {
+      appointmentServiceIds = [12, 13]; // Yellow Card
+    } else if (healthcardType === 'non_food') {
+      appointmentServiceIds = [14, 15]; // Green Card
+    } else if (healthcardType === 'pink') {
+      appointmentServiceIds = [16]; // Pink Card uses Service 16
+    }
+
+    // Query appointments table for completed appointments
+    let appointmentsQuery = supabase
+      .from('appointments')
+      .select('id, completed_at, service_id')
+      .eq('status', 'completed')
+      .not('completed_at', 'is', null)
+      .in('service_id', appointmentServiceIds);
+
+    // Apply date filters if present
+    if (startDate) {
+      appointmentsQuery = appointmentsQuery.gte('completed_at', `${startDate}T00:00:00`);
+    }
+    if (endDate) {
+      appointmentsQuery = appointmentsQuery.lte('completed_at', `${endDate}T23:59:59`);
+    }
+
+    const { data: appointmentsData } = await appointmentsQuery;
+
+    // Count appointments by healthcard type based on service_id
+    const appointmentsByType = {
+      food_handler: appointmentsData?.filter(a => [12, 13].includes(a.service_id)).length || 0,
+      non_food: appointmentsData?.filter(a => [14, 15].includes(a.service_id)).length || 0,
+      pink: appointmentsData?.filter(a => a.service_id === 16).length || 0,
+    };
+
+    // Merge counts from Excel imports and appointments
     const summary = {
       total_records: count || 0,
-      total_cards_issued: summaryData?.reduce((sum, r) => sum + r.cards_issued, 0) || 0,
-      food_handler_cards: summaryData?.filter(r => r.healthcard_type === 'food_handler').reduce((sum, r) => sum + r.cards_issued, 0) || 0,
-      non_food_cards: summaryData?.filter(r => r.healthcard_type === 'non_food').reduce((sum, r) => sum + r.cards_issued, 0) || 0,
-      pink_cards: summaryData?.filter(r => r.healthcard_type === 'pink').reduce((sum, r) => sum + r.cards_issued, 0) || 0, // ADDED: Pink Card count
+      total_cards_issued: (summaryData?.reduce((sum, r) => sum + r.cards_issued, 0) || 0) + (appointmentsData?.length || 0),
+      food_handler_cards: (summaryData?.filter(r => r.healthcard_type === 'food_handler').reduce((sum, r) => sum + r.cards_issued, 0) || 0) + appointmentsByType.food_handler,
+      non_food_cards: (summaryData?.filter(r => r.healthcard_type === 'non_food').reduce((sum, r) => sum + r.cards_issued, 0) || 0) + appointmentsByType.non_food,
+      pink_cards: (summaryData?.filter(r => r.healthcard_type === 'pink').reduce((sum, r) => sum + r.cards_issued, 0) || 0) + appointmentsByType.pink,
       date_range: {
-        earliest: summaryData && summaryData.length > 0 ? Math.min(...summaryData.map(r => new Date(r.record_date).getTime())) : null,
-        latest: summaryData && summaryData.length > 0 ? Math.max(...summaryData.map(r => new Date(r.record_date).getTime())) : null,
+        earliest: null as any,
+        latest: null as any,
       },
     };
+
+    // Calculate date range from BOTH sources
+    const allDates: number[] = [];
+    if (summaryData && summaryData.length > 0) {
+      allDates.push(...summaryData.map(r => new Date(r.record_date).getTime()));
+    }
+    if (appointmentsData && appointmentsData.length > 0) {
+      allDates.push(...appointmentsData.map(a => new Date(a.completed_at!).getTime()));
+    }
+
+    if (allDates.length > 0) {
+      summary.date_range.earliest = Math.min(...allDates);
+      summary.date_range.latest = Math.max(...allDates);
+    }
 
     // Convert timestamps back to date strings
     if (summary.date_range.earliest) {
