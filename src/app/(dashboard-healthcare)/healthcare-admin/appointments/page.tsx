@@ -721,13 +721,13 @@ export default function HealthcareAdminAppointmentsPage() {
     try {
       setActionLoading(true);
 
-      // For HealthCard appointments, also set appointment_stage to 'check_in'
+      // For HealthCard and Pink Card appointments, also set appointment_stage to 'check_in'
       // Use service_id directly (more reliable than services.category which may be undefined)
-      // HealthCard service IDs: 1, 2, 3, 12
-      const isHealthCard = [1, 2, 3, 12].includes(appointmentToCheckIn.service_id);
+      // HealthCard service IDs: 1, 2, 3, 12 | Pink Card: 24
+      const isCardService = [1, 2, 3, 12, 24].includes(appointmentToCheckIn.service_id);
       const requestBody: any = { status: 'checked_in' };
 
-      if (isHealthCard) {
+      if (isCardService) {
         requestBody.appointment_stage = 'check_in';
       }
 
@@ -1509,41 +1509,38 @@ export default function HealthcareAdminAppointmentsPage() {
                 />
               )}
 
-              {/* Stage Actions - Directly below tracker for clear visual hierarchy */}
-              {(selectedAppointment.services?.category === 'healthcard' || selectedAppointment.services?.category === 'pink_card') && selectedAppointment.card_type &&
-                (selectedAppointment.status === 'checked_in' || selectedAppointment.status === 'in_progress') && (
+              {/* Stage Actions - Healthcare Admin controls Check-in, Check-up, and Releasing */}
+              {/* Patient controls Laboratory stage only */}
+              {(selectedAppointment.services?.category === 'healthcard' || selectedAppointment.services?.category === 'pink_card') &&
+                selectedAppointment.card_type &&
+                (selectedAppointment.status === 'checked_in' || selectedAppointment.status === 'in_progress') &&
+                selectedAppointment.status !== 'completed' && (
                 <div className="space-y-2 pt-2 pb-4 border-b border-gray-200">
-                  {/* Laboratory Stage Buttons - check_in OR laboratory */}
-                  {(selectedAppointment.appointment_stage === 'check_in' ||
-                    selectedAppointment.appointment_stage === 'laboratory') && (
-                    <button
-                      onClick={() => setShowLaboratoryModal(true)}
-                      disabled={actionLoading}
-                      className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 font-medium text-sm shadow-sm transition-colors disabled:opacity-50"
-                    >
-                      <Activity className="w-5 h-5" />
-                      {selectedAppointment.appointment_stage === 'check_in'
-                        ? 'Proceed to Laboratory'
-                        : 'Complete Laboratory & Proceed to Results'}
-                    </button>
-                  )}
-
-                  {/* Check-up Stage Buttons - results OR checkup */}
-                  {(selectedAppointment.appointment_stage === 'results' ||
-                    selectedAppointment.appointment_stage === 'checkup') && (
+                  {/* Check-up Stage - Admin advances from Results to Check-up */}
+                  {selectedAppointment.appointment_stage === 'results' && (
                     <button
                       onClick={() => setShowCheckupModal(true)}
                       disabled={actionLoading}
                       className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-purple-600 text-white rounded-md hover:bg-purple-700 font-medium text-sm shadow-sm transition-colors disabled:opacity-50"
                     >
                       <Activity className="w-5 h-5" />
-                      {selectedAppointment.appointment_stage === 'results'
-                        ? 'Start Doctor Check-up'
-                        : 'Complete Check-up & Approve for Release'}
+                      Start Doctor Check-up
                     </button>
                   )}
 
-                  {/* Releasing Stage Button */}
+                  {/* Check-up Stage - Admin advances from Check-up to Releasing */}
+                  {selectedAppointment.appointment_stage === 'checkup' && (
+                    <button
+                      onClick={() => setShowCheckupModal(true)}
+                      disabled={actionLoading}
+                      className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-purple-600 text-white rounded-md hover:bg-purple-700 font-medium text-sm shadow-sm transition-colors disabled:opacity-50"
+                    >
+                      <Activity className="w-5 h-5" />
+                      Complete Check-up
+                    </button>
+                  )}
+
+                  {/* Releasing Stage - Admin releases health card */}
                   {selectedAppointment.appointment_stage === 'releasing' && (
                     <button
                       onClick={() => setShowReleasingModal(true)}
@@ -1554,6 +1551,10 @@ export default function HealthcareAdminAppointmentsPage() {
                       Release Health Card
                     </button>
                   )}
+
+                  <p className="text-xs text-gray-500 text-center">
+                    Patient controls Laboratory stage
+                  </p>
                 </div>
               )}
 
@@ -2121,26 +2122,12 @@ export default function HealthcareAdminAppointmentsPage() {
         {/* Stage Tracking Modals */}
         {selectedAppointment && (
           <>
-            {/* Laboratory Stage Modal */}
-            <LaboratoryStageModal
-              isOpen={showLaboratoryModal}
-              onClose={() => setShowLaboratoryModal(false)}
-              appointmentId={selectedAppointment.id}
-              currentStage={selectedAppointment.appointment_stage}
-              onStageUpdate={() => {
-                fetchAppointments(currentPage);
-                setShowLaboratoryModal(false);
-                setIsDrawerOpen(false);
-                setSelectedAppointment(null);
-              }}
-            />
-
-            {/* Check-up Stage Modal */}
+            {/* Check-up Stage Modal - Healthcare admin advances from Results to Check-up to Releasing */}
             <CheckupStageModal
               isOpen={showCheckupModal}
               onClose={() => setShowCheckupModal(false)}
               appointmentId={selectedAppointment.id}
-              currentStage={selectedAppointment.appointment_stage}
+              currentStage={selectedAppointment.appointment_stage || null}
               onStageUpdate={() => {
                 fetchAppointments(currentPage);
                 setShowCheckupModal(false);
@@ -2149,7 +2136,7 @@ export default function HealthcareAdminAppointmentsPage() {
               }}
             />
 
-            {/* Releasing Stage Modal */}
+            {/* Releasing Stage Modal - Admin controls final release */}
             <ReleasingStageModal
               isOpen={showReleasingModal}
               onClose={() => setShowReleasingModal(false)}

@@ -213,7 +213,9 @@ export function issuesHealthCard(serviceId: number | undefined, cardType?: strin
   if (!serviceId) return false;
 
   // Standard health card services (always issue cards)
-  const healthCardServices = [12, 13, 14, 15];
+  // Service 12-15: Health Card Processing (Yellow/Green)
+  // Service 24: Pink Card Issuance & Renewal
+  const healthCardServices = [12, 13, 14, 15, 24];
   if (healthCardServices.includes(serviceId)) {
     return true;
   }

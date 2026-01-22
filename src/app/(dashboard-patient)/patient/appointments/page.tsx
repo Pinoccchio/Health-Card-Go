@@ -13,6 +13,7 @@ import { TimeElapsedBadge } from '@/components/appointments/TimeElapsedBadge';
 import { DocumentReviewPanel } from '@/components/healthcare-admin/DocumentReviewPanel';
 import DownloadLabRequestButton from '@/components/patient/DownloadLabRequestButton';
 import AppointmentStageTracker from '@/components/appointments/AppointmentStageTracker';
+import LaboratoryStageModal from '@/components/appointments/stages/LaboratoryStageModal';
 import { ExpirationStatus } from '@/components/health-card/ExpirationStatus';
 import {
   Calendar,
@@ -138,6 +139,9 @@ export default function PatientAppointmentsPage() {
   // Status history modal state
   const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [selectedHistoryAppointmentId, setSelectedHistoryAppointmentId] = useState<string | null>(null);
+
+  // Stage modal state - Laboratory/Results only
+  const [showLabModal, setShowLabModal] = useState(false);
 
   useEffect(() => {
     fetchAppointments();
@@ -662,6 +666,55 @@ export default function PatientAppointmentsPage() {
                 isCompleted={selectedAppointment.status === 'completed'}
               />
 
+              {/* Patient Stage Actions - Patient controls Laboratory, Results, Check-up */}
+              {(selectedAppointment.services?.category === 'healthcard' || selectedAppointment.services?.category === 'pink_card') &&
+                selectedAppointment.card_type &&
+                (selectedAppointment.status === 'checked_in' || selectedAppointment.status === 'in_progress') &&
+                selectedAppointment.status !== 'completed' && (
+                <div className="space-y-2 pt-2 pb-4 border-b border-gray-200">
+                  {/* Laboratory Stage - Opens confirmation modal */}
+                  {(selectedAppointment.appointment_stage === 'check_in' || selectedAppointment.appointment_stage === 'laboratory') && (
+                    <button
+                      onClick={() => setShowLabModal(true)}
+                      className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 font-medium text-sm shadow-sm transition-colors"
+                    >
+                      <Activity className="w-5 h-5" />
+                      {selectedAppointment.appointment_stage === 'check_in' ? 'Start Laboratory Tests' : 'Complete Laboratory & Get Results'}
+                    </button>
+                  )}
+
+                  {/* Results Stage - Read Only for Patient */}
+                  {selectedAppointment.appointment_stage === 'results' && (
+                    <div className="w-full px-4 py-3 bg-blue-50 border border-blue-200 rounded-md text-center">
+                      <p className="text-sm text-blue-700">
+                        <Activity className="w-4 h-4 inline mr-1 text-blue-600" />
+                        Test results ready - waiting for doctor check-up
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Check-up Stage - Read Only for Patient */}
+                  {selectedAppointment.appointment_stage === 'checkup' && (
+                    <div className="w-full px-4 py-3 bg-purple-50 border border-purple-200 rounded-md text-center">
+                      <p className="text-sm text-purple-700">
+                        <Activity className="w-4 h-4 inline mr-1 text-purple-600" />
+                        Doctor check-up in progress
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Releasing Stage - Read Only for Patient */}
+                  {selectedAppointment.appointment_stage === 'releasing' && (
+                    <div className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-md text-center">
+                      <p className="text-sm text-gray-600">
+                        <CheckCircle className="w-4 h-4 inline mr-1 text-green-600" />
+                        Waiting for healthcare staff to release your health card
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
+
               <div className="space-y-4">
                 {/* Appointment Information */}
                 <div>
@@ -1167,6 +1220,21 @@ export default function PatientAppointmentsPage() {
               </div>
             </div>
           </Drawer>
+        )}
+
+        {/* Patient Stage Confirmation Modal - Laboratory/Results Only */}
+        {selectedAppointment && (
+          <LaboratoryStageModal
+            isOpen={showLabModal}
+            onClose={() => setShowLabModal(false)}
+            appointmentId={selectedAppointment.id}
+            currentStage={selectedAppointment.appointment_stage || null}
+            onStageUpdate={() => {
+              fetchAppointments();
+              setShowLabModal(false);
+              setIsDrawerOpen(false);
+            }}
+          />
         )}
 
         {/* Cancellation Confirmation Dialog */}

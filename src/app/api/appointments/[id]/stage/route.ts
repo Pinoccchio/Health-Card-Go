@@ -40,10 +40,13 @@ export async function PUT(
       );
     }
 
-    // Only healthcare admins can update stages
-    if (profile.role !== 'healthcare_admin') {
+    // Check if user is healthcare admin or patient
+    const isAdmin = profile.role === 'healthcare_admin';
+    const isPatient = profile.role === 'patient';
+
+    if (!isAdmin && !isPatient) {
       return NextResponse.json(
-        { success: false, error: 'Only healthcare admins can update appointment stages' },
+        { success: false, error: 'Unauthorized to update appointment stages' },
         { status: 403 }
       );
     }
@@ -64,7 +67,7 @@ export async function PUT(
     // Get current appointment
     const { data: appointment, error: fetchError } = await supabase
       .from('appointments')
-      .select('*, service:services(id, name, category), card_type')
+      .select('*, service:services(id, name, category), card_type, patient_id')
       .eq('id', appointmentId)
       .single();
 
@@ -75,15 +78,56 @@ export async function PUT(
       );
     }
 
-    // Verify healthcare admin is assigned to this service
-    if (
-      profile.assigned_service_id &&
-      appointment.service_id !== profile.assigned_service_id
-    ) {
-      return NextResponse.json(
-        { success: false, error: 'You are not assigned to this service' },
-        { status: 403 }
-      );
+    // If patient, verify they own this appointment
+    if (isPatient) {
+      const { data: patientData, error: patientError } = await supabase
+        .from('patients')
+        .select('id')
+        .eq('user_id', user.id)
+        .single();
+
+      if (patientError || !patientData || appointment.patient_id !== patientData.id) {
+        return NextResponse.json(
+          { success: false, error: 'You can only update your own appointments' },
+          { status: 403 }
+        );
+      }
+
+      // Patients can ONLY update laboratory and results (stages 2, 3)
+      if (!['laboratory', 'results'].includes(stage)) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: 'Patients can only update Laboratory and Results stages. Check-in, Check-up, and Releasing are managed by healthcare staff.',
+          },
+          { status: 403 }
+        );
+      }
+    }
+
+    // If healthcare admin, verify assigned to service and restrict to check_in/releasing only
+    if (isAdmin) {
+      // Verify healthcare admin is assigned to this service
+      if (
+        profile.assigned_service_id &&
+        appointment.service_id !== profile.assigned_service_id
+      ) {
+        return NextResponse.json(
+          { success: false, error: 'You are not assigned to this service' },
+          { status: 403 }
+        );
+      }
+
+      // Healthcare admins can ONLY update check_in, checkup, and releasing (stages 1, 4, 5)
+      if (!['check_in', 'checkup', 'releasing'].includes(stage)) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: 'Healthcare admins can only update Check-in, Check-up, and Releasing stages. Patients control the Laboratory stage.',
+          },
+          { status: 403 }
+        );
+      }
     }
 
     // Verify this is a health card service or Pink Card (Service 12 or Service 24 only)
