@@ -272,31 +272,31 @@ export async function getHealthcareAdminMenuItems(
   // Add category-specific menu items based on admin category
   if (adminCategory === 'healthcard') {
     menuItems.push({
-      label: 'HealthCard Statistics',
+      label: 'SARIMA Statistics',
       href: '/healthcare-admin/healthcard-statistics',
       icon: CreditCard,
     });
-    console.log('✅ Added HealthCard Statistics menu for healthcard admin');
+    console.log('✅ Added SARIMA Statistics menu for healthcard admin');
   }
 
   // Add HIV Disease Management for HIV admins
   if (adminCategory === 'hiv') {
     menuItems.push({
-      label: 'HIV Disease Management',
+      label: 'SARIMA Statistics',
       href: '/healthcare-admin/hiv-management',
       icon: Shield,
     });
-    console.log('✅ Added HIV Disease Management menu for HIV admin');
+    console.log('✅ Added SARIMA Statistics menu for HIV admin');
   }
 
   // Add Pregnancy Complications Management for pregnancy admins
   if (adminCategory === 'pregnancy') {
     menuItems.push({
-      label: 'Pregnancy Management',
+      label: 'SARIMA Statistics',
       href: '/healthcare-admin/pregnancy-management',
       icon: Heart,
     });
-    console.log('✅ Added Pregnancy Complications Management menu for pregnancy admin');
+    console.log('✅ Added SARIMA Statistics menu for pregnancy admin');
   }
 
   // Add Reports and Announcements at the end

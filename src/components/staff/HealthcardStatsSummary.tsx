@@ -16,9 +16,10 @@ interface HealthcardStatsSummaryProps {
     };
   };
   loading?: boolean;
+  showPinkCards?: boolean; // NEW: Control visibility of pink cards
 }
 
-export function HealthcardStatsSummary({ summary, loading }: HealthcardStatsSummaryProps) {
+export function HealthcardStatsSummary({ summary, loading, showPinkCards = true }: HealthcardStatsSummaryProps) {
   const formatDateRange = () => {
     if (!summary.date_range.earliest || !summary.date_range.latest) {
       return 'No data';
@@ -144,15 +145,17 @@ export function HealthcardStatsSummary({ summary, loading }: HealthcardStatsSumm
                   {calculatePercentage(summary.non_food_cards, summary.total_cards_issued)}%
                 </span>
               </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-700 flex items-center gap-1">
-                  <span className="w-2 h-2 bg-pink-500 rounded-full"></span>
-                  Pink Card:
-                </span>
-                <span className="text-sm font-bold text-gray-900">
-                  {calculatePercentage(summary.pink_cards, summary.total_cards_issued)}%
-                </span>
-              </div>
+              {showPinkCards && (
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-gray-700 flex items-center gap-1">
+                    <span className="w-2 h-2 bg-pink-500 rounded-full"></span>
+                    Pink Card:
+                  </span>
+                  <span className="text-sm font-bold text-gray-900">
+                    {calculatePercentage(summary.pink_cards, summary.total_cards_issued)}%
+                  </span>
+                </div>
+              )}
             </div>
           </div>
           <div className="w-12 h-12 bg-teal-100 rounded-lg flex items-center justify-center">
@@ -160,7 +163,7 @@ export function HealthcardStatsSummary({ summary, loading }: HealthcardStatsSumm
           </div>
         </div>
         <p className="text-xs text-gray-500 mt-2">
-          {summary.food_handler_cards.toLocaleString()} yellow, {summary.non_food_cards.toLocaleString()} green, {summary.pink_cards.toLocaleString()} pink
+          {summary.food_handler_cards.toLocaleString()} yellow, {summary.non_food_cards.toLocaleString()} green{showPinkCards && `, ${summary.pink_cards.toLocaleString()} pink`}
         </p>
       </div>
     </div>

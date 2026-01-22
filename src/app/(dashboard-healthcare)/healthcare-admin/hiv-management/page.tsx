@@ -18,8 +18,19 @@ import {
   Download,
   Filter,
   AlertCircle,
+  Sparkles,
+  Loader2,
+  CheckCircle2,
+  Upload,
+  CreditCard,
 } from 'lucide-react';
 import { format } from 'date-fns';
+import ServiceHistoricalImportModal from '@/components/healthcare-admin/ServiceHistoricalImportModal';
+import HealthcardExcelImportModal from '@/components/staff/HealthcardExcelImportModal';
+import ServiceSARIMAChart from '@/components/healthcare-admin/ServiceSARIMAChart';
+import ServiceSARIMAMetrics from '@/components/healthcare-admin/ServiceSARIMAMetrics';
+import HealthCardSARIMAChart from '@/components/healthcare-admin/HealthCardSARIMAChart';
+import HealthCardSARIMAMetrics from '@/components/healthcare-admin/HealthCardSARIMAMetrics';
 
 interface HIVRecord {
   id: string;
@@ -88,11 +99,21 @@ export default function HIVManagementPage() {
     most_affected_barangay: null as string | null,
   });
 
+  // Import and SARIMA state
+  const [isAppointmentImportOpen, setIsAppointmentImportOpen] = useState(false);
+  const [isPinkCardImportOpen, setIsPinkCardImportOpen] = useState(false);
+  const [appointmentPredictionKey, setAppointmentPredictionKey] = useState(0);
+  const [pinkCardPredictionKey, setPinkCardPredictionKey] = useState(0);
+  const [isGeneratingAppointmentPredictions, setIsGeneratingAppointmentPredictions] = useState(false);
+  const [isGeneratingPinkCardPredictions, setIsGeneratingPinkCardPredictions] = useState(false);
+  const [appointmentGenerationStatus, setAppointmentGenerationStatus] = useState<{ type: 'idle' | 'success' | 'error'; message?: string }>({ type: 'idle' });
+  const [pinkCardGenerationStatus, setPinkCardGenerationStatus] = useState<{ type: 'idle' | 'success' | 'error'; message?: string }>({ type: 'idle' });
+
   useEffect(() => {
     // Check if the healthcare admin has HIV category
     if (user) {
-      const isHIVAdmin = user.role === 'healthcare_admin' && user.admin_category === 'hiv';
-      const isSuperAdmin = user.role === 'super_admin';
+      const isHIVAdmin = user.role_id === 2 && user.admin_category === 'hiv';
+      const isSuperAdmin = user.role_id === 1;
 
       if (!isHIVAdmin && !isSuperAdmin) {
         setHasAccess(false);
@@ -189,6 +210,74 @@ export default function HIVManagementPage() {
     setSummary(stats);
   };
 
+  const handleGenerateAppointmentPredictions = async () => {
+    setIsGeneratingAppointmentPredictions(true);
+    setAppointmentGenerationStatus({ type: 'idle' });
+
+    try {
+      const response = await fetch('/api/services/generate-predictions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          service_id: 16,
+          months_forecast: 12,
+          granularity: 'monthly',
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        setAppointmentGenerationStatus({ type: 'success', message: `Generated predictions for ${data.data?.total_predictions || 0} months` });
+        setAppointmentPredictionKey(prev => prev + 1);
+        toast.success('Counseling appointment predictions generated successfully');
+      } else {
+        setAppointmentGenerationStatus({ type: 'error', message: data.error || 'Failed to generate predictions' });
+        toast.error(data.error || 'Failed to generate predictions');
+      }
+    } catch (error) {
+      console.error('Generate predictions error:', error);
+      setAppointmentGenerationStatus({ type: 'error', message: 'An unexpected error occurred' });
+      toast.error('An unexpected error occurred');
+    } finally {
+      setIsGeneratingAppointmentPredictions(false);
+    }
+  };
+
+  const handleGeneratePinkCardPredictions = async () => {
+    setIsGeneratingPinkCardPredictions(true);
+    setPinkCardGenerationStatus({ type: 'idle' });
+
+    try {
+      const response = await fetch('/api/healthcards/generate-predictions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          healthcard_type: 'pink',
+          months_forecast: 12,
+          granularity: 'monthly',
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        setPinkCardGenerationStatus({ type: 'success', message: `Generated predictions for ${data.data?.total_predictions || 0} months` });
+        setPinkCardPredictionKey(prev => prev + 1);
+        toast.success('Pink card predictions generated successfully');
+      } else {
+        setPinkCardGenerationStatus({ type: 'error', message: data.error || 'Failed to generate predictions' });
+        toast.error(data.error || 'Failed to generate predictions');
+      }
+    } catch (error) {
+      console.error('Generate predictions error:', error);
+      setPinkCardGenerationStatus({ type: 'error', message: 'An unexpected error occurred' });
+      toast.error('An unexpected error occurred');
+    } finally {
+      setIsGeneratingPinkCardPredictions(false);
+    }
+  };
+
   // Show loading state while checking access
   if (hasAccess === null) {
     return (
@@ -200,7 +289,7 @@ export default function HIVManagementPage() {
         <Container size="full">
           <div className="flex items-center justify-center min-h-[400px]">
             <div className="text-center">
-              <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
+              <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-[#20C997]"></div>
               <p className="mt-2 text-sm text-gray-500">Checking access permissions...</p>
             </div>
           </div>
@@ -245,14 +334,55 @@ export default function HIVManagementPage() {
           {/* Page Header */}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="p-3 bg-purple-100 rounded-lg">
-                <Shield className="w-6 h-6 text-purple-600" />
+              <div className="p-3 bg-teal-100 rounded-lg">
+                <Shield className="w-6 h-6 text-[#20C997]" />
               </div>
               <div>
                 <h1 className="text-2xl font-bold text-gray-900">HIV/AIDS Disease Management</h1>
                 <p className="text-sm text-gray-600">Track and manage HIV/AIDS cases across all barangays</p>
               </div>
             </div>
+          </div>
+
+          {/* Action Bar */}
+          <div className="flex justify-end gap-3">
+            {/* Appointment Data Import */}
+            <a
+              href="/templates/hiv-appointment-import-template.xlsx"
+              download
+              className="px-4 py-2 bg-white text-gray-700 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors flex items-center gap-2 shadow-sm"
+              title="Download Appointment Template"
+            >
+              <Download className="w-4 h-4" />
+              Appointment Template
+            </a>
+            <button
+              onClick={() => setIsAppointmentImportOpen(true)}
+              className="px-4 py-2 bg-[#20C997] text-white rounded-md hover:bg-[#1AA179] transition-colors flex items-center gap-2 shadow-sm"
+              title="Import Appointment Data"
+            >
+              <Upload className="w-4 h-4" />
+              Import Appointments
+            </button>
+
+            {/* Pink Card Data Import */}
+            <a
+              href="/templates/healthcard-historical-import-template.xlsx"
+              download
+              className="px-4 py-2 bg-white text-gray-700 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors flex items-center gap-2 shadow-sm"
+              title="Download Pink Card Template"
+            >
+              <Download className="w-4 h-4" />
+              Pink Card Template
+            </a>
+            <button
+              onClick={() => setIsPinkCardImportOpen(true)}
+              className="px-4 py-2 bg-[#20C997] text-white rounded-md hover:bg-[#1AA179] transition-colors flex items-center gap-2 shadow-sm"
+              title="Import Pink Card Data"
+            >
+              <Upload className="w-4 h-4" />
+              Import Pink Cards
+            </button>
           </div>
 
           {/* Summary Cards */}
@@ -320,7 +450,7 @@ export default function HIVManagementPage() {
                 <select
                   value={filters.barangay_id}
                   onChange={(e) => setFilters({ ...filters, barangay_id: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#20C997] text-sm"
                 >
                   <option value="all">All Barangays</option>
                   {barangays.map(barangay => (
@@ -336,7 +466,7 @@ export default function HIVManagementPage() {
                 <select
                   value={filters.severity}
                   onChange={(e) => setFilters({ ...filters, severity: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#20C997] text-sm"
                 >
                   <option value="all">All Severity</option>
                   {SEVERITY_LEVELS.map(level => (
@@ -352,7 +482,7 @@ export default function HIVManagementPage() {
                 <select
                   value={filters.status}
                   onChange={(e) => setFilters({ ...filters, status: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#20C997] text-sm"
                 >
                   <option value="all">All Status</option>
                   {STATUS_OPTIONS.map(status => (
@@ -369,7 +499,7 @@ export default function HIVManagementPage() {
                   type="date"
                   value={filters.start_date}
                   onChange={(e) => setFilters({ ...filters, start_date: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#20C997] text-sm"
                 />
               </div>
 
@@ -379,7 +509,7 @@ export default function HIVManagementPage() {
                   type="date"
                   value={filters.end_date}
                   onChange={(e) => setFilters({ ...filters, end_date: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#20C997] text-sm"
                 />
               </div>
             </div>
@@ -393,7 +523,7 @@ export default function HIVManagementPage() {
             <div className="overflow-x-auto">
               {loading ? (
                 <div className="p-12 text-center">
-                  <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
+                  <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-[#20C997]"></div>
                   <p className="mt-2 text-sm text-gray-500">Loading HIV records...</p>
                 </div>
               ) : records.length === 0 ? (
@@ -467,7 +597,137 @@ export default function HIVManagementPage() {
               )}
             </div>
           </div>
+
+          {/* Counseling Appointment SARIMA Predictions Section */}
+          <div className="bg-white rounded-lg shadow border border-gray-200">
+            <div className="p-6 border-b border-gray-200">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-gradient-to-br from-teal-500 to-blue-500 rounded-lg">
+                    <Sparkles className="w-5 h-5 text-white" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900">HIV Counseling Appointment Forecast (SARIMA)</h3>
+                    <p className="text-sm text-gray-600">AI-powered predictions for HIV testing & counseling appointment demand</p>
+                  </div>
+                </div>
+                <button
+                  onClick={handleGenerateAppointmentPredictions}
+                  disabled={isGeneratingAppointmentPredictions}
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-[#20C997] text-white rounded-lg hover:bg-[#1AA179] transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-md"
+                >
+                  {isGeneratingAppointmentPredictions ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Generating...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="w-4 h-4" />
+                      Generate Predictions
+                    </>
+                  )}
+                </button>
+              </div>
+              {appointmentGenerationStatus.type !== 'idle' && (
+                <div className={`mt-4 p-3 rounded-lg flex items-start gap-2 ${
+                  appointmentGenerationStatus.type === 'success' ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'
+                }`}>
+                  {appointmentGenerationStatus.type === 'success' ? (
+                    <CheckCircle2 className="w-5 h-5 text-green-600 mt-0.5" />
+                  ) : (
+                    <AlertCircle className="w-5 h-5 text-red-600 mt-0.5" />
+                  )}
+                  <p className={`text-sm ${appointmentGenerationStatus.type === 'success' ? 'text-green-800' : 'text-red-800'}`}>
+                    {appointmentGenerationStatus.message}
+                  </p>
+                </div>
+              )}
+            </div>
+            <div className="p-6">
+              <ServiceSARIMAChart key={appointmentPredictionKey} serviceId={16} />
+              <div className="mt-6">
+                <ServiceSARIMAMetrics key={appointmentPredictionKey} serviceId={16} />
+              </div>
+            </div>
+          </div>
+
+          {/* Pink Card SARIMA Predictions Section */}
+          <div className="bg-white rounded-lg shadow border border-gray-200">
+            <div className="p-6 border-b border-gray-200">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-gradient-to-br from-teal-500 to-blue-500 rounded-lg">
+                    <Sparkles className="w-5 h-5 text-white" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900">Pink Card Issuance Forecast (SARIMA)</h3>
+                    <p className="text-sm text-gray-600">AI-powered predictions for HIV-related pink card demand</p>
+                  </div>
+                </div>
+                <button
+                  onClick={handleGeneratePinkCardPredictions}
+                  disabled={isGeneratingPinkCardPredictions}
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-[#20C997] text-white rounded-lg hover:bg-[#1AA179] transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-md"
+                >
+                  {isGeneratingPinkCardPredictions ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Generating...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="w-4 h-4" />
+                      Generate Predictions
+                    </>
+                  )}
+                </button>
+              </div>
+              {pinkCardGenerationStatus.type !== 'idle' && (
+                <div className={`mt-4 p-3 rounded-lg flex items-start gap-2 ${
+                  pinkCardGenerationStatus.type === 'success' ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'
+                }`}>
+                  {pinkCardGenerationStatus.type === 'success' ? (
+                    <CheckCircle2 className="w-5 h-5 text-green-600 mt-0.5" />
+                  ) : (
+                    <AlertCircle className="w-5 h-5 text-red-600 mt-0.5" />
+                  )}
+                  <p className={`text-sm ${pinkCardGenerationStatus.type === 'success' ? 'text-green-800' : 'text-red-800'}`}>
+                    {pinkCardGenerationStatus.message}
+                  </p>
+                </div>
+              )}
+            </div>
+            <div className="p-6">
+              <HealthCardSARIMAChart key={pinkCardPredictionKey} healthcardType="pink" />
+              <div className="mt-6">
+                <HealthCardSARIMAMetrics key={pinkCardPredictionKey} healthcardType="pink" />
+              </div>
+            </div>
+          </div>
         </div>
+
+      {/* Counseling Appointment Import Modal */}
+      <ServiceHistoricalImportModal
+        isOpen={isAppointmentImportOpen}
+        onClose={() => setIsAppointmentImportOpen(false)}
+        onImportSuccess={() => {
+          toast.success('Counseling appointment data imported successfully');
+          setAppointmentPredictionKey(prev => prev + 1);
+        }}
+        serviceId={16}
+        serviceName="HIV Testing & Counseling"
+      />
+
+      {/* Pink Card Import Modal */}
+      <HealthcardExcelImportModal
+        isOpen={isPinkCardImportOpen}
+        onClose={() => setIsPinkCardImportOpen(false)}
+        onImportSuccess={() => {
+          toast.success('Pink card data imported successfully');
+          setPinkCardPredictionKey(prev => prev + 1);
+        }}
+      />
       </Container>
     </DashboardLayout>
   );

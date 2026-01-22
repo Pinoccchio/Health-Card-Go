@@ -19,8 +19,15 @@ import {
   Filter,
   AlertCircle,
   Heart,
+  Sparkles,
+  Loader2,
+  CheckCircle2,
+  Upload,
 } from 'lucide-react';
 import { format } from 'date-fns';
+import ServiceHistoricalImportModal from '@/components/healthcare-admin/ServiceHistoricalImportModal';
+import ServiceSARIMAChart from '@/components/healthcare-admin/ServiceSARIMAChart';
+import ServiceSARIMAMetrics from '@/components/healthcare-admin/ServiceSARIMAMetrics';
 
 interface PregnancyRecord {
   id: string;
@@ -89,11 +96,17 @@ export default function PregnancyManagementPage() {
     most_affected_barangay: null as string | null,
   });
 
+  // Import and SARIMA state
+  const [isAppointmentImportOpen, setIsAppointmentImportOpen] = useState(false);
+  const [predictionRefreshKey, setPredictionRefreshKey] = useState(0);
+  const [isGeneratingPredictions, setIsGeneratingPredictions] = useState(false);
+  const [generationStatus, setGenerationStatus] = useState<{ type: 'idle' | 'success' | 'error'; message?: string }>({ type: 'idle' });
+
   useEffect(() => {
     // Check if the healthcare admin has pregnancy category
     if (user) {
-      const isPregnancyAdmin = user.role === 'healthcare_admin' && user.admin_category === 'pregnancy';
-      const isSuperAdmin = user.role === 'super_admin';
+      const isPregnancyAdmin = user.role_id === 2 && user.admin_category === 'pregnancy';
+      const isSuperAdmin = user.role_id === 1;
 
       if (!isPregnancyAdmin && !isSuperAdmin) {
         setHasAccess(false);
@@ -190,6 +203,40 @@ export default function PregnancyManagementPage() {
     setSummary(stats);
   };
 
+  const handleGeneratePredictions = async () => {
+    setIsGeneratingPredictions(true);
+    setGenerationStatus({ type: 'idle' });
+
+    try {
+      const response = await fetch('/api/services/generate-predictions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          service_id: 17,
+          months_forecast: 12,
+          granularity: 'monthly',
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        setGenerationStatus({ type: 'success', message: `Generated predictions for ${data.data?.total_predictions || 0} months` });
+        setPredictionRefreshKey(prev => prev + 1);
+        toast.success('Predictions generated successfully');
+      } else {
+        setGenerationStatus({ type: 'error', message: data.error || 'Failed to generate predictions' });
+        toast.error(data.error || 'Failed to generate predictions');
+      }
+    } catch (error) {
+      console.error('Generate predictions error:', error);
+      setGenerationStatus({ type: 'error', message: 'An unexpected error occurred' });
+      toast.error('An unexpected error occurred');
+    } finally {
+      setIsGeneratingPredictions(false);
+    }
+  };
+
   // Show loading state while checking access
   if (hasAccess === null) {
     return (
@@ -201,7 +248,7 @@ export default function PregnancyManagementPage() {
         <Container size="full">
           <div className="flex items-center justify-center min-h-[400px]">
             <div className="text-center">
-              <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-pink-600"></div>
+              <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-[#20C997]"></div>
               <p className="mt-2 text-sm text-gray-500">Checking access permissions...</p>
             </div>
           </div>
@@ -246,14 +293,35 @@ export default function PregnancyManagementPage() {
           {/* Page Header */}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="p-3 bg-pink-100 rounded-lg">
-                <Baby className="w-6 h-6 text-pink-600" />
+              <div className="p-3 bg-teal-100 rounded-lg">
+                <Baby className="w-6 h-6 text-[#20C997]" />
               </div>
               <div>
                 <h1 className="text-2xl font-bold text-gray-900">Pregnancy Complications Management</h1>
                 <p className="text-sm text-gray-600">Monitor and track pregnancy-related health complications</p>
               </div>
             </div>
+          </div>
+
+          {/* Action Bar */}
+          <div className="flex justify-end gap-3">
+            <a
+              href="/templates/pregnancy-appointment-import-template.xlsx"
+              download
+              className="px-4 py-2 bg-white text-gray-700 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors flex items-center gap-2 shadow-sm"
+              title="Download Excel Template"
+            >
+              <Download className="w-4 h-4" />
+              Download Template
+            </a>
+            <button
+              onClick={() => setIsAppointmentImportOpen(true)}
+              className="px-4 py-2 bg-[#20C997] text-white rounded-md hover:bg-[#1AA179] transition-colors flex items-center gap-2 shadow-sm"
+              title="Import Appointment Data"
+            >
+              <Upload className="w-4 h-4" />
+              Import Appointment Data
+            </button>
           </div>
 
           {/* Summary Cards */}
@@ -321,7 +389,7 @@ export default function PregnancyManagementPage() {
                 <select
                   value={filters.barangay_id}
                   onChange={(e) => setFilters({ ...filters, barangay_id: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pink-500 text-sm"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#20C997] text-sm"
                 >
                   <option value="all">All Barangays</option>
                   {barangays.map(barangay => (
@@ -337,7 +405,7 @@ export default function PregnancyManagementPage() {
                 <select
                   value={filters.severity}
                   onChange={(e) => setFilters({ ...filters, severity: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pink-500 text-sm"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#20C997] text-sm"
                 >
                   <option value="all">All Severity</option>
                   {SEVERITY_LEVELS.map(level => (
@@ -353,7 +421,7 @@ export default function PregnancyManagementPage() {
                 <select
                   value={filters.status}
                   onChange={(e) => setFilters({ ...filters, status: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pink-500 text-sm"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#20C997] text-sm"
                 >
                   <option value="all">All Status</option>
                   {STATUS_OPTIONS.map(status => (
@@ -370,7 +438,7 @@ export default function PregnancyManagementPage() {
                   type="date"
                   value={filters.start_date}
                   onChange={(e) => setFilters({ ...filters, start_date: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pink-500 text-sm"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#20C997] text-sm"
                 />
               </div>
 
@@ -380,7 +448,7 @@ export default function PregnancyManagementPage() {
                   type="date"
                   value={filters.end_date}
                   onChange={(e) => setFilters({ ...filters, end_date: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pink-500 text-sm"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#20C997] text-sm"
                 />
               </div>
             </div>
@@ -394,7 +462,7 @@ export default function PregnancyManagementPage() {
             <div className="overflow-x-auto">
               {loading ? (
                 <div className="p-12 text-center">
-                  <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-pink-600"></div>
+                  <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-[#20C997]"></div>
                   <p className="mt-2 text-sm text-gray-500">Loading pregnancy complication records...</p>
                 </div>
               ) : records.length === 0 ? (
@@ -468,7 +536,73 @@ export default function PregnancyManagementPage() {
               )}
             </div>
           </div>
+
+          {/* SARIMA Predictions Section */}
+          <div className="bg-white rounded-lg shadow border border-gray-200">
+            <div className="p-6 border-b border-gray-200">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-gradient-to-br from-teal-500 to-blue-500 rounded-lg">
+                    <Sparkles className="w-5 h-5 text-white" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900">Prenatal Appointment Forecast (SARIMA)</h3>
+                    <p className="text-sm text-gray-600">AI-powered predictions for prenatal checkup demand</p>
+                  </div>
+                </div>
+                <button
+                  onClick={handleGeneratePredictions}
+                  disabled={isGeneratingPredictions}
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-[#20C997] text-white rounded-lg hover:bg-[#1AA179] transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-md"
+                >
+                  {isGeneratingPredictions ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Generating...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="w-4 h-4" />
+                      Generate Predictions
+                    </>
+                  )}
+                </button>
+              </div>
+              {generationStatus.type !== 'idle' && (
+                <div className={`mt-4 p-3 rounded-lg flex items-start gap-2 ${
+                  generationStatus.type === 'success' ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'
+                }`}>
+                  {generationStatus.type === 'success' ? (
+                    <CheckCircle2 className="w-5 h-5 text-green-600 mt-0.5" />
+                  ) : (
+                    <AlertCircle className="w-5 h-5 text-red-600 mt-0.5" />
+                  )}
+                  <p className={`text-sm ${generationStatus.type === 'success' ? 'text-green-800' : 'text-red-800'}`}>
+                    {generationStatus.message}
+                  </p>
+                </div>
+              )}
+            </div>
+            <div className="p-6">
+              <ServiceSARIMAChart key={predictionRefreshKey} serviceId={17} />
+              <div className="mt-6">
+                <ServiceSARIMAMetrics key={predictionRefreshKey} serviceId={17} />
+              </div>
+            </div>
+          </div>
         </div>
+
+        {/* Appointment Import Modal */}
+        <ServiceHistoricalImportModal
+          isOpen={isAppointmentImportOpen}
+          onClose={() => setIsAppointmentImportOpen(false)}
+          onImportSuccess={() => {
+            toast.success('Appointment data imported successfully');
+            setPredictionRefreshKey(prev => prev + 1);
+          }}
+          serviceId={17}
+          serviceName="Prenatal Checkup"
+        />
       </Container>
     </DashboardLayout>
   );

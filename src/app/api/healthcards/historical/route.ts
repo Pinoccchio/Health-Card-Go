@@ -31,7 +31,7 @@ export async function GET(request: NextRequest) {
     // Get user profile and check role
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
-      .select('id, role')
+      .select('id, role, admin_category')
       .eq('id', user.id)
       .single();
 
@@ -42,10 +42,14 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Only Staff and Super Admin can view healthcard statistics
-    if (profile.role !== 'staff' && profile.role !== 'super_admin') {
+    // Allow: Staff, Super Admin, and Healthcare Admin with healthcard category
+    const isStaff = profile.role === 'staff';
+    const isSuperAdmin = profile.role === 'super_admin';
+    const isHealthcardAdmin = profile.role === 'healthcare_admin' && profile.admin_category === 'healthcard';
+
+    if (!isStaff && !isSuperAdmin && !isHealthcardAdmin) {
       return NextResponse.json(
-        { success: false, error: 'Only Staff and Super Admins can view healthcard statistics' },
+        { success: false, error: 'Only Staff, Super Admins, and HealthCard Admins can view healthcard statistics' },
         { status: 403 }
       );
     }

@@ -17,7 +17,12 @@ import {
   Filter,
   FileText,
   AlertCircle,
+  Sparkles,
+  Loader2,
+  CheckCircle2,
 } from 'lucide-react';
+import HealthCardSARIMAChart from '@/components/healthcare-admin/HealthCardSARIMAChart';
+import HealthCardSARIMAMetrics from '@/components/healthcare-admin/HealthCardSARIMAMetrics';
 
 interface HealthcardStatistic {
   id: string;
@@ -41,11 +46,12 @@ interface HealthcardStatistic {
   } | null;
 }
 
+// HealthCard Admin only handles Yellow and Green cards (NO pink cards)
 const HEALTHCARD_TYPES = [
   { value: 'all', label: 'All Types' },
   { value: 'food_handler', label: 'Yellow Card - General' },
   { value: 'non_food', label: 'Green Card - General' },
-  { value: 'pink', label: 'Pink Card - Service/Clinical' },
+  // Pink cards are handled by HIV Admin only
 ];
 
 export default function HealthcareAdminHealthcardStatisticsPage() {
@@ -88,11 +94,16 @@ export default function HealthcareAdminHealthcardStatisticsPage() {
     end_date: '',
   });
 
+  // SARIMA Prediction state
+  const [predictionRefreshKey, setPredictionRefreshKey] = useState(0);
+  const [isGeneratingPredictions, setIsGeneratingPredictions] = useState(false);
+  const [generationStatus, setGenerationStatus] = useState<{ type: 'idle' | 'success' | 'error'; message?: string }>({ type: 'idle' });
+
   useEffect(() => {
     // Check if the healthcare admin has healthcard category
     if (user) {
-      const isHealthcardAdmin = user.role === 'healthcare_admin' && user.admin_category === 'healthcard';
-      const isSuperAdmin = user.role === 'super_admin';
+      const isHealthcardAdmin = user.role_id === 2 && user.admin_category === 'healthcard';
+      const isSuperAdmin = user.role_id === 1;
 
       if (!isHealthcardAdmin && !isSuperAdmin) {
         setHasAccess(false);
@@ -213,6 +224,39 @@ export default function HealthcareAdminHealthcardStatisticsPage() {
     }
   };
 
+  const handleGeneratePredictions = async () => {
+    setIsGeneratingPredictions(true);
+    setGenerationStatus({ type: 'idle' });
+
+    try {
+      const response = await fetch('/api/healthcards/generate-predictions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          months_forecast: 12,
+          granularity: 'monthly',
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        setGenerationStatus({ type: 'success', message: `Generated predictions for ${data.data?.total_predictions || 0} months` });
+        setPredictionRefreshKey(prev => prev + 1);
+        toast.success('Predictions generated successfully');
+      } else {
+        setGenerationStatus({ type: 'error', message: data.error || 'Failed to generate predictions' });
+        toast.error(data.error || 'Failed to generate predictions');
+      }
+    } catch (error) {
+      console.error('Generate predictions error:', error);
+      setGenerationStatus({ type: 'error', message: 'An unexpected error occurred' });
+      toast.error('An unexpected error occurred');
+    } finally {
+      setIsGeneratingPredictions(false);
+    }
+  };
+
   // Show loading state while checking access
   if (hasAccess === null) {
     return (
@@ -224,7 +268,7 @@ export default function HealthcareAdminHealthcardStatisticsPage() {
         <Container size="full">
           <div className="flex items-center justify-center min-h-[400px]">
             <div className="text-center">
-              <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+              <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-[#20C997]"></div>
               <p className="mt-2 text-sm text-gray-500">Checking access permissions...</p>
             </div>
           </div>
@@ -269,8 +313,8 @@ export default function HealthcareAdminHealthcardStatisticsPage() {
           {/* Page Header */}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="p-3 bg-blue-100 rounded-lg">
-                <CreditCard className="w-6 h-6 text-blue-600" />
+              <div className="p-3 bg-teal-100 rounded-lg">
+                <CreditCard className="w-6 h-6 text-[#20C997]" />
               </div>
               <div>
                 <h1 className="text-2xl font-bold text-gray-900">HealthCard Statistics</h1>
@@ -292,7 +336,7 @@ export default function HealthcareAdminHealthcardStatisticsPage() {
             </a>
             <button
               onClick={() => setIsExcelImportOpen(true)}
-              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors flex items-center gap-2 shadow-sm"
+              className="px-4 py-2 bg-[#20C997] text-white rounded-md hover:bg-[#1AA179] transition-colors flex items-center gap-2 shadow-sm"
               title="Import from Excel"
             >
               <Upload className="w-4 h-4" />
@@ -301,7 +345,7 @@ export default function HealthcareAdminHealthcardStatisticsPage() {
           </div>
 
           {/* Summary Statistics */}
-          <HealthcardStatsSummary summary={summary} loading={loading} />
+          <HealthcardStatsSummary summary={summary} loading={loading} showPinkCards={false} />
 
           {/* Filters */}
           <div className="bg-white rounded-lg shadow p-4 border border-gray-200">
@@ -318,7 +362,7 @@ export default function HealthcareAdminHealthcardStatisticsPage() {
                 <select
                   value={filters.healthcard_type}
                   onChange={(e) => setFilters({ ...filters, healthcard_type: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#20C997] text-sm"
                 >
                   {HEALTHCARD_TYPES.map(type => (
                     <option key={type.value} value={type.value}>
@@ -336,7 +380,7 @@ export default function HealthcareAdminHealthcardStatisticsPage() {
                 <select
                   value={filters.barangay_id}
                   onChange={(e) => setFilters({ ...filters, barangay_id: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#20C997] text-sm"
                 >
                   <option value="all">All Barangays</option>
                   {barangays.map(barangay => (
@@ -356,7 +400,7 @@ export default function HealthcareAdminHealthcardStatisticsPage() {
                   type="date"
                   value={filters.start_date}
                   onChange={(e) => setFilters({ ...filters, start_date: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#20C997] text-sm"
                 />
               </div>
 
@@ -369,7 +413,7 @@ export default function HealthcareAdminHealthcardStatisticsPage() {
                   type="date"
                   value={filters.end_date}
                   onChange={(e) => setFilters({ ...filters, end_date: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#20C997] text-sm"
                 />
               </div>
             </div>
@@ -378,7 +422,7 @@ export default function HealthcareAdminHealthcardStatisticsPage() {
           {/* Statistics Table */}
           {loading ? (
             <div className="bg-white rounded-lg shadow border border-gray-200 p-12 text-center">
-              <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+              <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-[#20C997]"></div>
               <p className="mt-2 text-sm text-gray-500">Loading healthcard statistics...</p>
             </div>
           ) : (
@@ -388,6 +432,73 @@ export default function HealthcareAdminHealthcardStatisticsPage() {
               onDelete={handleDelete}
             />
           )}
+
+          {/* SARIMA Predictions Section */}
+          <div className="bg-white rounded-lg shadow border border-gray-200">
+            <div className="p-6 border-b border-gray-200">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-gradient-to-br from-teal-500 to-blue-500 rounded-lg">
+                    <Sparkles className="w-5 h-5 text-white" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900">HealthCard Demand Forecast (SARIMA)</h3>
+                    <p className="text-sm text-gray-600">AI-powered predictions for Yellow and Green card issuance</p>
+                  </div>
+                </div>
+                <button
+                  onClick={handleGeneratePredictions}
+                  disabled={isGeneratingPredictions || statistics.length === 0}
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-[#20C997] text-white rounded-lg hover:bg-[#1AA179] transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-md"
+                >
+                  {isGeneratingPredictions ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Generating...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="w-4 h-4" />
+                      Generate Predictions
+                    </>
+                  )}
+                </button>
+              </div>
+              {generationStatus.type !== 'idle' && (
+                <div className={`mt-4 p-3 rounded-lg flex items-start gap-2 ${
+                  generationStatus.type === 'success' ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'
+                }`}>
+                  {generationStatus.type === 'success' ? (
+                    <CheckCircle2 className="w-5 h-5 text-green-600 mt-0.5" />
+                  ) : (
+                    <AlertCircle className="w-5 h-5 text-red-600 mt-0.5" />
+                  )}
+                  <p className={`text-sm ${generationStatus.type === 'success' ? 'text-green-800' : 'text-red-800'}`}>
+                    {generationStatus.message}
+                  </p>
+                </div>
+              )}
+            </div>
+            <div className="p-6 space-y-8">
+              {/* Yellow Card (Food Handler) Predictions */}
+              <div>
+                <h4 className="text-md font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                  <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
+                  Yellow Card (Food Handler) Forecast
+                </h4>
+                <HealthCardSARIMAChart key={`yellow-${predictionRefreshKey}`} healthcardType="food_handler" />
+              </div>
+
+              {/* Green Card (Non-Food Handler) Predictions */}
+              <div>
+                <h4 className="text-md font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                  <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                  Green Card (Non-Food Handler) Forecast
+                </h4>
+                <HealthCardSARIMAChart key={`green-${predictionRefreshKey}`} healthcardType="non_food" />
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* Excel Import Modal */}
@@ -397,6 +508,7 @@ export default function HealthcareAdminHealthcardStatisticsPage() {
           onImportSuccess={() => {
             toast.success('Healthcard data imported from Excel successfully');
             fetchStatistics();
+            setPredictionRefreshKey(prev => prev + 1);
           }}
         />
 
