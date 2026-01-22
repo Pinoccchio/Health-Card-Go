@@ -47,8 +47,9 @@ export const ROLE_NAMES: Record<RoleId, string> = {
  *
  * This field defines what category of services a Healthcare Admin can access:
  * - healthcard → Health Card Services (Yellow Card: 12,13 | Green Card: 14,15)
- * - hiv → HIV/AIDS Services (Pink Card & HIV Testing: 16)
+ * - hiv → HIV Testing & Counseling (Service: 16, NO cards)
  * - pregnancy → Pregnancy Services (Prenatal Checkup: 17)
+ * - pink_card → Pink Card Management (Services: 24-25, separate from HIV counseling)
  * - laboratory → Laboratory Services
  * - immunization → Immunization Services
  *
@@ -59,6 +60,7 @@ export type AdminCategory =
   | 'healthcard'
   | 'hiv'
   | 'pregnancy'
+  | 'pink_card'
   | 'laboratory'
   | 'immunization';
 
@@ -66,6 +68,7 @@ export const ADMIN_CATEGORY_NAMES = {
   healthcard: 'Healthcard Admin',
   hiv: 'HIV Admin',
   pregnancy: 'Pregnancy Admin',
+  pink_card: 'Pink Card Admin',
   laboratory: 'Laboratory Admin',
   immunization: 'Immunization Admin',
 } as const;

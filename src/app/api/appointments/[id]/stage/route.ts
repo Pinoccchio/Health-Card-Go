@@ -86,11 +86,12 @@ export async function PUT(
       );
     }
 
-    // Verify this is a health card service or Pink Card (HIV with card_type='pink')
+    // Verify this is a health card service or Pink Card (Service 12, 16 with pink card, or Service 24)
     const isHealthCardService = appointment.service?.category === 'healthcard';
-    const isPinkCard = appointment.service?.category === 'hiv' && appointment.card_type === 'pink';
+    const isPinkCardViaHIV = appointment.service?.category === 'hiv' && appointment.card_type === 'pink';
+    const isPinkCardService = appointment.service?.category === 'pink_card';
 
-    if (!isHealthCardService && !isPinkCard) {
+    if (!isHealthCardService && !isPinkCardViaHIV && !isPinkCardService) {
       return NextResponse.json(
         {
           success: false,

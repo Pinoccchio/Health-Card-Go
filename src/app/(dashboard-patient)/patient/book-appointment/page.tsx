@@ -90,6 +90,9 @@ export default function PatientBookAppointmentPage({
   // Service availability state
   const [serviceAvailableDays, setServiceAvailableDays] = useState<string[]>([]);
 
+  // Appointment count state (for calendar badges)
+  const [markedDates, setMarkedDates] = useState<Map<string, number>>(new Map());
+
   // Rebook state
   const [rebookAppointmentId, setRebookAppointmentId] = useState<string | null>(null);
   const [rebookData, setRebookData] = useState<any | null>(null);
@@ -235,6 +238,36 @@ export default function PatientBookAppointmentPage({
     fetchServiceAvailability();
   }, [selectedService]);
 
+  // Fetch appointment counts for calendar badges
+  useEffect(() => {
+    const fetchAppointmentCounts = async () => {
+      if (!selectedService) {
+        setMarkedDates(new Map());
+        return;
+      }
+
+      try {
+        // Fetch all appointments for the selected service (for date badges)
+        const response = await fetch(`/api/appointments?service_id=${selectedService}&limit=1000`);
+        const data = await response.json();
+
+        if (data.success && data.data) {
+          // Create a map of date -> count
+          const dateMap = new Map<string, number>();
+          data.data.forEach((apt: any) => {
+            const dateKey = apt.appointment_date.split('T')[0]; // YYYY-MM-DD
+            dateMap.set(dateKey, (dateMap.get(dateKey) || 0) + 1);
+          });
+          setMarkedDates(dateMap);
+        }
+      } catch (error) {
+        console.error('Error fetching appointment counts:', error);
+      }
+    };
+
+    fetchAppointmentCounts();
+  }, [selectedService]);
+
   const fetchAvailableBlocks = async () => {
     if (!selectedDate) return;
 
@@ -285,9 +318,9 @@ export default function PatientBookAppointmentPage({
     setError('');
 
     try {
-      // Route Pink Card to Service 16 (HIV Testing & Counseling)
+      // Route Pink Card to Service 24 (Pink Card Issuance & Renewal)
       // Yellow/Green cards stay on Service 12 (Health Card)
-      const serviceId = selectedCardType === 'pink' ? 16 : selectedService;
+      const serviceId = selectedCardType === 'pink' ? 24 : selectedService;
 
       const requestBody = {
         service_id: serviceId,
@@ -451,9 +484,9 @@ export default function PatientBookAppointmentPage({
     const finalReason = reasonTemplate === 'Other (please specify)' ? customReason : reasonTemplate;
 
     try {
-      // Route Pink Card to Service 16 (HIV Testing & Counseling)
+      // Route Pink Card to Service 24 (Pink Card Issuance & Renewal)
       // Yellow/Green cards stay on Service 12 (Health Card)
-      const serviceId = selectedCardType === 'pink' ? 16 : selectedService;
+      const serviceId = selectedCardType === 'pink' ? 24 : selectedService;
 
       // Build request body with conditional health card fields
       const requestBody: any = {
@@ -555,7 +588,7 @@ export default function PatientBookAppointmentPage({
                   <h4 className="font-semibold mb-1">{t('success.what_next_heading')}</h4>
                   <p>
                     {t('success.what_next_message', {
-                      role: t('success.healthcare_staff'),
+                      role: getAdminRoleLabel(selectedServiceDetails.category),
                       time: t('success.shortly')
                     })}
                   </p>
@@ -789,8 +822,14 @@ export default function PatientBookAppointmentPage({
                             const serviceId = Number(e.target.value);
                             if (serviceId) {
                               setSelectedService(serviceId);
-                              setSelectedCardType(null);
-                              setSelectedLabLocation(null);
+                              // Auto-set card type to 'pink' and lab location to 'inside_cho' for Service 24 (Pink Card)
+                              if (serviceId === 24) {
+                                setSelectedCardType('pink');
+                                setSelectedLabLocation('inside_cho');
+                              } else {
+                                setSelectedCardType(null);
+                                setSelectedLabLocation(null);
+                              }
                             } else {
                               setSelectedService(null);
                               setSelectedCardType(null);
@@ -812,7 +851,7 @@ export default function PatientBookAppointmentPage({
                       </div>
 
                       {/* Card Type Dropdown - Only for HealthCard */}
-                      {selectedService && isHealthCardService(selectedService) && (
+                      {selectedService && selectedService === 12 && (
                         <div>
                           <label htmlFor="card-type" className="block text-sm font-semibold text-gray-900 mb-2 flex items-center gap-2">
                             Card Type
@@ -842,12 +881,11 @@ export default function PatientBookAppointmentPage({
                             <option value="" className="text-gray-500">Select a card type</option>
                             <option value="food_handler">Food (Yellow)</option>
                             <option value="non_food">Nonfood (Green)</option>
-                            <option value="pink">Pink Card</option>
                           </select>
                         </div>
                       )}
 
-                      {/* Lab Location Dropdown - For all health card types */}
+                      {/* Lab Location Dropdown - For Service 12 (editable) and Service 24 (read-only) */}
                       {selectedService && isHealthCardService(selectedService) && selectedCardType && (
                         <div>
                           <label htmlFor="lab-location" className="block text-sm font-semibold text-gray-900 mb-2 flex items-center gap-2">
@@ -861,7 +899,7 @@ export default function PatientBookAppointmentPage({
                           </label>
                           <select
                             id="lab-location"
-                            value={selectedCardType === 'pink' ? 'inside_cho' : (selectedLabLocation || '')}
+                            value={selectedLabLocation || ''}
                             onChange={(e) => {
                               const value = e.target.value as LabLocationType;
                               if (value) {
@@ -870,21 +908,15 @@ export default function PatientBookAppointmentPage({
                                 setSelectedLabLocation(null);
                               }
                             }}
-                            disabled={selectedCardType === 'pink' || (isRebooking && !!selectedLabLocation)}
+                            disabled={selectedService === 24 || (isRebooking && !!selectedLabLocation)}
                             className={`w-full px-4 py-3 border border-gray-300 rounded-md focus:outline-none focus:border-primary-teal focus:ring-1 focus:ring-primary-teal text-gray-900 disabled:cursor-not-allowed ${
-                              (selectedCardType === 'pink' || (isRebooking && selectedLabLocation)) ? 'bg-gray-100' : 'bg-white'
+                              (selectedService === 24 || (isRebooking && selectedLabLocation)) ? 'bg-gray-100' : 'bg-white'
                             }`}
                           >
                             <option value="">Select lab location...</option>
                             <option value="inside_cho">Inside CHO Laboratory</option>
                             <option value="outside_cho">Outside CHO Laboratory</option>
                           </select>
-                          {selectedCardType === 'pink' && (
-                            <p className="mt-2 text-xs text-gray-600 flex items-center gap-1">
-                              <Info className="w-3 h-3" />
-                              <span>Pink Card requires laboratory tests at CHO (no outside facilities)</span>
-                            </p>
-                          )}
                         </div>
                       )}
 
@@ -898,7 +930,7 @@ export default function PatientBookAppointmentPage({
                             Continue
                           </button>
                         )}
-                        {selectedService && isHealthCardService(selectedService) && selectedCardType && (selectedCardType === 'pink' || selectedLabLocation) && (
+                        {selectedService && isHealthCardService(selectedService) && selectedCardType && (selectedService === 24 || selectedLabLocation) && (
                           <button
                             onClick={handleStep1Continue}
                             className="px-8 py-3 bg-primary-teal text-white font-semibold rounded-md hover:bg-primary-teal/90 transition-colors shadow-md hover:shadow-lg"
@@ -974,6 +1006,7 @@ export default function PatientBookAppointmentPage({
                     }}
                     minDaysInAdvance={7}
                     serviceAvailableDays={serviceAvailableDays}
+                    markedDates={markedDates}
                   />
 
                   <div className="mt-8 pt-6 border-t border-gray-200">

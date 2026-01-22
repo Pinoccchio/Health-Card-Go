@@ -12,13 +12,14 @@ interface ServiceFormProps {
   isSubmitting?: boolean;
 }
 
-// FINAL SERVICE CATEGORIES (as of 2026-01-18)
-// Only 3 core categories remain: Health Card Issuance & Renewal, HIV Testing & Counseling, Prenatal Checkup
+// SERVICE CATEGORIES (as of 2026-01-22)
+// Core categories: Health Card (Yellow/Green), HIV Testing & Counseling, Prenatal Checkup, Pink Card (HIV Health Card)
 // Removed: Laboratory, Immunization, Education, General Services
 const SERVICE_CATEGORIES = [
   { value: 'healthcard', label: 'Health Card Issuance & Renewal', color: 'text-emerald-600 bg-emerald-50' },
   { value: 'hiv', label: 'HIV Testing & Counseling', color: 'text-purple-600 bg-purple-50' },
   { value: 'pregnancy', label: 'Prenatal Checkup', color: 'text-pink-600 bg-pink-50' },
+  { value: 'pink_card', label: 'Pink Card Management', color: 'text-fuchsia-600 bg-fuchsia-50' },
 ];
 
 export function ServiceForm({

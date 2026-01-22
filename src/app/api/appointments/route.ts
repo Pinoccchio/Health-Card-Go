@@ -305,11 +305,11 @@ export async function POST(request: NextRequest) {
     if (card_type) {
       insertData.card_type = card_type;
 
-      // PINK CARD SERVICE VALIDATION: Pink Card must use Service 16 (HIV Testing & Counseling)
-      if (card_type === 'pink' && service_id !== 16) {
+      // PINK CARD SERVICE VALIDATION: Pink Card must use Service 24 (Pink Card Issuance & Renewal)
+      if (card_type === 'pink' && service_id !== 24) {
         return NextResponse.json(
           {
-            error: 'Pink Card appointments must be booked through HIV Testing & Counseling service (Service 16).',
+            error: 'Pink Card appointments must be booked through Pink Card Issuance & Renewal service (Service 24).',
           },
           { status: 400 }
         );
@@ -474,7 +474,7 @@ export async function GET(request: NextRequest) {
     // Get user profile
     const { data: profile } = await supabase
       .from('profiles')
-      .select('id, role, assigned_service_id')
+      .select('id, role, admin_category, assigned_service_id')
       .eq('id', user.id)
       .single();
 
@@ -538,7 +538,7 @@ export async function GET(request: NextRequest) {
           verification_status
         )
       `)
-      .order('appointment_date', { ascending: true });
+      .order('appointment_date', { ascending: false }); // Show newest appointments first
 
     // Role-based filtering
     if (profile.role === 'patient') {
@@ -651,14 +651,17 @@ export async function GET(request: NextRequest) {
       const statusValues = status.split(',').map(s => s.trim());
       query = query.in('status', statusValues);
     } else {
-      // By default, exclude draft appointments (they are only for document upload)
-      query = query.neq('status', 'draft');
+      // Apply role-specific default filtering
+      if (profile.role === 'patient') {
+        // Patients can explicitly see these statuses (includes pending!)
+        // Excludes: draft, cancelled (if zero queue number)
+        query = query.in('status', ['pending', 'scheduled', 'checked_in', 'in_progress', 'completed', 'no_show']);
+      } else {
+        // Admins/Staff: exclude draft appointments and cancelled drafts (appointment_number = 0)
+        // Use OR filter: (status != draft AND status != cancelled) OR (status != draft AND appointment_number > 0)
+        query = query.or('and(status.neq.draft,status.neq.cancelled),and(status.neq.draft,appointment_number.gt.0)');
+      }
     }
-
-    // ALWAYS exclude cancelled drafts (these are leftover drafts with appointment_number = 0)
-    // These are not real appointments, just cancelled placeholder drafts
-    // Use composite filter: exclude records where status is 'cancelled' AND appointment_number is 0
-    query = query.or('status.neq.cancelled,and(status.eq.cancelled,appointment_number.neq.0)');
 
     if (date) {
       query = query.eq('appointment_date', date);
@@ -816,13 +819,32 @@ export async function GET(request: NextRequest) {
         countQuery = countQuery.eq('patient_id', patientRecord.id);
       }
     } else if (profile.role === 'healthcare_admin') {
-      // Healthcare admins see appointments for their assigned service only
-      if (profile.assigned_service_id) {
-        countQuery = countQuery.eq('service_id', profile.assigned_service_id);
+      // Healthcare admins see appointments based on their admin_category
+      // SYNC WITH MAIN QUERY LOGIC (lines 558-615)
+      if (!profile.admin_category) {
+        // No admin category - count will be 0
+        countQuery = countQuery.eq('id', '00000000-0000-0000-0000-000000000000');
+      } else if (profile.admin_category === 'healthcard') {
+        // Healthcard admin sees services 12-15 (yellow and green cards ONLY, excludes pink)
+        countQuery = countQuery.in('service_id', [12, 13, 14, 15]);
+        // Exclude pink cards (healthcard admin only handles yellow and green)
+        countQuery = countQuery.or('card_type.is.null,card_type.neq.pink');
+      } else if (profile.admin_category === 'hiv') {
+        // HIV admin sees service 16 only
+        countQuery = countQuery.eq('service_id', 16);
+      } else if (profile.admin_category === 'pregnancy') {
+        // Pregnancy admin sees service 17 only
+        countQuery = countQuery.eq('service_id', 17);
       } else {
-        // No service assigned, count will be 0
-        countQuery = countQuery.eq('id', '00000000-0000-0000-0000-000000000000'); // Force 0 results
+        // Other categories: fall back to assigned_service_id if available
+        if (profile.assigned_service_id) {
+          countQuery = countQuery.eq('service_id', profile.assigned_service_id);
+        } else {
+          // No service assigned, count will be 0
+          countQuery = countQuery.eq('id', '00000000-0000-0000-0000-000000000000');
+        }
       }
+
       if (patientId) {
         countQuery = countQuery.eq('patient_id', patientId);
       }
@@ -832,11 +854,21 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Apply common filters to count query
+    // Apply common filters to count query (must match main query)
     if (status) {
       const statusValues = status.split(',').map(s => s.trim());
       countQuery = countQuery.in('status', statusValues);
+    } else {
+      // Apply same role-specific filtering as main query
+      if (profile.role === 'patient') {
+        // Patients can see these statuses (includes pending!)
+        countQuery = countQuery.in('status', ['pending', 'scheduled', 'checked_in', 'in_progress', 'completed', 'no_show']);
+      } else {
+        // Admins/Staff: exclude drafts and cancelled placeholders
+        countQuery = countQuery.or('and(status.neq.draft,status.neq.cancelled),and(status.neq.draft,appointment_number.gt.0)');
+      }
     }
+
     if (date) {
       countQuery = countQuery.eq('appointment_date', date);
     }

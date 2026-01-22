@@ -575,10 +575,10 @@ export function getAppointmentStageLabel(stage: AppointmentStage): string {
 /**
  * Check if service requires health card selection
  * @param serviceId - The service ID
- * @returns true if service is Health Card Issuance (ID 12)
+ * @returns true if service is Health Card Issuance (ID 12) or Pink Card Issuance (ID 24)
  */
 export function isHealthCardService(serviceId: number): boolean {
-  return serviceId === 12;
+  return serviceId === 12 || serviceId === 24;
 }
 
 /**

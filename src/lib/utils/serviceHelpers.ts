@@ -19,6 +19,7 @@ export function getCategoryLabel(category: string): string {
     healthcard: 'Healthcard',
     hiv: 'HIV/AIDS',
     pregnancy: 'Maternal Health',
+    pink_card: 'Pink Card',
     laboratory: 'Laboratory',
     immunization: 'Immunization',
     general: 'General Health',
@@ -34,6 +35,7 @@ export function getAdminRoleLabel(category: string): string {
     healthcard: 'Healthcard Administrator',
     hiv: 'HIV Administrator',
     pregnancy: 'Maternal Health Administrator',
+    pink_card: 'Pink Card Administrator',
     laboratory: 'Laboratory Administrator',
     immunization: 'Immunization Administrator',
     general: 'General Administrator',
@@ -80,6 +82,13 @@ export function getCategoryColors(category: string): ServiceCategoryInfo {
       bgColor: 'bg-pink-100',
       textColor: 'text-pink-800',
       description: 'Confidential prenatal and postnatal care',
+    },
+    pink_card: {
+      label: 'Pink Card',
+      color: '#C026D3', // Fuchsia
+      bgColor: 'bg-fuchsia-100',
+      textColor: 'text-fuchsia-800',
+      description: 'HIV-related health card issuance and renewal',
     },
     laboratory: {
       label: 'Laboratory',
@@ -144,6 +153,7 @@ export function getCategoryIcon(category: string): string {
     healthcard: 'FileText',
     hiv: 'AlertCircle',
     pregnancy: 'Baby',
+    pink_card: 'CreditCard',
     laboratory: 'Briefcase',
     immunization: 'Syringe',
     general: 'Heart',

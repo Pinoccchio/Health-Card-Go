@@ -299,6 +299,16 @@ export async function getHealthcareAdminMenuItems(
     console.log('✅ Added SARIMA Statistics menu for pregnancy admin');
   }
 
+  // Add Pink Card Management for pink_card admins
+  if (adminCategory === 'pink_card') {
+    menuItems.push({
+      label: 'Pink Card Management',
+      href: '/healthcare-admin/pink-card-management',
+      icon: CreditCard,
+    });
+    console.log('✅ Added Pink Card Management menu for pink_card admin');
+  }
+
   // Add Reports and Announcements at the end
   menuItems.push(
     {

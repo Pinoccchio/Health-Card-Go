@@ -6,13 +6,18 @@
 
 /**
  * Service categories available in the system
- * As of 2026-01-18: Only 3 core categories remain
+ * As of 2026-01-22: 4 core categories
+ * - healthcard: Yellow/Green Card issuance (Services 12-15)
+ * - hiv: HIV Testing & Counseling (Service 16)
+ * - pregnancy: Prenatal Checkup (Service 17)
+ * - pink_card: Pink Card Management (Services 24-25, separate from HIV counseling)
  * Removed: laboratory, immunization, education, general
  */
 export type ServiceCategory =
   | 'healthcard'
   | 'hiv'
-  | 'pregnancy';
+  | 'pregnancy'
+  | 'pink_card';
 
 /**
  * Service entity from database

@@ -126,9 +126,15 @@ export default function HealthcareAdminAppointmentsPage() {
   const [successMessage, setSuccessMessage] = useState('');
 
   // Date-based queue view state
-  // Start with 'all' to show all appointments initially
-  // After data loads, we'll set it to the most recent appointment date
-  const [selectedDate, setSelectedDate] = useState<string>('all');
+  // Start with today's date in Philippine timezone (YYYY-MM-DD format)
+  const getTodayPHT = () => {
+    const nowPHT = getPhilippineTime();
+    const year = nowPHT.getUTCFullYear();
+    const month = String(nowPHT.getUTCMonth() + 1).padStart(2, '0');
+    const day = String(nowPHT.getUTCDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+  const [selectedDate, setSelectedDate] = useState<string>(getTodayPHT());
 
   // Get unique dates that have appointments (sorted chronologically)
   // Use allAppointmentsForDates (not paginated) to show all available dates in dropdown
@@ -1476,7 +1482,7 @@ export default function HealthcareAdminAppointmentsPage() {
               </div>
 
               {/* Appointment Stage Tracker - Only for HealthCard services WITH card_type (includes Pink Card) */}
-              {(selectedAppointment.services?.category === 'healthcard' || (selectedAppointment.services?.category === 'hiv' && selectedAppointment.card_type === 'pink')) && selectedAppointment.card_type && (
+              {(selectedAppointment.services?.category === 'healthcard' || selectedAppointment.services?.category === 'pink_card' || (selectedAppointment.services?.category === 'hiv' && selectedAppointment.card_type === 'pink')) && selectedAppointment.card_type && (
                 <AppointmentStageTracker
                   currentStage={selectedAppointment.appointment_stage || null}
                   isHealthCardService={true}
@@ -1486,7 +1492,7 @@ export default function HealthcareAdminAppointmentsPage() {
               )}
 
               {/* Stage Actions - Directly below tracker for clear visual hierarchy */}
-              {(selectedAppointment.services?.category === 'healthcard' || (selectedAppointment.services?.category === 'hiv' && selectedAppointment.card_type === 'pink')) && selectedAppointment.card_type &&
+              {(selectedAppointment.services?.category === 'healthcard' || selectedAppointment.services?.category === 'pink_card' || (selectedAppointment.services?.category === 'hiv' && selectedAppointment.card_type === 'pink')) && selectedAppointment.card_type &&
                 (selectedAppointment.status === 'checked_in' || selectedAppointment.status === 'in_progress') && (
                 <div className="space-y-2 pt-2 pb-4 border-b border-gray-200">
                   {/* Laboratory Stage Buttons - check_in OR laboratory */}
@@ -1748,6 +1754,7 @@ export default function HealthcareAdminAppointmentsPage() {
                 {/* Document Review Section - For services with card_type (Health Cards) */}
                 {(
                   (selectedAppointment.services?.category === 'healthcard' && selectedAppointment.card_type) ||
+                  (selectedAppointment.services?.category === 'pink_card' && selectedAppointment.card_type) ||
                   (selectedAppointment.service_id === 16 && selectedAppointment.card_type === 'pink') ||
                   (selectedAppointment.service_id === 17 && selectedAppointment.card_type)
                 ) && (

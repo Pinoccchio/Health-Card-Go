@@ -178,7 +178,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const validCategories = ['healthcard', 'hiv', 'pregnancy', 'laboratory', 'immunization', 'general'];
+    const validCategories = ['healthcard', 'hiv', 'pregnancy', 'pink_card', 'laboratory', 'immunization', 'general'];
     if (!validCategories.includes(category)) {
       return NextResponse.json(
         { success: false, error: `Invalid category. Must be one of: ${validCategories.join(', ')}` },

@@ -210,6 +210,7 @@ export default function AdminServicesPage() {
       healthcard: 'bg-emerald-100 text-emerald-800',
       hiv: 'bg-purple-100 text-purple-800',
       pregnancy: 'bg-pink-100 text-pink-800',
+      pink_card: 'bg-fuchsia-100 text-fuchsia-800',
       laboratory: 'bg-blue-100 text-blue-800',
       immunization: 'bg-indigo-100 text-indigo-800',
       general: 'bg-gray-100 text-gray-800',
@@ -222,6 +223,7 @@ export default function AdminServicesPage() {
       healthcard: 'Health Card',
       hiv: 'HIV Services',
       pregnancy: 'Pregnancy',
+      pink_card: 'Pink Card',
     };
     return labels[category] || category;
   };
@@ -323,6 +325,7 @@ export default function AdminServicesPage() {
                 <option value="healthcard">Health Card</option>
                 <option value="hiv">HIV Services</option>
                 <option value="pregnancy">Pregnancy</option>
+                <option value="pink_card">Pink Card</option>
               </select>
             </div>
 

@@ -48,18 +48,9 @@ export default function CreateHealthcareAdminForm({ isOpen, onClose, onSuccess }
   // Auto-derive admin_category from selected service
   useEffect(() => {
     if (selectedService) {
-      // Map service category to admin_category
-      const categoryMap: Record<string, string> = {
-        'healthcard': 'healthcard',
-        'hiv': 'hiv',
-        'pregnancy': 'pregnancy',
-        'laboratory': 'laboratory',
-        'immunization': 'immunization',
-        'general': 'general',
-      };
-
-      const adminCategory = categoryMap[selectedService.category] || 'general';
-      setFormData(prev => ({ ...prev, admin_category: adminCategory }));
+      // Admin category matches service category directly (they use the same enum)
+      // This ensures any new service categories automatically work without manual mapping updates
+      setFormData(prev => ({ ...prev, admin_category: selectedService.category }));
     } else {
       // Reset admin_category if no service selected
       setFormData(prev => ({ ...prev, admin_category: '' }));

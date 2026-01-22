@@ -37,8 +37,8 @@ export async function canAccessAppointments(assignedServiceId: number | null): P
     return false;
   }
 
-  // Pattern 5: Services 12, 16, 17 all have appointment access
-  return [12, 16, 17].includes(assignedServiceId);
+  // Pattern 5: Services 12, 16, 17, 24 all have appointment access
+  return [12, 16, 17, 24].includes(assignedServiceId);
 }
 
 /**
@@ -50,8 +50,8 @@ export async function canAccessWalkInQueue(assignedServiceId: number | null): Pr
     return false;
   }
 
-  // Pattern 5: Services 12, 16, 17 all have walk-in queue access
-  return [12, 16, 17].includes(assignedServiceId);
+  // Pattern 5: Services 12, 16, 17, 24 all have walk-in queue access
+  return [12, 16, 17, 24].includes(assignedServiceId);
 }
 
 /**

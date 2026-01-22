@@ -23,6 +23,7 @@ interface AppointmentCalendarProps {
   onDateSelect: (date: Date | undefined) => void;
   minDaysInAdvance?: number; // Default: 7 days
   serviceAvailableDays?: string[]; // e.g., ['Monday', 'Wednesday', 'Friday']
+  markedDates?: Map<string, number>; // Date (YYYY-MM-DD) -> Appointment count
   className?: string;
 }
 
@@ -31,6 +32,7 @@ export function AppointmentCalendar({
   onDateSelect,
   minDaysInAdvance = 7,
   serviceAvailableDays = [],
+  markedDates,
   className = '',
 }: AppointmentCalendarProps) {
   const [holidays, setHolidays] = useState<Holiday[]>([]);
@@ -138,6 +140,47 @@ export function AppointmentCalendar({
     return holiday?.name;
   };
 
+  // Get appointment count badge for a date
+  const getTileContent = ({ date }: { date: Date }): JSX.Element | null => {
+    if (!markedDates) return null;
+
+    const dateString = format(date, 'yyyy-MM-dd');
+    const appointmentCount = markedDates.get(dateString) || 0;
+
+    if (appointmentCount === 0) return null;
+
+    // 10+ appointments: Red badge with number
+    if (appointmentCount >= 10) {
+      return (
+        <div className="absolute top-1 right-1 flex items-center justify-center">
+          <span className="w-5 h-5 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center shadow-sm">
+            {appointmentCount > 99 ? '99+' : appointmentCount}
+          </span>
+        </div>
+      );
+    }
+
+    // 5-9 appointments: Orange badge with number
+    if (appointmentCount >= 5) {
+      return (
+        <div className="absolute top-1 right-1 flex items-center justify-center">
+          <span className="w-4 h-4 bg-orange-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center shadow-sm">
+            {appointmentCount}
+          </span>
+        </div>
+      );
+    }
+
+    // 1-4 appointments: Teal dots at bottom
+    return (
+      <div className="absolute bottom-1 left-1/2 transform -translate-x-1/2 flex gap-0.5">
+        {[...Array(Math.min(appointmentCount, 4))].map((_, i) => (
+          <div key={i} className="w-1 h-1 bg-teal-500 rounded-full"></div>
+        ))}
+      </div>
+    );
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center p-8">
@@ -156,6 +199,7 @@ export function AppointmentCalendar({
         maxDate={addDays(today, 365)}
         tileDisabled={isDateDisabled}
         tileClassName={getTileClassName}
+        tileContent={getTileContent}
         showNeighboringMonth={false}
         locale="en-US"
       />
@@ -185,6 +229,46 @@ export function AppointmentCalendar({
           </div>
           <span className="text-gray-700">Not available (weekend or past date)</span>
         </div>
+        {markedDates && markedDates.size > 0 && (
+          <>
+            <div className="border-t border-gray-300 my-2 pt-2">
+              <p className="text-xs font-semibold text-gray-600 mb-2">Appointment Indicators:</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 bg-white border border-gray-200 rounded-md relative flex items-center justify-center">
+                <span className="text-gray-900">15</span>
+                <div className="absolute bottom-0.5 left-1/2 transform -translate-x-1/2 flex gap-0.5">
+                  <div className="w-1 h-1 bg-teal-500 rounded-full"></div>
+                  <div className="w-1 h-1 bg-teal-500 rounded-full"></div>
+                  <div className="w-1 h-1 bg-teal-500 rounded-full"></div>
+                </div>
+              </div>
+              <span className="text-gray-700">1-4 appointments</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 bg-white border border-gray-200 rounded-md relative flex items-center justify-center">
+                <span className="text-gray-900">16</span>
+                <div className="absolute top-0.5 right-0.5">
+                  <span className="w-4 h-4 bg-orange-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center shadow-sm">
+                    7
+                  </span>
+                </div>
+              </div>
+              <span className="text-gray-700">5-9 appointments</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 bg-white border border-gray-200 rounded-md relative flex items-center justify-center">
+                <span className="text-gray-900">17</span>
+                <div className="absolute top-0.5 right-0.5">
+                  <span className="w-5 h-5 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center shadow-sm">
+                    15
+                  </span>
+                </div>
+              </div>
+              <span className="text-gray-700">10+ appointments</span>
+            </div>
+          </>
+        )}
       </div>
 
       {/* Selected date display */}
