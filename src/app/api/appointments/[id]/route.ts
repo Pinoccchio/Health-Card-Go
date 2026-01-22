@@ -82,7 +82,8 @@ export async function PATCH(
       card_type,
       lab_location,
       service_id,
-      appointment_stage
+      appointment_stage,
+      action // NEW: 'approve' or 'reject' action from admin
     } = body;
 
     // Determine operation type for later use
@@ -283,6 +284,18 @@ export async function PATCH(
     // Set cancellation reason if appointment is being cancelled
     if (targetStatus === 'cancelled') {
       updateData.cancellation_reason = cancellation_reason || null;
+    }
+
+    // Handle admin approval/rejection actions
+    if (action === 'approve' || action === 'reject') {
+      updateData.approved_by_id = profile.id;
+      updateData.approved_at = now;
+
+      if (action === 'approve') {
+        console.log(`✅ [APPOINTMENT APPROVAL] Admin ${profile.id} approved appointment ${appointmentId}`);
+      } else if (action === 'reject') {
+        console.log(`❌ [APPOINTMENT REJECTION] Admin ${profile.id} rejected appointment ${appointmentId}`);
+      }
     }
 
     // Set completed_by_id for all status changes so trigger can track who made the change

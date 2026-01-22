@@ -17,6 +17,7 @@ export interface ConfirmDialogProps {
   reasonPlaceholder?: string;
   isLoading?: boolean;
   isReasonRequired?: boolean;
+  confirmButtonClass?: string;
 }
 
 export function ConfirmDialog({
@@ -33,6 +34,7 @@ export function ConfirmDialog({
   reasonPlaceholder = 'Please provide a reason...',
   isLoading = false,
   isReasonRequired = false,
+  confirmButtonClass,
 }: ConfirmDialogProps) {
   const reasonRef = useRef<HTMLTextAreaElement>(null);
   const [validationError, setValidationError] = useState<string>('');
@@ -196,7 +198,7 @@ export function ConfirmDialog({
             <button
               onClick={handleConfirm}
               disabled={isLoading}
-              className={`flex-1 px-4 py-2 text-white rounded-md font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed ${styles.button}`}
+              className={`flex-1 px-4 py-2 text-white rounded-md font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed ${confirmButtonClass || styles.button}`}
             >
               {isLoading ? (
                 <span className="flex items-center justify-center">

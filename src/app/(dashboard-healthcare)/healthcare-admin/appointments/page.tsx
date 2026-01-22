@@ -11,6 +11,7 @@ import { Drawer } from '@/components/ui/Drawer';
 import { StatusHistoryModal } from '@/components/appointments/StatusHistoryModal';
 import { TimeElapsedBadge } from '@/components/appointments/TimeElapsedBadge';
 import { DocumentReviewPanel } from '@/components/healthcare-admin/DocumentReviewPanel';
+import { RejectionReasonModal } from '@/components/healthcare-admin/RejectionReasonModal';
 import AppointmentStageTracker from '@/components/appointments/AppointmentStageTracker';
 import LaboratoryStageModal from '@/components/appointments/stages/LaboratoryStageModal';
 import CheckupStageModal from '@/components/appointments/stages/CheckupStageModal';
@@ -42,6 +43,7 @@ import {
   ChevronRight,
   ChevronDown,
 } from 'lucide-react';
+import { format } from 'date-fns';
 import { getPhilippineTime } from '@/lib/utils/timezone';
 import { APPOINTMENT_STATUS_CONFIG } from '@/lib/constants/colors';
 import { canAccessAppointments } from '@/lib/utils/serviceAccessGuard';
@@ -176,6 +178,11 @@ export default function HealthcareAdminAppointmentsPage() {
 
   // Search state
   const [searchQuery, setSearchQuery] = useState('');
+
+  // Approval/Rejection state
+  const [showApproveDialog, setShowApproveDialog] = useState(false);
+  const [showRejectModal, setShowRejectModal] = useState(false);
+  const [appointmentToApprove, setAppointmentToApprove] = useState<AdminAppointment | null>(null);
 
   // Status history and reversion states
   const [showHistoryModal, setShowHistoryModal] = useState(false);
@@ -667,6 +674,45 @@ export default function HealthcareAdminAppointmentsPage() {
     } finally {
       setActionLoading(false);
       setAppointmentToSchedule(null);
+    }
+  };
+
+  const handleApproveAppointment = async () => {
+    if (!appointmentToApprove) return;
+
+    try {
+      setActionLoading(true);
+
+      const response = await fetch(`/api/appointments/${appointmentToApprove.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          status: 'scheduled',
+          action: 'approve'
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to approve appointment');
+      }
+
+      // Close UI
+      setShowApproveDialog(false);
+      setIsDrawerOpen(false);
+      setSelectedAppointment(null);
+      setAppointmentToApprove(null);
+      toast.success('Appointment approved successfully');
+
+      // Refetch appointments and history to get latest data
+      await fetchAppointments();
+      await fetchAllLastHistoryEntries();
+    } catch (error) {
+      console.error('Error approving appointment:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to approve appointment');
+    } finally {
+      setActionLoading(false);
     }
   };
 
@@ -1872,24 +1918,30 @@ export default function HealthcareAdminAppointmentsPage() {
 
               {/* Action Buttons */}
               <div className="mt-6 pt-6 border-t border-gray-200 flex flex-col gap-3">
-                {/* Schedule Button */}
+                {/* Approve/Reject Buttons for Pending Appointments */}
                 {selectedAppointment.status === 'pending' && (
                   <>
                     <button
-                      onClick={() => handleSchedule(selectedAppointment.id)}
+                      onClick={() => {
+                        setAppointmentToApprove(selectedAppointment);
+                        setShowApproveDialog(true);
+                      }}
                       disabled={actionLoading}
-                      className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 font-medium text-sm shadow-sm transition-colors disabled:opacity-50"
+                      className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-green-600 text-white rounded-md hover:bg-green-700 font-medium text-sm shadow-sm transition-colors disabled:opacity-50"
                     >
-                      <Calendar className="w-5 h-5" />
-                      Schedule Appointment
+                      <CheckCircle className="w-5 h-5" />
+                      Approve Appointment
                     </button>
                     <button
-                      onClick={() => handleCancelAppointment(selectedAppointment.id)}
+                      onClick={() => {
+                        setAppointmentToApprove(selectedAppointment);
+                        setShowRejectModal(true);
+                      }}
                       disabled={actionLoading}
-                      className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-red-50 text-red-700 border border-red-200 rounded-md hover:bg-red-100 font-medium text-sm transition-colors disabled:opacity-50"
+                      className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 font-medium text-sm transition-colors disabled:opacity-50"
                     >
                       <XCircle className="w-4 h-4" />
-                      Cancel Appointment
+                      Reject Appointment
                     </button>
                   </>
                 )}
@@ -2153,6 +2205,38 @@ export default function HealthcareAdminAppointmentsPage() {
             />
           </>
         )}
+
+        {/* Approve Appointment Confirmation Dialog */}
+        <ConfirmDialog
+          isOpen={showApproveDialog}
+          onClose={() => {
+            setShowApproveDialog(false);
+            setAppointmentToApprove(null);
+          }}
+          onConfirm={handleApproveAppointment}
+          title="Approve Appointment"
+          message={appointmentToApprove ? `Are you sure you want to approve this appointment for ${appointmentToApprove.patients?.profiles ? `${appointmentToApprove.patients.profiles.first_name} ${appointmentToApprove.patients.profiles.last_name}` : 'this patient'}? This will change the status to SCHEDULED and notify the patient.` : ''}
+          confirmText="Approve Appointment"
+          confirmButtonClass="bg-green-600 hover:bg-green-700 text-white"
+          isLoading={actionLoading}
+        />
+
+        {/* Rejection Reason Modal */}
+        <RejectionReasonModal
+          isOpen={showRejectModal}
+          onClose={() => {
+            setShowRejectModal(false);
+            setAppointmentToApprove(null);
+          }}
+          appointmentId={appointmentToApprove?.id || ''}
+          onSuccess={() => {
+            fetchAppointments(currentPage);
+            setShowRejectModal(false);
+            setAppointmentToApprove(null);
+            setIsDrawerOpen(false);
+            setSelectedAppointment(null);
+          }}
+        />
       </Container>
     </DashboardLayout>
   );

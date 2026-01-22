@@ -437,6 +437,14 @@ export default function PatientAppointmentsPage() {
               Medical Record Created
             </span>
           )}
+
+          {/* Rejection Badge - Cancelled with reason */}
+          {value === 'cancelled' && row.cancellation_reason && (
+            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800 border border-red-200">
+              <AlertCircle className="w-3 h-3 mr-1" />
+              Rejected by Admin
+            </span>
+          )}
         </div>
       ),
     },
@@ -1149,6 +1157,40 @@ export default function PatientAppointmentsPage() {
                         {t('drawer.cannot_cancel_24h')}
                       </p>
                     )}
+                  </div>
+                )}
+
+                {/* Rebook Appointment Button for Cancelled/Rejected Appointments */}
+                {selectedAppointment.status === 'cancelled' && selectedAppointment.cancellation_reason && (
+                  <div className="space-y-3">
+                    <div className="bg-red-50 border-2 border-red-200 rounded-lg p-4">
+                      <div className="flex items-start gap-3 mb-3">
+                        <div className="w-10 h-10 bg-red-500 rounded-full flex items-center justify-center flex-shrink-0">
+                          <XCircle className="w-5 h-5 text-white" />
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-sm font-semibold text-red-900 mb-1">
+                            Appointment Rejected by Admin
+                          </p>
+                          <p className="text-xs text-red-700">
+                            Your appointment was reviewed and rejected. Please see the reason below:
+                          </p>
+                        </div>
+                      </div>
+                      <div className="bg-white rounded-md p-3 border border-red-200">
+                        <p className="text-sm font-medium text-red-900 mb-1">Rejection Reason:</p>
+                        <p className="text-sm text-red-700">
+                          {selectedAppointment.cancellation_reason}
+                        </p>
+                      </div>
+                    </div>
+                    <a
+                      href="/patient/book-appointment"
+                      className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-primary-teal text-white rounded-md hover:bg-primary-teal/90 font-medium text-sm transition-colors"
+                    >
+                      <Calendar className="w-4 h-4" />
+                      Book New Appointment
+                    </a>
                   </div>
                 )}
 
