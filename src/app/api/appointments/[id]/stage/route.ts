@@ -86,12 +86,12 @@ export async function PUT(
       );
     }
 
-    // Verify this is a health card service or Pink Card (Service 12, 16 with pink card, or Service 24)
+    // Verify this is a health card service or Pink Card (Service 12 or Service 24 only)
+    // Service 16 (HIV) and Service 17 (Pregnancy) do NOT have stage tracking
     const isHealthCardService = appointment.service?.category === 'healthcard';
-    const isPinkCardViaHIV = appointment.service?.category === 'hiv' && appointment.card_type === 'pink';
     const isPinkCardService = appointment.service?.category === 'pink_card';
 
-    if (!isHealthCardService && !isPinkCardViaHIV && !isPinkCardService) {
+    if (!isHealthCardService && !isPinkCardService) {
       return NextResponse.json(
         {
           success: false,

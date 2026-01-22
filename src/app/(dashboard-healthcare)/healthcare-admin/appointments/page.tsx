@@ -212,6 +212,10 @@ export default function HealthcareAdminAppointmentsPage() {
   const [showScheduleDialog, setShowScheduleDialog] = useState(false);
   const [appointmentToSchedule, setAppointmentToSchedule] = useState<string | null>(null);
 
+  // Complete appointment confirmation dialog state
+  const [showCompleteDialog, setShowCompleteDialog] = useState(false);
+  const [appointmentToComplete, setAppointmentToComplete] = useState<AdminAppointment | null>(null);
+
   // Stage tracking modals state
   const [showLaboratoryModal, setShowLaboratoryModal] = useState(false);
   const [showCheckupModal, setShowCheckupModal] = useState(false);
@@ -886,9 +890,19 @@ export default function HealthcareAdminAppointmentsPage() {
     }
   };
 
-  const handleCompleteAppointment = async (appointment: AdminAppointment) => {
+  // Open complete appointment confirmation dialog
+  const handleCompleteAppointment = (appointment: AdminAppointment) => {
+    setAppointmentToComplete(appointment);
+    setShowCompleteDialog(true);
+  };
+
+  // Confirm and execute appointment completion
+  const handleConfirmComplete = async () => {
+    if (!appointmentToComplete) return;
+
+    setActionLoading(true);
     try {
-      const response = await fetch(`/api/appointments/${appointment.id}`, {
+      const response = await fetch(`/api/appointments/${appointmentToComplete.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -912,6 +926,10 @@ export default function HealthcareAdminAppointmentsPage() {
     } catch (error) {
       console.error('Error completing appointment:', error);
       toast?.error('Failed to complete appointment');
+    } finally {
+      setActionLoading(false);
+      setShowCompleteDialog(false);
+      setAppointmentToComplete(null);
     }
   };
 
@@ -1481,8 +1499,8 @@ export default function HealthcareAdminAppointmentsPage() {
                 </div>
               </div>
 
-              {/* Appointment Stage Tracker - Only for HealthCard services WITH card_type (includes Pink Card) */}
-              {(selectedAppointment.services?.category === 'healthcard' || selectedAppointment.services?.category === 'pink_card' || (selectedAppointment.services?.category === 'hiv' && selectedAppointment.card_type === 'pink')) && selectedAppointment.card_type && (
+              {/* Appointment Stage Tracker - Only for HealthCard (Service 12) and Pink Card (Service 24) */}
+              {(selectedAppointment.services?.category === 'healthcard' || selectedAppointment.services?.category === 'pink_card') && selectedAppointment.card_type && (
                 <AppointmentStageTracker
                   currentStage={selectedAppointment.appointment_stage || null}
                   isHealthCardService={true}
@@ -1492,7 +1510,7 @@ export default function HealthcareAdminAppointmentsPage() {
               )}
 
               {/* Stage Actions - Directly below tracker for clear visual hierarchy */}
-              {(selectedAppointment.services?.category === 'healthcard' || selectedAppointment.services?.category === 'pink_card' || (selectedAppointment.services?.category === 'hiv' && selectedAppointment.card_type === 'pink')) && selectedAppointment.card_type &&
+              {(selectedAppointment.services?.category === 'healthcard' || selectedAppointment.services?.category === 'pink_card') && selectedAppointment.card_type &&
                 (selectedAppointment.status === 'checked_in' || selectedAppointment.status === 'in_progress') && (
                 <div className="space-y-2 pt-2 pb-4 border-b border-gray-200">
                   {/* Laboratory Stage Buttons - check_in OR laboratory */}
@@ -1754,9 +1772,7 @@ export default function HealthcareAdminAppointmentsPage() {
                 {/* Document Review Section - For services with card_type (Health Cards) */}
                 {(
                   (selectedAppointment.services?.category === 'healthcard' && selectedAppointment.card_type) ||
-                  (selectedAppointment.services?.category === 'pink_card' && selectedAppointment.card_type) ||
-                  (selectedAppointment.service_id === 16 && selectedAppointment.card_type === 'pink') ||
-                  (selectedAppointment.service_id === 17 && selectedAppointment.card_type)
+                  (selectedAppointment.services?.category === 'pink_card' && selectedAppointment.card_type)
                 ) && (
                   <div>
                     <h4 className="text-sm font-medium text-gray-700 mb-2 flex items-center">
@@ -1889,9 +1905,9 @@ export default function HealthcareAdminAppointmentsPage() {
                   </button>
                 )}
 
-                {/* Start Consultation Button - Only for non-HealthCard services (HIV Counseling, Prenatal) - excludes Pink Card */}
+                {/* Start Consultation Button - Only for non-card services (HIV Counseling, Prenatal) */}
                 {selectedAppointment.status === 'checked_in' &&
-                  !(selectedAppointment.services?.category === 'healthcard' || (selectedAppointment.services?.category === 'hiv' && selectedAppointment.card_type === 'pink')) &&
+                  !(selectedAppointment.services?.category === 'healthcard' || selectedAppointment.services?.category === 'pink_card') &&
                   !selectedAppointment.card_type && (
                   <button
                     onClick={() => handleStartConsultation(selectedAppointment.id)}
@@ -1905,9 +1921,9 @@ export default function HealthcareAdminAppointmentsPage() {
 
                 {/* Stage Advancement Buttons moved above (directly below AppointmentStageTracker) for better UX */}
 
-                {/* Complete Appointment Button - Hidden for HealthCard with stage tracking (includes Pink Card) */}
+                {/* Complete Appointment Button - Hidden for card services with stage tracking */}
                 {selectedAppointment.status === 'in_progress' &&
-                  !((selectedAppointment.services?.category === 'healthcard' || (selectedAppointment.services?.category === 'hiv' && selectedAppointment.card_type === 'pink')) && selectedAppointment.appointment_stage) && (
+                  !((selectedAppointment.services?.category === 'healthcard' || selectedAppointment.services?.category === 'pink_card') && selectedAppointment.appointment_stage) && (
                   <button
                     onClick={() => handleCompleteAppointment(selectedAppointment)}
                     disabled={actionLoading}
@@ -2055,6 +2071,26 @@ export default function HealthcareAdminAppointmentsPage() {
           showReasonInput={true}
           reasonLabel="Reason for marking as no-show (optional)"
           reasonPlaceholder="E.g., Patient did not arrive, No response to calls, Confirmed absence"
+          isLoading={actionLoading}
+        />
+
+        {/* Complete Appointment Confirmation Dialog */}
+        <ConfirmDialog
+          isOpen={showCompleteDialog}
+          onClose={() => {
+            setShowCompleteDialog(false);
+            setAppointmentToComplete(null);
+          }}
+          onConfirm={handleConfirmComplete}
+          title="Complete Appointment"
+          message={
+            appointmentToComplete
+              ? `Are you sure you want to mark appointment #${appointmentToComplete.appointment_number} (${appointmentToComplete.patients.profiles.first_name} ${appointmentToComplete.patients.profiles.last_name}) as complete?\n\nThis will:\n• Close the appointment\n• Mark it as completed in the system\n• Log the completion in status history\n\nThis action cannot be easily undone.`
+              : 'Are you sure you want to complete this appointment?'
+          }
+          confirmText="Complete Appointment"
+          cancelText="Cancel"
+          variant="info"
           isLoading={actionLoading}
         />
 

@@ -302,6 +302,17 @@ export async function POST(request: NextRequest) {
     }
 
     // Add health card specific fields if provided
+    // VALIDATION: Service 16 (HIV) and Service 17 (Pregnancy) should NOT have card_type
+    // These services are counseling/testing only, no card generation
+    if (card_type && (service_id === 16 || service_id === 17)) {
+      return NextResponse.json(
+        {
+          error: `This service does not issue health cards. Please select the appropriate card issuance service (Service 12 for Yellow/Green cards, Service 24 for Pink cards).`,
+        },
+        { status: 400 }
+      );
+    }
+
     if (card_type) {
       insertData.card_type = card_type;
 
@@ -343,12 +354,12 @@ export async function POST(request: NextRequest) {
 
       insertData.lab_location = lab_location;
 
-      // Set verification status for HealthCard (Service 12) and Pink Card (Service 16)
+      // Set verification status for HealthCard (Service 12) and Pink Card (Service 24)
       // Both require document verification
-      if (service_id === 12 || (service_id === 16 && card_type === 'pink')) {
+      if (service_id === 12 || service_id === 24) {
         insertData.verification_status = 'pending'; // Needs admin verification of uploaded documents
       } else {
-        // HIV counseling and Prenatal don't require verification
+        // HIV counseling (16) and Prenatal (17) don't require verification
         insertData.verification_status = 'approved'; // Auto-approved
       }
     }
@@ -357,11 +368,7 @@ export async function POST(request: NextRequest) {
     // If card_type is pink but lab_location not provided, auto-set to inside_cho
     if (card_type === 'pink' && !lab_location) {
       insertData.lab_location = 'inside_cho';
-
-      // Set verification status for Pink Card (Service 16)
-      if (service_id === 16) {
-        insertData.verification_status = 'pending';
-      }
+      insertData.verification_status = 'pending'; // Pink Card (Service 24) requires verification
     }
 
     const { data: appointment, error: insertError } = await adminClient
