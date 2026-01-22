@@ -21,6 +21,7 @@ import DiseaseHeatmap from '@/components/disease-surveillance/DiseaseHeatmap';
 import OutbreakAlerts from '@/components/disease-surveillance/OutbreakAlerts';
 import { HistoricalChartsSection } from '@/components/staff/HistoricalChartsSection';
 import { OutbreakDataProvider } from '@/contexts/OutbreakDataContext';
+import { ResetDataDialog } from '@/components/disease-surveillance/ResetDataDialog';
 import {
   STAFF_DISEASE_TYPES,
   DISEASE_TYPE_LABELS,
@@ -136,6 +137,7 @@ export default function StaffDiseaseSurveillancePage() {
   const [isHistoricalStatsReportOpen, setIsHistoricalStatsReportOpen] = useState(false);
   const [isGeographicReportOpen, setIsGeographicReportOpen] = useState(false);
   const [isTrendsReportOpen, setIsTrendsReportOpen] = useState(false);
+  const [showResetDataDialog, setShowResetDataDialog] = useState(false);
 
   // Toast notifications
   const toast = useToast();
@@ -544,39 +546,50 @@ export default function StaffDiseaseSurveillancePage() {
         {activeTab === 'data-management' && (
           <div className="space-y-6">
             {/* Action Bar for Historical Statistics */}
-            <div className="flex justify-end gap-3">
-              <a
-                href="/templates/disease-historical-import-template.xlsx"
-                download
-                className="px-4 py-2 bg-white text-gray-700 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors flex items-center gap-2 shadow-sm"
-                title="Download Excel Template"
-              >
-                <Download className="w-4 h-4" />
-                Download Template
-              </a>
+            <div className="flex justify-between gap-3 items-center">
               <button
-                onClick={() => setIsExcelImportOpen(true)}
-                className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors flex items-center gap-2 shadow-sm"
-                title="Import from Excel"
+                onClick={() => setShowResetDataDialog(true)}
+                className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors flex items-center gap-2 shadow-sm"
+                title="Clear all disease surveillance data for testing"
               >
-                <Upload className="w-4 h-4" />
-                Import Excel
+                <Trash2 className="w-4 h-4" />
+                Reset All Data
               </button>
-              <button
-                onClick={() => setIsHistoricalFormOpen(true)}
-                className="px-4 py-2 bg-white text-primary-teal border border-primary-teal rounded-md hover:bg-teal-50 transition-colors flex items-center gap-2 shadow-sm"
-                title="Add Historical Data Manually"
-              >
-                <Database className="w-4 h-4" />
-                Add Historical Data
-              </button>
-              <button
-                onClick={() => setIsHistoricalStatsReportOpen(true)}
-                className="px-4 py-2 bg-primary-teal text-white rounded-md hover:bg-primary-teal/90 transition-colors flex items-center gap-2 shadow-sm"
-              >
-                <FileText className="w-4 h-4" />
-                Generate Report
-              </button>
+
+              <div className="flex justify-end gap-3">
+                <a
+                  href="/templates/disease-historical-import-template.xlsx"
+                  download
+                  className="px-4 py-2 bg-white text-gray-700 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors flex items-center gap-2 shadow-sm"
+                  title="Download Excel Template"
+                >
+                  <Download className="w-4 h-4" />
+                  Download Template
+                </a>
+                <button
+                  onClick={() => setIsExcelImportOpen(true)}
+                  className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors flex items-center gap-2 shadow-sm"
+                  title="Import from Excel"
+                >
+                  <Upload className="w-4 h-4" />
+                  Import Excel
+                </button>
+                <button
+                  onClick={() => setIsHistoricalFormOpen(true)}
+                  className="px-4 py-2 bg-white text-primary-teal border border-primary-teal rounded-md hover:bg-teal-50 transition-colors flex items-center gap-2 shadow-sm"
+                  title="Add Historical Data Manually"
+                >
+                  <Database className="w-4 h-4" />
+                  Add Historical Data
+                </button>
+                <button
+                  onClick={() => setIsHistoricalStatsReportOpen(true)}
+                  className="px-4 py-2 bg-primary-teal text-white rounded-md hover:bg-primary-teal/90 transition-colors flex items-center gap-2 shadow-sm"
+                >
+                  <FileText className="w-4 h-4" />
+                  Generate Report
+                </button>
+              </div>
             </div>
 
             {/* Summary Statistics */}
@@ -1128,6 +1141,16 @@ export default function StaffDiseaseSurveillancePage() {
             disease_type: diseaseFilter,
             barangay_id: barangayFilter,
             time_range: timeRange.toString(),
+          }}
+        />
+
+        {/* Reset All Data Dialog */}
+        <ResetDataDialog
+          isOpen={showResetDataDialog}
+          onClose={() => setShowResetDataDialog(false)}
+          onSuccess={() => {
+            fetchHistoricalStatistics();
+            toast.success('All disease surveillance data has been reset. You can now import fresh data.');
           }}
         />
       </Container>
