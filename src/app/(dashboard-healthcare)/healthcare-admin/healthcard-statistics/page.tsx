@@ -6,7 +6,7 @@ import { DashboardLayout } from '@/components/dashboard';
 import { Container, ConfirmDialog } from '@/components/ui';
 import HealthcardExcelImportModal from '@/components/staff/HealthcardExcelImportModal';
 import { EditHealthcardStatisticModal } from '@/components/staff/EditHealthcardStatisticModal';
-import { HealthcardStatsSummary } from '@/components/staff/HealthcardStatsSummary';
+import { HealthcardDataSourceCards } from '@/components/staff/HealthcardDataSourceCards';
 import { HealthcardStatisticsTable } from '@/components/staff/HealthcardStatisticsTable';
 import { useToast } from '@/lib/contexts/ToastContext';
 import { useAuth } from '@/lib/auth';
@@ -368,14 +368,14 @@ export default function HealthcareAdminHealthcardStatisticsPage() {
             </div>
           </div>
 
-          {/* Summary Statistics */}
-          <HealthcardStatsSummary summary={summary} loading={loading} showPinkCards={false} />
+          {/* Data Source Breakdown */}
+          <HealthcardDataSourceCards summary={summary} loading={loading} showPinkCards={false} />
 
           {/* Appointment Status Breakdown Chart */}
           <AppointmentStatusChart
             data={appointmentStats}
             loading={appointmentStatsLoading}
-            title="Monthly Appointment Status Breakdown (Completed, Cancelled, No Show)"
+            title="Current System Appointments - Monthly Status Breakdown (Completed, Cancelled, No Show)"
             height={450}
           />
 
@@ -532,23 +532,25 @@ export default function HealthcareAdminHealthcardStatisticsPage() {
                 </div>
               )}
             </div>
-            <div className="p-6 space-y-8">
-              {/* Yellow Card (Food Handler) Predictions */}
+            <div className="p-6">
+              {/* Combined Health Card Forecast */}
               <div>
-                <h4 className="text-md font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                  <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
-                  Yellow Card (Food Handler) Forecast
+                <h4 className="text-md font-semibold text-gray-900 mb-2 flex items-center gap-2">
+                  <Sparkles className="w-5 h-5 text-blue-600" />
+                  Health Card Demand Forecast
                 </h4>
-                <HealthCardSARIMAChart key={`yellow-${predictionRefreshKey}`} healthcardType="food_handler" />
-              </div>
-
-              {/* Green Card (Non-Food Handler) Predictions */}
-              <div>
-                <h4 className="text-md font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                  <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-                  Green Card (Non-Food Handler) Forecast
-                </h4>
-                <HealthCardSARIMAChart key={`green-${predictionRefreshKey}`} healthcardType="non_food" />
+                <p className="text-sm text-gray-600 mb-6">
+                  AI-powered predictions using Yellow Card data as representative sample. Click "All Time" button below to view full historical dataset (306 yellow + 219 green = 525 total cards from combined dataset above).
+                </p>
+                <HealthCardSARIMAChart
+                  key={`yellow-${predictionRefreshKey}`}
+                  healthcardType="food_handler"
+                  combinedSummary={{
+                    total_cards_issued: summary.total_cards_issued,
+                    food_handler_cards: summary.food_handler_cards,
+                    non_food_cards: summary.non_food_cards,
+                  }}
+                />
               </div>
             </div>
           </div>

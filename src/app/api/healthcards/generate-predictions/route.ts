@@ -189,17 +189,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!appointments || appointments.length < 7) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: `Insufficient historical data. Found ${appointments?.length || 0} appointments, need at least 7 for accurate predictions.`,
-        },
-        { status: 400 }
-      );
-    }
-
-    console.log('[Generate Predictions API] Found appointments:', appointments.length);
+    console.log('[Generate Predictions API] Found appointments:', appointments?.length || 0);
 
     // ========================================================================
     // Fetch Excel-Imported Historical Statistics
@@ -257,11 +247,11 @@ export async function POST(request: NextRequest) {
 
     console.log('[Generate Predictions API] Total merged data points:', mergedAppointments.length);
 
-    if (!mergedAppointments || mergedAppointments.length < 7) {
+    if (!mergedAppointments || mergedAppointments.length < 5) {
       return NextResponse.json(
         {
           success: false,
-          error: `Insufficient historical data. Found ${mergedAppointments?.length || 0} data points, need at least 7 for accurate predictions.`,
+          error: `Insufficient historical data. Found ${mergedAppointments?.length || 0} data points, need at least 5 for monthly aggregation.`,
         },
         { status: 400 }
       );

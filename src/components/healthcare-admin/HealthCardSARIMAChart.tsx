@@ -59,6 +59,11 @@ interface HealthCardSARIMAChartProps {
   granularity?: 'daily' | 'monthly'; // NEW: Granularity parameter
   showTitle?: boolean;
   height?: number;
+  combinedSummary?: {
+    total_cards_issued: number;
+    food_handler_cards: number;
+    non_food_cards: number;
+  };
 }
 
 export default function HealthCardSARIMAChart({
@@ -71,14 +76,17 @@ export default function HealthCardSARIMAChart({
   granularity = 'monthly', // Default to monthly
   showTitle = true,
   height = 400,
+  combinedSummary,
 }: HealthCardSARIMAChartProps) {
   // Filter state for year selection (simplified - no month picker)
   const currentYear = new Date().getFullYear();
 
   // Load saved filter preference or default to current year
-  const [selectedYear, setSelectedYear] = useState(() => {
+  // Can be a number (specific year) or 'all' (all time)
+  const [selectedYear, setSelectedYear] = useState<number | 'all'>(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('healthcard_filter_year');
+      if (saved === 'all') return 'all';
       return saved ? Number(saved) : currentYear;
     }
     return currentYear;
@@ -118,16 +126,23 @@ export default function HealthCardSARIMAChart({
   // Save filter preference when year changes
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      localStorage.setItem('healthcard_filter_year', selectedYear.toString());
+      localStorage.setItem('healthcard_filter_year', selectedYear === 'all' ? 'all' : selectedYear.toString());
     }
   }, [selectedYear]);
 
-  // Format dates as YYYY-MM-DD for January 1 to December 31 of selected year
+  // Format dates as YYYY-MM-DD
+  // If "all" is selected, use full range from earliest year to current year
   const formatStartDate = () => {
+    if (selectedYear === 'all') {
+      return `${availableYears[0]}-01-01`;
+    }
     return `${selectedYear}-01-01`;
   };
 
   const formatEndDate = () => {
+    if (selectedYear === 'all') {
+      return `${currentYear}-12-31`;
+    }
     return `${selectedYear}-12-31`;
   };
 
@@ -291,8 +306,8 @@ export default function HealthCardSARIMAChart({
         },
         title: {
           display: showTitle,
-          text: `${getHealthCardTypeLabel(healthcardType)} Health Card Issuance Forecast${
-            chartData.barangay_name ? ` - ${chartData.barangay_name}` : ' (System-wide)'
+          text: `${getHealthCardTypeLabel(healthcardType)} Health Card Issuance Forecast - Combined Dataset (Historical + Appointments)${
+            chartData.barangay_name ? ` - ${chartData.barangay_name}` : ''
           }`,
           font: {
             size: 16,
@@ -470,7 +485,7 @@ export default function HealthCardSARIMAChart({
 
       {/* Year Filter (Industry Standard - Clean Shortcuts Only) */}
       {granularity === 'monthly' && (
-        <div className="bg-white rounded-lg shadow p-4 border border-gray-200">
+        <div className="bg-white rounded-lg shadow p-4 border border-gray-200 relative z-10">
           <div className="flex items-center gap-2 mb-3">
             <Calendar className="w-4 h-4 text-gray-600" />
             <h3 className="text-sm font-semibold text-gray-900">Time Range</h3>
@@ -481,25 +496,27 @@ export default function HealthCardSARIMAChart({
               <label className="block text-xs font-medium text-gray-700 mb-2">
                 Select Year
               </label>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-3 relative z-10">
                 <button
                   onClick={() => setSelectedYear(currentYear)}
-                  className={`px-4 py-3 text-sm font-medium rounded-lg transition-all ${
+                  className={`px-4 py-3 text-sm font-medium rounded-lg transition-all cursor-pointer ${
                     selectedYear === currentYear
                       ? 'bg-[#20C997] text-white shadow-md'
                       : 'bg-gray-50 text-gray-700 hover:bg-gray-100 border border-gray-200'
                   }`}
+                  style={{ pointerEvents: 'auto' }}
                 >
                   <div className="font-semibold">This Year</div>
                   <div className="text-xs mt-1 opacity-90">{currentYear}</div>
                 </button>
                 <button
-                  onClick={() => setSelectedYear(availableYears[0])}
-                  className={`px-4 py-3 text-sm font-medium rounded-lg transition-all ${
-                    selectedYear === availableYears[0]
+                  onClick={() => setSelectedYear('all')}
+                  className={`px-4 py-3 text-sm font-medium rounded-lg transition-all cursor-pointer ${
+                    selectedYear === 'all'
                       ? 'bg-[#20C997] text-white shadow-md'
                       : 'bg-gray-50 text-gray-700 hover:bg-gray-100 border border-gray-200'
                   }`}
+                  style={{ pointerEvents: 'auto' }}
                 >
                   <div className="font-semibold">All Time</div>
                   <div className="text-xs mt-1 opacity-90">
@@ -508,7 +525,9 @@ export default function HealthCardSARIMAChart({
                 </button>
               </div>
               <p className="text-xs text-gray-500 mt-2">
-                Showing data: Jan 1 - Dec 31, {selectedYear}
+                Showing data: {selectedYear === 'all'
+                  ? `Jan 1, ${availableYears[0]} - Dec 31, ${currentYear}`
+                  : `Jan 1 - Dec 31, ${selectedYear}`}
               </p>
             </div>
 
@@ -535,15 +554,32 @@ export default function HealthCardSARIMAChart({
 
       {/* Summary Statistics */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
-        <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
-          <div className="flex items-center gap-2 mb-1">
-            <TrendingUp className="h-4 w-4 text-blue-600" />
-            <span className="text-xs font-medium text-blue-900">Total Historical</span>
-          </div>
-          <p className="text-2xl font-bold text-blue-900">{metadata?.data_points_count || 0}</p>
-          <p className="text-xs text-blue-700 mt-1">
-            For the year {selectedYear}
+        <div className="bg-green-50 p-4 rounded-lg border border-green-200">
+          <p className="text-sm font-medium text-gray-600 mb-1">Total Cards Issued</p>
+          <p className="text-3xl font-bold text-green-600 mt-1">
+            {combinedSummary?.total_cards_issued || 0}
           </p>
+          <p className="text-xs text-gray-500 mt-1">Used for time series forecasting</p>
+          <div className="mt-3 space-y-1">
+            <div className="flex items-center justify-between text-xs">
+              <div className="flex items-center gap-1">
+                <span className="w-2 h-2 bg-yellow-500 rounded-full"></span>
+                <span className="text-gray-700">Yellow Cards:</span>
+              </div>
+              <span className="font-semibold text-gray-900">
+                {combinedSummary?.food_handler_cards || 0} ({combinedSummary ? Math.round((combinedSummary.food_handler_cards / combinedSummary.total_cards_issued) * 100) : 0}%)
+              </span>
+            </div>
+            <div className="flex items-center justify-between text-xs">
+              <div className="flex items-center gap-1">
+                <span className="w-2 h-2 bg-green-500 rounded-full"></span>
+                <span className="text-gray-700">Green Cards:</span>
+              </div>
+              <span className="font-semibold text-gray-900">
+                {combinedSummary?.non_food_cards || 0} ({combinedSummary ? Math.round((combinedSummary.non_food_cards / combinedSummary.total_cards_issued) * 100) : 0}%)
+              </span>
+            </div>
+          </div>
         </div>
 
         <div className="bg-green-50 p-4 rounded-lg border border-green-200">
@@ -589,14 +625,12 @@ export default function HealthCardSARIMAChart({
             )}
           </div>
           <p className="text-sm font-bold text-orange-900">
-            {getHealthCardTypeLabel(healthcardType)}
+            Combined (Yellow + Green)
           </p>
           {/* Service ID Mapping:
-              - Food Handler: Services 12 (Pink Card) & 13 (Yellow Card)
-              - Non-Food: Services 14 (Individual) & 15 (Establishment)
-              These service IDs are appointment-based categories. When healthcare admins
-              complete appointments for these services, health cards are auto-generated
-              with the corresponding card_type (food_handler or non_food).
+              - Food Handler (Yellow): Services 12-13
+              - Non-Food (Green): Services 14-15
+              This chart shows combined predictions for both card types.
           */}
           <p className="text-xs text-orange-700 mt-1">
             {healthcardType === 'food_handler' ? 'Services 12-13' : 'Services 14-15'}
@@ -606,7 +640,7 @@ export default function HealthCardSARIMAChart({
 
       {/* Chart */}
       <div
-        className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm"
+        className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm relative z-0"
         style={{ height }}
       >
         <Line data={chartConfig.data} options={chartConfig.options} />

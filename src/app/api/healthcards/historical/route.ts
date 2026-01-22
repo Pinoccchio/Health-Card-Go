@@ -171,12 +171,31 @@ export async function GET(request: NextRequest) {
     }
 
     // Calculate summary from Excel imports ONLY (no appointment blending for pink)
+    const excelFoodHandler = summaryData?.filter(r => r.healthcard_type === 'food_handler').reduce((sum, r) => sum + r.cards_issued, 0) || 0;
+    const excelNonFood = summaryData?.filter(r => r.healthcard_type === 'non_food').reduce((sum, r) => sum + r.cards_issued, 0) || 0;
+    const excelPink = summaryData?.filter(r => r.healthcard_type === 'pink').reduce((sum, r) => sum + r.cards_issued, 0) || 0;
+    const excelTotal = summaryData?.reduce((sum, r) => sum + r.cards_issued, 0) || 0;
+
     const summary = {
       total_records: count || 0,
-      total_cards_issued: (summaryData?.reduce((sum, r) => sum + r.cards_issued, 0) || 0) + appointmentsData.length,
-      food_handler_cards: (summaryData?.filter(r => r.healthcard_type === 'food_handler').reduce((sum, r) => sum + r.cards_issued, 0) || 0) + appointmentsByType.food_handler,
-      non_food_cards: (summaryData?.filter(r => r.healthcard_type === 'non_food').reduce((sum, r) => sum + r.cards_issued, 0) || 0) + appointmentsByType.non_food,
-      pink_cards: summaryData?.filter(r => r.healthcard_type === 'pink').reduce((sum, r) => sum + r.cards_issued, 0) || 0, // Excel only, no appointments
+      // Combined totals (for SARIMA)
+      total_cards_issued: excelTotal + appointmentsData.length,
+      food_handler_cards: excelFoodHandler + appointmentsByType.food_handler,
+      non_food_cards: excelNonFood + appointmentsByType.non_food,
+      pink_cards: excelPink, // Excel only, no appointments
+      // Separated data sources
+      from_historical: {
+        total: excelTotal,
+        food_handler: excelFoodHandler,
+        non_food: excelNonFood,
+        pink: excelPink,
+      },
+      from_appointments: {
+        total: appointmentsData.length,
+        food_handler: appointmentsByType.food_handler,
+        non_food: appointmentsByType.non_food,
+        pink: 0, // Never track pink via appointments
+      },
       date_range: {
         earliest: null as any,
         latest: null as any,
