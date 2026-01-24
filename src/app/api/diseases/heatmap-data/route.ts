@@ -35,34 +35,10 @@ export async function GET(request: NextRequest) {
       throw barangayError;
     }
 
-    // Fetch diseases with filters (real-time patient cases)
-    let diseaseQuery = supabase
-      .from('diseases')
-      .select('barangay_id, disease_type, custom_disease_name, severity, status, diagnosis_date');
-
-    if (diseaseType) {
-      diseaseQuery = diseaseQuery.eq('disease_type', diseaseType);
-    }
-    if (barangayId) {
-      diseaseQuery = diseaseQuery.eq('barangay_id', parseInt(barangayId));
-    }
-    if (startDate) {
-      diseaseQuery = diseaseQuery.gte('diagnosis_date', startDate);
-    }
-    if (endDate) {
-      diseaseQuery = diseaseQuery.lte('diagnosis_date', endDate);
-    }
-
-    const { data: diseases, error: diseaseError } = await diseaseQuery;
-
-    if (diseaseError) {
-      throw diseaseError;
-    }
-
-    // Fetch disease_statistics (historical imported data)
+    // Fetch disease_statistics (aggregated disease data)
     let statisticsQuery = supabase
       .from('disease_statistics')
-      .select('barangay_id, disease_type, custom_disease_name, record_date, case_count');
+      .select('barangay_id, disease_type, custom_disease_name, record_date, case_count, severity');
 
     if (diseaseType) {
       statisticsQuery = statisticsQuery.eq('disease_type', diseaseType);
@@ -83,69 +59,49 @@ export async function GET(request: NextRequest) {
       throw statisticsError;
     }
 
-    console.log(`📊 Heatmap data sources: ${diseases?.length || 0} patient cases, ${statistics?.length || 0} historical records`);
+    console.log(`📊 Heatmap data sources: ${statistics?.length || 0} disease statistics records`);
 
-    // Aggregate by barangay (merge both data sources)
+    // Aggregate by barangay
     const heatmapData = barangays?.map(barangay => {
-      // Real-time patient cases
-      const barangayDiseases = diseases?.filter(d => d.barangay_id === barangay.id) || [];
-
-      // Historical statistics
+      // Disease statistics for this barangay
       const barangayStatistics = statistics?.filter(s => s.barangay_id === barangay.id) || [];
-      const statisticalCaseCount = barangayStatistics.reduce((sum, stat) => sum + (stat.case_count || 0), 0);
 
-      // Combined totals
-      const totalCases = barangayDiseases.length + statisticalCaseCount;
-      const activeCases = barangayDiseases.filter(d => d.status === 'active').length + statisticalCaseCount; // All historical cases considered "active" for visualization
-      const criticalCases = barangayDiseases.filter(d => d.severity === 'critical').length;
-      const severeCases = barangayDiseases.filter(d => d.severity === 'severe').length;
+      // Calculate totals
+      const totalCases = barangayStatistics.reduce((sum, stat) => sum + (stat.case_count || 0), 0);
+      const activeCases = totalCases; // All statistics cases considered "active" for visualization
+      const highRiskCases = barangayStatistics
+        .filter(s => s.severity === 'high_risk')
+        .reduce((sum, stat) => sum + (stat.case_count || 0), 0);
+      const mediumRiskCases = barangayStatistics
+        .filter(s => s.severity === 'medium_risk')
+        .reduce((sum, stat) => sum + (stat.case_count || 0), 0);
 
       // Calculate intensity (0-1 scale for heatmap coloring)
-      // More weight to active and severe cases
+      // More weight to high risk and medium risk cases
       const intensity = totalCases > 0
-        ? Math.min(1, (activeCases * 2 + criticalCases * 3 + severeCases * 2) / (totalCases * 3))
+        ? Math.min(1, (activeCases * 2 + highRiskCases * 3 + mediumRiskCases * 2) / (totalCases * 3))
         : 0;
 
       // Calculate risk level
       let riskLevel: 'low' | 'medium' | 'high' | 'critical' = 'low';
-      if (activeCases >= 10 || criticalCases >= 3) {
+      if (activeCases >= 10 || highRiskCases >= 3) {
         riskLevel = 'critical';
-      } else if (activeCases >= 5 || criticalCases >= 1) {
+      } else if (activeCases >= 5 || highRiskCases >= 1) {
         riskLevel = 'high';
       } else if (activeCases >= 2) {
         riskLevel = 'medium';
       }
 
-      // Group diseases by type and custom name for breakdown (merge both data sources)
+      // Group diseases by type and custom name for breakdown
       const diseaseBreakdownMap = new Map<string, {
         disease_type: string;
         custom_disease_name: string | null;
         total_count: number;
         active_count: number;
-        critical_count: number;
+        high_risk_count: number;
       }>();
 
-      // Add real-time patient cases to breakdown
-      barangayDiseases.forEach(disease => {
-        // Create unique key for grouping (disease_type + custom_disease_name)
-        const key = `${disease.disease_type}|${disease.custom_disease_name || ''}`;
-
-        const existing = diseaseBreakdownMap.get(key) || {
-          disease_type: disease.disease_type,
-          custom_disease_name: disease.custom_disease_name || null,
-          total_count: 0,
-          active_count: 0,
-          critical_count: 0,
-        };
-
-        existing.total_count++;
-        if (disease.status === 'active') existing.active_count++;
-        if (disease.severity === 'critical') existing.critical_count++;
-
-        diseaseBreakdownMap.set(key, existing);
-      });
-
-      // Add historical statistics to breakdown
+      // Add statistics to breakdown
       barangayStatistics.forEach(stat => {
         const key = `${stat.disease_type}|${stat.custom_disease_name || ''}`;
 
@@ -154,11 +110,14 @@ export async function GET(request: NextRequest) {
           custom_disease_name: stat.custom_disease_name || null,
           total_count: 0,
           active_count: 0,
-          critical_count: 0,
+          high_risk_count: 0,
         };
 
         existing.total_count += stat.case_count;
-        existing.active_count += stat.case_count; // Historical cases considered "active" for visualization
+        existing.active_count += stat.case_count; // All cases considered "active" for visualization
+        if (stat.severity === 'high_risk') {
+          existing.high_risk_count += stat.case_count;
+        }
 
         diseaseBreakdownMap.set(key, existing);
       });
@@ -175,19 +134,17 @@ export async function GET(request: NextRequest) {
         statistics: {
           total_cases: totalCases,
           active_cases: activeCases,
-          critical_cases: criticalCases,
-          severe_cases: severeCases,
-          recovered_cases: barangayDiseases.filter(d => d.status === 'recovered').length,
+          high_risk_cases: highRiskCases,
+          medium_risk_cases: mediumRiskCases,
+          recovered_cases: 0, // Not tracked in statistics
         },
-        diseases: diseaseBreakdown, // Disease breakdown by type (merged from both sources)
+        diseases: diseaseBreakdown, // Disease breakdown by type
         intensity, // For heatmap color gradient
         risk_level: riskLevel,
         last_updated: (() => {
-          const diseaseDates = barangayDiseases.map(d => d.diagnosis_date);
           const statisticDates = barangayStatistics.map(s => s.record_date);
-          const allDates = [...diseaseDates, ...statisticDates];
-          if (allDates.length === 0) return null;
-          return allDates.reduce((latest, date) =>
+          if (statisticDates.length === 0) return null;
+          return statisticDates.reduce((latest, date) =>
             new Date(date) > new Date(latest) ? date : latest
           );
         })(),
@@ -200,12 +157,10 @@ export async function GET(request: NextRequest) {
     // Calculate additional metadata
     const mostAffectedBarangay = heatmapData.length > 0 ? heatmapData[0] : null;
 
-    // Find latest case date from both sources
-    const diseaseDates = diseases?.map(d => d.diagnosis_date) || [];
+    // Find latest case date
     const statisticDates = statistics?.map(s => s.record_date) || [];
-    const allCaseDates = [...diseaseDates, ...statisticDates];
-    const latestCaseDate = allCaseDates.length > 0
-      ? allCaseDates.reduce((latest, date) =>
+    const latestCaseDate = statisticDates.length > 0
+      ? statisticDates.reduce((latest, date) =>
           new Date(date) > new Date(latest) ? date : latest
         )
       : null;

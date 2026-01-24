@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { calculateSeverity } from '@/lib/utils/severityCalculator';
 
 /**
  * GET /api/diseases/historical
@@ -285,6 +286,31 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Fetch barangay population for severity calculation
+    let barangayPopulation: number | null = null;
+    if (barangay_id) {
+      const { data: barangay, error: barangayError } = await supabase
+        .from('barangays')
+        .select('id, population')
+        .eq('id', parseInt(barangay_id))
+        .single();
+
+      if (barangayError) {
+        console.error('Error fetching barangay for severity calculation:', barangayError);
+        return NextResponse.json(
+          { success: false, error: 'Invalid barangay ID' },
+          { status: 400 }
+        );
+      }
+
+      barangayPopulation = barangay?.population || null;
+    }
+
+    // Auto-calculate severity based on case count and barangay population
+    // Formula: (Number of cases / Population) × 100
+    // High risk (critical): ≥70%, Medium risk (severe): 50-69%, Low risk (moderate): <50%
+    const calculatedSeverity = calculateSeverity(parseInt(case_count), barangayPopulation);
+
     // Create historical disease statistics record
     const { data: statistic, error: createError } = await supabase
       .from('disease_statistics')
@@ -293,6 +319,7 @@ export async function POST(request: NextRequest) {
         custom_disease_name: disease_type === 'other' ? custom_disease_name.trim() : null,
         record_date,
         case_count: parseInt(case_count),
+        severity: calculatedSeverity, // Auto-calculated from case count and population
         barangay_id: barangay_id ? parseInt(barangay_id) : null,
         source: source || null,
         notes: notes || null,

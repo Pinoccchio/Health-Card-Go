@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { validateHistoricalRecord } from '@/lib/utils/excelParser';
+import { calculateSeverity } from '@/lib/utils/severityCalculator';
 
 /**
  * POST /api/diseases/historical/import
@@ -75,11 +76,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Fetch barangays for validation
-    console.log(`🔍 Fetching barangays for validation...`);
+    // Fetch barangays for validation and severity calculation
+    console.log(`🔍 Fetching barangays for validation and severity calculation...`);
     const { data: barangays, error: barangaysError } = await supabase
       .from('barangays')
-      .select('id, name, code');
+      .select('id, name, code, population');
 
     if (barangaysError || !barangays) {
       console.error('❌ Error fetching barangays:', barangaysError);
@@ -109,13 +110,24 @@ export async function POST(request: NextRequest) {
           errors: validationErrors,
         });
       } else {
+        // Find barangay population for severity calculation
+        const barangay = barangays.find(b => b.id === record.barangay_id);
+
+        // Auto-calculate severity based on case count and population
+        // Formula: (Number of cases / Population) × 100
+        // High risk (critical): ≥70%, Medium risk (severe): 50-69%, Low risk (moderate): <50%
+        const calculatedSeverity = calculateSeverity(
+          record.case_count,
+          barangay?.population || null
+        );
+
         // Prepare record for insertion
         validRecords.push({
           record_date: record.record_date,
           disease_type: record.disease_type,
           custom_disease_name: record.custom_disease_name || null,
           case_count: record.case_count,
-          severity: record.severity || 'moderate', // Default to moderate if not provided
+          severity: calculatedSeverity, // Auto-calculated from case count and population
           barangay_id: record.barangay_id,
           source: record.source || 'Excel Import',
           notes: record.notes || null,

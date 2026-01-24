@@ -10,10 +10,10 @@ export async function GET(request: NextRequest) {
   try {
     const supabase = await createClient();
 
-    // Fetch all barangays, ordered by name
+    // Fetch all barangays, initially ordered by name
     const { data: barangays, error: fetchError } = await supabase
       .from('barangays')
-      .select('id, name, code')
+      .select('id, name, code, population, coordinates')
       .order('name', { ascending: true });
 
     if (fetchError) {
@@ -24,9 +24,24 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    // Custom ordering: A.O. Floirendo first, Outside Zone last, rest alphabetical
+    const orderedBarangays = barangays?.sort((a, b) => {
+      // A.O. Floirendo always first
+      if (a.name === 'A.O. Floirendo') return -1;
+      if (b.name === 'A.O. Floirendo') return 1;
+
+      // Outside Zone always last
+      if (a.name === 'Outside Zone') return 1;
+      if (b.name === 'Outside Zone') return -1;
+
+      // Rest: alphabetical order
+      return a.name.localeCompare(b.name);
+    }) || [];
+
     return NextResponse.json({
       success: true,
-      data: barangays || [],
+      data: orderedBarangays,
+      count: orderedBarangays.length,
     });
 
   } catch (error) {

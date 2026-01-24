@@ -33,7 +33,7 @@ export type ServiceCategory =
   | 'laboratory'
   | 'immunization';
 
-export type Severity = 'mild' | 'moderate' | 'severe' | 'critical';
+export type Severity = 'low_risk' | 'medium_risk' | 'high_risk';
 
 export type PatientStatus = 'pending' | 'active' | 'inactive' | 'rejected' | 'suspended';
 

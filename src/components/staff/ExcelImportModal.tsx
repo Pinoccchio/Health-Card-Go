@@ -190,15 +190,15 @@ export default function ExcelImportModal({
                 <div className="flex-1">
                   <h4 className="font-semibold text-blue-900 mb-1">Need a template?</h4>
                   <p className="text-sm text-blue-800 mb-3">
-                    Download the Excel template with pre-filled examples and validation rules.
+                    Download the Excel template with realistic mock data (216 rows) demonstrating Critical, Severe, and Moderate severity levels.
                   </p>
                   <a
-                    href="/templates/disease-historical-import-template.xlsx"
+                    href="/templates/disease-historical-import-template-MOCKUP.xlsx"
                     download
                     className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
                   >
                     <Download className="h-4 w-4" />
-                    Download Template
+                    Download MOCKUP Template
                   </a>
                 </div>
               </div>

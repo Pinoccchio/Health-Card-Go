@@ -22,8 +22,8 @@ interface HeatmapData {
   statistics: {
     total_cases: number;
     active_cases: number;
-    critical_cases: number;
-    severe_cases: number;
+    high_risk_cases: number;
+    medium_risk_cases: number;
     recovered_cases: number;
   };
   diseases: Array<{
@@ -31,7 +31,7 @@ interface HeatmapData {
     custom_disease_name: string | null;
     total_count: number;
     active_count: number;
-    critical_count: number;
+    high_risk_count: number;
   }>;
   intensity: number;
   risk_level: 'low' | 'medium' | 'high' | 'critical';
@@ -131,6 +131,27 @@ export default function DiseaseHeatmap({ data, diseaseType, outbreakRiskFilter =
 
       const bounds = L.latLngBounds([]);
 
+      // Debug: Log outbreak filter state
+      console.log('[Heatmap Filter Debug]', {
+        filter: outbreakRiskFilter,
+        totalOutbreaks: outbreaks.length,
+        totalBarangays: data.length,
+        outbreaksByRiskLevel: {
+          critical: outbreaks.filter(o => o.risk_level === 'critical').length,
+          high: outbreaks.filter(o => o.risk_level === 'high').length,
+          medium: outbreaks.filter(o => o.risk_level === 'medium').length,
+          low: outbreaks.filter(o => o.risk_level === 'low').length,
+        },
+        outbreakSample: outbreaks.slice(0, 2).map(o => ({
+          barangay_id: o.barangay_id,
+          barangay_name: o.barangay_name,
+          risk_level: o.risk_level
+        }))
+      });
+
+      let matchedCount = 0;
+      let skippedCount = 0;
+
       // Add circle markers for each barangay with cases
       data.forEach((barangay) => {
         if (!barangay.coordinates) return;
@@ -143,13 +164,15 @@ export default function DiseaseHeatmap({ data, diseaseType, outbreakRiskFilter =
 
         // Apply outbreak risk filter
         if (outbreakRiskFilter !== 'all') {
-          if (outbreakRiskFilter === 'none') {
-            // Show only barangays with no outbreaks (but may have cases)
-            if (barangayOutbreak) return; // Skip if has outbreak
+          if (outbreakRiskFilter === 'low') {
+            // Show only barangays with low-risk outbreaks or no outbreaks
+            if (!barangayOutbreak || barangayOutbreak.risk_level !== 'low') {
+              skippedCount++;
+              return;
+            }
           } else {
-            // Show only specific risk levels (critical, high, medium)
+            // Show only specific risk levels (high, medium)
             const riskLevelMap: { [key: string]: string } = {
-              'critical': 'critical',
               'high': 'high',
               'medium': 'medium'
             };
@@ -157,8 +180,22 @@ export default function DiseaseHeatmap({ data, diseaseType, outbreakRiskFilter =
 
             // Skip if no outbreak OR outbreak doesn't match filter
             if (!barangayOutbreak || barangayOutbreak.risk_level !== targetRiskLevel) {
+              console.log('[Heatmap Filter] Skipping barangay:', {
+                barangay_name: barangay.barangay_name,
+                barangay_id: barangay.barangay_id,
+                hasOutbreak: !!barangayOutbreak,
+                outbreakRiskLevel: barangayOutbreak?.risk_level,
+                targetRiskLevel,
+                reason: !barangayOutbreak ? 'No outbreak found' : 'Risk level mismatch'
+              });
+              skippedCount++;
               return;
             }
+            matchedCount++;
+            console.log('[Heatmap Filter] ✅ Matched barangay:', {
+              barangay_name: barangay.barangay_name,
+              risk_level: barangayOutbreak.risk_level
+            });
           }
         }
 
@@ -261,7 +298,7 @@ export default function DiseaseHeatmap({ data, diseaseType, outbreakRiskFilter =
             return `<div class="text-xs text-gray-700 pl-2 py-0.5">
               <span class="font-medium">${displayName}:</span>
               <span class="text-gray-600">${d.total_count} case${d.total_count !== 1 ? 's' : ''}</span>
-              <span class="text-gray-500 text-xs">(${d.active_count} active, ${d.critical_count} critical)</span>
+              <span class="text-gray-500 text-xs">(${d.active_count} active, ${d.high_risk_count} high risk)</span>
             </div>`;
           })
           .join('');
@@ -313,8 +350,8 @@ export default function DiseaseHeatmap({ data, diseaseType, outbreakRiskFilter =
                 <span class="font-semibold text-orange-600">${barangay.statistics.active_cases}</span>
               </div>
               <div class="flex justify-between">
-                <span>Critical:</span>
-                <span class="font-semibold text-red-600">${barangay.statistics.critical_cases}</span>
+                <span>High Risk:</span>
+                <span class="font-semibold text-red-600">${barangay.statistics.high_risk_cases}</span>
               </div>
               <div class="flex justify-between">
                 <span>Recovered:</span>
@@ -328,6 +365,14 @@ export default function DiseaseHeatmap({ data, diseaseType, outbreakRiskFilter =
       });
 
       // Fit map bounds to show all circles
+      // Log filter results
+      console.log('[Heatmap Filter] Results:', {
+        filter: outbreakRiskFilter,
+        matched: matchedCount,
+        skipped: skippedCount,
+        total: data.length
+      });
+
       if (bounds.isValid() && mapRef.current && mapRef.current._container && mapContainerRef.current) {
         try {
           // Additional check: ensure map has valid panes before fitBounds
@@ -348,9 +393,9 @@ export default function DiseaseHeatmap({ data, diseaseType, outbreakRiskFilter =
       <div ref={mapContainerRef} className="h-96 rounded-lg border border-gray-200" />
 
       {/* Legend */}
-      <div className="absolute bottom-4 right-4 bg-white p-3 rounded-lg shadow-lg border border-gray-200 z-[1000]">
+      <div className="absolute bottom-4 right-4 bg-white p-3 rounded-lg shadow-lg border border-gray-200 z-[1000] max-w-xs">
         <h4 className="text-xs font-semibold text-gray-700 mb-2">Outbreak Status</h4>
-        <div className="space-y-1">
+        <div className="space-y-1 mb-3">
           <div className="flex items-center gap-2 text-xs">
             <div className="w-4 h-4 rounded-full bg-red-600"></div>
             <span>Critical Outbreak</span>
@@ -365,19 +410,22 @@ export default function DiseaseHeatmap({ data, diseaseType, outbreakRiskFilter =
           </div>
           <div className="flex items-center gap-2 text-xs">
             <div className="w-4 h-4 rounded-full bg-green-600"></div>
-            <span>Low Risk (No Outbreak)</span>
+            <span>Low Risk</span>
           </div>
           <div className="flex items-center gap-2 text-xs">
             <div className="w-4 h-4 rounded-full bg-gray-400"></div>
             <span>No Cases</span>
           </div>
         </div>
-        <p className="text-xs text-gray-500 mt-2 italic">
-          Colors based on outbreak detection
-        </p>
-        <p className="text-xs text-gray-500 italic">
-          Circle size = case count
-        </p>
+        <div className="border-t border-gray-200 pt-2 space-y-1">
+          <p className="text-xs text-gray-700 font-medium">Risk Calculation:</p>
+          <p className="text-xs text-gray-600">
+            (Cases / Population) × 100
+          </p>
+          <p className="text-xs text-gray-500 italic">
+            Circle size = case count
+          </p>
+        </div>
       </div>
     </div>
   );

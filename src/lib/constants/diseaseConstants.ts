@@ -86,8 +86,31 @@ export function getDiseaseTypesForRole(
 }
 
 /**
+ * Color mapping for disease types
+ * Used for badges, charts, and visual indicators
+ */
+export const DISEASE_COLORS: Record<string, string> = {
+  hiv_aids: 'purple',
+  dengue: 'red',
+  malaria: 'yellow',
+  measles: 'orange',
+  animal_bite: 'amber',
+  pregnancy_complications: 'pink',
+  custom_disease: 'blue',
+  other: 'gray',
+};
+
+/**
+ * Get color for a disease type
+ * Returns Tailwind-compatible color name for badges and indicators
+ */
+export function getDiseaseColor(diseaseType: string): string {
+  return DISEASE_COLORS[diseaseType] || 'gray';
+}
+
+/**
  * Get display name for a disease
- * For custom diseases (type='custom_disease' or 'other'), returns the custom_disease_name
+ * For custom diseases (type='custom_disease' or 'other'), returns the custom_disease_name with "(Custom Disease)" suffix
  * For standard diseases, returns the formatted label
  */
 export function getDiseaseDisplayName(
@@ -95,7 +118,7 @@ export function getDiseaseDisplayName(
   customDiseaseName: string | null | undefined
 ): string {
   if ((diseaseType === 'other' || diseaseType === 'custom_disease') && customDiseaseName) {
-    return customDiseaseName;
+    return `${customDiseaseName} (Custom Disease)`;
   }
   return DISEASE_TYPE_LABELS[diseaseType] || diseaseType;
 }

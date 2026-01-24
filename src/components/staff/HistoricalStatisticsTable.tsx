@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { format } from 'date-fns';
 import { MoreVertical, Edit2, Trash2, MapPin, FileText } from 'lucide-react';
+import { DISEASE_TYPE_LABELS, getDiseaseColor, getDiseaseDisplayName } from '@/lib/constants/diseaseConstants';
 
 interface HistoricalStatistic {
   id: string;
@@ -32,26 +33,6 @@ interface HistoricalStatisticsTableProps {
   onEdit: (record: HistoricalStatistic) => void;
   onDelete: (record: HistoricalStatistic) => void;
 }
-
-const DISEASE_LABELS: Record<string, string> = {
-  dengue: 'Dengue',
-  hiv_aids: 'HIV/AIDS',
-  pregnancy_complications: 'Pregnancy Complications',
-  malaria: 'Malaria',
-  measles: 'Measles',
-  rabies: 'Rabies',
-  other: 'Other',
-};
-
-const DISEASE_COLORS: Record<string, string> = {
-  dengue: 'bg-red-100 text-red-800',
-  hiv_aids: 'bg-purple-100 text-purple-800',
-  pregnancy_complications: 'bg-pink-100 text-pink-800',
-  malaria: 'bg-yellow-100 text-yellow-800',
-  measles: 'bg-orange-100 text-orange-800',
-  rabies: 'bg-amber-100 text-amber-800',
-  other: 'bg-gray-100 text-gray-800',
-};
 
 export function HistoricalStatisticsTable({
   statistics,
@@ -134,14 +115,9 @@ export function HistoricalStatisticsTable({
 
                 {/* Disease Type */}
                 <td className="px-6 py-4 whitespace-nowrap">
-                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                    DISEASE_COLORS[stat.disease_type] || 'bg-gray-100 text-gray-800'
-                  }`}>
-                    {DISEASE_LABELS[stat.disease_type] || stat.disease_type}
+                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-${getDiseaseColor(stat.disease_type)}-100 text-${getDiseaseColor(stat.disease_type)}-800`}>
+                    {getDiseaseDisplayName(stat.disease_type, stat.custom_disease_name)}
                   </span>
-                  {stat.custom_disease_name && (
-                    <div className="text-xs text-gray-600 mt-1">{stat.custom_disease_name}</div>
-                  )}
                 </td>
 
                 {/* Barangay */}

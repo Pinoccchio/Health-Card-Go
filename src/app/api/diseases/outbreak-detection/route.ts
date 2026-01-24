@@ -114,40 +114,57 @@ export async function GET(request: NextRequest) {
         .gte('diagnosis_date', oldestStartDateStr)
         .limit(500),
 
-      // Query 2: Historical statistics
+      // Query 2: Historical statistics (includes severity from database trigger)
       adminClient
         .from('disease_statistics')
-        .select('barangay_id, record_date, case_count, severity, disease_type, custom_disease_name')
+        .select('barangay_id, record_date, case_count, disease_type, custom_disease_name, severity')
         .gte('record_date', oldestStartDateStr)
         .order('record_date', { ascending: false })
         .limit(500),
 
-      // Query 3: Barangay names (cache for joins)
+      // Query 3: Barangay names and populations (for severity calculation)
       adminClient
         .from('barangays')
-        .select('id, name')
+        .select('id, name, population')
     ]);
 
     const allDiseases = diseasesResult.data || [];
     const allStatistics = statisticsResult.data || [];
     const barangays = barangaysResult.data || [];
 
-    // Create barangay lookup map for O(1) access
-    const barangayMap = new Map<number, string>();
-    barangays.forEach(b => barangayMap.set(b.id, b.name));
+    // Create barangay lookup map for O(1) access (includes population for severity calc)
+    const barangayMap = new Map<number, { name: string, population: number }>();
+    barangays.forEach(b => barangayMap.set(b.id, { name: b.name, population: b.population }));
 
     console.log(`[Outbreak Detection] Fetched ${allDiseases.length} patient cases, ${allStatistics.length} statistics, ${barangays.length} barangays in parallel`);
 
     const queryTime = Date.now() - startTime;
     console.log(`[Outbreak Detection] ⚡ Database queries completed in ${queryTime}ms`);
 
+    // Helper function to calculate severity based on case count and population
+    // Formula: (cases / population) × 100
+    // High Risk: ≥70%
+    // Medium Risk: 50-69%
+    // Low Risk: <50%
+    const calculateSeverity = (caseCount: number, barangayId: number): string => {
+      const barangayInfo = barangayMap.get(barangayId);
+      if (!barangayInfo || !barangayInfo.population) {
+        return 'low_risk'; // Default if population unknown
+      }
+      const percentage = (caseCount / barangayInfo.population) * 100;
+      if (percentage >= 70) return 'high_risk';
+      if (percentage >= 50) return 'medium_risk';
+      return 'low_risk';
+    };
+
     const outbreaks: any[] = [];
     let totalThresholdsChecked = 0;
 
     // OPTIMIZATION 3: Pre-aggregate statistics by disease_type, barangay_id
     // This eliminates the need for synthetic record generation
-    const statisticsAggregated = new Map<string, Map<number, { total_cases: number, critical_cases: number, severe_cases: number, moderate_cases: number, dates: string[] }>>();
+    const statisticsAggregated = new Map<string, Map<number, { total_cases: number, high_risk_cases: number, medium_risk_cases: number, low_risk_cases: number, dates: string[] }>>();
 
+    // Aggregate by summing individual record severities (each record already has severity from database trigger)
     allStatistics.forEach(stat => {
       if (!statisticsAggregated.has(stat.disease_type)) {
         statisticsAggregated.set(stat.disease_type, new Map());
@@ -156,23 +173,20 @@ export async function GET(request: NextRequest) {
 
       const barangayKey = stat.barangay_id;
       if (!diseaseMap.has(barangayKey)) {
-        diseaseMap.set(barangayKey, { total_cases: 0, critical_cases: 0, severe_cases: 0, moderate_cases: 0, dates: [] });
+        diseaseMap.set(barangayKey, { total_cases: 0, high_risk_cases: 0, medium_risk_cases: 0, low_risk_cases: 0, dates: [] });
       }
 
       const barangayData = diseaseMap.get(barangayKey)!;
       barangayData.total_cases += stat.case_count;
       barangayData.dates.push(stat.record_date);
 
-      // Distribute cases by severity (assume even distribution if not specified)
-      if (stat.severity === 'critical') {
-        barangayData.critical_cases += stat.case_count;
-      } else if (stat.severity === 'severe') {
-        barangayData.severe_cases += stat.case_count;
-      } else if (stat.severity === 'moderate') {
-        barangayData.moderate_cases += stat.case_count;
-      } else {
-        // If severity not specified, assume moderate
-        barangayData.moderate_cases += stat.case_count;
+      // Sum cases by their individual record severity (calculated by database trigger)
+      if (stat.severity === 'high_risk') {
+        barangayData.high_risk_cases += stat.case_count;
+      } else if (stat.severity === 'medium_risk') {
+        barangayData.medium_risk_cases += stat.case_count;
+      } else if (stat.severity === 'low_risk') {
+        barangayData.low_risk_cases += stat.case_count;
       }
     });
 
@@ -235,9 +249,9 @@ export async function GET(request: NextRequest) {
           _isAggregated: true,
           barangay_id: barangayId,
           total_cases: stats.total_cases,
-          critical_cases: stats.critical_cases,
-          severe_cases: stats.severe_cases,
-          moderate_cases: stats.moderate_cases,
+          high_risk_cases: stats.high_risk_cases,
+          medium_risk_cases: stats.medium_risk_cases,
+          low_risk_cases: stats.low_risk_cases,
           dates: validDates,
         });
       });
@@ -256,12 +270,13 @@ export async function GET(request: NextRequest) {
         }
 
         // Calculate severity counts
-        const criticalCases = cases.filter(c => !c._isAggregated && c.severity === 'critical').length + (aggregatedCase?.critical_cases || 0);
-        const severeCases = cases.filter(c => !c._isAggregated && c.severity === 'severe').length + (aggregatedCase?.severe_cases || 0);
-        const moderateCases = cases.filter(c => !c._isAggregated && c.severity === 'moderate').length + (aggregatedCase?.moderate_cases || 0);
+        const highRiskCases = cases.filter(c => !c._isAggregated && c.severity === 'high_risk').length + (aggregatedCase?.high_risk_cases || 0);
+        const mediumRiskCases = cases.filter(c => !c._isAggregated && c.severity === 'medium_risk').length + (aggregatedCase?.medium_risk_cases || 0);
+        const lowRiskCases = cases.filter(c => !c._isAggregated && c.severity === 'low_risk').length + (aggregatedCase?.low_risk_cases || 0);
 
         // Get barangay name
-        const barangayName = barangayMap.get(barangayId) || 'Unknown';
+        const barangayInfo = barangayMap.get(barangayId);
+        const barangayName = barangayInfo?.name || 'Unknown';
 
         // Get date range
         const patientDates = cases.filter(c => !c._isAggregated).map(c => c.diagnosis_date);
@@ -270,10 +285,12 @@ export async function GET(request: NextRequest) {
         const firstDate = allDates[0] || thresholdStartDateStr;
         const latestDate = allDates[allDates.length - 1] || new Date().toISOString().split('T')[0];
 
-        // Determine risk level
-        const riskLevel = criticalCases >= 3 ? 'critical' :
-                         severeCases >= 5 ? 'high' :
-                         totalCases >= threshold.cases_threshold * 1.5 ? 'high' : 'medium';
+        // Determine outbreak risk level based on case severity (3-level system)
+        // High Risk: Has any cases with ≥70% severity
+        // Medium Risk: Has any cases with 50-69% severity
+        // Low Risk: Only has cases with <50% severity
+        const riskLevel = highRiskCases > 0 ? 'high' :
+                         mediumRiskCases > 0 ? 'medium' : 'low';
 
         const outbreak = {
           disease_type: threshold.disease_type,
@@ -281,9 +298,9 @@ export async function GET(request: NextRequest) {
           barangay_id: barangayId,
           barangay_name: barangayName,
           case_count: totalCases,
-          critical_cases: criticalCases,
-          severe_cases: severeCases,
-          moderate_cases: moderateCases,
+          high_risk_cases: highRiskCases,
+          medium_risk_cases: mediumRiskCases,
+          low_risk_cases: lowRiskCases,
           days_window: threshold.days_window,
           threshold: threshold.cases_threshold,
           threshold_description: threshold.description,
@@ -292,7 +309,7 @@ export async function GET(request: NextRequest) {
           latest_case_date: latestDate,
         };
 
-        console.log(`[Outbreak Detection] 🚨 OUTBREAK: ${threshold.disease_type} in ${barangayName} - ${totalCases} cases (${criticalCases} critical, ${severeCases} severe, ${moderateCases} moderate) - Risk: ${riskLevel.toUpperCase()}`);
+        console.log(`[Outbreak Detection] 🚨 OUTBREAK: ${threshold.disease_type} in ${barangayName} - ${totalCases} cases (${highRiskCases} high risk, ${mediumRiskCases} medium risk, ${lowRiskCases} low risk) - Risk: ${riskLevel.toUpperCase()}`);
         outbreaks.push(outbreak);
 
         // Auto-create notification for Super Admins if enabled
@@ -318,9 +335,9 @@ export async function GET(request: NextRequest) {
       data: outbreaks,
       metadata: {
         total_outbreaks: outbreaks.length,
-        critical_outbreaks: outbreaks.filter(o => o.risk_level === 'critical').length,
         high_risk_outbreaks: outbreaks.filter(o => o.risk_level === 'high').length,
         medium_risk_outbreaks: outbreaks.filter(o => o.risk_level === 'medium').length,
+        low_risk_outbreaks: outbreaks.filter(o => o.risk_level === 'low').length,
         auto_notify_enabled: autoNotify,
         checked_at: new Date().toISOString(),
         execution_time_ms: executionTime,

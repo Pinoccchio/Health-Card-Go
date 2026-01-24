@@ -13,7 +13,7 @@ export interface HistoricalRecord {
   disease_type: string;          // Must match DISEASE_TYPE_LABELS keys
   custom_disease_name?: string;  // Required if disease_type = 'other'
   case_count: number;            // Must be > 0
-  severity?: string;             // critical, severe, moderate, mild (defaults to moderate)
+  // severity removed - now auto-calculated using formula: (cases/population) × 100
   barangay_id: number;           // FK to barangays table
   barangay_name?: string;        // For display only (not inserted)
   source?: string;               // Optional source reference
@@ -263,24 +263,9 @@ export async function parseDiseasesExcel(
         }
       }
 
-      // Parse Severity (optional, defaults to moderate)
-      const severity = row['Severity']?.toString().trim().toLowerCase();
-      if (severity) {
-        const validSeverities = ['critical', 'severe', 'moderate', 'mild'];
-        if (!validSeverities.includes(severity)) {
-          rowErrors.push({
-            row: rowNum,
-            field: 'Severity',
-            message: 'Severity must be one of: critical, severe, moderate, mild',
-            value: severity,
-          });
-        } else {
-          record.severity = severity;
-        }
-      } else {
-        // Default to moderate if not provided
-        record.severity = 'moderate';
-      }
+      // Severity removed - will be auto-calculated on backend using formula:
+      // (Number of cases / Barangay population) × 100
+      // High risk (critical): ≥70%, Medium risk (severe): 50-69%, Low risk (moderate): <50%
 
       // Parse Barangay
       const barangayName = row['Barangay']?.toString().trim();

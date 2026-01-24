@@ -883,10 +883,9 @@ export default function StaffDiseaseSurveillancePage() {
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-teal focus:border-transparent"
                     >
                       <option value="all">Show All Outbreaks</option>
-                      <option value="critical">Critical Only</option>
-                      <option value="high">High Risk Only</option>
-                      <option value="medium">Medium Risk Only</option>
-                      <option value="none">No Outbreaks (Low Risk)</option>
+                      <option value="high">High Risk Only (≥70%)</option>
+                      <option value="medium">Medium Risk Only (50-69%)</option>
+                      <option value="low">Low Risk Only (&lt;50%)</option>
                     </select>
                   </div>
 

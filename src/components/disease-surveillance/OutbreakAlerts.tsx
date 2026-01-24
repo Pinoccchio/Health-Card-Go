@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { AlertTriangle, TrendingUp, MapPin, Calendar, RefreshCw, Info } from 'lucide-react';
 import { useOutbreakData } from '@/contexts/OutbreakDataContext';
+import { getDiseaseDisplayName } from '@/lib/constants/diseaseConstants';
 
 interface ThresholdExceeded {
   threshold: number;
@@ -17,9 +18,9 @@ interface Outbreak {
   barangay_id: number | null;
   barangay_name: string;
   case_count: number;
-  critical_cases: number;
-  severe_cases: number;
-  moderate_cases: number; // FIX: Add moderate cases count to interface
+  high_risk_cases: number;
+  medium_risk_cases: number;
+  low_risk_cases: number;
   days_window: number;
   threshold: number;
   threshold_description: string;
@@ -235,16 +236,16 @@ export default function OutbreakAlerts({ autoNotify = true, refreshInterval = 30
         {metadata && (
           <div className="mt-4 grid grid-cols-2 lg:grid-cols-4 gap-3">
             <div className="bg-red-50 p-3 rounded-lg">
-              <p className="text-xs text-red-600 font-medium">Critical</p>
-              <p className="text-2xl font-bold text-red-900">{metadata.critical_outbreaks}</p>
+              <p className="text-xs text-red-600 font-medium">High Risk Outbreaks</p>
+              <p className="text-2xl font-bold text-red-900">{metadata.high_risk_outbreaks}</p>
             </div>
             <div className="bg-orange-50 p-3 rounded-lg">
-              <p className="text-xs text-orange-600 font-medium">High Risk</p>
-              <p className="text-2xl font-bold text-orange-900">{metadata.high_risk_outbreaks}</p>
+              <p className="text-xs text-orange-600 font-medium">Medium Risk Outbreaks</p>
+              <p className="text-2xl font-bold text-orange-900">{metadata.medium_risk_outbreaks}</p>
             </div>
             <div className="bg-amber-50 p-3 rounded-lg">
-              <p className="text-xs text-amber-600 font-medium">Medium</p>
-              <p className="text-2xl font-bold text-amber-900">{metadata.medium_risk_outbreaks || 0}</p>
+              <p className="text-xs text-amber-600 font-medium">Low Risk Outbreaks</p>
+              <p className="text-2xl font-bold text-amber-900">{metadata.low_risk_outbreaks || 0}</p>
             </div>
             <div className="bg-gray-50 p-3 rounded-lg">
               <p className="text-xs text-gray-600 font-medium">Total Alerts</p>
@@ -259,21 +260,21 @@ export default function OutbreakAlerts({ autoNotify = true, refreshInterval = 30
             <h4 className="text-sm font-semibold text-blue-900 mb-3">Case Severity Breakdown</h4>
             <div className="grid grid-cols-3 gap-3">
               <div className="text-center">
-                <p className="text-xs text-gray-600">Critical Cases</p>
+                <p className="text-xs text-gray-600">High Risk (≥70%)</p>
                 <p className="text-xl font-bold text-red-600">
-                  {outbreaks.reduce((sum, o) => sum + (o.critical_cases || 0), 0)}
+                  {outbreaks.reduce((sum, o) => sum + (o.high_risk_cases || 0), 0)}
                 </p>
               </div>
               <div className="text-center">
-                <p className="text-xs text-gray-600">Severe Cases</p>
+                <p className="text-xs text-gray-600">Medium Risk (50-69%)</p>
                 <p className="text-xl font-bold text-orange-600">
-                  {outbreaks.reduce((sum, o) => sum + (o.severe_cases || 0), 0)}
+                  {outbreaks.reduce((sum, o) => sum + (o.medium_risk_cases || 0), 0)}
                 </p>
               </div>
               <div className="text-center">
-                <p className="text-xs text-gray-600">Moderate Cases</p>
+                <p className="text-xs text-gray-600">Low Risk (&lt;50%)</p>
                 <p className="text-xl font-bold text-amber-600">
-                  {outbreaks.reduce((sum, o) => sum + (o.moderate_cases || 0), 0)}
+                  {outbreaks.reduce((sum, o) => sum + (o.low_risk_cases || 0), 0)}
                 </p>
               </div>
             </div>
@@ -324,8 +325,8 @@ export default function OutbreakAlerts({ autoNotify = true, refreshInterval = 30
                         <div className="flex items-start justify-between mb-2">
                           <div className="flex-1">
                             <div className="flex items-center justify-between mb-1">
-                              <p className="text-sm font-medium text-gray-900 capitalize">
-                                {stat.disease_type.replace('_', ' ')}
+                              <p className="text-sm font-medium text-gray-900">
+                                {getDiseaseDisplayName(stat.disease_type, null)}
                               </p>
                               <p className="text-xs text-gray-600">
                                 <span className={`font-bold ${isClose ? 'text-orange-600' : 'text-gray-900'}`}>
@@ -393,9 +394,7 @@ export default function OutbreakAlerts({ autoNotify = true, refreshInterval = 30
                     <AlertTriangle className={`w-5 h-5 mt-1 ${getRiskIconColor(outbreak.risk_level)}`} />
                     <div>
                       <h4 className="font-semibold text-gray-900">
-                        {outbreak.disease_type === 'other' && outbreak.custom_disease_name
-                          ? outbreak.custom_disease_name
-                          : outbreak.disease_type.replace('_', ' ').toUpperCase()}
+                        {getDiseaseDisplayName(outbreak.disease_type, outbreak.custom_disease_name).toUpperCase()}
                       </h4>
                       <div className="flex items-center gap-2 mt-1">
                         <MapPin className="w-3 h-3 text-gray-500" />
@@ -415,16 +414,16 @@ export default function OutbreakAlerts({ autoNotify = true, refreshInterval = 30
                     <p className="text-lg font-bold text-gray-900">{outbreak.case_count}</p>
                   </div>
                   <div>
-                    <p className="text-xs text-gray-600">Critical</p>
-                    <p className="text-lg font-bold text-red-600">{outbreak.critical_cases}</p>
+                    <p className="text-xs text-gray-600">High Risk</p>
+                    <p className="text-lg font-bold text-red-600">{outbreak.high_risk_cases}</p>
                   </div>
                   <div>
-                    <p className="text-xs text-gray-600">Severe</p>
-                    <p className="text-lg font-bold text-orange-600">{outbreak.severe_cases}</p>
+                    <p className="text-xs text-gray-600">Medium Risk</p>
+                    <p className="text-lg font-bold text-orange-600">{outbreak.medium_risk_cases}</p>
                   </div>
                   <div>
-                    <p className="text-xs text-gray-600">Moderate</p>
-                    <p className="text-lg font-bold text-yellow-600">{outbreak.moderate_cases}</p>
+                    <p className="text-xs text-gray-600">Low Risk</p>
+                    <p className="text-lg font-bold text-yellow-600">{outbreak.low_risk_cases}</p>
                   </div>
                   <div>
                     <p className="text-xs text-gray-600">Time Window</p>
