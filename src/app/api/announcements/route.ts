@@ -116,7 +116,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { title, content, target_audience = 'all', target_patient_type = null } = body;
+    const { title, content, target_audience = 'all' } = body;
 
     if (!title || !content) {
       return NextResponse.json(
@@ -134,24 +134,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Validate target_patient_type (optional, only used with target_audience='patients')
-    if (target_patient_type) {
-      const validPatientTypes = ['healthcard', 'hiv', 'prenatal'];
-      if (!validPatientTypes.includes(target_patient_type)) {
-        return NextResponse.json(
-          { success: false, error: 'Invalid target_patient_type. Must be: healthcard, hiv, or prenatal' },
-          { status: 400 }
-        );
-      }
-      // target_patient_type should only be used with target_audience='patients'
-      if (target_audience !== 'patients') {
-        return NextResponse.json(
-          { success: false, error: 'target_patient_type can only be used when target_audience is "patients"' },
-          { status: 400 }
-        );
-      }
-    }
-
     // Create announcement
     const { data: announcement, error } = await supabase
       .from('announcements')
@@ -159,7 +141,6 @@ export async function POST(request: NextRequest) {
         title,
         content,
         target_audience,
-        target_patient_type,
         created_by: user.id,
         is_active: body.is_active ?? true,
       })
@@ -182,7 +163,6 @@ export async function POST(request: NextRequest) {
         after: {
           title: announcement.title,
           target_audience: announcement.target_audience,
-          target_patient_type: announcement.target_patient_type,
           is_active: announcement.is_active,
         },
       },

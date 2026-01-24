@@ -45,12 +45,11 @@ export default function EducationAdminAnnouncementsManagePage() {
   const [showToggleDialog, setShowToggleDialog] = useState(false);
   const [pendingToggle, setPendingToggle] = useState<Announcement | null>(null);
 
-  // Form state with patient type targeting
-  const [formData, setFormData] = useState<AnnouncementFormData & { target_patient_type?: string | null }>({
+  // Form state
+  const [formData, setFormData] = useState<AnnouncementFormData>({
     title: '',
     content: '',
     target_audience: 'all',
-    target_patient_type: null,
     is_active: true,
   });
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
@@ -151,7 +150,6 @@ export default function EducationAdminAnnouncementsManagePage() {
       title: '',
       content: '',
       target_audience: 'all',
-      target_patient_type: null,
       is_active: true,
     });
     setFormErrors({});
@@ -166,7 +164,6 @@ export default function EducationAdminAnnouncementsManagePage() {
       title: announcement.title,
       content: announcement.content,
       target_audience: announcement.target_audience,
-      target_patient_type: announcement.target_patient_type || null,
       is_active: announcement.is_active,
     });
     setFormErrors({});
@@ -181,7 +178,6 @@ export default function EducationAdminAnnouncementsManagePage() {
       title: announcement.title,
       content: announcement.content,
       target_audience: announcement.target_audience,
-      target_patient_type: announcement.target_patient_type || null,
       is_active: announcement.is_active,
     });
     setDrawerMode('view');
@@ -230,11 +226,6 @@ export default function EducationAdminAnnouncementsManagePage() {
         target_audience: formData.target_audience,
         is_active: formData.is_active,
       };
-
-      // Only include target_patient_type if target_audience is 'patients'
-      if (formData.target_audience === 'patients') {
-        payload.target_patient_type = formData.target_patient_type;
-      }
 
       const response = await fetch(url, {
         method,
@@ -316,7 +307,7 @@ export default function EducationAdminAnnouncementsManagePage() {
   };
 
   // Get audience label
-  const getAudienceLabel = (targetAudience: string, targetPatientType?: string | null) => {
+  const getAudienceLabel = (targetAudience: string) => {
     switch (targetAudience) {
       case 'all':
         return 'All Users';
@@ -329,15 +320,7 @@ export default function EducationAdminAnnouncementsManagePage() {
       case 'education_admin':
         return 'Education Admin';
       case 'patients':
-        if (targetPatientType) {
-          const patientTypeLabels: Record<string, string> = {
-            healthcard: 'Health Card Patients',
-            hiv: 'HIV Patients',
-            prenatal: 'Prenatal Patients',
-          };
-          return patientTypeLabels[targetPatientType] || 'Patients';
-        }
-        return 'All Patients';
+        return 'Patients';
       default:
         return targetAudience;
     }
@@ -760,76 +743,9 @@ export default function EducationAdminAnnouncementsManagePage() {
                     <Users className="w-4 h-4 text-green-600" />
                     <span className="font-medium text-gray-900">Patients</span>
                   </div>
-                  <p className="text-sm text-gray-600 mt-1">Send to all patients or specific patient groups</p>
+                  <p className="text-sm text-gray-600 mt-1">Send to all patients</p>
                 </div>
               </label>
-
-              {/* Patient Type Targeting (only show when patients selected) */}
-              {formData.target_audience === 'patients' && drawerMode !== 'view' && (
-                <div className="ml-7 mt-3 p-4 bg-gray-50 border border-gray-200 rounded-lg">
-                  <p className="text-sm font-medium text-gray-700 mb-3">
-                    Target Specific Patient Groups (optional):
-                  </p>
-                  <div className="space-y-2">
-                    <label className="flex items-center gap-2">
-                      <input
-                        type="radio"
-                        name="target_patient_type"
-                        value=""
-                        checked={!formData.target_patient_type}
-                        onChange={() => setFormData({ ...formData, target_patient_type: null })}
-                        className="text-primary-teal"
-                      />
-                      <span className="text-sm text-gray-700">All Patients</span>
-                    </label>
-                    <label className="flex items-center gap-2">
-                      <input
-                        type="radio"
-                        name="target_patient_type"
-                        value="healthcard"
-                        checked={formData.target_patient_type === 'healthcard'}
-                        onChange={(e) => setFormData({ ...formData, target_patient_type: e.target.value })}
-                        className="text-primary-teal"
-                      />
-                      <CreditCard className="w-4 h-4 text-blue-600" />
-                      <span className="text-sm text-gray-700">Health Card Patients Only</span>
-                    </label>
-                    <label className="flex items-center gap-2">
-                      <input
-                        type="radio"
-                        name="target_patient_type"
-                        value="hiv"
-                        checked={formData.target_patient_type === 'hiv'}
-                        onChange={(e) => setFormData({ ...formData, target_patient_type: e.target.value })}
-                        className="text-primary-teal"
-                      />
-                      <Heart className="w-4 h-4 text-red-600" />
-                      <span className="text-sm text-gray-700">HIV Patients Only</span>
-                    </label>
-                    <label className="flex items-center gap-2">
-                      <input
-                        type="radio"
-                        name="target_patient_type"
-                        value="prenatal"
-                        checked={formData.target_patient_type === 'prenatal'}
-                        onChange={(e) => setFormData({ ...formData, target_patient_type: e.target.value })}
-                        className="text-primary-teal"
-                      />
-                      <Baby className="w-4 h-4 text-pink-600" />
-                      <span className="text-sm text-gray-700">Prenatal Patients Only</span>
-                    </label>
-                  </div>
-                </div>
-              )}
-
-              {/* Show selected patient type in view mode */}
-              {formData.target_audience === 'patients' && drawerMode === 'view' && formData.target_patient_type && (
-                <div className="ml-7 mt-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                  <p className="text-sm text-blue-800">
-                    <strong>Targeted to:</strong> {getAudienceLabel('patients', formData.target_patient_type)}
-                  </p>
-                </div>
-              )}
             </div>
           </div>
 

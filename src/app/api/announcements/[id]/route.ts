@@ -119,7 +119,7 @@ export async function PATCH(
     }
 
     const body = await request.json();
-    const { title, content, target_audience, target_patient_type, is_active } = body;
+    const { title, content, target_audience, is_active } = body;
 
     // Validate target_audience if provided
     if (target_audience) {
@@ -132,32 +132,11 @@ export async function PATCH(
       }
     }
 
-    // Validate target_patient_type if provided
-    if (target_patient_type !== undefined) {
-      if (target_patient_type !== null) {
-        const validPatientTypes = ['healthcard', 'hiv', 'prenatal'];
-        if (!validPatientTypes.includes(target_patient_type)) {
-          return NextResponse.json(
-            { success: false, error: 'Invalid target_patient_type. Must be: healthcard, hiv, prenatal, or null' },
-            { status: 400 }
-          );
-        }
-        // target_patient_type should only be used with target_audience='patients'
-        if (target_audience && target_audience !== 'patients') {
-          return NextResponse.json(
-            { success: false, error: 'target_patient_type can only be used when target_audience is "patients"' },
-            { status: 400 }
-          );
-        }
-      }
-    }
-
     // Build update object (only include provided fields)
     const updateData: any = {};
     if (title !== undefined) updateData.title = title;
     if (content !== undefined) updateData.content = content;
     if (target_audience !== undefined) updateData.target_audience = target_audience;
-    if (target_patient_type !== undefined) updateData.target_patient_type = target_patient_type;
     if (is_active !== undefined) updateData.is_active = is_active;
 
     // Update announcement
