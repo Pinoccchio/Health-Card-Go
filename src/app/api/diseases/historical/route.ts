@@ -112,6 +112,7 @@ export async function GET(request: NextRequest) {
           earliestDate: null,
           latestDate: null,
           mostCommonDisease: null,
+          mostCommonDiseaseName: null,
           diseaseTypeCounts: {},
         },
       });
@@ -130,15 +131,43 @@ export async function GET(request: NextRequest) {
       latestDate = dates[dates.length - 1];
     }
 
-    // Count by disease type
+    // Count by disease type (including custom disease names)
     const diseaseTypeCounts: Record<string, number> = {};
+    const customDiseaseNameCounts: Record<string, number> = {};
+
     statistics?.forEach(stat => {
       const type = stat.disease_type;
       diseaseTypeCounts[type] = (diseaseTypeCounts[type] || 0) + 1;
+
+      // Track custom disease names separately for accurate "most common" calculation
+      if ((type === 'other' || type === 'custom_disease') && stat.custom_disease_name) {
+        const customName = stat.custom_disease_name;
+        customDiseaseNameCounts[customName] = (customDiseaseNameCounts[customName] || 0) + 1;
+      }
     });
 
-    const mostCommonDisease = Object.entries(diseaseTypeCounts)
-      .sort(([, a], [, b]) => b - a)[0]?.[0] || null;
+    // Find most common disease (checking both standard and custom diseases)
+    let mostCommonDisease = null;
+    let mostCommonDiseaseName = null;
+    let maxCount = 0;
+
+    // Check standard diseases
+    Object.entries(diseaseTypeCounts).forEach(([type, count]) => {
+      if (type !== 'other' && type !== 'custom_disease' && count > maxCount) {
+        maxCount = count;
+        mostCommonDisease = type;
+        mostCommonDiseaseName = null;
+      }
+    });
+
+    // Check custom diseases
+    Object.entries(customDiseaseNameCounts).forEach(([customName, count]) => {
+      if (count > maxCount) {
+        maxCount = count;
+        mostCommonDisease = 'custom_disease';
+        mostCommonDiseaseName = customName;
+      }
+    });
 
     return NextResponse.json({
       success: true,
@@ -150,6 +179,7 @@ export async function GET(request: NextRequest) {
         earliestDate,
         latestDate,
         mostCommonDisease,
+        mostCommonDiseaseName,
         diseaseTypeCounts,
       },
     });

@@ -2,6 +2,7 @@
 
 import { Database, Calendar, TrendingUp, FileBarChart } from 'lucide-react';
 import { format } from 'date-fns';
+import { getDiseaseDisplayName } from '@/lib/constants/diseaseConstants';
 
 interface HistoricalStatsSummaryProps {
   summary: {
@@ -10,20 +11,11 @@ interface HistoricalStatsSummaryProps {
     earliestDate: string | null;
     latestDate: string | null;
     mostCommonDisease: string | null;
+    mostCommonDiseaseName?: string | null;
     diseaseTypeCounts: Record<string, number>;
   };
   loading?: boolean;
 }
-
-const DISEASE_LABELS: Record<string, string> = {
-  dengue: 'Dengue',
-  hiv_aids: 'HIV/AIDS',
-  pregnancy_complications: 'Pregnancy Complications',
-  malaria: 'Malaria',
-  measles: 'Measles',
-  rabies: 'Rabies',
-  other: 'Other Diseases',
-};
 
 export function HistoricalStatsSummary({ summary, loading }: HistoricalStatsSummaryProps) {
   const formatDateRange = () => {
@@ -129,7 +121,7 @@ export function HistoricalStatsSummary({ summary, loading }: HistoricalStatsSumm
             <p className="text-sm font-medium text-gray-600">Most Common Disease</p>
             <p className="text-xl font-bold text-gray-900 mt-2">
               {summary.mostCommonDisease
-                ? DISEASE_LABELS[summary.mostCommonDisease] || summary.mostCommonDisease
+                ? getDiseaseDisplayName(summary.mostCommonDisease, summary.mostCommonDiseaseName)
                 : 'N/A'}
             </p>
           </div>

@@ -86,7 +86,7 @@ export function createDiseaseColorMap(
   const colorMap: Record<string, string> = {};
 
   diseases.forEach(disease => {
-    const key = disease.disease_type === 'other' && disease.custom_disease_name
+    const key = (disease.disease_type === 'other' || disease.disease_type === 'custom_disease') && disease.custom_disease_name
       ? disease.custom_disease_name
       : disease.disease_type;
 

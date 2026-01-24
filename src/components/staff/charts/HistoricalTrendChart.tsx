@@ -84,7 +84,7 @@ export default function HistoricalTrendChart({
     // Create datasets dynamically for each disease
     const datasets = Array.from(diseaseKeys).map((diseaseKey) => {
       // Determine if this is a standard disease or custom disease
-      const isStandardDisease = ['dengue', 'hiv_aids', 'pregnancy_complications', 'measles', 'malaria', 'rabies'].includes(diseaseKey);
+      const isStandardDisease = ['dengue', 'hiv_aids', 'pregnancy_complications', 'measles', 'malaria', 'rabies', 'animal_bite'].includes(diseaseKey);
 
       // Get color (standard or generated for custom diseases)
       const color = getDiseaseColor(isStandardDisease ? diseaseKey : 'other', !isStandardDisease ? diseaseKey : undefined);

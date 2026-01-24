@@ -13,14 +13,11 @@ import { HistoricalStatsSummary } from '@/components/staff/HistoricalStatsSummar
 import { HistoricalStatisticsTable } from '@/components/staff/HistoricalStatisticsTable';
 import { EditHistoricalRecordModal } from '@/components/staff/EditHistoricalRecordModal';
 import { HistoricalStatisticsReportGenerator } from '@/components/staff/HistoricalStatisticsReportGenerator';
-import { GeographicOutbreakReportGenerator } from '@/components/staff/GeographicOutbreakReportGenerator';
 import { TrendsAnalysisReportGenerator } from '@/components/staff/TrendsAnalysisReportGenerator';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { useToast } from '@/lib/contexts/ToastContext';
 import DiseaseHeatmap from '@/components/disease-surveillance/DiseaseHeatmap';
-import OutbreakAlerts from '@/components/disease-surveillance/OutbreakAlerts';
 import { HistoricalChartsSection } from '@/components/staff/HistoricalChartsSection';
-import { OutbreakDataProvider } from '@/contexts/OutbreakDataContext';
 import { ResetDataDialog } from '@/components/disease-surveillance/ResetDataDialog';
 import {
   STAFF_DISEASE_TYPES,
@@ -135,7 +132,6 @@ export default function StaffDiseaseSurveillancePage() {
   const [isHistoricalFormOpen, setIsHistoricalFormOpen] = useState(false);
   const [isExcelImportOpen, setIsExcelImportOpen] = useState(false);
   const [isHistoricalStatsReportOpen, setIsHistoricalStatsReportOpen] = useState(false);
-  const [isGeographicReportOpen, setIsGeographicReportOpen] = useState(false);
   const [isTrendsReportOpen, setIsTrendsReportOpen] = useState(false);
   const [showResetDataDialog, setShowResetDataDialog] = useState(false);
 
@@ -182,14 +178,13 @@ export default function StaffDiseaseSurveillancePage() {
   const [loading, setLoading] = useState(true);
   const [chartsLoading, setChartsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [outbreakRiskFilter, setOutbreakRiskFilter] = useState<string>('all');
-  const [outbreakAlertsLoading, setOutbreakAlertsLoading] = useState(false);
+  const [severityFilter, setSeverityFilter] = useState<string>('all');
   const [loadingTimeout, setLoadingTimeout] = useState(false);
   const [abortController, setAbortController] = useState<AbortController | null>(null);
 
   // Timeout fallback: Force render after 30 seconds to prevent infinite loading
   useEffect(() => {
-    if (loading || chartsLoading || outbreakAlertsLoading) {
+    if (loading || chartsLoading) {
       setLoadingTimeout(false);
       const timer = setTimeout(() => {
         console.warn('⚠️ Loading timeout reached (30s) - forcing render');
@@ -198,7 +193,7 @@ export default function StaffDiseaseSurveillancePage() {
 
       return () => clearTimeout(timer);
     }
-  }, [loading, chartsLoading, outbreakAlertsLoading]);
+  }, [loading, chartsLoading]);
 
   useEffect(() => {
     fetchBarangays();
@@ -558,7 +553,7 @@ export default function StaffDiseaseSurveillancePage() {
 
               <div className="flex justify-end gap-3">
                 <a
-                  href="/templates/disease-historical-import-template.xlsx"
+                  href="/templates/disease-historical-import-template-MOCKUP.xlsx"
                   download
                   className="px-4 py-2 bg-white text-gray-700 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors flex items-center gap-2 shadow-sm"
                   title="Download Excel Template"
@@ -685,12 +680,7 @@ export default function StaffDiseaseSurveillancePage() {
 
         {/* Geographic View Tab */}
         {activeTab === 'geographic-view' && (
-          <OutbreakDataProvider
-            diseaseType={diseaseFilter}
-            barangayId={barangayFilter}
-            autoRefresh={false}
-          >
-            <div className="space-y-6">
+          <div className="space-y-6">
             {/* Statistics Cards */}
             {!loading && heatmapData?.metadata && (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -751,19 +741,9 @@ export default function StaffDiseaseSurveillancePage() {
             {/* Filters */}
             <ProfessionalCard>
               <div className="space-y-4">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center gap-2">
-                    <Filter className="w-5 h-5 text-gray-600" />
-                    <h3 className="text-lg font-semibold text-gray-900">Filter Options</h3>
-                  </div>
-                  <button
-                    onClick={() => setIsGeographicReportOpen(true)}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors flex items-center gap-2 shadow-sm"
-                    title="Generate Geographic Outbreak Report"
-                  >
-                    <FileText className="w-4 h-4" />
-                    Generate Report
-                  </button>
+                <div className="flex items-center gap-2 mb-4">
+                  <Filter className="w-5 h-5 text-gray-600" />
+                  <h3 className="text-lg font-semibold text-gray-900">Filter Options</h3>
                 </div>
 
                 {/* Disease Type Filter */}
@@ -822,15 +802,15 @@ export default function StaffDiseaseSurveillancePage() {
             </ProfessionalCard>
 
             {/* Main Content - Vertical Layout */}
-            {(loading || outbreakAlertsLoading) && !loadingTimeout ? (
+            {loading && !loadingTimeout ? (
               <div className="space-y-6">
-                {/* Loading State for Both Map and Outbreak Alerts */}
+                {/* Loading State for Map */}
                 <ProfessionalCard>
                   <div className="h-96 flex items-center justify-center">
                     <div className="text-center">
                       <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-primary-teal"></div>
                       <p className="mt-4 text-base font-medium text-gray-700">Loading geographic data...</p>
-                      <p className="mt-1 text-sm text-gray-500">Please wait while we fetch disease and outbreak information</p>
+                      <p className="mt-1 text-sm text-gray-500">Please wait while we fetch disease distribution information</p>
                     </div>
                   </div>
                 </ProfessionalCard>
@@ -874,18 +854,19 @@ export default function StaffDiseaseSurveillancePage() {
                     </button>
                   </div>
 
-                  {/* Outbreak Risk Level Filter for Map */}
+                  {/* Severity Filter for Map */}
                   <div className="mb-4">
-                    <label className="text-sm font-medium text-gray-700 mb-2 block">Filter Map by Outbreak Risk Level</label>
+                    <label className="text-sm font-medium text-gray-700 mb-2 block">Filter by Case Severity</label>
                     <select
-                      value={outbreakRiskFilter}
-                      onChange={(e) => setOutbreakRiskFilter(e.target.value)}
+                      value={severityFilter}
+                      onChange={(e) => setSeverityFilter(e.target.value)}
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-teal focus:border-transparent"
                     >
-                      <option value="all">Show All Outbreaks</option>
+                      <option value="all">All Risk</option>
                       <option value="high">High Risk Only (≥70%)</option>
                       <option value="medium">Medium Risk Only (50-69%)</option>
                       <option value="low">Low Risk Only (&lt;50%)</option>
+                      <option value="no_cases">No Cases Only</option>
                     </select>
                   </div>
 
@@ -897,20 +878,9 @@ export default function StaffDiseaseSurveillancePage() {
                     <DiseaseHeatmap
                       data={heatmapData}
                       diseaseType={diseaseFilter}
-                      outbreakRiskFilter={outbreakRiskFilter}
+                      severityFilter={severityFilter}
                     />
                   )}
-                </ProfessionalCard>
-
-                {/* Outbreak Alerts - Full Width */}
-                <ProfessionalCard>
-                  <OutbreakAlerts
-                    diseaseType={diseaseFilter}
-                    barangayId={barangayFilter}
-                    autoRefresh={true}
-                    refreshInterval={60000} // Refresh every minute
-                    onLoadingChange={setOutbreakAlertsLoading}
-                  />
                 </ProfessionalCard>
               </div>
             )}
@@ -924,14 +894,12 @@ export default function StaffDiseaseSurveillancePage() {
                   <div className="text-sm text-blue-800 space-y-1">
                     <p>• The heatmap shows disease distribution across all barangays in real-time</p>
                     <p>• Darker colors and larger circles indicate higher case concentrations</p>
-                    <p>• Outbreak alerts automatically detect unusual disease pattern spikes</p>
                     <p>• Filter by disease type, barangay, and time range for focused analysis</p>
                   </div>
                 </div>
               </div>
             </div>
           </div>
-          </OutbreakDataProvider>
         )}
 
         {/* Analytics & Trends Tab */}
@@ -1117,18 +1085,6 @@ export default function StaffDiseaseSurveillancePage() {
           isOpen={isHistoricalStatsReportOpen}
           onClose={() => setIsHistoricalStatsReportOpen(false)}
           barangays={barangays}
-        />
-
-        {/* Geographic Outbreak Report Generator */}
-        <GeographicOutbreakReportGenerator
-          isOpen={isGeographicReportOpen}
-          onClose={() => setIsGeographicReportOpen(false)}
-          barangays={barangays}
-          filters={{
-            disease_type: diseaseFilter,
-            barangay_id: barangayFilter,
-            time_range: timeRange.toString(),
-          }}
         />
 
         {/* Trends Analysis Report Generator */}

@@ -113,7 +113,7 @@ export function aggregateHistoricalByMonthAndDisease(
     if (!stat.disease_type) return;
 
     // For custom diseases, use custom_disease_name as the key
-    if (stat.disease_type === 'other' && stat.custom_disease_name) {
+    if ((stat.disease_type === 'other' || stat.disease_type === 'custom_disease') && stat.custom_disease_name) {
       diseaseKeys.add(stat.custom_disease_name);
     } else {
       diseaseKeys.add(stat.disease_type);
@@ -149,7 +149,7 @@ export function aggregateHistoricalByMonthAndDisease(
 
     if (monthIndex !== -1) {
       // Determine the key for this disease (custom name or disease type)
-      const diseaseKey = stat.disease_type === 'other' && stat.custom_disease_name
+      const diseaseKey = (stat.disease_type === 'other' || stat.disease_type === 'custom_disease') && stat.custom_disease_name
         ? stat.custom_disease_name
         : stat.disease_type;
 
@@ -265,7 +265,7 @@ export function aggregateHistoricalByDiseaseType(
     let key: string;
     let customName: string | undefined;
 
-    if (type === 'other' && stat.custom_disease_name) {
+    if ((type === 'other' || type === 'custom_disease') && stat.custom_disease_name) {
       key = `custom_${stat.custom_disease_name}`;
       customName = stat.custom_disease_name;
     } else {
@@ -293,12 +293,13 @@ export function aggregateHistoricalByDiseaseType(
 /**
  * Format disease type for display
  * Converts database format to human-readable format
- * For custom diseases (type='other'), uses custom_disease_name if provided
+ * For custom diseases (type='other' or 'custom_disease'), uses custom_disease_name if provided
+ * Matches the format from getDiseaseDisplayName in diseaseConstants.ts
  */
 export function formatDiseaseType(type: string, customDiseaseName?: string): string {
-  // If it's a custom disease with a name, use that name
-  if (type === 'other' && customDiseaseName) {
-    return customDiseaseName;
+  // If it's a custom disease with a name, use that name with suffix
+  if ((type === 'other' || type === 'custom_disease') && customDiseaseName) {
+    return `${customDiseaseName} (Custom Disease)`;
   }
 
   const formatMap: Record<string, string> = {
@@ -307,7 +308,9 @@ export function formatDiseaseType(type: string, customDiseaseName?: string): str
     malaria: 'Malaria',
     measles: 'Measles',
     rabies: 'Rabies',
+    animal_bite: 'Animal Bite',
     pregnancy_complications: 'Pregnancy Complications',
+    custom_disease: 'Custom Disease',
     other: 'Other Diseases',
   };
 

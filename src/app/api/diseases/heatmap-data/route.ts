@@ -149,10 +149,17 @@ export async function GET(request: NextRequest) {
           );
         })(),
       };
-    }).filter(b => b.statistics.total_cases > 0) || [];
+    }) || [];
 
-    // Sort by total cases descending
-    heatmapData.sort((a, b) => b.statistics.total_cases - a.statistics.total_cases);
+    // Sort by total cases descending (barangays with cases first, then alphabetically for zero-case barangays)
+    heatmapData.sort((a, b) => {
+      // First, sort by total cases (descending)
+      if (b.statistics.total_cases !== a.statistics.total_cases) {
+        return b.statistics.total_cases - a.statistics.total_cases;
+      }
+      // If both have zero cases, sort alphabetically by name
+      return a.barangay_name.localeCompare(b.barangay_name);
+    });
 
     // Calculate additional metadata
     const mostAffectedBarangay = heatmapData.length > 0 ? heatmapData[0] : null;
@@ -169,7 +176,9 @@ export async function GET(request: NextRequest) {
       success: true,
       data: heatmapData,
       metadata: {
-        total_barangays_affected: heatmapData.length,
+        total_barangays: heatmapData.length, // Total barangays (all 41)
+        total_barangays_affected: heatmapData.filter(b => b.statistics.total_cases > 0).length, // Only barangays with cases
+        total_barangays_no_cases: heatmapData.filter(b => b.statistics.total_cases === 0).length, // Barangays with zero cases
         total_cases: heatmapData.reduce((sum, b) => sum + b.statistics.total_cases, 0),
         total_active: heatmapData.reduce((sum, b) => sum + b.statistics.active_cases, 0),
         critical_barangays: heatmapData.filter(b => b.risk_level === 'critical').length,

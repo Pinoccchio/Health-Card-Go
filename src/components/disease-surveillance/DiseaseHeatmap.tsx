@@ -4,7 +4,6 @@ import { useEffect, useRef } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { getDiseaseDisplayName } from '@/lib/constants/diseaseConstants';
-import { useOutbreakData } from '@/contexts/OutbreakDataContext';
 
 // Fix Leaflet default icon issue with Next.js
 delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -34,30 +33,19 @@ interface HeatmapData {
     high_risk_count: number;
   }>;
   intensity: number;
-  risk_level: 'low' | 'medium' | 'high' | 'critical';
+  risk_level: 'low' | 'medium' | 'high';
 }
 
 interface DiseaseHeatmapProps {
   data: HeatmapData[];
   diseaseType: string;
-  outbreakRiskFilter?: string;
+  severityFilter?: string; // 'all', 'high', 'medium', 'low'
 }
 
-interface OutbreakData {
-  barangay_id?: number;
-  barangay_name?: string;
-  disease_type: string;
-  risk_level: 'critical' | 'high' | 'medium';
-  total_cases: number;
-}
-
-export default function DiseaseHeatmap({ data, diseaseType, outbreakRiskFilter = 'all' }: DiseaseHeatmapProps) {
+export default function DiseaseHeatmap({ data, diseaseType, severityFilter = 'all' }: DiseaseHeatmapProps) {
   const mapRef = useRef<L.Map | null>(null);
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const layerGroupRef = useRef<L.LayerGroup | null>(null);
-
-  // Use outbreak data from context (eliminates duplicate API call)
-  const { outbreaks } = useOutbreakData();
 
   // Effect 1: Initialize map ONCE (runs only on mount)
   useEffect(() => {
@@ -107,7 +95,7 @@ export default function DiseaseHeatmap({ data, diseaseType, outbreakRiskFilter =
     };
   }, []); // Empty deps - initialize once
 
-  // Effect 3: Update data layers when data, diseaseType, or outbreaks change
+  // Effect 2: Update data layers when data or diseaseType changes
   useEffect(() => {
     // Safety checks - ensure map and layer group are ready
     if (!mapRef.current || !layerGroupRef.current || !data || data.length === 0) return;
@@ -131,71 +119,36 @@ export default function DiseaseHeatmap({ data, diseaseType, outbreakRiskFilter =
 
       const bounds = L.latLngBounds([]);
 
-      // Debug: Log outbreak filter state
-      console.log('[Heatmap Filter Debug]', {
-        filter: outbreakRiskFilter,
-        totalOutbreaks: outbreaks.length,
-        totalBarangays: data.length,
-        outbreaksByRiskLevel: {
-          critical: outbreaks.filter(o => o.risk_level === 'critical').length,
-          high: outbreaks.filter(o => o.risk_level === 'high').length,
-          medium: outbreaks.filter(o => o.risk_level === 'medium').length,
-          low: outbreaks.filter(o => o.risk_level === 'low').length,
-        },
-        outbreakSample: outbreaks.slice(0, 2).map(o => ({
-          barangay_id: o.barangay_id,
-          barangay_name: o.barangay_name,
-          risk_level: o.risk_level
-        }))
-      });
-
-      let matchedCount = 0;
-      let skippedCount = 0;
-
       // Add circle markers for each barangay with cases
       data.forEach((barangay) => {
         if (!barangay.coordinates) return;
 
-        // Find outbreak for this barangay (before coordinate parsing for filtering)
-        const barangayOutbreak = outbreaks.find(
-          o => o.barangay_id === barangay.barangay_id ||
-               (o.barangay_name && o.barangay_name.toLowerCase() === barangay.barangay_name.toLowerCase())
-        );
-
-        // Apply outbreak risk filter
-        if (outbreakRiskFilter !== 'all') {
-          if (outbreakRiskFilter === 'low') {
-            // Show only barangays with low-risk outbreaks or no outbreaks
-            if (!barangayOutbreak || barangayOutbreak.risk_level !== 'low') {
-              skippedCount++;
+        // Apply severity filter BEFORE rendering
+        if (severityFilter !== 'all') {
+          if (severityFilter === 'high') {
+            // Show ONLY barangays with high-risk cases
+            if (barangay.statistics.high_risk_cases === 0) {
+              return; // Skip if no high risk cases
+            }
+          } else if (severityFilter === 'medium') {
+            // Show ONLY barangays with medium-risk cases AND no high-risk cases
+            if (barangay.statistics.medium_risk_cases === 0 || barangay.statistics.high_risk_cases > 0) {
+              return; // Skip if no medium risk cases OR if has high risk cases
+            }
+          } else if (severityFilter === 'low') {
+            // Show ONLY barangays with low-risk cases (no high or medium)
+            if (barangay.statistics.high_risk_cases > 0 || barangay.statistics.medium_risk_cases > 0) {
+              return; // Skip if has high or medium risk cases
+            }
+            // Also skip if no cases at all
+            if (barangay.statistics.total_cases === 0) {
               return;
             }
-          } else {
-            // Show only specific risk levels (high, medium)
-            const riskLevelMap: { [key: string]: string } = {
-              'high': 'high',
-              'medium': 'medium'
-            };
-            const targetRiskLevel = riskLevelMap[outbreakRiskFilter];
-
-            // Skip if no outbreak OR outbreak doesn't match filter
-            if (!barangayOutbreak || barangayOutbreak.risk_level !== targetRiskLevel) {
-              console.log('[Heatmap Filter] Skipping barangay:', {
-                barangay_name: barangay.barangay_name,
-                barangay_id: barangay.barangay_id,
-                hasOutbreak: !!barangayOutbreak,
-                outbreakRiskLevel: barangayOutbreak?.risk_level,
-                targetRiskLevel,
-                reason: !barangayOutbreak ? 'No outbreak found' : 'Risk level mismatch'
-              });
-              skippedCount++;
-              return;
+          } else if (severityFilter === 'no_cases') {
+            // Show ONLY barangays with NO cases (gray markers only)
+            if (barangay.statistics.total_cases !== 0) {
+              return; // Skip if has any cases
             }
-            matchedCount++;
-            console.log('[Heatmap Filter] ✅ Matched barangay:', {
-              barangay_name: barangay.barangay_name,
-              risk_level: barangayOutbreak.risk_level
-            });
           }
         }
 
@@ -244,24 +197,20 @@ export default function DiseaseHeatmap({ data, diseaseType, outbreakRiskFilter =
           return;
         }
 
-        // Determine color based on outbreak risk level (outbreak already found above)
+        // Determine color based on case severity
         let color: string;
         let riskLevel: string;
 
-        if (barangayOutbreak) {
-          // Use outbreak detection risk level
-          if (barangayOutbreak.risk_level === 'critical') {
-            color = '#dc2626'; // red-600
-            riskLevel = 'CRITICAL OUTBREAK';
-          } else if (barangayOutbreak.risk_level === 'high') {
-            color = '#ea580c'; // orange-600
-            riskLevel = 'HIGH RISK OUTBREAK';
-          } else {
-            color = '#f59e0b'; // amber-500 (yellow)
-            riskLevel = 'MEDIUM RISK OUTBREAK';
-          }
+        if (barangay.statistics.high_risk_cases > 0) {
+          // Has high-risk cases (≥70%)
+          color = '#dc2626'; // red-600
+          riskLevel = 'HIGH RISK';
+        } else if (barangay.statistics.medium_risk_cases > 0) {
+          // Has medium-risk cases (50-69%)
+          color = '#f59e0b'; // amber-500
+          riskLevel = 'MEDIUM RISK';
         } else if (barangay.statistics.total_cases > 0) {
-          // Has cases but no outbreak detected
+          // Has cases but all low-risk (<50%)
           color = '#16a34a'; // green-600
           riskLevel = 'LOW RISK';
         } else {
@@ -312,19 +261,11 @@ export default function DiseaseHeatmap({ data, diseaseType, outbreakRiskFilter =
               <div class="flex justify-between">
                 <span>Status:</span>
                 <span class="font-semibold ${
-                  barangayOutbreak
-                    ? barangayOutbreak.risk_level === 'critical' ? 'text-red-600'
-                      : barangayOutbreak.risk_level === 'high' ? 'text-orange-600'
-                      : 'text-amber-500'
-                    : barangay.statistics.total_cases > 0 ? 'text-green-600' : 'text-gray-400'
+                  color === '#dc2626' ? 'text-red-600' :
+                  color === '#f59e0b' ? 'text-amber-500' :
+                  color === '#16a34a' ? 'text-green-600' : 'text-gray-400'
                 }">${riskLevel}</span>
               </div>
-              ${barangayOutbreak ? `
-              <div class="flex justify-between">
-                <span>Outbreak Cases:</span>
-                <span class="font-semibold text-red-600">${barangayOutbreak.total_cases || 0}</span>
-              </div>
-              ` : ''}
               <div class="flex justify-between">
                 <span>Total Cases:</span>
                 <span class="font-semibold">${barangay.statistics.total_cases}</span>
@@ -354,6 +295,10 @@ export default function DiseaseHeatmap({ data, diseaseType, outbreakRiskFilter =
                 <span class="font-semibold text-red-600">${barangay.statistics.high_risk_cases}</span>
               </div>
               <div class="flex justify-between">
+                <span>Medium Risk:</span>
+                <span class="font-semibold text-amber-500">${barangay.statistics.medium_risk_cases}</span>
+              </div>
+              <div class="flex justify-between">
                 <span>Recovered:</span>
                 <span class="font-semibold text-green-600">${barangay.statistics.recovered_cases}</span>
               </div>
@@ -365,14 +310,6 @@ export default function DiseaseHeatmap({ data, diseaseType, outbreakRiskFilter =
       });
 
       // Fit map bounds to show all circles
-      // Log filter results
-      console.log('[Heatmap Filter] Results:', {
-        filter: outbreakRiskFilter,
-        matched: matchedCount,
-        skipped: skippedCount,
-        total: data.length
-      });
-
       if (bounds.isValid() && mapRef.current && mapRef.current._container && mapContainerRef.current) {
         try {
           // Additional check: ensure map has valid panes before fitBounds
@@ -386,7 +323,7 @@ export default function DiseaseHeatmap({ data, diseaseType, outbreakRiskFilter =
     } catch (error) {
       console.error('Error updating map layers:', error);
     }
-  }, [data, diseaseType, outbreaks, outbreakRiskFilter]); // Update when data, disease type, outbreaks, or filter change
+  }, [data, diseaseType, severityFilter]); // Update when data, disease type, or severity filter changes
 
   return (
     <div className="relative">
@@ -394,23 +331,19 @@ export default function DiseaseHeatmap({ data, diseaseType, outbreakRiskFilter =
 
       {/* Legend */}
       <div className="absolute bottom-4 right-4 bg-white p-3 rounded-lg shadow-lg border border-gray-200 z-[1000] max-w-xs">
-        <h4 className="text-xs font-semibold text-gray-700 mb-2">Outbreak Status</h4>
+        <h4 className="text-xs font-semibold text-gray-700 mb-2">Case Severity</h4>
         <div className="space-y-1 mb-3">
           <div className="flex items-center gap-2 text-xs">
             <div className="w-4 h-4 rounded-full bg-red-600"></div>
-            <span>Critical Outbreak</span>
-          </div>
-          <div className="flex items-center gap-2 text-xs">
-            <div className="w-4 h-4 rounded-full bg-orange-600"></div>
-            <span>High Risk Outbreak</span>
+            <span>High Risk (≥70%)</span>
           </div>
           <div className="flex items-center gap-2 text-xs">
             <div className="w-4 h-4 rounded-full bg-amber-500"></div>
-            <span>Medium Risk Outbreak</span>
+            <span>Medium Risk (50-69%)</span>
           </div>
           <div className="flex items-center gap-2 text-xs">
             <div className="w-4 h-4 rounded-full bg-green-600"></div>
-            <span>Low Risk</span>
+            <span>Low Risk (&lt;50%)</span>
           </div>
           <div className="flex items-center gap-2 text-xs">
             <div className="w-4 h-4 rounded-full bg-gray-400"></div>
@@ -418,7 +351,7 @@ export default function DiseaseHeatmap({ data, diseaseType, outbreakRiskFilter =
           </div>
         </div>
         <div className="border-t border-gray-200 pt-2 space-y-1">
-          <p className="text-xs text-gray-700 font-medium">Risk Calculation:</p>
+          <p className="text-xs text-gray-700 font-medium">Severity Calculation:</p>
           <p className="text-xs text-gray-600">
             (Cases / Population) × 100
           </p>

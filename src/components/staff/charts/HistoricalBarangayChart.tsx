@@ -14,6 +14,7 @@ import {
 } from 'chart.js';
 import { MapPin } from 'lucide-react';
 import { aggregateHistoricalByBarangay, formatNumber } from '@/lib/utils/historicalChartDataTransformers';
+import { getDiseaseDisplayName, DISEASE_TYPE_LABELS } from '@/lib/constants/diseaseConstants';
 
 // Register Chart.js components
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
@@ -23,25 +24,6 @@ interface HistoricalBarangayChartProps {
   barangays: Array<{ id: number; name: string; code?: string }>;
   timeRangeMonths?: number | 'all';
   diseaseType?: string;
-}
-
-// Helper function to get disease display name
-function getDiseaseDisplayName(diseaseType?: string): string {
-  if (!diseaseType || diseaseType === 'all') {
-    return '';
-  }
-
-  const diseaseNames: Record<string, string> = {
-    dengue: 'Dengue',
-    hiv_aids: 'HIV/AIDS',
-    pregnancy_complications: 'Pregnancy Complications',
-    malaria: 'Malaria',
-    measles: 'Measles',
-    rabies: 'Rabies',
-    other: 'Other Diseases',
-  };
-
-  return diseaseNames[diseaseType] || diseaseType;
 }
 
 export default function HistoricalBarangayChart({
@@ -147,7 +129,11 @@ export default function HistoricalBarangayChart({
     );
   }
 
-  const diseaseName = getDiseaseDisplayName(diseaseType);
+  // Get disease display name using centralized function
+  // For standard diseases, pass diseaseType; for 'all', show no suffix
+  const diseaseName = diseaseType && diseaseType !== 'all'
+    ? (DISEASE_TYPE_LABELS[diseaseType] || diseaseType)
+    : '';
   const titleSuffix = diseaseName ? ` - ${diseaseName}` : '';
   const footerDisease = diseaseName ? `${diseaseName.toLowerCase()} ` : 'aggregate ';
 
