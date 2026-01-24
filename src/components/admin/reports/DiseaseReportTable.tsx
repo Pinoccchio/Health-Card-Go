@@ -30,6 +30,13 @@ export default function DiseaseReportTable({
 }: DiseaseReportTableProps) {
   const getSeverityBadgeClass = (severity: string) => {
     switch (severity) {
+      case 'low_risk':
+        return 'bg-green-100 text-green-800';
+      case 'medium_risk':
+        return 'bg-orange-100 text-orange-800';
+      case 'high_risk':
+        return 'bg-red-100 text-red-800';
+      // Legacy support for old severity values
       case 'mild':
         return 'bg-green-100 text-green-800';
       case 'moderate':
@@ -40,6 +47,28 @@ export default function DiseaseReportTable({
         return 'bg-red-100 text-red-800';
       default:
         return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  const getSeverityLabel = (severity: string) => {
+    switch (severity) {
+      case 'low_risk':
+        return 'Low Risk';
+      case 'medium_risk':
+        return 'Medium Risk';
+      case 'high_risk':
+        return 'High Risk';
+      // Legacy support
+      case 'mild':
+        return 'Mild';
+      case 'moderate':
+        return 'Moderate';
+      case 'severe':
+        return 'Severe';
+      case 'critical':
+        return 'Critical';
+      default:
+        return severity.toUpperCase();
     }
   };
 
@@ -59,10 +88,10 @@ export default function DiseaseReportTable({
   };
 
   const getRowColor = (row: DiseaseReportData) => {
-    if (row.severity === 'critical') {
+    if (row.severity === 'high_risk' || row.severity === 'critical') {
       return 'bg-red-50 hover:bg-red-100';
     }
-    if (row.severity === 'severe') {
+    if (row.severity === 'medium_risk' || row.severity === 'severe') {
       return 'bg-orange-50 hover:bg-orange-100';
     }
     return '';
@@ -120,7 +149,7 @@ export default function DiseaseReportTable({
       sortable: true,
       render: (value: string) => (
         <span className={`px-2 py-1 text-xs font-medium rounded-full ${getSeverityBadgeClass(value)}`}>
-          {value.toUpperCase()}
+          {getSeverityLabel(value)}
         </span>
       ),
     },
@@ -193,10 +222,9 @@ export default function DiseaseReportTable({
           <div>
             <p className="font-medium mb-1">Severity Levels:</p>
             <div className="flex flex-wrap gap-2">
-              <span className="px-2 py-1 bg-green-100 text-green-800 rounded">Mild</span>
-              <span className="px-2 py-1 bg-yellow-100 text-yellow-800 rounded">Moderate</span>
-              <span className="px-2 py-1 bg-orange-100 text-orange-800 rounded">Severe</span>
-              <span className="px-2 py-1 bg-red-100 text-red-800 rounded">Critical</span>
+              <span className="px-2 py-1 bg-green-100 text-green-800 rounded">Low Risk (&lt;50%)</span>
+              <span className="px-2 py-1 bg-orange-100 text-orange-800 rounded">Medium Risk (50-69%)</span>
+              <span className="px-2 py-1 bg-red-100 text-red-800 rounded">High Risk (≥70%)</span>
             </div>
           </div>
           <div>
@@ -213,11 +241,11 @@ export default function DiseaseReportTable({
             <div className="flex flex-wrap gap-3">
               <div className="flex items-center gap-2">
                 <div className="w-4 h-4 bg-red-50 border border-red-200 rounded"></div>
-                <span>Critical severity cases</span>
+                <span>High risk cases (≥70%)</span>
               </div>
               <div className="flex items-center gap-2">
                 <div className="w-4 h-4 bg-orange-50 border border-orange-200 rounded"></div>
-                <span>Severe cases</span>
+                <span>Medium risk cases (50-69%)</span>
               </div>
               <div className="flex items-center gap-2">
                 <span className="italic text-orange-600 text-xs">Anonymous</span>
