@@ -6,7 +6,6 @@ import { Container } from '@/components/ui';
 import { ProfessionalCard } from '@/components/ui/ProfessionalCard';
 import DiseaseHeatmap from '@/components/disease-surveillance/DiseaseHeatmap';
 import SARIMAChart from '@/components/disease-surveillance/SARIMAChart';
-import OutbreakAlerts from '@/components/disease-surveillance/OutbreakAlerts';
 import { HistoricalChartsSection } from '@/components/staff/HistoricalChartsSection';
 import { interpretMAPE, getMAPEColor } from '@/lib/utils/sarimaMetrics';
 import HealthCardSARIMAChart from '@/components/healthcare-admin/HealthCardSARIMAChart';
@@ -835,12 +834,7 @@ export default function AdminDiseaseSurveillancePage() {
         {/* TAB CONTENT: Predictions & Forecasts */}
         {activeTab === 'predictions' && (
           <div>
-            {/* Outbreak Alerts */}
-            <div className="mb-6">
-              <OutbreakAlerts diseaseType={selectedDisease !== 'all' ? selectedDisease : undefined} />
-            </div>
-
-            {/* Disease Type Filter (below Outbreak Alerts - matches admin page layout) */}
+            {/* Disease Type Filter */}
             <div className="bg-white rounded-lg shadow p-4 mb-6">
               <div className="flex items-center gap-2 mb-3">
                 <BarChart3 className="w-5 h-5 text-primary-teal" />
