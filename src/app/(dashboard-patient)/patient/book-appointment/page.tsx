@@ -25,12 +25,10 @@ import {
   getTimeBlockColor,
   HealthCardType,
   LabLocationType,
-  AppointmentUpload,
+  AppointmentRequirement,
   isHealthCardService,
-  requiresDocumentUpload,
-  getRequiredUploads,
 } from '@/types/appointment';
-import { DocumentUploadForm } from '@/components/patient/DocumentUploadForm';
+import { RequirementsVerificationForm } from '@/components/patient/RequirementsVerificationForm';
 import DownloadLabRequestButton from '@/components/patient/DownloadLabRequestButton';
 import { AppointmentCalendar } from '@/components/patient/AppointmentCalendar';
 
@@ -73,7 +71,7 @@ export default function PatientBookAppointmentPage({
   // Health Card specific state
   const [selectedCardType, setSelectedCardType] = useState<HealthCardType | null>(null);
   const [selectedLabLocation, setSelectedLabLocation] = useState<LabLocationType | null>(null);
-  const [uploadedDocuments, setUploadedDocuments] = useState<AppointmentUpload[]>([]);
+  const [confirmedRequirements, setConfirmedRequirements] = useState<AppointmentRequirement[]>([]);
   const [labResultsConfirmed, setLabResultsConfirmed] = useState(false);
 
   // Draft appointment state (for upload flow)
@@ -408,31 +406,31 @@ export default function PatientBookAppointmentPage({
     }
   };
 
-  const handleUploadsComplete = (uploads: AppointmentUpload[]) => {
-    setUploadedDocuments(uploads);
+  const handleRequirementsConfirmed = (requirements: AppointmentRequirement[]) => {
+    setConfirmedRequirements(requirements);
   };
 
   const handleStep2Continue = () => {
-    // Determine required uploads based on card type and lab location
-    let requiredUploadsCount: number;
+    // Determine required requirements based on card type and lab location
+    let requiredRequirementsCount: number;
 
     if (selectedCardType === 'pink') {
-      // Pink Card: Always inside CHO (2 documents required: Payment Receipt + Valid ID)
-      requiredUploadsCount = 2;
+      // Pink Card: Always inside CHO (2 requirements: Payment Receipt + Valid ID)
+      requiredRequirementsCount = 2;
     } else if (selectedLabLocation === 'inside_cho') {
-      // Yellow/Green - Inside CHO (2 documents required: Payment Receipt + Valid ID)
-      requiredUploadsCount = 2;
+      // Yellow/Green - Inside CHO (2 requirements: Payment Receipt + Valid ID)
+      requiredRequirementsCount = 2;
     } else {
-      // Yellow/Green - Outside CHO (1 document required: Valid ID only)
-      requiredUploadsCount = 1;
+      // Yellow/Green - Outside CHO (1 requirement: Valid ID only)
+      requiredRequirementsCount = 1;
     }
 
-    // Check if all required files are uploaded
-    if (uploadedDocuments.length < requiredUploadsCount) {
-      if (requiredUploadsCount === 2) {
-        setError('Please upload all 2 required documents (Payment Receipt and Valid ID) before continuing');
+    // Check if all required requirements are confirmed
+    if (confirmedRequirements.length < requiredRequirementsCount) {
+      if (requiredRequirementsCount === 2) {
+        setError('Please confirm all 2 required requirements (Payment Receipt and Valid ID) before continuing');
       } else {
-        setError('Please upload your Valid ID before continuing');
+        setError('Please confirm your Valid ID requirement before continuing');
       }
       return;
     }
@@ -665,7 +663,7 @@ export default function PatientBookAppointmentPage({
                 const steps = isHealthCard
                   ? [
                       { num: 1, label: 'Select Service', sublabel: 'Choose service & option' },
-                      { num: 2, label: 'Upload', sublabel: 'Upload documents' },
+                      { num: 2, label: 'Requirements', sublabel: 'Confirm requirements' },
                       { num: 3, label: 'Choose Date', sublabel: 'Pick a schedule' },
                       { num: 4, label: 'Pick Time', sublabel: 'Select a slot' },
                       { num: 5, label: 'Booking Confirm', sublabel: 'Review & submit' },
@@ -1014,7 +1012,7 @@ export default function PatientBookAppointmentPage({
                       onClick={() => setStep(selectedService && isHealthCardService(selectedService) ? 2 : 1)}
                       className="text-sm text-gray-600 hover:text-gray-900 font-medium"
                     >
-                      ← Back to {selectedService && isHealthCardService(selectedService) ? 'Document Upload' : 'Service Selection'}
+                      ← Back to {selectedService && isHealthCardService(selectedService) ? 'Requirements' : 'Service Selection'}
                     </button>
                   </div>
                 </div>
@@ -1126,14 +1124,14 @@ export default function PatientBookAppointmentPage({
               </div>
             )}
 
-            {/* Step 2: Document Upload (Health Card and Pink Card) */}
+            {/* Step 2: Requirements Verification (Health Card and Pink Card) */}
             {step === 2 && ((selectedService && isHealthCardService(selectedService)) || selectedCardType === 'pink') && (
               <div>
                 <h3 className="text-2xl font-bold text-gray-900 mb-2">
-                  Upload Documents
+                  Confirm Requirements
                 </h3>
                 <p className="text-sm text-gray-600 mb-6">
-                  Upload the required documents for your health card application.
+                  Confirm you have the required documents for your health card application. Bring these on your appointment day.
                 </p>
 
                 <div className="max-w-3xl">
@@ -1142,13 +1140,13 @@ export default function PatientBookAppointmentPage({
                     <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 text-center">
                       <div className="flex items-center justify-center gap-3">
                         <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary-teal"></div>
-                        <p className="text-sm text-blue-800">Preparing upload area...</p>
+                        <p className="text-sm text-blue-800">Preparing requirements form...</p>
                       </div>
                     </div>
                   )}
 
-                  {/* Show upload form once draft is created */}
-                  {draftAppointmentId && (
+                  {/* Show requirements form once draft is created */}
+                  {draftAppointmentId && selectedLabLocation && (
                     <>
                       {/* Info banner for Inside CHO (Pink Card or Yellow/Green with Inside CHO selected) */}
                       {(selectedLabLocation === 'inside_cho' || selectedCardType === 'pink') && (
@@ -1158,7 +1156,7 @@ export default function PatientBookAppointmentPage({
                             {selectedCardType === 'pink' && ' (Required for Pink Card)'}
                           </p>
                           <p className="text-sm text-blue-700">
-                            Please upload the following 2 required documents:
+                            Please confirm you have the following 2 requirements to bring:
                           </p>
                           <ul className="mt-2 text-sm text-blue-700 list-disc list-inside space-y-1">
                             <li>1. Payment Receipt (Resibo) from CHO Treasury</li>
@@ -1169,7 +1167,7 @@ export default function PatientBookAppointmentPage({
                           {selectedCardType && (
                             <div className="mt-4 pt-4 border-t border-blue-200">
                               <p className="text-sm text-blue-800 mb-2">
-                                📥 Need the lab request form? Download it here:
+                                Need the lab request form? Download it here:
                               </p>
                               <button
                                 onClick={() => {
@@ -1202,7 +1200,7 @@ export default function PatientBookAppointmentPage({
                                 } Card Lab Request Form (PDF)
                               </button>
                               <p className="text-xs text-blue-600 mt-2">
-                                💡 Tip: Form will open in a new window. Use "Save as PDF" when printing.
+                                Form will open in a new window. Use "Save as PDF" when printing.
                               </p>
                             </div>
                           )}
@@ -1216,20 +1214,16 @@ export default function PatientBookAppointmentPage({
                             <strong>Outside CHO Laboratory</strong>
                           </p>
                           <p className="text-sm text-blue-700">
-                            Please upload your Valid Government-Issued ID.
+                            Please confirm you have your Valid Government-Issued ID to bring.
                           </p>
                         </div>
                       )}
 
-                      {/* Document Upload Form */}
-                      <DocumentUploadForm
+                      {/* Requirements Verification Form */}
+                      <RequirementsVerificationForm
+                        labLocation={selectedLabLocation}
                         appointmentId={draftAppointmentId}
-                        requiredUploads={
-                          selectedLabLocation === 'inside_cho'
-                            ? ['payment_receipt', 'valid_id']
-                            : ['valid_id']
-                        }
-                        onUploadsComplete={handleUploadsComplete}
+                        onRequirementsConfirmed={handleRequirementsConfirmed}
                         disabled={false}
                       />
 
@@ -1263,7 +1257,7 @@ export default function PatientBookAppointmentPage({
                           setDraftAppointmentId(null);
                         }
                         setStep(1);
-                        setUploadedDocuments([]);
+                        setConfirmedRequirements([]);
                       }}
                       className="text-sm text-gray-600 hover:text-gray-900 font-medium"
                     >
@@ -1273,7 +1267,7 @@ export default function PatientBookAppointmentPage({
                       onClick={handleStep2Continue}
                       disabled={
                         creatingDraft ||
-                        uploadedDocuments.length < (selectedLabLocation === 'inside_cho' ? 2 : 1) ||
+                        confirmedRequirements.length < (selectedLabLocation === 'inside_cho' ? 2 : 1) ||
                         (selectedLabLocation === 'outside_cho' && selectedCardType !== 'pink' && !labResultsConfirmed)
                       }
                       className="px-8 py-3 bg-primary-teal text-white font-semibold rounded-md hover:bg-primary-teal/90 transition-colors shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
@@ -1326,11 +1320,11 @@ export default function PatientBookAppointmentPage({
                             </dd>
                           </div>
                         )}
-                        {uploadedDocuments.length > 0 && (
+                        {confirmedRequirements.length > 0 && (
                           <div className="flex justify-between">
-                            <dt className="text-sm font-medium text-gray-500">Documents</dt>
+                            <dt className="text-sm font-medium text-gray-500">Requirements</dt>
                             <dd className="text-sm text-gray-900">
-                              {uploadedDocuments.length} file(s) uploaded ✓
+                              {confirmedRequirements.length} requirement(s) confirmed ✓
                             </dd>
                           </div>
                         )}

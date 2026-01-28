@@ -90,17 +90,17 @@ export function LabLocationSelector({
                 {info.description}
               </p>
 
-              {/* Required Documents Info */}
+              {/* Requirements to Bring */}
               {!isInsideCHO && (
                 <div className="mt-4 pt-4 border-t border-gray-200">
                   <p className="text-xs font-semibold text-gray-700 mb-2">
-                    Required Documents:
+                    Requirements to Bring:
                   </p>
                   <ul className="text-xs text-gray-600 space-y-1">
-                    <li>• Valid ID</li>
+                    <li>• Valid Government-Issued ID</li>
                   </ul>
-                  <p className="text-xs text-amber-700 mt-2 font-medium">
-                    ⚠️ You will need to upload this in the next step
+                  <p className="text-xs text-blue-700 mt-2 font-medium">
+                    You will confirm this requirement in the next step
                   </p>
                 </div>
               )}
@@ -108,14 +108,14 @@ export function LabLocationSelector({
               {isInsideCHO && (
                 <div className="mt-4 pt-4 border-t border-gray-200">
                   <p className="text-xs font-semibold text-gray-700 mb-2">
-                    Required Documents:
+                    Requirements to Bring:
                   </p>
                   <ul className="text-xs text-gray-600 space-y-1">
-                    <li>• Payment Receipt (Resibo)</li>
-                    <li>• Valid ID</li>
+                    <li>• Payment Receipt (Resibo) from CHO Treasury</li>
+                    <li>• Valid Government-Issued ID</li>
                   </ul>
-                  <p className="text-xs text-amber-700 mt-2 font-medium">
-                    ⚠️ You will need to upload these in the next step
+                  <p className="text-xs text-blue-700 mt-2 font-medium">
+                    You will confirm these requirements in the next step
                   </p>
                 </div>
               )}
@@ -131,10 +131,10 @@ export function LabLocationSelector({
         </p>
         <ul className="text-sm text-blue-800 mt-2 space-y-2 ml-4">
           <li>
-            • <strong>Inside CHO Laboratory:</strong> If you prefer to have your lab tests done at the City Health Office. Upload payment receipt (resibo) and valid ID.
+            • <strong>Inside CHO Laboratory:</strong> If you prefer to have your lab tests done at the City Health Office. Bring payment receipt (resibo) and valid ID.
           </li>
           <li>
-            • <strong>Outside CHO Laboratory:</strong> If you have already arranged lab tests at an external facility or prefer to use your own clinic. Upload valid ID only.
+            • <strong>Outside CHO Laboratory:</strong> If you have already arranged lab tests at an external facility or prefer to use your own clinic. Bring valid ID only.
           </li>
         </ul>
       </div>

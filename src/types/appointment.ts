@@ -150,6 +150,11 @@ export type AppointmentStage = 'check_in' | 'laboratory' | 'results' | 'checkup'
  */
 export type UploadFileType = 'lab_request' | 'payment_receipt' | 'valid_id' | 'other';
 
+/**
+ * Requirement type for checkbox verification
+ */
+export type RequirementType = 'payment_receipt' | 'valid_id';
+
 // ============================================================================
 // HEALTH CARD CONSTANTS
 // ============================================================================
@@ -209,16 +214,28 @@ export const LAB_LOCATIONS: Record<LabLocationType, {
   label: string;
   description: string;
   requiredUploads: UploadFileType[];
+  requirements: RequirementType[];
+  requirementLabels: Record<RequirementType, string>;
 }> = {
   inside_cho: {
     label: 'Inside CHO Laboratory',
-    description: 'Laboratory tests will be conducted at the City Health Office. Upload payment receipt and valid ID.',
-    requiredUploads: ['payment_receipt', 'valid_id'], // Payment receipt (resibo) + Valid ID
+    description: 'Laboratory tests will be conducted at the City Health Office. Bring payment receipt and valid ID.',
+    requiredUploads: ['payment_receipt', 'valid_id'], // Legacy: Payment receipt (resibo) + Valid ID
+    requirements: ['payment_receipt', 'valid_id'],
+    requirementLabels: {
+      payment_receipt: 'Payment Receipt (Resibo)',
+      valid_id: 'Valid Government-Issued ID',
+    },
   },
   outside_cho: {
     label: 'Outside CHO Laboratory',
-    description: 'Laboratory tests conducted at an external facility. Upload valid ID only.',
-    requiredUploads: ['valid_id'], // Valid ID only
+    description: 'Laboratory tests conducted at an external facility. Bring valid ID only.',
+    requiredUploads: ['valid_id'], // Legacy: Valid ID only
+    requirements: ['valid_id'],
+    requirementLabels: {
+      payment_receipt: 'Payment Receipt (Resibo)', // Not used for outside_cho but defined for type safety
+      valid_id: 'Valid Government-Issued ID',
+    },
   },
 };
 
@@ -344,6 +361,29 @@ export interface AppointmentUpload {
   verification_notes?: string;
   created_at: string;
   updated_at: string;
+}
+
+/**
+ * Appointment requirement record for checkbox verification (new system)
+ * Replaces document uploads with checkbox confirmations
+ */
+export interface AppointmentRequirement {
+  id: string;
+  appointment_id: string;
+  file_type: RequirementType;
+  requirement_label: string;
+  is_checkbox_verified: boolean;
+  checkbox_verified_at: string | null;
+  uploaded_by_id: string;
+  verification_status: VerificationStatus;
+  created_at: string;
+  updated_at: string;
+  // Legacy fields (nullable for checkbox verification)
+  file_name?: string | null;
+  file_url?: string | null;
+  file_size_bytes?: number | null;
+  mime_type?: string | null;
+  storage_path?: string | null;
 }
 
 // ============================================================================
@@ -630,3 +670,42 @@ export function validateUploadFile(
 
   return { valid: true };
 }
+
+/**
+ * Get required requirements for a lab location
+ * @param labLocation - The lab location type
+ * @returns Array of required requirement types
+ */
+export function getRequiredRequirements(labLocation: LabLocationType): RequirementType[] {
+  return LAB_LOCATIONS[labLocation].requirements;
+}
+
+/**
+ * Get requirement label for display
+ * @param labLocation - The lab location type
+ * @param requirementType - The requirement type
+ * @returns Display label for the requirement
+ */
+export function getRequirementLabel(labLocation: LabLocationType, requirementType: RequirementType): string {
+  return LAB_LOCATIONS[labLocation].requirementLabels[requirementType];
+}
+
+/**
+ * Requirement configuration for checkbox verification
+ */
+export const REQUIREMENT_TYPES: Record<RequirementType, {
+  label: string;
+  description: string;
+  checkboxLabel: string;
+}> = {
+  payment_receipt: {
+    label: 'Payment Receipt (Resibo)',
+    description: 'Official payment receipt from CHO Treasury',
+    checkboxLabel: 'I have the Payment Receipt (Resibo) from CHO Treasury',
+  },
+  valid_id: {
+    label: 'Valid Government-Issued ID',
+    description: 'Government-issued ID for verification',
+    checkboxLabel: 'I have a Valid Government-Issued ID',
+  },
+};

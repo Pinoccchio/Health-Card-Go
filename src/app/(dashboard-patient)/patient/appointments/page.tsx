@@ -941,17 +941,18 @@ export default function PatientAppointmentsPage() {
                   </div>
                 )}
 
-                {/* Uploaded Documents - Only for card issuance services (Service 12 and Service 24) */}
+                {/* Requirements - Only for card issuance services (Service 12 and Service 24) */}
                 {(selectedAppointment.services?.category === 'healthcard' || selectedAppointment.services?.category === 'pink_card') && selectedAppointment.card_type && (
                   <div>
                     <h4 className="text-sm font-medium text-gray-700 mb-2 flex items-center">
                       <FileText className="w-4 h-4 mr-2" />
-                      {selectedAppointment.status === 'pending' ? 'Document Verification' : 'Uploaded Documents'}
+                      {selectedAppointment.status === 'pending' ? 'Document Verification' : 'Requirements'}
                     </h4>
                     <div className="bg-white rounded-md border border-gray-200 p-4">
                       <DocumentReviewPanel
                         appointmentId={selectedAppointment.id}
                         onVerificationComplete={fetchAppointments}
+                        viewMode="patient"
                       />
                     </div>
                   </div>
