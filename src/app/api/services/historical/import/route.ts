@@ -5,6 +5,11 @@
  * Imports historical appointment data for services (HIV Testing & Counseling, Prenatal Checkup)
  * Used for SARIMA prediction training data
  *
+ * SIMPLIFIED (Jan 2025):
+ * - Removed Status field (was misleading - all statuses were aggregated anyway)
+ * - Now uses "appointments_completed" directly
+ * - Matches healthcard import pattern
+ *
  * Authorization:
  * - Super Admin: Can import any service data
  * - Healthcare Admin with admin_category='hiv': Can import service 16 (HIV) data only
@@ -17,8 +22,7 @@ import { createClient } from '@/lib/supabase/server';
 
 interface ServiceAppointmentRecord {
   appointment_month: string; // YYYY-MM
-  status: 'completed' | 'cancelled' | 'no_show';
-  appointment_count: number;
+  appointments_completed: number;
   barangay?: string;
   source?: string;
   notes?: string;
@@ -133,7 +137,7 @@ export async function POST(request: NextRequest) {
     );
 
     // Process records: Convert monthly appointment data to database records
-    // Group by month and aggregate ALL statuses (completed, cancelled, no_show) into single completed count
+    // Group by month-barangay combination to aggregate multiple rows for same period
     const monthlyAggregates = new Map<string, {
       service_id: number;
       record_date: string;
@@ -165,8 +169,8 @@ export async function POST(request: NextRequest) {
         });
       }
 
-      // Add appointment count (all statuses combined)
-      monthlyAggregates.get(key)!.appointments_completed += record.appointment_count;
+      // Add completed appointment count
+      monthlyAggregates.get(key)!.appointments_completed += record.appointments_completed;
     });
 
     // Convert to array for insertion

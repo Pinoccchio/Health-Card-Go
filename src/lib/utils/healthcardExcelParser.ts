@@ -1,16 +1,54 @@
 /**
- * Excel Parser for HealthCard Historical Data Import
+ * Excel/CSV Parser for HealthCard Historical Data Import
  *
- * This module handles parsing and validation of Excel files containing
+ * This module handles parsing and validation of Excel/CSV files containing
  * historical health card issuance data for bulk import into the system.
  *
- * Supported formats: .xlsx, .xls
+ * Supported formats: .xlsx, .xls, .csv
  * Max file size: 5MB (enforced in UI)
  * Max records per import: 1000 (enforced in API)
  */
 
 import * as XLSX from 'xlsx';
 import { validateBarangayName, type Barangay } from './barangayMatcher';
+
+/**
+ * Normalizes date strings to YYYY-MM-DD format
+ * Handles various input formats from Excel/CSV
+ */
+function normalizeDateString(dateValue: any): string {
+  if (!dateValue) return '';
+
+  const str = dateValue.toString().trim();
+
+  // Already in YYYY-MM-DD format
+  if (/^\d{4}-\d{2}-\d{2}$/.test(str)) {
+    return str;
+  }
+
+  // Handle Excel serial date numbers
+  if (!isNaN(Number(str)) && Number(str) > 10000) {
+    const excelDate = XLSX.SSF.parse_date_code(Number(str));
+    if (excelDate) {
+      const year = excelDate.y;
+      const month = String(excelDate.m).padStart(2, '0');
+      const day = String(excelDate.d).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    }
+  }
+
+  // Try to parse as a date string (handles MM/DD/YYYY, DD/MM/YYYY, etc.)
+  const date = new Date(str);
+  if (!isNaN(date.getTime())) {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
+
+  // Return original if we can't parse it
+  return str;
+}
 
 export interface HealthcardHistoricalRecord {
   record_date: string;
@@ -89,9 +127,19 @@ export async function parseHealthcardExcel(file: File): Promise<{
   errors: ValidationError[];
 }> {
   try {
-    // Read file as array buffer
-    const data = await file.arrayBuffer();
-    const workbook = XLSX.read(data, { type: 'array' });
+    // Check if it's a CSV file - need different handling for encoding
+    const isCSV = file.name.toLowerCase().endsWith('.csv');
+
+    let workbook;
+    if (isCSV) {
+      // For CSV files, read as text with UTF-8 encoding to handle special characters (e.g., ñ)
+      const text = await file.text();
+      workbook = XLSX.read(text, { type: 'string', raw: false });
+    } else {
+      // For Excel files, read as array buffer
+      const data = await file.arrayBuffer();
+      workbook = XLSX.read(data, { type: 'array' });
+    }
 
     // Get "Data" sheet (the template has Instructions, Data, Barangay List sheets)
     const sheetName = 'Data';
@@ -130,7 +178,7 @@ export async function parseHealthcardExcel(file: File): Promise<{
       jsonData.forEach((row: any, index: number) => {
         // Try both header formats (with spaces and underscores)
         const record: HealthcardHistoricalRecord = {
-          record_date: (row['Record Date'] || row['record_date'] || '').toString().trim(),
+          record_date: normalizeDateString(row['Record Date'] || row['record_date'] || ''),
           healthcard_type: (row['HealthCard Type'] || row['healthcard_type'] || '').toString().toLowerCase().trim() as 'food_handler' | 'non_food' | 'pink',
           cards_issued: parseInt(row['Cards Issued'] || row['cards_issued'] || '0'),
           barangay: (row['Barangay'] || row['barangay'] || '').toString().trim(),
@@ -187,7 +235,7 @@ export async function parseHealthcardExcel(file: File): Promise<{
     jsonData.forEach((row: any, index: number) => {
       // Try both header formats (with spaces and underscores)
       const record: HealthcardHistoricalRecord = {
-        record_date: (row['Record Date'] || row['record_date'] || '').toString().trim(),
+        record_date: normalizeDateString(row['Record Date'] || row['record_date'] || ''),
         healthcard_type: (row['HealthCard Type'] || row['healthcard_type'] || '').toString().toLowerCase().trim() as 'food_handler' | 'non_food' | 'pink',
         cards_issued: parseInt(row['Cards Issued'] || row['cards_issued'] || '0'),
         barangay: (row['Barangay'] || row['barangay'] || '').toString().trim(),
@@ -229,10 +277,12 @@ export function validateHealthcardExcelFile(file: File): string | null {
   const ALLOWED_TYPES = [
     'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // .xlsx
     'application/vnd.ms-excel', // .xls
+    'text/csv', // .csv
+    'application/csv', // .csv (alternative MIME)
   ];
 
-  if (!ALLOWED_TYPES.includes(file.type) && !file.name.match(/\.(xlsx|xls)$/i)) {
-    return 'Invalid file format. Please upload an Excel file (.xlsx or .xls)';
+  if (!ALLOWED_TYPES.includes(file.type) && !file.name.match(/\.(xlsx|xls|csv)$/i)) {
+    return 'Invalid file format. Please upload an Excel or CSV file (.xlsx, .xls, or .csv)';
   }
 
   if (file.size > MAX_FILE_SIZE) {

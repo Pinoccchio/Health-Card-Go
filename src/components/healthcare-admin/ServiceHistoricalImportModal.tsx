@@ -142,12 +142,12 @@ export default function ServiceHistoricalImportModal({
   const validRows = parseResult ? parseResult.validRecords.length : 0;
   const errorCount = parseResult ? parseResult.errors.length : 0;
 
-  // Determine template URL based on service
+  // Determine template URL based on service (using CSV for all)
   const templateUrl = serviceId === 16
-    ? '/templates/hiv-appointment-import-template.xlsx'
+    ? '/templates/hiv-appointment-import-template.csv'
     : serviceId === 17
-    ? '/templates/pregnancy-appointment-import-template.xlsx'
-    : '/templates/service-appointment-import-template.xlsx';
+    ? '/templates/pregnancy-appointment-import-template.csv'
+    : '/templates/service-appointment-import-template.csv';
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-md z-[1002] flex items-center justify-center p-4">
@@ -199,13 +199,13 @@ export default function ServiceHistoricalImportModal({
             {/* File Upload */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Select Excel File
+                Select File
               </label>
               <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-purple-400 transition-colors">
                 <input
                   ref={fileInputRef}
                   type="file"
-                  accept=".xlsx,.xls"
+                  accept=".xlsx,.xls,.csv"
                   onChange={handleFileSelect}
                   className="hidden"
                   disabled={isProcessing || isImporting}
@@ -216,7 +216,7 @@ export default function ServiceHistoricalImportModal({
                   disabled={isProcessing || isImporting}
                 >
                   <Upload className="h-5 w-5" />
-                  {file ? 'Change File' : 'Select Excel File'}
+                  {file ? 'Change File' : 'Select File'}
                 </button>
                 {file && (
                   <p className="mt-3 text-sm text-gray-600">
@@ -224,7 +224,7 @@ export default function ServiceHistoricalImportModal({
                   </p>
                 )}
                 <p className="mt-2 text-xs text-gray-500">
-                  Supported formats: .xlsx, .xls (Maximum 5MB, 1000 rows)
+                  Supported formats: .xlsx, .xls, .csv (Maximum 5MB, 1000 rows)
                 </p>
               </div>
             </div>

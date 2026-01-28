@@ -116,8 +116,8 @@ export default function HealthCardSARIMAChart({
         }
       } catch (err) {
         console.error('Failed to fetch available years:', err);
-        // Fallback to hardcoded years if API fails (2023-2026 continuous)
-        setAvailableYears([2023, 2024, 2025, 2026]);
+        // Dynamic fallback: use current year only if API fails
+        setAvailableYears([currentYear]);
       }
     }
     fetchAvailableYears();

@@ -1,21 +1,66 @@
 /**
- * Excel Parser for Service Appointment Historical Data Import
+ * Excel/CSV Parser for Service Appointment Historical Data Import
  *
- * This module handles parsing and validation of Excel files containing
+ * This module handles parsing and validation of Excel/CSV files containing
  * historical appointment data for HIV Testing & Counseling (service 16)
  * and Prenatal Checkup (service 17) services for SARIMA predictions.
  *
- * Supported formats: .xlsx, .xls
+ * SIMPLIFIED (Jan 2025):
+ * - Removed Status column (was misleading - all statuses were aggregated anyway)
+ * - Now uses "Appointments Completed" directly
+ * - Matches healthcard template pattern
+ *
+ * Supported formats: .xlsx, .xls, .csv
  * Max file size: 5MB (enforced in UI)
  * Max records per import: 1000 (enforced in API)
  */
 
 import * as XLSX from 'xlsx';
 
+/**
+ * Normalizes date strings to YYYY-MM format for appointment_month
+ * Handles various input formats from Excel/CSV
+ */
+function normalizeDateToMonth(dateValue: any): string {
+  if (!dateValue) return '';
+
+  const str = dateValue.toString().trim();
+
+  // Already in YYYY-MM format
+  if (/^\d{4}-(0[1-9]|1[0-2])$/.test(str)) {
+    return str;
+  }
+
+  // Handle YYYY-MM-DD format (extract YYYY-MM)
+  if (/^\d{4}-\d{2}-\d{2}$/.test(str)) {
+    return str.substring(0, 7);
+  }
+
+  // Handle Excel serial date numbers
+  if (!isNaN(Number(str)) && Number(str) > 10000) {
+    const excelDate = XLSX.SSF.parse_date_code(Number(str));
+    if (excelDate) {
+      const year = excelDate.y;
+      const month = String(excelDate.m).padStart(2, '0');
+      return `${year}-${month}`;
+    }
+  }
+
+  // Try to parse as a date string
+  const date = new Date(str);
+  if (!isNaN(date.getTime())) {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    return `${year}-${month}`;
+  }
+
+  // Return original if we can't parse it
+  return str;
+}
+
 export interface ServiceAppointmentHistoricalRecord {
   appointment_month: string; // YYYY-MM format
-  status: 'completed' | 'cancelled' | 'no_show';
-  appointment_count: number;
+  appointments_completed: number;
   barangay?: string;
   source?: string;
   notes?: string;
@@ -59,22 +104,15 @@ export function validateServiceAppointmentRecord(
     }
   }
 
-  // Validate status (required)
-  if (!record.status) {
-    errors.push('Status is required');
-  } else if (!['completed', 'cancelled', 'no_show'].includes(record.status)) {
-    errors.push('Status must be "completed", "cancelled", or "no_show"');
-  }
-
-  // Validate appointment_count (required, positive integer)
-  if (record.appointment_count === undefined || record.appointment_count === null) {
-    errors.push('Appointment Count is required');
+  // Validate appointments_completed (required, positive integer)
+  if (record.appointments_completed === undefined || record.appointments_completed === null) {
+    errors.push('Appointments Completed is required');
   } else {
-    const count = Number(record.appointment_count);
+    const count = Number(record.appointments_completed);
     if (!Number.isInteger(count) || count <= 0) {
-      errors.push('Appointment Count must be a positive integer');
+      errors.push('Appointments Completed must be a positive integer');
     } else if (count > 1000) {
-      errors.push('Appointment Count cannot exceed 1000 per month');
+      errors.push('Appointments Completed cannot exceed 1000 per month');
     }
   }
 
@@ -105,9 +143,19 @@ export async function parseServiceAppointmentExcel(
   errors: ValidationError[];
 }> {
   try {
-    // Read file as array buffer
-    const data = await file.arrayBuffer();
-    const workbook = XLSX.read(data, { type: 'array' });
+    // Check if it's a CSV file - need different handling for encoding
+    const isCSV = file.name.toLowerCase().endsWith('.csv');
+
+    let workbook;
+    if (isCSV) {
+      // For CSV files, read as text with UTF-8 encoding to handle special characters
+      const text = await file.text();
+      workbook = XLSX.read(text, { type: 'string', raw: false });
+    } else {
+      // For Excel files, read as array buffer
+      const data = await file.arrayBuffer();
+      workbook = XLSX.read(data, { type: 'array' });
+    }
 
     // Get "Data" sheet (the template has Instructions, Data, Barangay List sheets)
     const sheetName = 'Data';
@@ -149,11 +197,10 @@ async function parseWorksheet(
     throw new Error('Excel file is empty');
   }
 
-  // Expected headers
+  // Expected headers (simplified - no Status column)
   const expectedHeaders = [
     'Appointment Month',
-    'Status',
-    'Appointment Count',
+    'Appointments Completed',
     'Barangay',
     'Source',
     'Notes',
@@ -163,15 +210,20 @@ async function parseWorksheet(
   const headerRow = jsonData[0] as string[];
   const normalizedHeaders = headerRow.map((h) => String(h || '').trim());
 
-  // Validate required headers are present
-  const requiredHeaders = ['Appointment Month', 'Status', 'Appointment Count'];
-  const missingHeaders = requiredHeaders.filter(
-    (h) => !normalizedHeaders.includes(h)
+  // Validate required headers are present (support multiple header formats)
+  const hasDateColumn = normalizedHeaders.some(h =>
+    ['Appointment Month', 'Record Date', 'appointment_month', 'record_date'].includes(h)
+  );
+  const hasCountColumn = normalizedHeaders.some(h =>
+    ['Appointments Completed', 'appointments_completed'].includes(h)
   );
 
-  if (missingHeaders.length > 0) {
+  if (!hasDateColumn || !hasCountColumn) {
+    const missing = [];
+    if (!hasDateColumn) missing.push('Record Date or Appointment Month');
+    if (!hasCountColumn) missing.push('Appointments Completed');
     throw new Error(
-      `Missing required columns: ${missingHeaders.join(', ')}. Please use the template.`
+      `Missing required columns: ${missing.join(', ')}. Please use the template.`
     );
   }
 
@@ -204,20 +256,25 @@ async function parseWorksheet(
     // Skip completely empty rows
     if (
       !row['Appointment Month'] &&
-      !row['Status'] &&
-      !row['Appointment Count']
+      !row['Appointments Completed']
     ) {
       return;
     }
 
-    // Map Excel columns to record fields
+    // Map Excel/CSV columns to record fields
+    // Support multiple header formats for flexibility
+    const dateValue = row['Appointment Month'] || row['Record Date'] || row['appointment_month'] || row['record_date'] || '';
+    const countValue = row['Appointments Completed'] || row['appointments_completed'] || '0';
+    const barangayValue = row['Barangay'] || row['barangay'] || '';
+    const sourceValue = row['Source'] || row['source'] || '';
+    const notesValue = row['Notes'] || row['notes'] || '';
+
     const record: ServiceAppointmentHistoricalRecord = {
-      appointment_month: (row['Appointment Month'] || '').toString().trim(),
-      status: (row['Status'] || '').toString().trim().toLowerCase() as any,
-      appointment_count: parseInt(row['Appointment Count'] || '0', 10),
-      barangay: row['Barangay'] ? row['Barangay'].toString().trim() : undefined,
-      source: row['Source'] ? row['Source'].toString().trim() : undefined,
-      notes: row['Notes'] ? row['Notes'].toString().trim() : undefined,
+      appointment_month: normalizeDateToMonth(dateValue),
+      appointments_completed: parseInt(countValue.toString() || '0', 10),
+      barangay: barangayValue ? barangayValue.toString().trim() : undefined,
+      source: sourceValue ? sourceValue.toString().trim() : undefined,
+      notes: notesValue ? notesValue.toString().trim() : undefined,
     };
 
     // Validate record
@@ -242,14 +299,16 @@ async function parseWorksheet(
  * @returns Error message if invalid, null if valid
  */
 export function validateServiceAppointmentExcelFile(file: File): string | null {
-  // Check file type
+  // Check file type (now supports CSV as well)
   const validTypes = [
     'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // .xlsx
     'application/vnd.ms-excel', // .xls
+    'text/csv', // .csv
+    'application/csv', // .csv (alternative MIME)
   ];
 
-  if (!validTypes.includes(file.type) && !file.name.match(/\.(xlsx|xls)$/i)) {
-    return 'Invalid file type. Please upload an Excel file (.xlsx or .xls)';
+  if (!validTypes.includes(file.type) && !file.name.match(/\.(xlsx|xls|csv)$/i)) {
+    return 'Invalid file type. Please upload an Excel or CSV file (.xlsx, .xls, or .csv)';
   }
 
   // Check file size (5MB limit)

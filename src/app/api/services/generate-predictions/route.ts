@@ -110,12 +110,15 @@ export async function POST(request: NextRequest) {
     // (authentication already verified above)
     const adminClient = createAdminClient();
 
+    // SARIMA predictions should only use COMPLETED appointments for accuracy
+    // Using completed_at date ensures we count actual completed appointments, not future bookings
     let query = adminClient
       .from('appointments')
-      .select('appointment_date, status')
+      .select('id, completed_at, service_id')
       .eq('service_id', serviceId)
-      .in('status', ['scheduled', 'verified', 'in_progress', 'completed'])
-      .order('appointment_date', { ascending: true });
+      .eq('status', 'completed')
+      .not('completed_at', 'is', null)
+      .order('completed_at', { ascending: true });
 
     // Apply barangay filter if specified
     if (barangayId !== null) {
@@ -123,16 +126,18 @@ export async function POST(request: NextRequest) {
       query = adminClient
         .from('appointments')
         .select(`
-          appointment_date,
-          status,
+          id,
+          completed_at,
+          service_id,
           patients!inner (
             barangay_id
           )
         `)
         .eq('service_id', serviceId)
         .eq('patients.barangay_id', barangayId)
-        .in('status', ['scheduled', 'verified', 'in_progress', 'completed'])
-        .order('appointment_date', { ascending: true });
+        .eq('status', 'completed')
+        .not('completed_at', 'is', null)
+        .order('completed_at', { ascending: true });
     }
 
     const { data: appointments, error: histError } = await query;
@@ -195,10 +200,14 @@ export async function POST(request: NextRequest) {
 
     console.log(`[Generate Service Predictions API] Appointments map after imported data: ${appointmentsByDate.size} dates`);
 
-    // Then, add real appointment data
+    // Then, add real appointment data (using completed_at date)
     appointments?.forEach((appointment: any) => {
-      const date = appointment.appointment_date;
-      appointmentsByDate.set(date, (appointmentsByDate.get(date) || 0) + 1);
+      // Extract date portion from completed_at timestamp
+      const completedAt = appointment.completed_at;
+      if (completedAt) {
+        const date = completedAt.split('T')[0]; // Extract YYYY-MM-DD from ISO timestamp
+        appointmentsByDate.set(date, (appointmentsByDate.get(date) || 0) + 1);
+      }
     });
 
     // Convert to array for SARIMA

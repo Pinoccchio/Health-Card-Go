@@ -326,7 +326,7 @@ export default function HIVManagementPage() {
           {/* Action Bar */}
           <div className="flex justify-end gap-3">
             <a
-              href="/templates/hiv-appointment-import-template.xlsx"
+              href="/templates/hiv-appointment-import-template.csv"
               download
               className="px-4 py-2 bg-white text-gray-700 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors flex items-center gap-2 shadow-sm"
               title="Download Excel Template"
@@ -518,7 +518,7 @@ export default function HIVManagementPage() {
                     {records.map((record) => (
                       <tr key={record.id} className="hover:bg-gray-50">
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {format(new Date(record.diagnosis_date), 'MMM dd, yyyy')}
+                          {record.diagnosis_date ? format(new Date(record.diagnosis_date), 'MMM dd, yyyy') : 'N/A'}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                           {record.patients ?
@@ -612,7 +612,7 @@ export default function HIVManagementPage() {
               )}
             </div>
             <div className="p-6">
-              <ServiceSARIMAChart key={predictionRefreshKey} serviceId={16} />
+              <ServiceSARIMAChart key={predictionRefreshKey} serviceId={16} serviceName="HIV Testing" />
               <div className="mt-6">
                 <ServiceSARIMAMetrics key={predictionRefreshKey} serviceId={16} />
               </div>

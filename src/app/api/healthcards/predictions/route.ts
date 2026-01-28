@@ -161,9 +161,7 @@ export async function GET(request: NextRequest) {
       )
       .eq('status', 'completed')
       .in('service_id', serviceIds)
-      .not('completed_at', 'is', null)
-      .gte('completed_at', `${dateRange.start_date}T00:00:00`)
-      .lte('completed_at', `${dateRange.today}T23:59:59`);
+      .not('completed_at', 'is', null);
 
     // For Pink Card, filter by card_type
     if (healthcardType === 'pink') {
@@ -203,9 +201,7 @@ export async function GET(request: NextRequest) {
     let statisticsQuery = adminClient
       .from('healthcard_statistics')
       .select('*')
-      .eq('healthcard_type', healthcardType)
-      .gte('record_date', dateRange.start_date)
-      .lte('record_date', dateRange.today);
+      .eq('healthcard_type', healthcardType);
 
     // Apply barangay filter if specified
     if (barangayId !== null) {
@@ -297,19 +293,30 @@ export async function GET(request: NextRequest) {
       }
     });
 
-    const historicalData = Array.from(statisticsMap.values());
+    // All historical data (for data quality assessment — needs full history)
+    const allHistoricalData = Array.from(statisticsMap.values());
+
+    // Filtered historical data (for chart display — only the requested date range)
+    const historicalData = allHistoricalData.filter(stat => {
+      const date = stat.issue_date;
+      return date >= dateRange.start_date && date <= dateRange.today;
+    });
 
     console.log(
       '[HealthCard Predictions API] Statistics map size:',
       statisticsMap.size
     );
     console.log(
-      '[HealthCard Predictions API] Historical data array length:',
+      '[HealthCard Predictions API] All historical data (for quality):',
+      allHistoricalData.length
+    );
+    console.log(
+      '[HealthCard Predictions API] Filtered historical data (for chart):',
       historicalData.length
     );
     console.log(
       '[HealthCard Predictions API] Total cards in historical data:',
-      historicalData.reduce((sum, stat) => sum + stat.card_count, 0)
+      allHistoricalData.reduce((sum, stat) => sum + stat.card_count, 0)
     );
 
     // ========================================================================
@@ -399,8 +406,8 @@ export async function GET(request: NextRequest) {
     // Calculate Data Quality Metrics
     // ========================================================================
 
-    // Count historical data points (total appointments, not unique date combinations)
-    const dataPointsCount = appointments?.length || 0;
+    // Count ALL historical data points for quality assessment (not just filtered range)
+    const dataPointsCount = allHistoricalData.length;
 
     // Determine data quality based on data points count
     let dataQuality: 'high' | 'moderate' | 'insufficient';

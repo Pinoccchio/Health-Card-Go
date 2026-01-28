@@ -382,10 +382,10 @@ export default function HealthcareAdminHealthcardStatisticsPage() {
           {/* Action Bar - Import Historical Data */}
           <div className="flex justify-end gap-3">
             <a
-              href="/templates/healthcard-historical-import-template.xlsx"
+              href="/templates/healthcard-historical-import-template.csv"
               download
               className="px-4 py-2 bg-white text-gray-700 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors flex items-center gap-2 shadow-sm"
-              title="Download Excel Template"
+              title="Download CSV Template (open with Excel)"
             >
               <Download className="w-4 h-4" />
               Download Template

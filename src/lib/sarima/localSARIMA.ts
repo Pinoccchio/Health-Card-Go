@@ -440,45 +440,47 @@ function fallbackMovingAverage(
   data: number[],
   forecastDays: number
 ): { predictions: number[]; lower: number[]; upper: number[] } {
-  // OPTION B: Simple last-value forecasting with linear trend
-  // This is more stable than exponential smoothing for irregular disease data
+  // Use mean of recent data as baseline (more stable than single last value)
+  const recentWindow = Math.min(12, data.length);
+  const recentData = data.slice(-recentWindow);
+  const baseline = recentData.reduce((a, b) => a + b, 0) / recentData.length;
 
-  // Use last observed value as baseline
-  const lastValue = data[data.length - 1];
-
-  // Calculate linear trend from recent data (last 5-7 points or all if less)
+  // Calculate linear trend from recent data
   const trendWindow = Math.min(7, data.length);
-  const recentData = data.slice(-trendWindow);
+  const trendData = data.slice(-trendWindow);
 
-  // Simple linear regression to get trend
   let trend = 0;
-  if (recentData.length >= 2) {
-    // Calculate trend as slope: (y2 - y1) / (x2 - x1)
-    const n = recentData.length;
+  if (trendData.length >= 2) {
+    const n = trendData.length;
     let sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0;
-
     for (let i = 0; i < n; i++) {
       sumX += i;
-      sumY += recentData[i];
-      sumXY += i * recentData[i];
+      sumY += trendData[i];
+      sumXY += i * trendData[i];
       sumX2 += i * i;
     }
-
-    // Slope = (n*sumXY - sumX*sumY) / (n*sumX2 - sumX*sumX)
     const denominator = (n * sumX2 - sumX * sumX);
     if (denominator !== 0) {
       trend = (n * sumXY - sumX * sumY) / denominator;
     }
   }
 
-  // Generate predictions: last_value + trend * days_ahead
+  // Cap trend to prevent runaway predictions (max ±5% of baseline per period)
+  const maxTrendMagnitude = baseline * 0.05;
+  trend = Math.max(-maxTrendMagnitude, Math.min(maxTrendMagnitude, trend));
+
+  // Generate predictions with damped trend (reverts toward baseline over time)
+  // Damping factor 0.8 means trend influence halves roughly every 3 periods
+  const dampingFactor = 0.8;
   const predictions: number[] = [];
   for (let i = 1; i <= forecastDays; i++) {
-    const prediction = lastValue + (trend * i);
+    // Cumulative damped trend: trend * (φ + φ² + ... + φⁱ) = trend * φ * (1 - φⁱ) / (1 - φ)
+    const cumulativeDampedTrend = trend * dampingFactor * (1 - Math.pow(dampingFactor, i)) / (1 - dampingFactor);
+    const prediction = baseline + cumulativeDampedTrend;
     predictions.push(Math.max(0, Math.round(prediction)));
   }
 
-  // Calculate confidence bounds based on historical variance
+  // Confidence bounds based on historical variance
   const stdDev = calculateStdDev(data);
   const lower = predictions.map(p => Math.max(0, Math.round(p - 1.96 * stdDev)));
   const upper = predictions.map(p => Math.max(0, Math.round(p + 1.96 * stdDev)));
@@ -1159,15 +1161,20 @@ export function formatDiseaseHistoricalData(
 
 /**
  * Format historical health card data from database
+ *
+ * @param appointments - Array of appointments with completed_at date and optional count
+ *                       If count is provided, it represents the actual number of cards issued
+ *                       If count is not provided (legacy behavior), each record counts as 1
  */
 export function formatHistoricalData(
-  appointments: Array<{ completed_at: string }>
+  appointments: Array<{ completed_at: string; count?: number }>
 ): HistoricalDataPoint[] {
   const dateMap = new Map<string, number>();
 
   appointments.forEach((appointment) => {
     const date = new Date(appointment.completed_at).toISOString().split('T')[0];
-    dateMap.set(date, (dateMap.get(date) || 0) + 1);
+    const count = appointment.count ?? 1; // Use count if present, else default to 1
+    dateMap.set(date, (dateMap.get(date) || 0) + count);
   });
 
   const data = Array.from(dateMap.entries())

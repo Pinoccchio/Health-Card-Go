@@ -41,6 +41,11 @@ export async function GET(request: NextRequest) {
 
     // MONTHLY GRANULARITY SUPPORT: Accept both legacy and new parameters
     const granularity = searchParams.get('granularity') || 'monthly'; // Default to monthly
+
+    // Support explicit start_date/end_date OR relative months_back/months_forecast
+    const startDateParam = searchParams.get('start_date'); // Format: YYYY-MM-DD
+    const endDateParam = searchParams.get('end_date'); // Format: YYYY-MM-DD
+
     const periodsBack = parseInt(searchParams.get('months_back') || searchParams.get('days_back') || '12');
     const periodsForecast = parseInt(searchParams.get('months_forecast') || searchParams.get('days_forecast') || '12');
 
@@ -67,13 +72,24 @@ export async function GET(request: NextRequest) {
       userId: user.id,
     });
 
-    // Calculate date range based on granularity
-    const endDate = new Date();
-    const startDate = new Date();
-    if (granularity === 'monthly') {
-      startDate.setMonth(startDate.getMonth() - periodsBack);
+    // Calculate date range based on explicit dates OR relative periods
+    let startDate: Date;
+    let endDate: Date;
+
+    if (startDateParam && endDateParam) {
+      // Use explicit date range
+      startDate = new Date(startDateParam);
+      endDate = new Date(endDateParam);
+      console.log('[Service Predictions API] Using explicit date range:', { startDateParam, endDateParam });
     } else {
-      startDate.setDate(startDate.getDate() - periodsBack);
+      // Use relative periods (legacy behavior)
+      endDate = new Date();
+      startDate = new Date();
+      if (granularity === 'monthly') {
+        startDate.setMonth(startDate.getMonth() - periodsBack);
+      } else {
+        startDate.setDate(startDate.getDate() - periodsBack);
+      }
     }
 
     // ========================================================================

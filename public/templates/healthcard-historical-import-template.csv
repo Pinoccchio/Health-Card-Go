@@ -1,0 +1,145 @@
+Record Date,HealthCard Type,Cards Issued,Barangay,Source,Notes
+2020-01-15,food_handler,42,Gredu (Poblacion),CHO Manual Records,Q1 2020 - Pre-pandemic baseline
+2020-01-15,non_food,35,San Pedro,CHO Manual Records,Q1 2020 - Pre-pandemic baseline
+2020-02-15,food_handler,38,J.P. Laurel,CHO Manual Records,Q1 2020 - Pre-pandemic
+2020-02-15,non_food,31,Kasilak,CHO Manual Records,Q1 2020 - Pre-pandemic
+2020-03-15,food_handler,25,Salvacion,CHO Manual Records,Q1 2020 - COVID lockdown begins
+2020-03-15,non_food,18,New Pandan (Pob.),CHO Manual Records,Q1 2020 - COVID lockdown begins
+2020-04-15,food_handler,12,San Francisco (Pob.),CHO Manual Records,Q2 2020 - Limited operations due to COVID
+2020-04-15,non_food,8,Santo Niño (Pob.),CHO Manual Records,Q2 2020 - Limited operations
+2020-05-15,food_handler,15,A.O. Floirendo,CHO Manual Records,Q2 2020 - Gradual reopening
+2020-05-15,non_food,11,New Malaga (Dalisay),CHO Manual Records,Q2 2020 - Gradual reopening
+2020-06-15,food_handler,22,Cacao,CHO Manual Records,Q2 2020 - Food establishments reopening
+2020-06-15,non_food,16,Consolacion,CHO Manual Records,Q2 2020 - Partial reopening
+2020-07-15,food_handler,28,Gredu (Poblacion),CHO Manual Records,Q3 2020 - Recovery phase
+2020-07-15,non_food,21,San Pedro,CHO Manual Records,Q3 2020 - Recovery phase
+2020-08-15,food_handler,32,J.P. Laurel,CHO Manual Records,Q3 2020 - Continued recovery
+2020-08-15,non_food,25,Kasilak,CHO Manual Records,Q3 2020 - Continued recovery
+2020-09-15,food_handler,35,Salvacion,DOH Regional Data,Q3 2020 - Near pre-pandemic levels
+2020-09-15,non_food,28,New Pandan (Pob.),DOH Regional Data,Q3 2020 - Near pre-pandemic levels
+2020-10-15,food_handler,38,San Francisco (Pob.),CHO Manual Records,Q4 2020 - Business recovery
+2020-10-15,non_food,30,Santo Niño (Pob.),CHO Manual Records,Q4 2020 - Business recovery
+2020-11-15,food_handler,40,A.O. Floirendo,CHO Manual Records,Q4 2020 - Holiday season prep
+2020-11-15,non_food,32,New Malaga (Dalisay),CHO Manual Records,Q4 2020 - Holiday season prep
+2020-12-15,food_handler,45,Cacao,CHO Manual Records,Q4 2020 - Year-end processing
+2020-12-15,non_food,36,Consolacion,CHO Manual Records,Q4 2020 - Year-end processing
+2021-01-15,food_handler,44,Gredu (Poblacion),CHO Manual Records,Q1 2021 - New year batch
+2021-01-15,non_food,37,San Pedro,CHO Manual Records,Q1 2021 - New year batch
+2021-02-15,food_handler,40,J.P. Laurel,CHO Manual Records,Q1 2021 - Recovery continues
+2021-02-15,non_food,33,Kasilak,CHO Manual Records,Q1 2021 - Recovery continues
+2021-03-15,food_handler,47,Salvacion,CHO Manual Records,Q1 2021 - Vaccination rollout begins
+2021-03-15,non_food,30,New Pandan (Pob.),CHO Manual Records,Q1 2021 - Vaccination rollout
+2021-04-15,food_handler,54,San Francisco (Pob.),CHO Manual Records,Q2 2021 - Increased demand
+2021-04-15,non_food,43,Santo Niño (Pob.),CHO Manual Records,Q2 2021 - Increased demand
+2021-05-15,food_handler,50,A.O. Floirendo,DOH Regional Data,Q2 2021 - Economic recovery
+2021-05-15,non_food,38,New Malaga (Dalisay),DOH Regional Data,Q2 2021 - Economic recovery
+2021-06-15,food_handler,57,Cacao,CHO Manual Records,Q2 2021 - Food handler certifications surge
+2021-06-15,non_food,46,Consolacion,CHO Manual Records,Q2 2021 - General health cards
+2021-07-15,food_handler,63,Gredu (Poblacion),CHO Manual Records,Q3 2021 - Peak season
+2021-07-15,non_food,51,San Pedro,CHO Manual Records,Q3 2021 - Peak season
+2021-08-15,food_handler,60,J.P. Laurel,CHO Manual Records,Q3 2021 - Continued high demand
+2021-08-15,non_food,49,Kasilak,CHO Manual Records,Q3 2021 - Continued high demand
+2021-09-15,food_handler,55,Salvacion,CHO Manual Records,Q3 2021 - Stabilizing
+2021-09-15,non_food,44,New Pandan (Pob.),CHO Manual Records,Q3 2021 - Stabilizing
+2021-10-15,food_handler,51,San Francisco (Pob.),CHO Manual Records,Q4 2021 - Pre-holiday
+2021-10-15,non_food,40,Santo Niño (Pob.),CHO Manual Records,Q4 2021 - Pre-holiday
+2021-11-15,food_handler,46,A.O. Floirendo,CHO Manual Records,Q4 2021 - Year-end batch
+2021-11-15,non_food,35,New Malaga (Dalisay),CHO Manual Records,Q4 2021 - Year-end batch
+2021-12-15,food_handler,41,Cacao,CHO Manual Records,Q4 2021 - Final pre-system batch
+2021-12-15,non_food,32,Consolacion,CHO Manual Records,Q4 2021 - Final pre-system batch
+2022-01-15,food_handler,46,Gredu (Poblacion),CHO Manual Records,Q1 2022 - New year
+2022-01-15,non_food,39,San Pedro,CHO Manual Records,Q1 2022 - New year
+2022-02-15,food_handler,42,J.P. Laurel,CHO Manual Records,Q1 2022 - Standard operations
+2022-02-15,non_food,35,Kasilak,CHO Manual Records,Q1 2022 - Standard operations
+2022-03-15,food_handler,49,Salvacion,CHO Manual Records,Q1 2022 - End of restrictions
+2022-03-15,non_food,32,New Pandan (Pob.),CHO Manual Records,Q1 2022 - End of restrictions
+2022-04-15,food_handler,56,San Francisco (Pob.),CHO Manual Records,Q2 2022 - Full reopening
+2022-04-15,non_food,45,Santo Niño (Pob.),CHO Manual Records,Q2 2022 - Full reopening
+2022-05-15,food_handler,52,A.O. Floirendo,DOH Regional Data,Q2 2022 - Office workers returning
+2022-05-15,non_food,40,New Malaga (Dalisay),DOH Regional Data,Q2 2022 - Office workers returning
+2022-06-15,food_handler,59,Cacao,CHO Manual Records,Q2 2022 - Restaurant surge
+2022-06-15,non_food,48,Consolacion,CHO Manual Records,Q2 2022 - General processing
+2022-07-15,food_handler,65,Gredu (Poblacion),CHO Manual Records,Q3 2022 - Peak season
+2022-07-15,non_food,53,San Pedro,CHO Manual Records,Q3 2022 - Peak season
+2022-08-15,food_handler,62,J.P. Laurel,CHO Manual Records,Q3 2022 - High demand
+2022-08-15,non_food,51,Kasilak,CHO Manual Records,Q3 2022 - High demand
+2022-09-15,food_handler,57,Salvacion,CHO Manual Records,Q3 2022 - Stabilizing
+2022-09-15,non_food,46,New Pandan (Pob.),CHO Manual Records,Q3 2022 - Stabilizing
+2022-10-15,food_handler,53,San Francisco (Pob.),CHO Manual Records,Q4 2022 - Pre-holiday
+2022-10-15,non_food,42,Santo Niño (Pob.),CHO Manual Records,Q4 2022 - Pre-holiday
+2022-11-15,food_handler,48,A.O. Floirendo,CHO Manual Records,Q4 2022 - Year-end batch
+2022-11-15,non_food,37,New Malaga (Dalisay),CHO Manual Records,Q4 2022 - Year-end batch
+2022-12-15,food_handler,43,Cacao,CHO Manual Records,Q4 2022 - Final pre-system batch
+2022-12-15,non_food,34,Consolacion,CHO Manual Records,Q4 2022 - Final pre-system batch
+2023-01-15,food_handler,48,Gredu (Poblacion),CHO Manual Records,Q1 2023 - System transition
+2023-01-15,non_food,41,San Pedro,CHO Manual Records,Q1 2023 - System transition
+2023-02-15,food_handler,44,J.P. Laurel,CHO Manual Records,Q1 2023 - Hybrid tracking
+2023-02-15,non_food,37,Kasilak,CHO Manual Records,Q1 2023 - Hybrid tracking
+2023-03-15,food_handler,51,Salvacion,CHO Manual Records,Q1 2023 - Growing demand
+2023-03-15,non_food,34,New Pandan (Pob.),CHO Manual Records,Q1 2023 - Growing demand
+2023-04-15,food_handler,58,San Francisco (Pob.),CHO Manual Records,Q2 2023 - Summer season
+2023-04-15,non_food,47,Santo Niño (Pob.),CHO Manual Records,Q2 2023 - Summer season
+2023-05-15,food_handler,54,A.O. Floirendo,DOH Regional Data,Q2 2023 - Increased applications
+2023-05-15,non_food,42,New Malaga (Dalisay),DOH Regional Data,Q2 2023 - Increased applications
+2023-06-15,food_handler,61,Cacao,CHO Manual Records,Q2 2023 - Peak processing
+2023-06-15,non_food,50,Consolacion,CHO Manual Records,Q2 2023 - Peak processing
+2023-07-15,food_handler,67,Gredu (Poblacion),CHO Manual Records,Q3 2023 - Highest month
+2023-07-15,non_food,55,San Pedro,CHO Manual Records,Q3 2023 - Highest month
+2023-08-15,food_handler,64,J.P. Laurel,CHO Manual Records,Q3 2023 - High demand
+2023-08-15,non_food,53,Kasilak,CHO Manual Records,Q3 2023 - High demand
+2023-09-15,food_handler,59,Salvacion,CHO Manual Records,Q3 2023 - Stabilizing
+2023-09-15,non_food,48,New Pandan (Pob.),CHO Manual Records,Q3 2023 - Stabilizing
+2023-10-15,food_handler,55,San Francisco (Pob.),CHO Manual Records,Q4 2023 - Pre-holiday
+2023-10-15,non_food,44,Santo Niño (Pob.),CHO Manual Records,Q4 2023 - Pre-holiday
+2023-11-15,food_handler,50,A.O. Floirendo,CHO Manual Records,Q4 2023 - Year-end batch
+2023-11-15,non_food,39,New Malaga (Dalisay),CHO Manual Records,Q4 2023 - Year-end batch
+2023-12-15,food_handler,45,Cacao,CHO Manual Records,Q4 2023 - Holiday processing
+2023-12-15,non_food,36,Consolacion,CHO Manual Records,Q4 2023 - Holiday processing
+2024-01-15,food_handler,50,Gredu (Poblacion),CHO Manual Records,Q1 2024 - New year processing
+2024-01-15,non_food,43,San Pedro,CHO Manual Records,Q1 2024 - New year processing
+2024-02-15,food_handler,46,J.P. Laurel,CHO Manual Records,Q1 2024 - Standard month
+2024-02-15,non_food,39,Kasilak,CHO Manual Records,Q1 2024 - Standard month
+2024-03-15,food_handler,53,Salvacion,CHO Manual Records,Q1 2024 - End of quarter
+2024-03-15,non_food,36,New Pandan (Pob.),CHO Manual Records,Q1 2024 - End of quarter
+2024-04-15,food_handler,60,San Francisco (Pob.),CHO Manual Records,Q2 2024 - Summer peak
+2024-04-15,non_food,49,Santo Niño (Pob.),CHO Manual Records,Q2 2024 - Summer peak
+2024-05-15,food_handler,56,A.O. Floirendo,DOH Regional Data,Q2 2024 - High demand
+2024-05-15,non_food,44,New Malaga (Dalisay),DOH Regional Data,Q2 2024 - High demand
+2024-06-15,food_handler,63,Cacao,CHO Manual Records,Q2 2024 - Peak season
+2024-06-15,non_food,52,Consolacion,CHO Manual Records,Q2 2024 - Peak season
+2024-07-15,food_handler,69,Gredu (Poblacion),CHO Manual Records,Q3 2024 - Highest month
+2024-07-15,non_food,57,San Pedro,CHO Manual Records,Q3 2024 - Highest month
+2024-08-15,food_handler,66,J.P. Laurel,CHO Manual Records,Q3 2024 - High demand continues
+2024-08-15,non_food,55,Kasilak,CHO Manual Records,Q3 2024 - High demand continues
+2024-09-15,food_handler,61,Salvacion,CHO Manual Records,Q3 2024 - Stabilizing
+2024-09-15,non_food,50,New Pandan (Pob.),CHO Manual Records,Q3 2024 - Stabilizing
+2024-10-15,food_handler,57,San Francisco (Pob.),CHO Manual Records,Q4 2024 - Pre-holiday
+2024-10-15,non_food,46,Santo Niño (Pob.),CHO Manual Records,Q4 2024 - Pre-holiday
+2024-11-15,food_handler,52,A.O. Floirendo,CHO Manual Records,Q4 2024 - Year-end batch
+2024-11-15,non_food,41,New Malaga (Dalisay),CHO Manual Records,Q4 2024 - Year-end batch
+2024-12-15,food_handler,47,Cacao,CHO Manual Records,Q4 2024 - Holiday processing
+2024-12-15,non_food,38,Consolacion,CHO Manual Records,Q4 2024 - Holiday processing
+2025-01-15,food_handler,52,Gredu (Poblacion),CHO Manual Records,Q1 2025 - New year processing
+2025-01-15,non_food,45,San Pedro,CHO Manual Records,Q1 2025 - New year processing
+2025-02-15,food_handler,48,J.P. Laurel,CHO Manual Records,Q1 2025 - Standard month
+2025-02-15,non_food,41,Kasilak,CHO Manual Records,Q1 2025 - Standard month
+2025-03-15,food_handler,55,Salvacion,CHO Manual Records,Q1 2025 - End of quarter
+2025-03-15,non_food,38,New Pandan (Pob.),CHO Manual Records,Q1 2025 - End of quarter
+2025-04-15,food_handler,62,San Francisco (Pob.),CHO Manual Records,Q2 2025 - Summer peak
+2025-04-15,non_food,51,Santo Niño (Pob.),CHO Manual Records,Q2 2025 - Summer peak
+2025-05-15,food_handler,58,A.O. Floirendo,DOH Regional Data,Q2 2025 - High demand
+2025-05-15,non_food,46,New Malaga (Dalisay),DOH Regional Data,Q2 2025 - High demand
+2025-06-15,food_handler,65,Cacao,CHO Manual Records,Q2 2025 - Peak season
+2025-06-15,non_food,54,Consolacion,CHO Manual Records,Q2 2025 - Peak season
+2025-07-15,food_handler,71,Gredu (Poblacion),CHO Manual Records,Q3 2025 - Highest month
+2025-07-15,non_food,59,San Pedro,CHO Manual Records,Q3 2025 - Highest month
+2025-08-15,food_handler,68,J.P. Laurel,CHO Manual Records,Q3 2025 - High demand continues
+2025-08-15,non_food,57,Kasilak,CHO Manual Records,Q3 2025 - High demand continues
+2025-09-15,food_handler,63,Salvacion,CHO Manual Records,Q3 2025 - Stabilizing
+2025-09-15,non_food,52,New Pandan (Pob.),CHO Manual Records,Q3 2025 - Stabilizing
+2025-10-15,food_handler,59,San Francisco (Pob.),CHO Manual Records,Q4 2025 - Pre-holiday
+2025-10-15,non_food,48,Santo Niño (Pob.),CHO Manual Records,Q4 2025 - Pre-holiday
+2025-11-15,food_handler,54,A.O. Floirendo,CHO Manual Records,Q4 2025 - Year-end batch
+2025-11-15,non_food,43,New Malaga (Dalisay),CHO Manual Records,Q4 2025 - Year-end batch
+2025-12-15,food_handler,49,Cacao,CHO Manual Records,Q4 2025 - Holiday processing
+2025-12-15,non_food,40,Consolacion,CHO Manual Records,Q4 2025 - Holiday processing

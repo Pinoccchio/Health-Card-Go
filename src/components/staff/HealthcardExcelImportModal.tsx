@@ -193,7 +193,7 @@ export default function HealthcardExcelImportModal({
                     Download the Excel template with pre-filled examples and validation rules.
                   </p>
                   <a
-                    href="/templates/healthcard-historical-import-template.xlsx"
+                    href="/templates/healthcard-historical-import-template.csv"
                     download
                     className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
                   >
@@ -213,7 +213,7 @@ export default function HealthcardExcelImportModal({
                 <input
                   ref={fileInputRef}
                   type="file"
-                  accept=".xlsx,.xls"
+                  accept=".xlsx,.xls,.csv"
                   onChange={handleFileSelect}
                   className="hidden"
                   disabled={isProcessing || isImporting}
@@ -232,7 +232,7 @@ export default function HealthcardExcelImportModal({
                   </p>
                 )}
                 <p className="mt-2 text-xs text-gray-500">
-                  Supported formats: .xlsx, .xls (Maximum 5MB, 1000 rows)
+                  Supported formats: .xlsx, .xls, .csv (Maximum 5MB, 1000 rows)
                 </p>
               </div>
             </div>

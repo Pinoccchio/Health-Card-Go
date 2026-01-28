@@ -78,11 +78,27 @@ export default function ServiceSARIMAChart({
 }: ServiceSARIMAChartProps) {
   // Use monthly by default, fallback to daily
   const periodsBack = granularity === 'monthly' ? (monthsBack || 12) : (daysBack || 30);
-  const periodsForecast = granularity === 'monthly' ? (monthsForecast || 12) : (daysForecast || 30);
   const [chartData, setChartData] = useState<ServiceSARIMAData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [dataQuality, setDataQuality] = useState<'high' | 'moderate' | 'insufficient'>('high');
+
+  // Time Range filter state
+  const currentYear = new Date().getFullYear();
+
+  // Load saved filter preference or default to current year
+  // Can be a number (specific year) or 'all' (all time)
+  const [selectedYear, setSelectedYear] = useState<number | 'all'>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem(`service_${serviceId}_filter_year`);
+      if (saved === 'all') return 'all';
+      return saved ? Number(saved) : currentYear;
+    }
+    return currentYear;
+  });
+
+  const [availableYears, setAvailableYears] = useState<number[]>([currentYear]);
+  const [selectedMonthsForecast, setSelectedMonthsForecast] = useState(monthsForecast || 12);
 
   // Get service-specific color scheme
   const getServiceColor = (serviceId: number) => {
@@ -95,6 +111,56 @@ export default function ServiceSARIMAChart({
       17: { primary: 'rgb(147, 51, 234)', light: 'rgba(147, 51, 234, 0.2)' }, // Pregnancy - Purple
     };
     return colors[serviceId] || { primary: 'rgb(20, 184, 166)', light: 'rgba(20, 184, 166, 0.2)' };
+  };
+
+  // Fetch available years from database (dynamically detect which years have data)
+  useEffect(() => {
+    async function fetchAvailableYears() {
+      try {
+        const response = await fetch(`/api/services/${serviceId}/available-years`);
+        if (response.ok) {
+          const data = await response.json();
+          if (data.success && data.years && data.years.length > 0) {
+            setAvailableYears(data.years);
+            // If saved year is not in available years, default to current year
+            if (typeof selectedYear === 'number' && !data.years.includes(selectedYear)) {
+              setSelectedYear(currentYear);
+            }
+          }
+        }
+      } catch (err) {
+        console.error('[ServiceSARIMAChart] Failed to fetch available years:', err);
+        // Fallback to current year if API fails
+        setAvailableYears([currentYear]);
+      }
+    }
+    fetchAvailableYears();
+  }, [serviceId, currentYear]);
+
+  // Save filter preference when year changes
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(
+        `service_${serviceId}_filter_year`,
+        selectedYear === 'all' ? 'all' : selectedYear.toString()
+      );
+    }
+  }, [selectedYear, serviceId]);
+
+  // Format dates as YYYY-MM-DD
+  // If "all" is selected, use full range from earliest year to current year
+  const formatStartDate = () => {
+    if (selectedYear === 'all') {
+      return `${availableYears[0] || currentYear}-01-01`;
+    }
+    return `${selectedYear}-01-01`;
+  };
+
+  const formatEndDate = () => {
+    if (selectedYear === 'all') {
+      return `${currentYear}-12-31`;
+    }
+    return `${selectedYear}-12-31`;
   };
 
   // Fetch predictions data
@@ -111,11 +177,13 @@ export default function ServiceSARIMAChart({
 
         // Add period parameters based on granularity
         if (granularity === 'monthly') {
-          params.append('months_back', periodsBack.toString());
-          params.append('months_forecast', periodsForecast.toString());
+          // Pass explicit start_date and end_date for year-based filtering
+          params.append('start_date', formatStartDate());
+          params.append('end_date', formatEndDate());
+          params.append('months_forecast', selectedMonthsForecast.toString());
         } else {
           params.append('days_back', periodsBack.toString());
-          params.append('days_forecast', periodsForecast.toString());
+          params.append('days_forecast', (daysForecast || 30).toString());
         }
 
         if (barangayId !== null) {
@@ -146,7 +214,7 @@ export default function ServiceSARIMAChart({
     }
 
     fetchPredictions();
-  }, [serviceId, barangayId, periodsBack, periodsForecast, granularity]);
+  }, [serviceId, barangayId, selectedYear, selectedMonthsForecast, granularity]);
 
   // Format date labels based on granularity
   const formatDateLabel = (dateStr: string): string => {
@@ -402,11 +470,11 @@ export default function ServiceSARIMAChart({
 
   // Calculate summary statistics
   const totalHistorical = chartData.actualValues.reduce(
-    (sum, val) => sum + (val || 0),
+    (sum: number, val) => sum + (val || 0),
     0
   );
   const totalPredicted = chartData.predictedValues.reduce(
-    (sum, val) => sum + (val || 0),
+    (sum: number, val) => sum + (val || 0),
     0
   );
   const locationDisplay = chartData.barangay_name || 'All Barangays';
@@ -431,7 +499,112 @@ export default function ServiceSARIMAChart({
         </div>
       </div>
 
-      {/* Summary Cards */}
+      {/* Data Quality Banner - shown before Time Range like HealthCard component */}
+      {dataQuality !== 'high' && (
+        <div className={`${
+          dataQuality === 'insufficient'
+            ? 'bg-yellow-50 border-l-4 border-yellow-400'
+            : 'bg-blue-50 border-l-4 border-blue-400'
+        } p-4 rounded-r-lg`}>
+          <div className="flex items-start">
+            <QualityIcon className={`h-5 w-5 ${
+              dataQuality === 'insufficient' ? 'text-yellow-600' : 'text-blue-600'
+            } mt-0.5 mr-3 flex-shrink-0`} />
+            <div className="flex-1">
+              <h3 className={`text-sm font-semibold ${
+                dataQuality === 'insufficient' ? 'text-yellow-900' : 'text-blue-900'
+              } mb-1`}>
+                {dataQuality === 'insufficient' ? 'Limited Historical Data' : 'Moderate Data Quality'}
+              </h3>
+              <p className={`text-sm ${
+                dataQuality === 'insufficient' ? 'text-yellow-800' : 'text-blue-800'
+              } mb-2`}>
+                {dataQuality === 'insufficient'
+                  ? 'Predictions are based on limited historical data. SARIMA models typically require 30-50+ data points for reliable forecasting.'
+                  : 'Predictions may be less accurate due to moderate historical data (7-29 days).'}
+              </p>
+              {dataQuality === 'insufficient' && (
+                <ul className="text-xs text-yellow-700 space-y-1 list-disc list-inside">
+                  <li>Current predictions may show limited variance or constant values</li>
+                  <li>Accuracy will improve as more appointments are completed</li>
+                  <li>Use these forecasts as rough estimates only</li>
+                </ul>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Time Range Filter (only for monthly granularity) - MOVED BEFORE STATS CARDS */}
+      {granularity === 'monthly' && (
+        <div className="bg-white rounded-lg shadow p-4 border border-gray-200 relative z-10">
+          <div className="flex items-center gap-2 mb-3">
+            <Calendar className="w-4 h-4 text-gray-600" />
+            <h3 className="text-sm font-semibold text-gray-900">Time Range</h3>
+          </div>
+          <div className="space-y-4">
+            {/* Year Selection Buttons */}
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-2">
+                Select Year
+              </label>
+              <div className="grid grid-cols-2 gap-3 relative z-10">
+                <button
+                  onClick={() => setSelectedYear(currentYear)}
+                  className={`px-4 py-3 text-sm font-medium rounded-lg transition-all cursor-pointer ${
+                    selectedYear === currentYear
+                      ? 'bg-[#20C997] text-white shadow-md'
+                      : 'bg-gray-50 text-gray-700 hover:bg-gray-100 border border-gray-200'
+                  }`}
+                  style={{ pointerEvents: 'auto' }}
+                >
+                  <div className="font-semibold">This Year</div>
+                  <div className="text-xs mt-1 opacity-90">{currentYear}</div>
+                </button>
+                <button
+                  onClick={() => setSelectedYear('all')}
+                  className={`px-4 py-3 text-sm font-medium rounded-lg transition-all cursor-pointer ${
+                    selectedYear === 'all'
+                      ? 'bg-[#20C997] text-white shadow-md'
+                      : 'bg-gray-50 text-gray-700 hover:bg-gray-100 border border-gray-200'
+                  }`}
+                  style={{ pointerEvents: 'auto' }}
+                >
+                  <div className="font-semibold">All Time</div>
+                  <div className="text-xs mt-1 opacity-90">
+                    {availableYears.length > 0 ? `${availableYears[0]}-${currentYear}` : currentYear}
+                  </div>
+                </button>
+              </div>
+              <p className="text-xs text-gray-500 mt-2">
+                Showing data: {selectedYear === 'all'
+                  ? `Jan 1, ${availableYears[0] || currentYear} - Dec 31, ${currentYear}`
+                  : `Jan 1 - Dec 31, ${selectedYear}`}
+              </p>
+            </div>
+
+            {/* Forecast Period Dropdown */}
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-2">
+                Forecast Period
+              </label>
+              <select
+                value={selectedMonthsForecast}
+                onChange={(e) => setSelectedMonthsForecast(Number(e.target.value))}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#20C997] text-sm"
+              >
+                <option value={3}>3 Months Ahead</option>
+                <option value={6}>6 Months Ahead</option>
+                <option value={12}>12 Months Ahead (1 Year)</option>
+                <option value={18}>18 Months Ahead</option>
+                <option value={24}>24 Months Ahead (2 Years)</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Summary Cards - NOW AFTER TIME RANGE (consistent with HealthCardSARIMAChart) */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Card 1: Total Historical */}
         <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-4 border border-blue-200">
@@ -441,7 +614,11 @@ export default function ServiceSARIMAChart({
           </div>
           <p className="text-3xl font-bold text-blue-900">{totalHistorical}</p>
           <p className="text-xs text-blue-600 mt-1">
-            Last {periodsBack} {granularity === 'monthly' ? 'months' : 'days'}
+            {granularity === 'monthly'
+              ? selectedYear === 'all'
+                ? `${availableYears[0] || currentYear}-${currentYear}`
+                : `Year ${selectedYear}`
+              : `Last ${periodsBack} days`}
           </p>
         </div>
 
@@ -453,7 +630,7 @@ export default function ServiceSARIMAChart({
           </div>
           <p className="text-3xl font-bold text-purple-900">{Math.round(totalPredicted)}</p>
           <p className="text-xs text-purple-600 mt-1">
-            Next {periodsForecast} {granularity === 'monthly' ? 'months' : 'days'}
+            Next {granularity === 'monthly' ? selectedMonthsForecast : (daysForecast || 30)} {granularity === 'monthly' ? 'months' : 'days'}
           </p>
         </div>
 
@@ -480,20 +657,20 @@ export default function ServiceSARIMAChart({
         </div>
       </div>
 
-      {/* Data Quality Banner */}
-      <div className={`bg-${qualityInfo.color}-50 border border-${qualityInfo.color}-200 rounded-lg p-3 flex items-center gap-2`}>
-        <QualityIcon className={`w-5 h-5 text-${qualityInfo.color}-600 flex-shrink-0`} />
-        <div className="flex-1">
-          <p className={`text-sm font-medium text-${qualityInfo.color}-900`}>
-            {qualityInfo.label}
-          </p>
-          <p className={`text-xs text-${qualityInfo.color}-700 mt-0.5`}>
-            {dataQuality === 'high' && 'Predictions are based on robust historical data (30+ days).'}
-            {dataQuality === 'moderate' && 'Predictions may be less accurate due to limited historical data (7-29 days).'}
-            {dataQuality === 'insufficient' && 'Not enough data for reliable predictions (<7 days). Showing simple trend.'}
-          </p>
+      {/* High Quality Data Banner - only show for high quality */}
+      {dataQuality === 'high' && (
+        <div className="bg-green-50 border-l-4 border-green-400 p-4 rounded-r-lg">
+          <div className="flex items-center">
+            <Info className="h-5 w-5 text-green-600 mr-3 flex-shrink-0" />
+            <div>
+              <h3 className="text-sm font-semibold text-green-900">High Quality Data</h3>
+              <p className="text-sm text-green-800">
+                Predictions are based on robust historical data (30+ days).
+              </p>
+            </div>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Chart */}
       <div
