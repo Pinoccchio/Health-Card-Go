@@ -424,7 +424,7 @@ export default function ServiceSARIMAChart({
             </h4>
             <p className="text-xs text-blue-800 leading-relaxed">
               This chart displays historical appointment data and SARIMA-predicted future appointments for {serviceName}.
-              The solid line represents actual appointments booked, while the dashed line shows AI-forecasted demand.
+              The solid line represents actual appointments booked, while the dashed line shows SARIMA-forecasted demand.
               The shaded area indicates the 95% confidence interval, helping you understand prediction uncertainty and plan resource allocation effectively.
             </p>
           </div>

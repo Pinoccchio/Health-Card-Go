@@ -4,7 +4,7 @@
  * Pure JavaScript/TypeScript SARIMA implementation using the arima library.
  * No external API dependencies - runs entirely locally in Next.js API routes.
  *
- * Replaces Gemini AI-based forecasting with local statistical modeling.
+ * Local SARIMA statistical forecasting implementation.
  */
 
 import ARIMA from 'arima';

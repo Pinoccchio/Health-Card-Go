@@ -577,7 +577,7 @@ export default function PregnancyManagementPage() {
                   </div>
                   <div>
                     <h3 className="text-lg font-semibold text-gray-900">Prenatal Appointment Forecast (SARIMA)</h3>
-                    <p className="text-sm text-gray-600">AI-powered predictions for prenatal checkup demand</p>
+                    <p className="text-sm text-gray-600">SARIMA predictions for prenatal checkup demand</p>
                   </div>
                 </div>
                 <button

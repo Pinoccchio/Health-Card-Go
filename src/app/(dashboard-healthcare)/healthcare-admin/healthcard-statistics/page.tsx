@@ -496,7 +496,7 @@ export default function HealthcareAdminHealthcardStatisticsPage() {
                   </div>
                   <div>
                     <h3 className="text-lg font-semibold text-gray-900">HealthCard Demand Forecast (SARIMA)</h3>
-                    <p className="text-sm text-gray-600">AI-powered predictions for Yellow and Green card issuance</p>
+                    <p className="text-sm text-gray-600">SARIMA predictions for Yellow and Green card issuance</p>
                   </div>
                 </div>
                 <button
@@ -540,7 +540,7 @@ export default function HealthcareAdminHealthcardStatisticsPage() {
                   Health Card Demand Forecast
                 </h4>
                 <p className="text-sm text-gray-600 mb-6">
-                  AI-powered predictions using Yellow Card data as representative sample. Click "All Time" button below to view full historical dataset (306 yellow + 219 green = 525 total cards from combined dataset above).
+                  Statistical predictions using Yellow Card data as representative sample. Click "All Time" button below to view full historical dataset (306 yellow + 219 green = 525 total cards from combined dataset above).
                 </p>
                 <HealthCardSARIMAChart
                   key={`yellow-${predictionRefreshKey}`}

@@ -312,7 +312,7 @@ export default function ImmunizationStatisticsPage() {
                     </div>
                     <div>
                       <h3 className="text-lg font-semibold text-gray-900">{serviceName} Appointment Forecast (SARIMA)</h3>
-                      <p className="text-sm text-gray-600">AI-powered predictions for {serviceName.toLowerCase()} demand</p>
+                      <p className="text-sm text-gray-600">SARIMA predictions for {serviceName.toLowerCase()} demand</p>
                     </div>
                   </div>
                   <button

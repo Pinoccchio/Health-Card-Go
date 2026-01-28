@@ -561,8 +561,8 @@ export default function HealthcareAdminReportsPage() {
                         </h3>
                         <p className="text-sm text-blue-800">
                           {isHealthCardService(service.id)
-                            ? 'This chart shows historical health card issuances and AI-predicted future demand for your assigned service. Use these insights to optimize staffing and resource allocation.'
-                            : `This chart shows historical appointment bookings and AI-predicted future demand for ${service.name}. Use these insights to optimize staffing and resource allocation.`}
+                            ? 'This chart shows historical health card issuances and SARIMA-forecasted future demand for your assigned service. Use these insights to optimize staffing and resource allocation.'
+                            : `This chart shows historical appointment bookings and SARIMA-forecasted future demand for ${service.name}. Use these insights to optimize staffing and resource allocation.`}
                         </p>
                       </div>
                       <button

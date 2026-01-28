@@ -575,7 +575,7 @@ export default function HIVManagementPage() {
                   </div>
                   <div>
                     <h3 className="text-lg font-semibold text-gray-900">HIV Testing Appointment Forecast (SARIMA)</h3>
-                    <p className="text-sm text-gray-600">AI-powered predictions for HIV testing and counseling demand</p>
+                    <p className="text-sm text-gray-600">SARIMA predictions for HIV testing and counseling demand</p>
                   </div>
                 </div>
                 <button
