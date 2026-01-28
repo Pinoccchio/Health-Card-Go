@@ -18,6 +18,7 @@ interface HeatmapData {
   barangay_name: string;
   coordinates: any; // Can be GeoJSON or {lat, lng}
   population?: number; // Barangay population for percentage calculation
+  area_km2?: number; // Barangay area in km² for geographic circle sizing
   statistics: {
     total_cases: number;
     active_cases: number;
@@ -34,6 +35,92 @@ interface HeatmapData {
   }>;
   intensity: number;
   risk_level: 'low' | 'medium' | 'high';
+}
+
+/**
+ * Calculate severity percentage based on case count relative to population.
+ * This creates a meaningful metric that scales with the actual impact on the community.
+ *
+ * @param caseCount - Number of disease cases
+ * @param population - Barangay population (defaults to 5610 if not provided)
+ * @returns Percentage of population affected (0-100+)
+ */
+function getSeverityPercentage(caseCount: number, population: number): number {
+  if (!population || population <= 0) return 0;
+  return (caseCount / population) * 100;
+}
+
+/**
+ * Get gradient color based on severity percentage.
+ * Uses a 6-level color scale from gray (no cases) to dark red (critical/epidemic level).
+ *
+ * @param percentage - Severity percentage (cases/population * 100)
+ * @returns Object with color hex and risk level label
+ */
+function getGradientColor(percentage: number): { color: string; label: string } {
+  // CRITICAL: ≥100% (epidemic level - cases exceed population, possible reinfections)
+  if (percentage >= 100) {
+    return { color: '#7f1d1d', label: 'CRITICAL' }; // red-900 (darkest)
+  }
+  // HIGH: 70-99%
+  if (percentage >= 70) {
+    return { color: '#dc2626', label: 'HIGH RISK' }; // red-600
+  }
+  // ELEVATED: 50-69%
+  if (percentage >= 50) {
+    return { color: '#f59e0b', label: 'MEDIUM RISK' }; // amber-500
+  }
+  // MODERATE: 25-49%
+  if (percentage >= 25) {
+    return { color: '#eab308', label: 'MODERATE' }; // yellow-500
+  }
+  // LOW: 1-24% (any cases below 25%)
+  if (percentage > 0) {
+    return { color: '#16a34a', label: 'LOW RISK' }; // green-600
+  }
+  // NO CASES
+  return { color: '#9ca3af', label: 'NO CASES' }; // gray-400
+}
+
+/**
+ * Calculate circle radius in METERS based on barangay area and case count.
+ * This ensures circles scale properly with zoom and don't overlap adjacent barangays.
+ *
+ * @param areaKm2 - Barangay area in km² (defaults to 5.0 if null)
+ * @param totalCases - Number of disease cases in this barangay
+ * @param maxCasesInView - Maximum cases across all visible barangays (for relative scaling)
+ * @returns Radius in meters
+ */
+function calculateCircleRadius(
+  areaKm2: number | null | undefined,
+  totalCases: number,
+  maxCasesInView: number
+): number {
+  const area = areaKm2 || 5.0; // Default to 5.0 km² if not available
+
+  // Calculate max radius that fits in barangay (30% of the theoretical max)
+  // r = sqrt(Area/π) gives radius of circle with same area
+  // We use 30% to leave space between circles
+  const areaInSquareMeters = area * 1000000; // Convert km² to m²
+  const maxRadiusFromArea = Math.sqrt(areaInSquareMeters / Math.PI) * 0.3;
+
+  // Clamp the max radius between 200m and 2000m for visual balance
+  const safeMaxRadius = Math.min(Math.max(maxRadiusFromArea, 200), 2000);
+
+  // Minimum radius for visibility
+  const minRadius = 200;
+
+  // If no cases, return minimum radius
+  if (totalCases === 0 || maxCasesInView === 0) {
+    return minRadius;
+  }
+
+  // Scale radius by case ratio using sqrt for visual balance
+  // sqrt makes the visual difference more proportional (area scales with cases)
+  const caseRatio = totalCases / maxCasesInView;
+  const scaledRadius = minRadius + (safeMaxRadius - minRadius) * Math.sqrt(caseRatio);
+
+  return scaledRadius;
 }
 
 interface DiseaseHeatmapProps {
@@ -119,7 +206,10 @@ export default function DiseaseHeatmap({ data, diseaseType, severityFilter = 'al
 
       const bounds = L.latLngBounds([]);
 
-      // Add circle markers for each barangay with cases
+      // Calculate max cases across all barangays for relative circle sizing
+      const maxCases = Math.max(...data.map(b => b.statistics.total_cases), 1);
+
+      // Add geographic circles for each barangay with cases
       data.forEach((barangay) => {
         if (!barangay.coordinates) return;
 
@@ -197,37 +287,28 @@ export default function DiseaseHeatmap({ data, diseaseType, severityFilter = 'al
           return;
         }
 
-        // Determine color based on case severity
-        let color: string;
-        let riskLevel: string;
-
-        if (barangay.statistics.high_risk_cases > 0) {
-          // Has high-risk cases (≥70%)
-          color = '#dc2626'; // red-600
-          riskLevel = 'HIGH RISK';
-        } else if (barangay.statistics.medium_risk_cases > 0) {
-          // Has medium-risk cases (50-69%)
-          color = '#f59e0b'; // amber-500
-          riskLevel = 'MEDIUM RISK';
-        } else if (barangay.statistics.total_cases > 0) {
-          // Has cases but all low-risk (<50%)
-          color = '#16a34a'; // green-600
-          riskLevel = 'LOW RISK';
-        } else {
-          // No cases
-          color = '#9ca3af'; // gray-400
-          riskLevel = 'NO CASES';
-        }
-
+        // Get population (default to 5610 if not provided)
         const population = barangay.population || 5610;
+        const totalCases = barangay.statistics.total_cases;
 
-        // Calculate circle radius based on case count (10-30px range)
-        const baseCases = barangay.statistics.total_cases;
-        const radius = Math.max(10, Math.min(30, baseCases * 2));
+        // Calculate severity percentage based on total cases vs population
+        // This creates a gradient that intensifies as more cases are added
+        const severityPercentage = getSeverityPercentage(totalCases, population);
 
-        // Create circle marker
-        const circle = L.circleMarker([lat, lng], {
-          radius: radius,
+        // Get gradient color based on percentage - color now scales with case count
+        const { color, label: riskLevel } = getGradientColor(severityPercentage);
+
+        // Calculate circle radius in METERS based on barangay area
+        // This ensures circles scale properly with zoom and don't overlap
+        const radiusMeters = calculateCircleRadius(
+          barangay.area_km2,
+          barangay.statistics.total_cases,
+          maxCases
+        );
+
+        // Create geographic circle (radius in meters, scales with zoom)
+        const circle = L.circle([lat, lng], {
+          radius: radiusMeters,
           fillColor: color,
           color: color,
           weight: 2,
@@ -252,6 +333,18 @@ export default function DiseaseHeatmap({ data, diseaseType, severityFilter = 'al
           })
           .join('');
 
+        // Get appropriate text color class based on risk level
+        const getRiskLevelColorClass = (level: string): string => {
+          switch (level) {
+            case 'CRITICAL': return 'text-red-900';
+            case 'HIGH RISK': return 'text-red-600';
+            case 'MEDIUM RISK': return 'text-amber-500';
+            case 'MODERATE': return 'text-yellow-600';
+            case 'LOW RISK': return 'text-green-600';
+            default: return 'text-gray-400';
+          }
+        };
+
         // Popup with statistics and disease breakdown
         circle.bindPopup(`
           <div class="p-3" style="max-width: 280px;">
@@ -260,15 +353,15 @@ export default function DiseaseHeatmap({ data, diseaseType, severityFilter = 'al
             <div class="space-y-1 text-sm mb-3">
               <div class="flex justify-between">
                 <span>Status:</span>
-                <span class="font-semibold ${
-                  color === '#dc2626' ? 'text-red-600' :
-                  color === '#f59e0b' ? 'text-amber-500' :
-                  color === '#16a34a' ? 'text-green-600' : 'text-gray-400'
-                }">${riskLevel}</span>
+                <span class="font-semibold ${getRiskLevelColorClass(riskLevel)}">${riskLevel}</span>
+              </div>
+              <div class="flex justify-between">
+                <span>Severity:</span>
+                <span class="font-semibold">${severityPercentage.toFixed(1)}%</span>
               </div>
               <div class="flex justify-between">
                 <span>Total Cases:</span>
-                <span class="font-semibold">${barangay.statistics.total_cases}</span>
+                <span class="font-semibold">${barangay.statistics.total_cases.toLocaleString()}</span>
               </div>
               <div class="flex justify-between">
                 <span>Population:</span>
@@ -331,32 +424,43 @@ export default function DiseaseHeatmap({ data, diseaseType, severityFilter = 'al
 
       {/* Legend */}
       <div className="absolute bottom-4 right-4 bg-white p-3 rounded-lg shadow-lg border border-gray-200 z-[1000] max-w-xs">
-        <h4 className="text-xs font-semibold text-gray-700 mb-2">Case Severity</h4>
+        <h4 className="text-xs font-semibold text-gray-700 mb-2">Severity by Population %</h4>
         <div className="space-y-1 mb-3">
           <div className="flex items-center gap-2 text-xs">
+            <div className="w-4 h-4 rounded-full" style={{ backgroundColor: '#7f1d1d' }}></div>
+            <span className="text-red-900 font-medium">Critical (≥100%)</span>
+          </div>
+          <div className="flex items-center gap-2 text-xs">
             <div className="w-4 h-4 rounded-full bg-red-600"></div>
-            <span>High Risk (≥70%)</span>
+            <span>High Risk (70-99%)</span>
           </div>
           <div className="flex items-center gap-2 text-xs">
             <div className="w-4 h-4 rounded-full bg-amber-500"></div>
             <span>Medium Risk (50-69%)</span>
           </div>
           <div className="flex items-center gap-2 text-xs">
+            <div className="w-4 h-4 rounded-full bg-yellow-500"></div>
+            <span>Moderate (25-49%)</span>
+          </div>
+          <div className="flex items-center gap-2 text-xs">
             <div className="w-4 h-4 rounded-full bg-green-600"></div>
-            <span>Low Risk (&lt;50%)</span>
+            <span>Low Risk (1-24%)</span>
           </div>
           <div className="flex items-center gap-2 text-xs">
             <div className="w-4 h-4 rounded-full bg-gray-400"></div>
-            <span>No Cases</span>
+            <span>No Cases (0%)</span>
           </div>
         </div>
         <div className="border-t border-gray-200 pt-2 space-y-1">
-          <p className="text-xs text-gray-700 font-medium">Severity Calculation:</p>
+          <p className="text-xs text-gray-700 font-medium">Severity Formula:</p>
           <p className="text-xs text-gray-600">
-            (Cases / Population) × 100
+            (Total Cases ÷ Population) × 100
           </p>
           <p className="text-xs text-gray-500 italic">
-            Circle size = case count
+            Color intensifies with more cases
+          </p>
+          <p className="text-xs text-gray-400 italic">
+            Circle size ∝ case count
           </p>
         </div>
       </div>

@@ -131,6 +131,7 @@ export async function GET(request: NextRequest) {
         barangay_name: barangay.name,
         coordinates: barangay.coordinates, // GeoJSON
         population: barangay.population, // Population for percentage-based risk calculation
+        area_km2: barangay.area_km2, // Area in km² for geographic circle sizing
         statistics: {
           total_cases: totalCases,
           active_cases: activeCases,

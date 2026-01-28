@@ -55,41 +55,33 @@ export async function GET(request: NextRequest) {
     const diseaseType = searchParams.get('disease_type');
     const severity = searchParams.get('severity');
 
-    // Build query for diseases
+    // Build query for disease_statistics (aggregated disease data)
+    // Note: The system uses disease_statistics table for disease tracking, not a 'diseases' table
     let query = supabase
-      .from('diseases')
+      .from('disease_statistics')
       .select(`
         id,
         disease_type,
         custom_disease_name,
-        diagnosis_date,
+        record_date,
+        case_count,
         severity,
-        status,
         notes,
+        source,
         created_at,
         barangay_id,
         barangays (
           id,
           name
-        ),
-        patient_id,
-        patients (
-          patient_number,
-          profiles:user_id (
-            first_name,
-            last_name
-          )
-        ),
-        anonymous_patient_data,
-        medical_record_id
+        )
       `);
 
     // Apply filters
     if (startDate) {
-      query = query.gte('diagnosis_date', startDate);
+      query = query.gte('record_date', startDate);
     }
     if (endDate) {
-      query = query.lte('diagnosis_date', endDate);
+      query = query.lte('record_date', endDate);
     }
     if (barangayId) {
       query = query.eq('barangay_id', parseInt(barangayId));
@@ -102,64 +94,79 @@ export async function GET(request: NextRequest) {
     }
 
     // Execute query
-    const { data: diseases, error: queryError } = await query.order('diagnosis_date', { ascending: false });
+    const { data: diseaseStats, error: queryError } = await query.order('record_date', { ascending: false });
 
     if (queryError) {
-      console.error('Error fetching diseases:', queryError);
+      console.error('Error fetching disease statistics:', queryError);
       return NextResponse.json(
         { error: 'Failed to fetch diseases data' },
         { status: 500 }
       );
     }
 
-    const filteredDiseases = diseases || [];
+    const filteredStats = diseaseStats || [];
 
-    // Calculate summary statistics
+    // Calculate summary statistics based on disease_statistics (aggregated data)
+    const totalCases = filteredStats.reduce((sum: number, stat: any) => sum + (stat.case_count || 0), 0);
+    const highRiskCases = filteredStats
+      .filter((s: any) => s.severity === 'high_risk')
+      .reduce((sum: number, stat: any) => sum + (stat.case_count || 0), 0);
+    const mediumRiskCases = filteredStats
+      .filter((s: any) => s.severity === 'medium_risk')
+      .reduce((sum: number, stat: any) => sum + (stat.case_count || 0), 0);
+    const lowRiskCases = filteredStats
+      .filter((s: any) => s.severity === 'low_risk')
+      .reduce((sum: number, stat: any) => sum + (stat.case_count || 0), 0);
+
     const summary = {
-      total_cases: filteredDiseases.length,
-      unique_patients: new Set(filteredDiseases.filter((d: any) => d.patient_id).map((d: any) => d.patient_id)).size,
-      anonymous_cases: filteredDiseases.filter((d: any) => !d.patient_id && d.anonymous_patient_data).length,
-      active: filteredDiseases.filter((d: any) => d.status === 'active').length,
-      recovered: filteredDiseases.filter((d: any) => d.status === 'recovered').length,
-      deceased: filteredDiseases.filter((d: any) => d.status === 'deceased').length,
-      ongoing_treatment: filteredDiseases.filter((d: any) => d.status === 'ongoing_treatment').length,
+      total_cases: totalCases,
+      total_records: filteredStats.length,
+      high_risk: highRiskCases,
+      medium_risk: mediumRiskCases,
+      low_risk: lowRiskCases,
+      // Legacy fields for compatibility
+      active: totalCases, // All stats cases considered "active" for visualization
+      recovered: 0, // Not tracked in statistics table
+      deceased: 0, // Not tracked in statistics table
+      ongoing_treatment: 0, // Not tracked in statistics table
     };
 
     // Disease type breakdown
-    const diseaseBreakdown = filteredDiseases.reduce((acc: any, disease: any) => {
-      const type = disease.disease_type || 'other';
-      const displayName = disease.disease_type === 'other' && disease.custom_disease_name
-        ? disease.custom_disease_name
+    const diseaseBreakdown = filteredStats.reduce((acc: any, stat: any) => {
+      const type = stat.disease_type || 'other';
+      const displayName = (stat.disease_type === 'other' || stat.disease_type === 'custom_disease') && stat.custom_disease_name
+        ? stat.custom_disease_name
         : type;
 
       if (!acc[displayName]) {
-        acc[displayName] = { disease_type: displayName, count: 0, active: 0, recovered: 0 };
+        acc[displayName] = { disease_type: displayName, count: 0, high_risk: 0, medium_risk: 0, low_risk: 0 };
       }
-      acc[displayName].count++;
-      if (disease.status === 'active') acc[displayName].active++;
-      if (disease.status === 'recovered') acc[displayName].recovered++;
+      acc[displayName].count += stat.case_count || 0;
+      if (stat.severity === 'high_risk') acc[displayName].high_risk += stat.case_count || 0;
+      if (stat.severity === 'medium_risk') acc[displayName].medium_risk += stat.case_count || 0;
+      if (stat.severity === 'low_risk') acc[displayName].low_risk += stat.case_count || 0;
       return acc;
     }, {});
 
 
     // Barangay breakdown
-    const barangayBreakdown = filteredDiseases.reduce((acc: any, disease: any) => {
-      const barangayName = disease.barangays?.name || 'Unknown';
+    const barangayBreakdown = filteredStats.reduce((acc: any, stat: any) => {
+      const barangayName = stat.barangays?.name || 'Unknown';
       if (!acc[barangayName]) {
         acc[barangayName] = { barangay: barangayName, count: 0 };
       }
-      acc[barangayName].count++;
+      acc[barangayName].count += stat.case_count || 0;
       return acc;
     }, {});
 
     // Trend data (cases per day)
-    const trendData = filteredDiseases.reduce((acc: any, disease: any) => {
-      const date = disease.diagnosis_date;
+    const trendData = filteredStats.reduce((acc: any, stat: any) => {
+      const date = stat.record_date;
       if (!date) return acc;
       if (!acc[date]) {
         acc[date] = { date, count: 0 };
       }
-      acc[date].count++;
+      acc[date].count += stat.case_count || 0;
       return acc;
     }, {});
 
@@ -167,48 +174,24 @@ export async function GET(request: NextRequest) {
       a.date.localeCompare(b.date)
     );
 
-    // Transform diseases for table display
-    const tableData = filteredDiseases.map((disease: any) => {
-      // Determine patient info (registered patient or anonymous)
-      let patientInfo = { name: 'N/A', patient_number: 'N/A', type: 'unknown' };
-
-      if (disease.patient_id && disease.patients) {
-        const patient = disease.patients;
-        const profile = patient.profiles;
-        patientInfo = {
-          name: profile ? `${profile.first_name} ${profile.last_name}` : 'N/A',
-          patient_number: patient.patient_number || 'N/A',
-          type: 'registered',
-        };
-      } else if (disease.anonymous_patient_data) {
-        const anonData = typeof disease.anonymous_patient_data === 'string'
-          ? JSON.parse(disease.anonymous_patient_data)
-          : disease.anonymous_patient_data;
-        patientInfo = {
-          name: anonData.name || 'Anonymous Patient',
-          patient_number: 'Anonymous',
-          type: 'anonymous',
-        };
-      }
-
-      const diseaseDisplayName = disease.disease_type === 'other' && disease.custom_disease_name
-        ? disease.custom_disease_name
-        : disease.disease_type;
+    // Transform disease statistics for table display
+    const tableData = filteredStats.map((stat: any) => {
+      const diseaseDisplayName = (stat.disease_type === 'other' || stat.disease_type === 'custom_disease') && stat.custom_disease_name
+        ? stat.custom_disease_name
+        : stat.disease_type;
 
       return {
-        id: disease.id,
-        disease_type: disease.disease_type,
+        id: stat.id,
+        disease_type: stat.disease_type,
         disease_display_name: diseaseDisplayName,
-        custom_disease_name: disease.custom_disease_name,
-        diagnosis_date: disease.diagnosis_date,
-        severity: disease.severity,
-        status: disease.status,
-        notes: disease.notes,
-        barangay_name: disease.barangays?.name || 'Unknown',
-        patient_name: patientInfo.name,
-        patient_number: patientInfo.patient_number,
-        patient_type: patientInfo.type,
-        created_at: disease.created_at,
+        custom_disease_name: stat.custom_disease_name,
+        record_date: stat.record_date,
+        case_count: stat.case_count,
+        severity: stat.severity,
+        notes: stat.notes,
+        source: stat.source,
+        barangay_name: stat.barangays?.name || 'Unknown',
+        created_at: stat.created_at,
       };
     });
 
@@ -224,7 +207,7 @@ export async function GET(request: NextRequest) {
     console.log(`[${requestId}] ✅ Diseases API Success:`, {
       duration: `${duration}ms`,
       records: {
-        diseases: filteredDiseases.length,
+        statistics: filteredStats.length,
         diseaseTypes: Object.values(diseaseBreakdown).length,
         barangays: Object.values(barangayBreakdown).length,
         trendPoints: trendArray.length,

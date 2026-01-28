@@ -177,6 +177,16 @@ export default function RegisterPage() {
           newErrors.emergencyContactEmail = 'Please enter a valid email address';
         }
       }
+
+      // Check if emergency contact name is same as patient's name
+      if (isEmergencyNameSameAsPatient()) {
+        newErrors.emergencyContactName = 'Emergency contact cannot have the same name as yours. Please enter a different person.';
+      }
+
+      // Check if emergency contact phone is same as patient's phone
+      if (isEmergencyPhoneSameAsPatient()) {
+        newErrors.emergencyContactPhone = 'Emergency contact cannot use the same phone number as yours. Please enter a different contact number.';
+      }
     }
 
     if (!formData.acceptTerms) {
@@ -373,6 +383,56 @@ export default function RegisterPage() {
   };
 
   /**
+   * Normalize phone number for comparison
+   * Converts both formats to a consistent format for matching
+   */
+  const normalizePhoneNumber = (phone: string): string => {
+    if (!phone) return '';
+    // Remove all non-digit characters except leading +
+    let cleaned = phone.replace(/[\s\-\(\)]/g, '');
+    // Convert +639 to 09 format for comparison
+    if (cleaned.startsWith('+63')) {
+      cleaned = '0' + cleaned.substring(3);
+    }
+    return cleaned;
+  };
+
+  /**
+   * Normalize name for comparison
+   * Lowercase, trim whitespace, remove extra spaces
+   */
+  const normalizeName = (name: string): string => {
+    if (!name) return '';
+    return name.toLowerCase().trim().replace(/\s+/g, ' ');
+  };
+
+  /**
+   * Check if emergency contact phone matches patient's own phone number
+   * Returns true if phone numbers match (regardless of name)
+   */
+  const isEmergencyPhoneSameAsPatient = (): boolean => {
+    const patientPhone = normalizePhoneNumber(formData.contactNumber || '');
+    const emergencyPhone = normalizePhoneNumber(formData.emergencyContact?.phone || '');
+
+    // Block if phone numbers match (even if name is different)
+    return !!(patientPhone && emergencyPhone && patientPhone === emergencyPhone);
+  };
+
+  /**
+   * Check if emergency contact name matches patient's own name
+   * Returns true if names match (regardless of phone)
+   */
+  const isEmergencyNameSameAsPatient = (): boolean => {
+    const patientFullName = normalizeName(
+      `${formData.firstName || ''} ${formData.lastName || ''}`
+    );
+    const emergencyName = normalizeName(formData.emergencyContact?.name || '');
+
+    // Block if names match (even if phone is different)
+    return !!(patientFullName && emergencyName && patientFullName === emergencyName);
+  };
+
+  /**
    * Handle contact number change with real-time validation
    */
   const handleContactNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -429,8 +489,16 @@ export default function RegisterPage() {
           emergencyContactPhone: 'Invalid phone number. Use 11 digits (09123456789) or +63 format (+639123456789)',
         }));
       } else {
-        // Valid phone number - clear error
-        if (errors.emergencyContactPhone) {
+        // Valid format - now check if same as patient's phone
+        const patientPhone = normalizePhoneNumber(formData.contactNumber || '');
+        const emergencyPhone = normalizePhoneNumber(phone);
+
+        if (patientPhone && emergencyPhone && patientPhone === emergencyPhone) {
+          setErrors((prev) => ({
+            ...prev,
+            emergencyContactPhone: 'Emergency contact cannot use the same phone number as yours. Please enter a different contact number.',
+          }));
+        } else if (errors.emergencyContactPhone) {
           setErrors((prev) => {
             const updated = { ...prev };
             delete updated.emergencyContactPhone;
@@ -690,12 +758,35 @@ export default function RegisterPage() {
                   type="text"
                   placeholder="e.g., Maria Dela Cruz"
                   value={formData.emergencyContact?.name || ''}
-                  onChange={(e) =>
-                    handleChange('emergencyContact', {
-                      ...formData.emergencyContact,
-                      name: e.target.value,
-                    })
-                  }
+                  onChange={(e) => {
+                    const newName = e.target.value;
+                    setFormData((prev) => ({
+                      ...prev,
+                      emergencyContact: {
+                        ...prev.emergencyContact,
+                        name: newName,
+                      },
+                    }));
+
+                    // Real-time self-reference validation for name
+                    const patientFullName = normalizeName(
+                      `${formData.firstName || ''} ${formData.lastName || ''}`
+                    );
+                    const emergencyName = normalizeName(newName);
+
+                    if (patientFullName && emergencyName && patientFullName === emergencyName) {
+                      setErrors((prev) => ({
+                        ...prev,
+                        emergencyContactName: 'Emergency contact cannot have the same name as yours. Please enter a different person.',
+                      }));
+                    } else if (errors.emergencyContactName?.includes('same name')) {
+                      setErrors((prev) => {
+                        const updated = { ...prev };
+                        delete updated.emergencyContactName;
+                        return updated;
+                      });
+                    }
+                  }}
                   error={errors.emergencyContactName}
                   icon={User}
                   required

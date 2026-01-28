@@ -22,6 +22,7 @@ export interface BarangayDB {
   code: string;
   coordinates: Coordinates | null;
   population: number | null;
+  area_km2: number | null;
   created_at: string;
   updated_at: string;
 }
@@ -36,6 +37,7 @@ export interface Barangay {
   code: string;
   coordinates?: Coordinates;
   population?: number | null;
+  area_km2?: number | null;
   created_at?: string;
   updated_at?: string;
 }
@@ -44,6 +46,39 @@ export interface Barangay {
 export interface BarangayWithStats extends Barangay {
   patient_count?: number;
   disease_count?: number;
+}
+
+// ============================================================================
+// Population History Types
+// ============================================================================
+
+export type PopulationSource = 'PSA Census' | 'Local Survey' | 'Estimate' | 'Other';
+
+export interface BarangayPopulationHistory {
+  id: string;
+  barangay_id: number;
+  year: number;
+  population: number;
+  source: PopulationSource | null;
+  notes: string | null;
+  created_by_id: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface BarangayPopulationHistoryCreate {
+  barangay_id: number;
+  year: number;
+  population: number;
+  source?: PopulationSource | null;
+  notes?: string | null;
+}
+
+export interface BarangayPopulationHistoryUpdate {
+  year?: number;
+  population?: number;
+  source?: PopulationSource | null;
+  notes?: string | null;
 }
 
 // ============================================================================

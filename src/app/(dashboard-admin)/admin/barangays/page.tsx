@@ -14,7 +14,9 @@ import {
   Trash2,
   Download,
   Map as MapIcon,
+  Users,
 } from 'lucide-react';
+import BarangayPopulationModal from '@/components/admin/BarangayPopulationModal';
 import type {
   Barangay,
   BarangayFormData,
@@ -55,6 +57,7 @@ export default function AdminBarangaysPage() {
   // Modal states
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isPopulationModalOpen, setIsPopulationModalOpen] = useState(false);
   const [selectedBarangay, setSelectedBarangay] = useState<Barangay | null>(null);
 
   // Form state
@@ -265,6 +268,12 @@ export default function AdminBarangaysPage() {
     setIsEditModalOpen(true);
   };
 
+  // Open population history modal
+  const openPopulationModal = (barangay: Barangay) => {
+    setSelectedBarangay(barangay);
+    setIsPopulationModalOpen(true);
+  };
+
   // Open delete dialog
   const openDeleteDialog = (barangay: Barangay) => {
     setBarangayToDelete(barangay);
@@ -361,7 +370,17 @@ export default function AdminBarangaysPage() {
       accessor: 'actions',
       header: 'Actions',
       render: (value: any, row: BarangayWithStats) => (
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => openPopulationModal(row)}
+            icon={Users}
+            iconPosition="left"
+            title="Manage population history"
+          >
+            Population
+          </Button>
           <Button
             variant="ghost"
             size="sm"
@@ -770,6 +789,17 @@ export default function AdminBarangaysPage() {
         cancelText="Cancel"
         variant="danger"
         isLoading={actionLoading}
+      />
+
+      {/* Population History Modal */}
+      <BarangayPopulationModal
+        isOpen={isPopulationModalOpen}
+        onClose={() => {
+          setIsPopulationModalOpen(false);
+          setSelectedBarangay(null);
+          fetchBarangays(); // Refresh to show updated population
+        }}
+        barangay={selectedBarangay}
       />
 
       {/* Toast Notifications */}
