@@ -13,6 +13,7 @@
 import { useState, useEffect } from 'react';
 import Calendar from 'react-calendar';
 import { format, addDays, startOfDay } from 'date-fns';
+import { AlertCircle } from 'lucide-react';
 import { getPhilippineHolidays, getCustomHolidays, Holiday } from '@/lib/utils/holidays';
 import { getPhilippineTime } from '@/lib/utils/timezone';
 import 'react-calendar/dist/Calendar.css';
@@ -25,6 +26,7 @@ interface AppointmentCalendarProps {
   serviceAvailableDays?: string[]; // e.g., ['Monday', 'Wednesday', 'Friday']
   markedDates?: Map<string, number>; // Date (YYYY-MM-DD) -> Appointment count
   className?: string;
+  serviceId?: number; // For checking service-specific date availability (whitelist)
 }
 
 export function AppointmentCalendar({
@@ -34,9 +36,14 @@ export function AppointmentCalendar({
   serviceAvailableDays = [],
   markedDates,
   className = '',
+  serviceId,
 }: AppointmentCalendarProps) {
   const [holidays, setHolidays] = useState<Holiday[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Service-specific available dates (whitelist from service_available_dates table)
+  const [serviceOpenedDates, setServiceOpenedDates] = useState<Set<string>>(new Set());
+  const [serviceOpenedLoading, setServiceOpenedLoading] = useState(false);
 
   // Fetch holidays on component mount
   useEffect(() => {
@@ -75,6 +82,42 @@ export function AppointmentCalendar({
 
     loadHolidays();
   }, []);
+
+  // Fetch service-specific available dates (whitelist check)
+  useEffect(() => {
+    if (!serviceId) {
+      setServiceOpenedDates(new Set());
+      return;
+    }
+
+    async function fetchServiceAvailableDates() {
+      setServiceOpenedLoading(true);
+      try {
+        // Fetch for a 6-month range (covers most calendar views)
+        const now = new Date();
+        const startDate = format(addDays(now, -30), 'yyyy-MM-dd');
+        const endDate = format(addDays(now, 180), 'yyyy-MM-dd');
+
+        const response = await fetch(
+          `/api/services/${serviceId}/available-dates?start_date=${startDate}&end_date=${endDate}`
+        );
+
+        if (response.ok) {
+          const data = await response.json();
+          const dates = new Set<string>(
+            (data.available_dates || []).map((d: { date: string }) => d.date)
+          );
+          setServiceOpenedDates(dates);
+        }
+      } catch (error) {
+        console.error('Error fetching service available dates:', error);
+      } finally {
+        setServiceOpenedLoading(false);
+      }
+    }
+
+    fetchServiceAvailableDates();
+  }, [serviceId]);
 
   // Calculate minimum booking date (7 days from today in Philippine time)
   const today = getPhilippineTime();
@@ -115,6 +158,15 @@ export function AppointmentCalendar({
       const availableDayNumbers = serviceAvailableDays.map(day => dayMap[day]);
       if (!availableDayNumbers.includes(dayOfWeek)) {
         return true;
+      }
+    }
+
+    // Disable dates not opened by Healthcare Admin (whitelist check)
+    // Only applies if serviceId is provided and we have loaded the whitelist
+    if (serviceId && !serviceOpenedLoading) {
+      const dateString = format(date, 'yyyy-MM-dd');
+      if (!serviceOpenedDates.has(dateString)) {
+        return true; // Date not opened for this service
       }
     }
 
@@ -181,7 +233,7 @@ export function AppointmentCalendar({
     );
   };
 
-  if (loading) {
+  if (loading || serviceOpenedLoading) {
     return (
       <div className="flex items-center justify-center p-8">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-teal"></div>
@@ -203,6 +255,19 @@ export function AppointmentCalendar({
         showNeighboringMonth={false}
         locale="en-US"
       />
+
+      {/* No available dates message */}
+      {serviceId && !serviceOpenedLoading && serviceOpenedDates.size === 0 && (
+        <div className="mt-4 p-4 bg-amber-50 border border-amber-200 rounded-lg">
+          <div className="flex items-start gap-3">
+            <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+            <div className="text-sm text-amber-800">
+              <p className="font-semibold mb-1">No available dates</p>
+              <p>The Healthcare Admin has not opened any dates for this service yet. Please check back later or contact the City Health Office.</p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Legend */}
       <div className="mt-4 p-4 bg-gray-50 rounded-lg space-y-2 text-sm">
@@ -229,6 +294,14 @@ export function AppointmentCalendar({
           </div>
           <span className="text-gray-700">Not available (weekend or past date)</span>
         </div>
+        {serviceId && (
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 bg-white border border-gray-200 rounded-md flex items-center justify-center text-gray-300">
+              8
+            </div>
+            <span className="text-gray-700">Service not available on this date</span>
+          </div>
+        )}
         {markedDates && markedDates.size > 0 && (
           <>
             <div className="border-t border-gray-300 my-2 pt-2">

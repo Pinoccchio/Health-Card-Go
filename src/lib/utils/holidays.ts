@@ -211,3 +211,162 @@ export async function getUpcomingHolidays(): Promise<Holiday[]> {
     .filter(h => h.date >= today)
     .sort((a, b) => a.date.getTime() - b.date.getTime());
 }
+
+// ============================================================================
+// Service-Level Date Availability Functions
+// ============================================================================
+
+export interface ServiceAvailableDate {
+  date: string; // YYYY-MM-DD
+  opened_by: string;
+  reason: string | null;
+}
+
+/**
+ * Check if a specific date is available for a service
+ * Returns true if the date is in the service_available_dates table
+ *
+ * @param serviceId - The service ID to check
+ * @param date - The date to check (YYYY-MM-DD string or Date object)
+ * @returns Object with isAvailable flag and optional reason
+ */
+export async function isServiceDateAvailable(
+  serviceId: number,
+  date: string | Date
+): Promise<{
+  isAvailable: boolean;
+  reason?: string;
+  openedBy?: string;
+}> {
+  try {
+    const dateString = typeof date === 'string'
+      ? date
+      : date.toISOString().split('T')[0];
+
+    const response = await fetch(
+      `/api/services/${serviceId}/available-dates?start_date=${dateString}&end_date=${dateString}`
+    );
+
+    if (!response.ok) {
+      console.error('Failed to check service date availability');
+      return { isAvailable: false };
+    }
+
+    const result = await response.json();
+
+    if (result.available_dates && result.available_dates.length > 0) {
+      const availableDate = result.available_dates[0];
+      return {
+        isAvailable: true,
+        reason: availableDate.reason,
+        openedBy: availableDate.opened_by,
+      };
+    }
+
+    return { isAvailable: false };
+  } catch (error) {
+    console.error('Error checking service date availability:', error);
+    return { isAvailable: false };
+  }
+}
+
+/**
+ * Get all available dates for a service within a date range
+ *
+ * @param serviceId - The service ID
+ * @param startDate - Start of the date range
+ * @param endDate - End of the date range
+ * @returns Array of available dates with metadata
+ */
+export async function getServiceAvailableDatesInRange(
+  serviceId: number,
+  startDate: Date,
+  endDate: Date
+): Promise<ServiceAvailableDate[]> {
+  try {
+    const startString = startDate.toISOString().split('T')[0];
+    const endString = endDate.toISOString().split('T')[0];
+
+    const response = await fetch(
+      `/api/services/${serviceId}/available-dates?start_date=${startString}&end_date=${endString}`
+    );
+
+    if (!response.ok) {
+      console.error('Failed to fetch service available dates');
+      return [];
+    }
+
+    const result = await response.json();
+    return result.available_dates || [];
+  } catch (error) {
+    console.error('Error fetching service available dates:', error);
+    return [];
+  }
+}
+
+/**
+ * Check if a date is fully available for booking a specific service
+ * This combines all checks: weekday, holiday, and service availability
+ *
+ * @param serviceId - The service ID
+ * @param date - The date to check
+ * @returns Object with full availability status
+ */
+export async function isDateAvailableForService(
+  serviceId: number,
+  date: Date
+): Promise<{
+  isAvailable: boolean;
+  reason: 'available' | 'weekend' | 'holiday' | 'service_blocked' | 'past';
+  details?: string;
+}> {
+  // Check if date is in the past
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const checkDate = new Date(date);
+  checkDate.setHours(0, 0, 0, 0);
+
+  if (checkDate < today) {
+    return {
+      isAvailable: false,
+      reason: 'past',
+      details: 'This date is in the past',
+    };
+  }
+
+  // Check if weekend
+  const dayOfWeek = date.getDay();
+  if (dayOfWeek === 0 || dayOfWeek === 6) {
+    return {
+      isAvailable: false,
+      reason: 'weekend',
+      details: 'The office is closed on weekends',
+    };
+  }
+
+  // Check if holiday
+  const { isHoliday, holidayName } = await isDateHoliday(date);
+  if (isHoliday) {
+    return {
+      isAvailable: false,
+      reason: 'holiday',
+      details: holidayName || 'Holiday',
+    };
+  }
+
+  // Check service-specific availability
+  const { isAvailable, reason } = await isServiceDateAvailable(serviceId, date);
+  if (!isAvailable) {
+    return {
+      isAvailable: false,
+      reason: 'service_blocked',
+      details: 'This service is not available on this date',
+    };
+  }
+
+  return {
+    isAvailable: true,
+    reason: 'available',
+    details: reason || undefined,
+  };
+}

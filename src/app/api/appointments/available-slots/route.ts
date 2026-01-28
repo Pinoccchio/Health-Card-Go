@@ -72,10 +72,12 @@ export async function GET(request: NextRequest) {
 
     // Check service-specific availability if serviceId provided
     if (serviceId) {
+      const numericServiceId = Number(serviceId);
+
       const { data: service } = await supabase
         .from('services')
         .select('id, name, available_days')
-        .eq('id', Number(serviceId))
+        .eq('id', numericServiceId)
         .single();
 
       if (service?.available_days && service.available_days.length > 0) {
@@ -91,6 +93,24 @@ export async function GET(request: NextRequest) {
             slots: [],
           });
         }
+      }
+
+      // Check service-level date availability (whitelist approach)
+      // If date is NOT in service_available_dates table, it's blocked
+      const { data: availableDate, error: availableError } = await supabase
+        .from('service_available_dates')
+        .select('id')
+        .eq('service_id', numericServiceId)
+        .eq('available_date', date)
+        .maybeSingle();
+
+      if (!availableError && !availableDate) {
+        return NextResponse.json({
+          success: true,
+          available: false,
+          reason: `${service?.name || 'This service'} is not available on ${date}. The Healthcare Admin has not opened this date for bookings.`,
+          slots: [],
+        });
       }
     }
 

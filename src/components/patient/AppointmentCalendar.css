@@ -1,17 +1,17 @@
 /* Custom styles for AppointmentCalendar using react-calendar */
 
 .appointment-calendar {
-  --calendar-cell-size: 44px;
+  --calendar-cell-size: 56px;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
 
 /* Main calendar container */
 .appointment-calendar .react-calendar {
   width: 100%;
-  max-width: 350px;
+  max-width: 100%;
   border: 1px solid #e5e7eb;
   border-radius: 0.5rem;
-  padding: 1rem;
+  padding: 1.5rem;
   background: white;
   box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
   font-family: inherit;
@@ -158,10 +158,11 @@
 /* Responsive adjustments */
 @media (max-width: 640px) {
   .appointment-calendar {
-    --calendar-cell-size: 40px;
+    --calendar-cell-size: 48px;
   }
 
   .appointment-calendar .react-calendar {
     max-width: 100%;
+    padding: 1rem;
   }
 }

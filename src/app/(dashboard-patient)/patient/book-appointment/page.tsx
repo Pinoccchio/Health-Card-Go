@@ -1005,6 +1005,7 @@ export default function PatientBookAppointmentPage({
                     minDaysInAdvance={7}
                     serviceAvailableDays={serviceAvailableDays}
                     markedDates={markedDates}
+                    serviceId={selectedService || undefined}
                   />
 
                   <div className="mt-8 pt-6 border-t border-gray-200">

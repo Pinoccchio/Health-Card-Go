@@ -1,6 +1,7 @@
 import {
   LayoutDashboard,
   Calendar,
+  CalendarDays,
   Users,
   Activity,
   FileText,
@@ -257,6 +258,11 @@ export async function getHealthcareAdminMenuItems(
       label: 'Appointments',
       href: '/healthcare-admin/appointments',
       icon: Calendar,
+    },
+    {
+      label: 'Date Management',
+      href: '/healthcare-admin/date-management',
+      icon: CalendarDays,
     },
     {
       label: 'Walk-in Queue',
