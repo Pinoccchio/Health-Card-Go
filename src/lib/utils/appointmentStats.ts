@@ -7,7 +7,7 @@ export interface AppointmentStatistics {
   total: number;
   pending: number;
   scheduled: number;
-  checked_in: number;
+  verified: number;
   in_progress: number;
   completed: number;
   cancelled: number;
@@ -21,7 +21,7 @@ export function calculateAppointmentStatistics(
     total: appointments.length,
     pending: appointments.filter((a) => a.status === 'pending').length,
     scheduled: appointments.filter((a) => a.status === 'scheduled').length,
-    checked_in: appointments.filter((a) => a.status === 'checked_in').length,
+    verified: appointments.filter((a) => a.status === 'verified').length,
     in_progress: appointments.filter((a) => a.status === 'in_progress').length,
     completed: appointments.filter((a) => a.status === 'completed').length,
     cancelled: appointments.filter((a) => a.status === 'cancelled').length,

@@ -88,7 +88,7 @@ export default function AdminReportsFilters({
     { value: 'completed', label: 'Completed' },
     { value: 'cancelled', label: 'Cancelled' },
     { value: 'no_show', label: 'No Show' },
-    { value: 'checked_in', label: 'Checked In' },
+    { value: 'verified', label: 'Verified' },
     { value: 'in_progress', label: 'In Progress' },
   ];
 

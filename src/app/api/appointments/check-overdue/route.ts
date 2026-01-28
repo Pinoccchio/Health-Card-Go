@@ -10,7 +10,7 @@ import { NextRequest, NextResponse } from 'next/server';
  *
  * Business Rules:
  * - Finds appointments scheduled > 24 hours ago
- * - Status must be: 'scheduled', 'checked_in', or 'in_progress'
+ * - Status must be: 'scheduled', 'verified', or 'in_progress'
  * - Marks each as 'no_show'
  * - Increments patient no_show_count
  * - Suspends account after 2 strikes
@@ -67,7 +67,7 @@ export async function POST(request: NextRequest) {
     const cutoffISO = cutoffDate.toISOString();
 
     console.log(`🔍 [AUTO NO-SHOW] Cutoff: ${cutoffDate.toLocaleString('en-PH', { timeZone: 'Asia/Manila' })} (PHT)`);
-    console.log(`🔍 [AUTO NO-SHOW] Searching for appointments before ${cutoffISO.split('T')[0]} with status: scheduled/checked_in/in_progress`);
+    console.log(`🔍 [AUTO NO-SHOW] Searching for appointments before ${cutoffISO.split('T')[0]} with status: scheduled/verified/in_progress`);
 
     // 5. Find overdue appointments
     console.log('🔎 [AUTO NO-SHOW] Step 4: Querying database for overdue appointments...');
@@ -88,7 +88,7 @@ export async function POST(request: NextRequest) {
           no_show_count
         )
       `)
-      .in('status', ['scheduled', 'checked_in', 'in_progress'])
+      .in('status', ['scheduled', 'verified', 'in_progress'])
       .lt('appointment_date', cutoffISO.split('T')[0]) // Date only comparison
       .order('appointment_date', { ascending: true });
 

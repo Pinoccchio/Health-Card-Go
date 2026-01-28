@@ -59,7 +59,7 @@ interface WalkInPatient {
   allergies?: string[];
   current_medications?: string;
   appointment_time: string;
-  checked_in_at?: string;
+  verified_at?: string;
   started_at?: string;
   completed_at?: string;
   registered_at: string;
@@ -129,7 +129,7 @@ export default function WalkInQueuePage() {
   // Statistics
   const [statistics, setStatistics] = useState({
     total: 0,
-    checked_in: 0,
+    verified: 0,
     in_progress: 0,
     completed: 0
   });
@@ -238,12 +238,12 @@ export default function WalkInQueuePage() {
           const stats = patients.reduce(
             (acc: any, patient: WalkInPatient) => {
               acc.total++;
-              if (patient.status === 'waiting') acc.checked_in++;
+              if (patient.status === 'waiting') acc.verified++;
               if (patient.status === 'in_progress') acc.in_progress++;
               if (patient.status === 'completed') acc.completed++;
               return acc;
             },
-            { total: 0, checked_in: 0, in_progress: 0, completed: 0 }
+            { total: 0, verified: 0, in_progress: 0, completed: 0 }
           );
           setStatistics(stats);
         }
@@ -420,7 +420,7 @@ export default function WalkInQueuePage() {
       historyId: lastEntry.id,
       targetStatus: lastEntry.from_status,
       appointmentId: appointmentId,
-      currentStatus: patient.status === 'waiting' ? 'checked_in' : patient.status === 'in_progress' ? 'in_progress' : 'completed'
+      currentStatus: patient.status === 'waiting' ? 'verified' : patient.status === 'in_progress' ? 'in_progress' : 'completed'
     });
     setShowRevertDialog(true);
   };
@@ -465,7 +465,7 @@ export default function WalkInQueuePage() {
   // Helper to get status badge
   const getStatusBadge = (status: string) => {
     const statusMap: Record<string, string> = {
-      'waiting': 'checked_in',
+      'waiting': 'verified',
       'in_progress': 'in_progress',
       'completed': 'completed'
     };
@@ -499,7 +499,7 @@ export default function WalkInQueuePage() {
         'Contact Number',
         'Barangay',
         'Status',
-        'Checked In At',
+        'Verified At',
         'Started At',
         'Completed At',
         'Blood Type',
@@ -516,7 +516,7 @@ export default function WalkInQueuePage() {
         patient.contact_number,
         patient.barangay_name,
         patient.status === 'waiting' ? 'Waiting' : patient.status === 'in_progress' ? 'In Progress' : 'Completed',
-        patient.checked_in_at ? new Date(patient.checked_in_at).toLocaleString() : '',
+        patient.verified_at ? new Date(patient.verified_at).toLocaleString() : '',
         patient.started_at ? new Date(patient.started_at).toLocaleString() : '',
         patient.completed_at ? new Date(patient.completed_at).toLocaleString() : '',
         patient.blood_type || '',
@@ -613,7 +613,7 @@ export default function WalkInQueuePage() {
       sortable: true,
       render: (value: string, row: WalkInPatient) => {
         const statusMap: Record<string, string> = {
-          'waiting': 'checked_in',
+          'waiting': 'verified',
           'in_progress': 'in_progress',
           'completed': 'completed'
         };
@@ -630,9 +630,9 @@ export default function WalkInQueuePage() {
                 type="consulting"
               />
             )}
-            {value === 'waiting' && row.checked_in_at && (
+            {value === 'waiting' && row.verified_at && (
               <TimeElapsedBadge
-                timestamp={row.checked_in_at}
+                timestamp={row.verified_at}
                 label="Waiting"
                 type="waiting"
               />
@@ -675,13 +675,13 @@ export default function WalkInQueuePage() {
 
           {row.status === 'waiting' && (() => {
             // Check if there are lower queue numbers still waiting (queue order enforcement)
-            const lowerQueueCheckedIn = filteredQueue.find(
+            const lowerQueueVerified = filteredQueue.find(
               item => item.queue_number < row.queue_number &&
               item.status === 'waiting'
             );
 
             const isDisabledDueToInProgress = statistics.in_progress > 0;
-            const isNotNextInQueue = !!lowerQueueCheckedIn;
+            const isNotNextInQueue = !!lowerQueueVerified;
             const isDisabled = isDisabledDueToInProgress || isNotNextInQueue;
 
             // Determine tooltip message
@@ -689,7 +689,7 @@ export default function WalkInQueuePage() {
             if (isDisabledDueToInProgress) {
               tooltipMessage = 'Wait for current consultation to complete';
             } else if (isNotNextInQueue) {
-              tooltipMessage = `Wait for Queue #${lowerQueueCheckedIn.appointment_number} first`;
+              tooltipMessage = `Wait for Queue #${lowerQueueVerified.appointment_number} first`;
             }
 
             return (
@@ -820,7 +820,7 @@ export default function WalkInQueuePage() {
                     <Clock className="w-4 h-4" />
                     Waiting
                     <span className="px-2 py-0.5 bg-white rounded-full text-xs font-semibold">
-                      {statistics.checked_in}
+                      {statistics.verified}
                     </span>
                   </div>
                 </button>
@@ -875,7 +875,7 @@ export default function WalkInQueuePage() {
               <Users className="w-5 h-5 text-primary-teal" />
               <h2 className="text-xl font-bold text-gray-900">Today's Walk-in Queue</h2>
             </div>
-            <p className="text-gray-600 mb-6">View and manage patients who have checked in today</p>
+            <p className="text-gray-600 mb-6">View and manage patients who have been verified today</p>
 
             {isLoadingQueue ? (
               <>
@@ -971,9 +971,9 @@ export default function WalkInQueuePage() {
                   {getStatusBadge(selectedPatient.status)}
 
                   {/* Elapsed Time Badges */}
-                  {selectedPatient.status === 'waiting' && selectedPatient.checked_in_at && (
+                  {selectedPatient.status === 'waiting' && selectedPatient.verified_at && (
                     <TimeElapsedBadge
-                      timestamp={selectedPatient.checked_in_at}
+                      timestamp={selectedPatient.verified_at}
                       label="Waiting"
                       type="waiting"
                     />
@@ -1136,20 +1136,20 @@ export default function WalkInQueuePage() {
               )}
 
               {/* Timeline */}
-              {(selectedPatient.checked_in_at || selectedPatient.started_at || selectedPatient.completed_at) && (
+              {(selectedPatient.verified_at || selectedPatient.started_at || selectedPatient.completed_at) && (
                 <div>
                   <h4 className="text-sm font-medium text-gray-700 mb-2 flex items-center">
                     <Clock className="w-4 h-4 mr-2" />
                     Timeline
                   </h4>
                   <div className="bg-gray-50 rounded-md p-3 space-y-2 text-sm">
-                    {selectedPatient.checked_in_at && (
+                    {selectedPatient.verified_at && (
                       <div className="flex justify-between items-center">
                         <span className="text-gray-600 flex items-center gap-2">
                           <div className="w-2 h-2 rounded-full bg-purple-500"></div>
-                          Checked In:
+                          Verified:
                         </span>
-                        <span className="text-gray-900 font-medium">{new Date(selectedPatient.checked_in_at).toLocaleString()}</span>
+                        <span className="text-gray-900 font-medium">{new Date(selectedPatient.verified_at).toLocaleString()}</span>
                       </div>
                     )}
                     {selectedPatient.started_at && (
@@ -1256,9 +1256,9 @@ export default function WalkInQueuePage() {
             pendingRevert
               ? `Are you sure you want to revert this appointment from "${pendingRevert.currentStatus}" back to "${pendingRevert.targetStatus}"?
 
-${pendingRevert.currentStatus === 'in_progress' || pendingRevert.currentStatus === 'checked_in'
+${pendingRevert.currentStatus === 'in_progress' || pendingRevert.currentStatus === 'verified'
   ? 'Warning: This will erase the timestamp for when the appointment was ' +
-    (pendingRevert.currentStatus === 'in_progress' ? 'started' : 'checked in') + '.'
+    (pendingRevert.currentStatus === 'in_progress' ? 'started' : 'verified') + '.'
   : ''}`
               : 'Are you sure you want to revert this appointment status?'
           }

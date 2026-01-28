@@ -164,7 +164,7 @@ export async function GET(request: NextRequest) {
             cancelled: 0,
             no_show: 0,
             in_progress: 0,
-            checked_in: 0,
+            verified: 0,
           },
           completion_rate: '0.00',
           status_breakdown: [
@@ -173,7 +173,7 @@ export async function GET(request: NextRequest) {
             { status: 'Cancelled', count: 0 },
             { status: 'No Show', count: 0 },
             { status: 'In Progress', count: 0 },
-            { status: 'Checked In', count: 0 },
+            { status: 'Verified', count: 0 },
           ],
           trend_data: [],
           table_data: [],
@@ -273,7 +273,7 @@ export async function GET(request: NextRequest) {
       cancelled: appointments?.filter(a => a.status === 'cancelled').length || 0,
       no_show: appointments?.filter(a => a.status === 'no_show').length || 0,
       in_progress: appointments?.filter(a => a.status === 'in_progress').length || 0,
-      checked_in: appointments?.filter(a => a.status === 'checked_in').length || 0,
+      verified: appointments?.filter(a => a.status === 'verified').length || 0,
     };
 
     // Calculate status breakdown for bar chart
@@ -283,7 +283,7 @@ export async function GET(request: NextRequest) {
       { status: 'Cancelled', count: summaryStats.cancelled },
       { status: 'No Show', count: summaryStats.no_show },
       { status: 'In Progress', count: summaryStats.in_progress },
-      { status: 'Checked In', count: summaryStats.checked_in },
+      { status: 'Verified', count: summaryStats.verified },
     ];
 
     // Calculate daily trend for line chart

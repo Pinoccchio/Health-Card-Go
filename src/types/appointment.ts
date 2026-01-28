@@ -109,7 +109,7 @@ export type AppointmentStatus =
   | 'draft'         // Draft appointment created during upload step (not finalized)
   | 'pending'       // Newly created, awaiting confirmation
   | 'scheduled'     // Confirmed and scheduled
-  | 'checked_in'    // Patient has checked in
+  | 'verified'      // Patient has been verified
   | 'in_progress'   // Appointment in progress
   | 'completed'     // Appointment completed
   | 'cancelled'     // Cancelled by patient or admin
@@ -143,7 +143,7 @@ export type VerificationStatus = 'pending' | 'approved' | 'rejected';
 /**
  * Appointment stage for health card workflow
  */
-export type AppointmentStage = 'check_in' | 'laboratory' | 'results' | 'checkup' | 'releasing';
+export type AppointmentStage = 'verification' | 'laboratory' | 'results' | 'checkup' | 'releasing';
 
 /**
  * File type for appointment uploads
@@ -307,8 +307,8 @@ export interface Appointment {
   /** Whether reminder was sent */
   reminder_sent?: boolean;
 
-  /** Check-in timestamp */
-  checked_in_at?: string;
+  /** Verification timestamp */
+  verified_at?: string;
 
   /** Start timestamp */
   started_at?: string;
@@ -511,7 +511,7 @@ export function getStatusColor(status: AppointmentStatus): string {
       return 'bg-gray-100 text-gray-800';
     case 'scheduled':
       return 'bg-blue-100 text-blue-800';
-    case 'checked_in':
+    case 'verified':
       return 'bg-indigo-100 text-indigo-800';
     case 'in_progress':
       return 'bg-amber-100 text-amber-800';
@@ -577,7 +577,7 @@ export function getVerificationStatusColor(status: VerificationStatus): string {
  */
 export function getAppointmentStageColor(stage: AppointmentStage): string {
   switch (stage) {
-    case 'check_in':
+    case 'verification':
       return 'bg-blue-100 text-blue-800';
     case 'laboratory':
       return 'bg-purple-100 text-purple-800';
@@ -597,8 +597,8 @@ export function getAppointmentStageColor(stage: AppointmentStage): string {
  */
 export function getAppointmentStageLabel(stage: AppointmentStage): string {
   switch (stage) {
-    case 'check_in':
-      return 'Check-In';
+    case 'verification':
+      return 'Verification';
     case 'laboratory':
       return 'Laboratory';
     case 'results':

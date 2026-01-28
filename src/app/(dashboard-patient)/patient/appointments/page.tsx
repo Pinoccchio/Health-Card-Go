@@ -62,11 +62,11 @@ interface Appointment {
   appointment_time: string;
   time_block: TimeBlock;
   appointment_number: number;
-  status: 'pending' | 'scheduled' | 'checked_in' | 'in_progress' | 'completed' | 'cancelled' | 'no_show' | 'rescheduled';
-  appointment_stage?: 'check_in' | 'laboratory' | 'results' | 'checkup' | 'releasing' | null;
+  status: 'pending' | 'scheduled' | 'verified' | 'in_progress' | 'completed' | 'cancelled' | 'no_show' | 'rescheduled';
+  appointment_stage?: 'verification' | 'laboratory' | 'results' | 'checkup' | 'releasing' | null;
   reason?: string;
   cancellation_reason?: string;
-  checked_in_at?: string;
+  verified_at?: string;
   started_at?: string;
   completed_at?: string;
   cancelled_at?: string;
@@ -125,7 +125,7 @@ export default function PatientAppointmentsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [cancellingId, setCancellingId] = useState<string | null>(null);
-  const [filter, setFilter] = useState<'all' | 'pending' | 'scheduled' | 'checked_in' | 'in_progress' | 'completed' | 'cancelled' | 'no_show' | 'rescheduled'>('all');
+  const [filter, setFilter] = useState<'all' | 'pending' | 'scheduled' | 'verified' | 'in_progress' | 'completed' | 'cancelled' | 'no_show' | 'rescheduled'>('all');
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
   // Cancel confirmation dialog state
@@ -412,10 +412,10 @@ export default function PatientAppointmentsPage() {
           {/* Main Status Badge */}
           {getStatusBadge(value)}
 
-          {/* Time Elapsed Badge - Waiting (checked_in) */}
-          {value === 'checked_in' && row.checked_in_at && (
+          {/* Time Elapsed Badge - Waiting (verified) */}
+          {value === 'verified' && row.verified_at && (
             <TimeElapsedBadge
-              timestamp={row.checked_in_at}
+              timestamp={row.verified_at}
               label="Waiting"
               type="waiting"
             />
@@ -526,7 +526,7 @@ export default function PatientAppointmentsPage() {
     if (filter === 'all') return true;
     if (filter === 'pending') return apt.status === 'pending';
     if (filter === 'scheduled') return apt.status === 'scheduled';
-    if (filter === 'checked_in') return apt.status === 'checked_in';
+    if (filter === 'verified') return apt.status === 'verified';
     if (filter === 'in_progress') return apt.status === 'in_progress';
     if (filter === 'completed') return apt.status === 'completed';
     if (filter === 'cancelled') return apt.status === 'cancelled';
@@ -564,7 +564,7 @@ export default function PatientAppointmentsPage() {
                 { id: 'all', labelKey: 'all', count: statistics.total, color: 'gray', icon: ListChecks },
                 { id: 'pending', labelKey: 'pending', count: statistics.pending, color: 'orange', icon: Clock },
                 { id: 'scheduled', labelKey: 'scheduled', count: statistics.scheduled, color: 'blue', icon: Calendar },
-                { id: 'checked_in', labelKey: 'checked_in', count: statistics.checked_in, color: 'purple', icon: UserCheck },
+                { id: 'verified', labelKey: 'verified', count: statistics.verified, color: 'purple', icon: UserCheck },
                 { id: 'in_progress', labelKey: 'in_progress', count: statistics.in_progress, color: 'amber', icon: Activity },
                 { id: 'completed', labelKey: 'completed', count: statistics.completed, color: 'green', icon: CheckCircle },
                 { id: 'cancelled', labelKey: 'cancelled', count: statistics.cancelled, color: 'gray', icon: XCircle },
@@ -648,9 +648,9 @@ export default function PatientAppointmentsPage() {
                   {getStatusBadge(selectedAppointment.status)}
 
                   {/* Elapsed Time Badges */}
-                  {selectedAppointment.status === 'checked_in' && selectedAppointment.checked_in_at && (
+                  {selectedAppointment.status === 'verified' && selectedAppointment.verified_at && (
                     <TimeElapsedBadge
-                      timestamp={selectedAppointment.checked_in_at}
+                      timestamp={selectedAppointment.verified_at}
                       label="Waiting"
                       type="waiting"
                     />
@@ -670,24 +670,24 @@ export default function PatientAppointmentsPage() {
               <AppointmentStageTracker
                 currentStage={selectedAppointment.appointment_stage || null}
                 isHealthCardService={(selectedAppointment.services?.category === 'healthcard' || selectedAppointment.services?.category === 'pink_card') && !!selectedAppointment.card_type}
-                isCheckedIn={selectedAppointment.status === 'checked_in' || selectedAppointment.status === 'in_progress' || selectedAppointment.status === 'completed'}
+                isVerified={selectedAppointment.status === 'verified' || selectedAppointment.status === 'in_progress' || selectedAppointment.status === 'completed'}
                 isCompleted={selectedAppointment.status === 'completed'}
               />
 
               {/* Patient Stage Actions - Patient controls Laboratory, Results, Check-up */}
               {(selectedAppointment.services?.category === 'healthcard' || selectedAppointment.services?.category === 'pink_card') &&
                 selectedAppointment.card_type &&
-                (selectedAppointment.status === 'checked_in' || selectedAppointment.status === 'in_progress') &&
+                (selectedAppointment.status === 'verified' || selectedAppointment.status === 'in_progress') &&
                 selectedAppointment.status !== 'completed' && (
                 <div className="space-y-2 pt-2 pb-4 border-b border-gray-200">
                   {/* Laboratory Stage - Opens confirmation modal */}
-                  {(selectedAppointment.appointment_stage === 'check_in' || selectedAppointment.appointment_stage === 'laboratory') && (
+                  {(selectedAppointment.appointment_stage === 'verification' || selectedAppointment.appointment_stage === 'laboratory') && (
                     <button
                       onClick={() => setShowLabModal(true)}
                       className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 font-medium text-sm shadow-sm transition-colors"
                     >
                       <Activity className="w-5 h-5" />
-                      {selectedAppointment.appointment_stage === 'check_in' ? 'Start Laboratory Tests' : 'Complete Laboratory & Get Results'}
+                      {selectedAppointment.appointment_stage === 'verification' ? 'Start Laboratory Tests' : 'Complete Laboratory & Get Results'}
                     </button>
                   )}
 
@@ -1021,18 +1021,18 @@ export default function PatientAppointmentsPage() {
                 )}
 
                 {/* Timeline */}
-                {(selectedAppointment.checked_in_at || selectedAppointment.started_at || selectedAppointment.completed_at) && (
+                {(selectedAppointment.verified_at || selectedAppointment.started_at || selectedAppointment.completed_at) && (
                   <div>
                     <h4 className="text-sm font-medium text-gray-700 mb-2 flex items-center">
                       <Clock className="w-4 h-4 mr-2" />
                       {t('drawer.timeline')}
                     </h4>
                     <div className="space-y-2 text-sm">
-                      {selectedAppointment.checked_in_at && (
+                      {selectedAppointment.verified_at && (
                         <div className="flex items-center gap-2">
                           <div className="w-2 h-2 rounded-full bg-purple-500"></div>
-                          <span className="text-gray-500">{t('drawer.checked_in')}:</span>
-                          <span className="text-gray-900">{new Date(selectedAppointment.checked_in_at).toLocaleString()}</span>
+                          <span className="text-gray-500">{t('drawer.verified_at')}:</span>
+                          <span className="text-gray-900">{new Date(selectedAppointment.verified_at).toLocaleString()}</span>
                         </div>
                       )}
                       {selectedAppointment.started_at && (

@@ -114,7 +114,7 @@ export async function POST(request: NextRequest) {
       .from('appointments')
       .select('appointment_date, status')
       .eq('service_id', serviceId)
-      .in('status', ['scheduled', 'checked_in', 'in_progress', 'completed'])
+      .in('status', ['scheduled', 'verified', 'in_progress', 'completed'])
       .order('appointment_date', { ascending: true });
 
     // Apply barangay filter if specified
@@ -131,7 +131,7 @@ export async function POST(request: NextRequest) {
         `)
         .eq('service_id', serviceId)
         .eq('patients.barangay_id', barangayId)
-        .in('status', ['scheduled', 'checked_in', 'in_progress', 'completed'])
+        .in('status', ['scheduled', 'verified', 'in_progress', 'completed'])
         .order('appointment_date', { ascending: true });
     }
 

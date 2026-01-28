@@ -13,7 +13,7 @@ import { createClient } from '@/lib/supabase/server';
  *
  * Returns:
  * - Monthly aggregation of appointments by status (completed, cancelled, no_show)
- * - Excludes 'pending', 'scheduled', 'checked_in', 'in_progress' (future/active appointments)
+ * - Excludes 'pending', 'scheduled', 'verified', 'in_progress' (future/active appointments)
  * - Groups by year-month with status breakdown
  */
 export async function GET(request: NextRequest) {

@@ -236,7 +236,7 @@ export function DocumentReviewPanel({
                 </>
               ) : (
                 <>
-                  <strong>Note:</strong> Verify these documents in person during check-in.
+                  <strong>Note:</strong> Verify these documents in person during verification.
                   Patient has confirmed they will bring the required documents.
                 </>
               )}

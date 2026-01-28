@@ -308,7 +308,7 @@ export default function ReportsCharts({
                         'rgba(239, 68, 68, 0.8)',   // Cancelled - red
                         'rgba(251, 146, 60, 0.8)',  // No Show - orange
                         'rgba(234, 179, 8, 0.8)',   // In Progress - yellow
-                        'rgba(168, 85, 247, 0.8)',  // Checked In - purple
+                        'rgba(168, 85, 247, 0.8)',  // Verified - purple
                       ],
                       borderColor: [
                         'rgba(34, 197, 94, 1)',

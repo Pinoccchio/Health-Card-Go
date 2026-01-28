@@ -156,7 +156,7 @@ export default function HealthcareAdminDashboard() {
 
         // Get upcoming appointments
         const upcoming = appointments
-          .filter((a: any) => ['scheduled', 'checked_in'].includes(a.status))
+          .filter((a: any) => ['scheduled', 'verified'].includes(a.status))
           .sort((a: any, b: any) => {
             const dateA = new Date(`${a.appointment_date} ${a.appointment_time}`);
             const dateB = new Date(`${b.appointment_date} ${b.appointment_time}`);

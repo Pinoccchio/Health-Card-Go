@@ -63,12 +63,12 @@ interface AdminAppointment {
   appointment_date: string;
   appointment_time: string;
   time_block: TimeBlock;
-  status: 'pending' | 'scheduled' | 'checked_in' | 'in_progress' | 'completed' | 'cancelled' | 'no_show' | 'rescheduled';
-  appointment_stage?: 'check_in' | 'laboratory' | 'results' | 'checkup' | 'releasing' | null;
+  status: 'pending' | 'scheduled' | 'verified' | 'in_progress' | 'completed' | 'cancelled' | 'no_show' | 'rescheduled';
+  appointment_stage?: 'verification' | 'laboratory' | 'results' | 'checkup' | 'releasing' | null;
   reason?: string;
   cancellation_reason?: string | null;
   service_id: number;
-  checked_in_at?: string | null;
+  verified_at?: string | null;
   started_at?: string | null;
   completed_at?: string | null;
   has_medical_record?: boolean; // Indicates if medical record exists
@@ -123,7 +123,7 @@ export default function HealthcareAdminAppointmentsPage() {
   const [datesLoading, setDatesLoading] = useState(true);
   const loading = appointmentsLoading || datesLoading; // Combined loading state - waits for BOTH fetches
   const [error, setError] = useState('');
-  const [filter, setFilter] = useState<'all' | 'pending' | 'scheduled' | 'checked_in' | 'in_progress' | 'completed' | 'cancelled' | 'no_show' | 'rescheduled'>('all');
+  const [filter, setFilter] = useState<'all' | 'pending' | 'scheduled' | 'verified' | 'in_progress' | 'completed' | 'cancelled' | 'no_show' | 'rescheduled'>('all');
   const [dateFilter, setDateFilter] = useState<string>('all');
   const [successMessage, setSuccessMessage] = useState('');
 
@@ -208,8 +208,8 @@ export default function HealthcareAdminAppointmentsPage() {
   const [appointmentToStart, setAppointmentToStart] = useState<string | null>(null);
 
   // Check-in confirmation dialog state
-  const [showCheckInDialog, setShowCheckInDialog] = useState(false);
-  const [appointmentToCheckIn, setAppointmentToCheckIn] = useState<AdminAppointment | null>(null);
+  const [showVerifyDialog, setShowCheckInDialog] = useState(false);
+  const [appointmentToVerify, setAppointmentToCheckIn] = useState<AdminAppointment | null>(null);
 
   // No-show confirmation dialog state
   const [showNoShowDialog, setShowNoShowDialog] = useState(false);
@@ -629,7 +629,7 @@ export default function HealthcareAdminAppointmentsPage() {
     }
   };
 
-  const handleCheckIn = (appointment: AdminAppointment) => {
+  const handleVerify = (appointment: AdminAppointment) => {
     // Show confirmation dialog before checking in
     setAppointmentToCheckIn(appointment);
     setShowCheckInDialog(true);
@@ -761,23 +761,23 @@ export default function HealthcareAdminAppointmentsPage() {
     }
   };
 
-  const handleConfirmCheckIn = async () => {
-    if (!appointmentToCheckIn) return;
+  const handleConfirmVerify = async () => {
+    if (!appointmentToVerify) return;
 
     try {
       setActionLoading(true);
 
-      // For HealthCard and Pink Card appointments, also set appointment_stage to 'check_in'
+      // For HealthCard and Pink Card appointments, also set appointment_stage to 'verification'
       // Use service_id directly (more reliable than services.category which may be undefined)
       // HealthCard service IDs: 1, 2, 3, 12 | Pink Card: 24
-      const isCardService = [1, 2, 3, 12, 24].includes(appointmentToCheckIn.service_id);
-      const requestBody: any = { status: 'checked_in' };
+      const isCardService = [1, 2, 3, 12, 24].includes(appointmentToVerify.service_id);
+      const requestBody: any = { status: 'verified' };
 
       if (isCardService) {
-        requestBody.appointment_stage = 'check_in';
+        requestBody.appointment_stage = 'verification';
       }
 
-      const response = await fetch(`/api/appointments/${appointmentToCheckIn.id}`, {
+      const response = await fetch(`/api/appointments/${appointmentToVerify.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(requestBody),
@@ -793,7 +793,7 @@ export default function HealthcareAdminAppointmentsPage() {
       setShowCheckInDialog(false);
       setIsDrawerOpen(false);
       setSelectedAppointment(null);
-      toast.success('Patient checked in successfully');
+      toast.success('Patient verified successfully');
 
       // Refetch appointments and history to get latest data
       await fetchAppointments();
@@ -890,8 +890,8 @@ export default function HealthcareAdminAppointmentsPage() {
       return;
     }
 
-    if (appointmentToUpdate.status !== 'checked_in') {
-      console.error(`❌ [START CONFIRM] Invalid status. Expected 'checked_in', got '${appointmentToUpdate.status}'`);
+    if (appointmentToUpdate.status !== 'verified') {
+      console.error(`❌ [START CONFIRM] Invalid status. Expected 'verified', got '${appointmentToUpdate.status}'`);
       toast.error(`Cannot start appointment. Current status: ${appointmentToUpdate.status}`);
       setShowStartDialog(false);
       setAppointmentToStart(null);
@@ -1129,9 +1129,9 @@ export default function HealthcareAdminAppointmentsPage() {
       render: (value: AdminAppointment['status'], row: AdminAppointment) => (
         <div className="flex flex-col gap-1">
           {getStatusBadge(value)}
-          {row.checked_in_at && row.status === 'checked_in' && (
+          {row.verified_at && row.status === 'verified' && (
             <TimeElapsedBadge
-              timestamp={row.checked_in_at}
+              timestamp={row.verified_at}
               label="Waiting"
               type="waiting"
             />
@@ -1360,7 +1360,7 @@ export default function HealthcareAdminAppointmentsPage() {
                 { id: 'all', label: 'All Appointments', count: statistics.total, color: 'gray', icon: ListChecks },
                 { id: 'pending', label: 'Pending', count: statistics.pending, color: 'orange', icon: Clock },
                 { id: 'scheduled', label: 'Scheduled', count: statistics.scheduled, color: 'blue', icon: Calendar },
-                { id: 'checked_in', label: 'Checked In', count: statistics.checked_in, color: 'purple', icon: UserCheck },
+                { id: 'verified', label: 'Verified', count: statistics.verified, color: 'purple', icon: UserCheck },
                 { id: 'in_progress', label: 'In Progress', count: statistics.in_progress, color: 'amber', icon: Activity },
                 { id: 'completed', label: 'Completed', count: statistics.completed, color: 'green', icon: CheckCircle },
                 { id: 'cancelled', label: 'Cancelled', count: statistics.cancelled, color: 'gray', icon: XCircle },
@@ -1527,9 +1527,9 @@ export default function HealthcareAdminAppointmentsPage() {
                   {getStatusBadge(selectedAppointment.status)}
 
                   {/* Elapsed Time Badges */}
-                  {selectedAppointment.status === 'checked_in' && selectedAppointment.checked_in_at && (
+                  {selectedAppointment.status === 'verified' && selectedAppointment.verified_at && (
                     <TimeElapsedBadge
-                      timestamp={selectedAppointment.checked_in_at}
+                      timestamp={selectedAppointment.verified_at}
                       label="Waiting"
                       type="waiting"
                     />
@@ -1550,7 +1550,7 @@ export default function HealthcareAdminAppointmentsPage() {
                 <AppointmentStageTracker
                   currentStage={selectedAppointment.appointment_stage || null}
                   isHealthCardService={true}
-                  isCheckedIn={selectedAppointment.status === 'checked_in' || selectedAppointment.status === 'in_progress' || selectedAppointment.status === 'completed'}
+                  isVerified={selectedAppointment.status === 'verified' || selectedAppointment.status === 'in_progress' || selectedAppointment.status === 'completed'}
                   isCompleted={selectedAppointment.status === 'completed'}
                 />
               )}
@@ -1559,7 +1559,7 @@ export default function HealthcareAdminAppointmentsPage() {
               {/* Patient controls Laboratory stage only */}
               {(selectedAppointment.services?.category === 'healthcard' || selectedAppointment.services?.category === 'pink_card') &&
                 selectedAppointment.card_type &&
-                (selectedAppointment.status === 'checked_in' || selectedAppointment.status === 'in_progress') &&
+                (selectedAppointment.status === 'verified' || selectedAppointment.status === 'in_progress') &&
                 selectedAppointment.status !== 'completed' && (
                 <div className="space-y-2 pt-2 pb-4 border-b border-gray-200">
                   {/* Check-up Stage - Admin advances from Results to Check-up */}
@@ -1883,18 +1883,18 @@ export default function HealthcareAdminAppointmentsPage() {
                 )}
 
                 {/* Timeline */}
-                {(selectedAppointment.checked_in_at || selectedAppointment.started_at || selectedAppointment.completed_at) && (
+                {(selectedAppointment.verified_at || selectedAppointment.started_at || selectedAppointment.completed_at) && (
                   <div>
                     <h4 className="text-sm font-medium text-gray-700 mb-2 flex items-center">
                       <Clock className="w-4 h-4 mr-2" />
                       Timeline
                     </h4>
                     <div className="space-y-2 text-sm">
-                      {selectedAppointment.checked_in_at && (
+                      {selectedAppointment.verified_at && (
                         <div className="flex items-center gap-2">
                           <div className="w-2 h-2 rounded-full bg-purple-500"></div>
-                          <span className="text-gray-500">Checked In:</span>
-                          <span className="text-gray-900">{new Date(selectedAppointment.checked_in_at).toLocaleString()}</span>
+                          <span className="text-gray-500">Verified:</span>
+                          <span className="text-gray-900">{new Date(selectedAppointment.verified_at).toLocaleString()}</span>
                         </div>
                       )}
                       {selectedAppointment.started_at && (
@@ -1946,20 +1946,20 @@ export default function HealthcareAdminAppointmentsPage() {
                   </>
                 )}
 
-                {/* Check In Button */}
+                {/* Verify Button */}
                 {selectedAppointment.status === 'scheduled' && (
                   <button
-                    onClick={() => handleCheckIn(selectedAppointment)}
+                    onClick={() => handleVerify(selectedAppointment)}
                     disabled={actionLoading}
                     className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-purple-50 text-purple-700 border border-purple-200 rounded-md hover:bg-purple-100 font-medium text-sm transition-colors disabled:opacity-50"
                   >
                     <UserCheck className="w-4 h-4" />
-                    Check In Patient
+                    Verify Patient
                   </button>
                 )}
 
                 {/* Start Consultation Button - Only for non-card services (HIV Counseling, Prenatal) */}
-                {selectedAppointment.status === 'checked_in' &&
+                {selectedAppointment.status === 'verified' &&
                   !(selectedAppointment.services?.category === 'healthcard' || selectedAppointment.services?.category === 'pink_card') &&
                   !selectedAppointment.card_type && (
                   <button
@@ -1989,7 +1989,7 @@ export default function HealthcareAdminAppointmentsPage() {
 
                 {/* Mark as No Show Button */}
                 {(selectedAppointment.status === 'scheduled' ||
-                  selectedAppointment.status === 'checked_in' ||
+                  selectedAppointment.status === 'verified' ||
                   selectedAppointment.status === 'in_progress') && (
                   <button
                     onClick={() => handleMarkNoShow(selectedAppointment)}
@@ -2012,7 +2012,7 @@ export default function HealthcareAdminAppointmentsPage() {
 
                 {/* Undo Button - Simplified conditions matching walk-in pattern */}
                 {lastHistoryEntries[selectedAppointment.id]?.from_status &&
-                 (selectedAppointment.status === 'checked_in' ||
+                 (selectedAppointment.status === 'verified' ||
                   selectedAppointment.status === 'in_progress' ||
                   (selectedAppointment.status === 'completed' &&
                    hasMedicalRecords[selectedAppointment.id] === false)) && (
@@ -2072,17 +2072,17 @@ export default function HealthcareAdminAppointmentsPage() {
           isLoading={actionLoading}
         />
 
-        {/* Check In Confirmation Dialog */}
+        {/* Verify Confirmation Dialog */}
         <ConfirmDialog
-          isOpen={showCheckInDialog}
+          isOpen={showVerifyDialog}
           onClose={() => {
             setShowCheckInDialog(false);
             setAppointmentToCheckIn(null);
           }}
-          onConfirm={handleConfirmCheckIn}
-          title="Check In Patient"
-          message="Confirm that the patient has arrived and is ready for service. This will mark the appointment as checked in and record the arrival time."
-          confirmText="Check In Patient"
+          onConfirm={handleConfirmVerify}
+          title="Verify Patient"
+          message="Confirm that the patient has arrived and is ready for service. This will mark the appointment as verified and record the arrival time."
+          confirmText="Verify Patient"
           cancelText="Cancel"
           variant="info"
           isLoading={actionLoading}
@@ -2154,8 +2154,8 @@ export default function HealthcareAdminAppointmentsPage() {
           onConfirm={handleConfirmRevert}
           title="Revert Appointment Status"
           message={
-            pendingRevert?.currentStatus === 'checked_in' || pendingRevert?.currentStatus === 'in_progress'
-              ? `Are you sure you want to revert this appointment to "${pendingRevert?.targetStatus?.replace('_', ' ')}"?\n\n⚠️ Important: This will erase the ${pendingRevert.currentStatus === 'checked_in' ? 'check-in' : 'start'} timestamp from records, which affects wait time statistics. Only proceed if this was an error or the patient needs to be rescheduled.\n\nThis action will be logged in the status history with your reason.`
+            pendingRevert?.currentStatus === 'verified' || pendingRevert?.currentStatus === 'in_progress'
+              ? `Are you sure you want to revert this appointment to "${pendingRevert?.targetStatus?.replace('_', ' ')}"?\n\n⚠️ Important: This will erase the ${pendingRevert.currentStatus === 'verified' ? 'verification' : 'start'} timestamp from records, which affects wait time statistics. Only proceed if this was an error or the patient needs to be rescheduled.\n\nThis action will be logged in the status history with your reason.`
               : `Are you sure you want to revert this appointment to "${pendingRevert?.targetStatus?.replace('_', ' ')}"? This action will be logged in the status history.`
           }
           confirmText="Revert Status"
@@ -2164,8 +2164,8 @@ export default function HealthcareAdminAppointmentsPage() {
           showReasonInput={true}
           reasonLabel="Reason for reversion (required)"
           reasonPlaceholder={
-            pendingRevert?.currentStatus === 'checked_in' || pendingRevert?.currentStatus === 'in_progress'
-              ? "E.g., Patient left before being seen, Wrong patient checked in, Technical error"
+            pendingRevert?.currentStatus === 'verified' || pendingRevert?.currentStatus === 'in_progress'
+              ? "E.g., Patient left before being seen, Wrong patient verified, Technical error"
               : "E.g., Accidentally changed status, need to correct error"
           }
           isLoading={actionLoading}

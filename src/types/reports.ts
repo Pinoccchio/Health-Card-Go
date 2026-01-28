@@ -9,7 +9,7 @@ export type ReportType =
 
 export type AppointmentStatus =
   | 'scheduled'
-  | 'checked_in'
+  | 'verified'
   | 'in_progress'
   | 'completed'
   | 'cancelled'

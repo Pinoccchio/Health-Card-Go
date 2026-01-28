@@ -9,7 +9,7 @@ import { getPhilippineTime } from '@/lib/utils/timezone';
 export type AppointmentStatus =
   | 'pending'
   | 'scheduled'
-  | 'checked_in'
+  | 'verified'
   | 'in_progress'
   | 'completed'
   | 'cancelled'
@@ -24,12 +24,12 @@ interface StatusTransitionButtonsProps {
   className?: string;
   inProgressCount?: number; // Number of appointments currently in progress
   queueNumber?: number; // Current appointment's queue number
-  lowerQueueCheckedIn?: number; // Queue number of lower checked-in appointment (if any)
+  lowerQueueVerified?: number; // Queue number of lower verified appointment (if any)
 }
 
 interface ConfirmDialogState {
   isOpen: boolean;
-  action: 'check_in' | 'start' | 'no_show' | 'reject' | null;
+  action: 'verify' | 'start' | 'no_show' | 'reject' | null;
   title: string;
   message: string;
 }
@@ -43,7 +43,7 @@ export function StatusTransitionButtons({
   className = '',
   inProgressCount = 0,
   queueNumber,
-  lowerQueueCheckedIn,
+  lowerQueueVerified,
 }: StatusTransitionButtonsProps) {
   const toast = useToast();
   const [isLoading, setIsLoading] = useState(false);
@@ -68,16 +68,16 @@ export function StatusTransitionButtons({
     return todayPHT === aptDate;
   };
 
-  // Check if check-in is allowed (considers environment setting for testing)
-  const canCheckIn = () => {
-    // Allow early check-in if environment variable is set to 'true' (for testing)
-    const allowEarlyCheckIn = process.env.NEXT_PUBLIC_ALLOW_EARLY_CHECKIN === 'true';
+  // Check if verification is allowed (considers environment setting for testing)
+  const canVerify = () => {
+    // Allow early verification if environment variable is set to 'true' (for testing)
+    const allowEarlyVerification = process.env.NEXT_PUBLIC_ALLOW_EARLY_CHECKIN === 'true';
 
-    if (allowEarlyCheckIn) {
-      return true; // Testing mode: allow check-in anytime
+    if (allowEarlyVerification) {
+      return true; // Testing mode: allow verification anytime
     }
 
-    // Production mode: strict same-day-only check-in
+    // Production mode: strict same-day-only verification
     return isToday();
   };
 
@@ -116,23 +116,23 @@ export function StatusTransitionButtons({
     }
   };
 
-  // Handle check-in action
-  const handleCheckIn = () => {
-    if (!canCheckIn()) {
-      toast.error('Patients can only be checked in on the appointment day');
+  // Handle verify action
+  const handleVerify = () => {
+    if (!canVerify()) {
+      toast.error('Patients can only be verified on the appointment day');
       return;
     }
     setConfirmDialog({
       isOpen: true,
-      action: 'check_in',
-      title: 'Check In Patient',
+      action: 'verify',
+      title: 'Verify Patient',
       message: 'Confirm that the patient has arrived and is ready for service. The patient will be notified.',
     });
   };
 
-  // Confirm check-in action
-  const confirmCheckIn = () => {
-    updateStatus('checked_in');
+  // Confirm verify action
+  const confirmVerify = () => {
+    updateStatus('verified');
   };
 
   // Handle start consultation action
@@ -213,26 +213,26 @@ export function StatusTransitionButtons({
         return (
           <>
             <Button
-              onClick={handleCheckIn}
-              disabled={isLoading || !canCheckIn()}
+              onClick={handleVerify}
+              disabled={isLoading || !canVerify()}
               variant="outline"
               className="bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100"
             >
-              {isLoading && loadingAction === 'checked_in' ? (
+              {isLoading && loadingAction === 'verified' ? (
                 <>
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Checking In...
+                  Verifying...
                 </>
               ) : (
                 <>
                   <CheckCircle className="w-4 h-4 mr-2" />
-                  Check In Patient
+                  Verify Patient
                 </>
               )}
             </Button>
             <Button
               onClick={handleNoShow}
-              disabled={isLoading || !canCheckIn()}
+              disabled={isLoading || !canVerify()}
               variant="outline"
               className="bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100"
             >
@@ -242,11 +242,11 @@ export function StatusTransitionButtons({
           </>
         );
 
-      case 'checked_in':
+      case 'verified':
         // Only show "Start Consultation" button
-        // To undo a check-in mistake, use "Undo Last Action" button instead of marking as no-show
+        // To undo a verification mistake, use "Undo Last Action" button instead of marking as no-show
         const isDisabledDueToInProgress = inProgressCount > 0;
-        const isNotNextInQueue = !!lowerQueueCheckedIn;
+        const isNotNextInQueue = !!lowerQueueVerified;
         const isStartDisabled = isDisabledDueToInProgress || isNotNextInQueue;
 
         return (
@@ -260,7 +260,7 @@ export function StatusTransitionButtons({
                 isDisabledDueToInProgress
                   ? 'Wait for current consultation to complete'
                   : isNotNextInQueue
-                  ? `Wait for queue #${lowerQueueCheckedIn} first`
+                  ? `Wait for queue #${lowerQueueVerified} first`
                   : 'Start consultation'
               }
             >
@@ -281,7 +281,7 @@ export function StatusTransitionButtons({
                 {isDisabledDueToInProgress
                   ? 'Wait for current consultation to complete before starting'
                   : isNotNextInQueue
-                  ? `Queue #${lowerQueueCheckedIn} must be consulted first (sequential order)`
+                  ? `Queue #${lowerQueueVerified} must be consulted first (sequential order)`
                   : 'Start consultation'}
               </div>
             )}
@@ -402,8 +402,8 @@ export function StatusTransitionButtons({
                       onClick={() => {
                         if (confirmDialog.action === 'approve') {
                           confirmApprove();
-                        } else if (confirmDialog.action === 'check_in') {
-                          confirmCheckIn();
+                        } else if (confirmDialog.action === 'verify') {
+                          confirmVerify();
                         } else if (confirmDialog.action === 'start') {
                           confirmStart();
                         } else if (confirmDialog.action === 'no_show') {

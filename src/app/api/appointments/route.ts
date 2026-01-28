@@ -199,7 +199,7 @@ export async function POST(request: NextRequest) {
         .from('appointments')
         .select('id, service_id')
         .eq('patient_id', patient.id)
-        .in('status', ['scheduled', 'checked_in', 'in_progress']);
+        .in('status', ['scheduled', 'verified', 'in_progress']);
 
       if (existingAppointments && existingAppointments.length >= 2) {
         return NextResponse.json(
@@ -250,7 +250,7 @@ export async function POST(request: NextRequest) {
         .eq('appointment_date', appointment_date!)
         .eq('service_id', service_id)
         .eq('time_block', time_block!)
-        .in('status', ['pending', 'scheduled', 'checked_in', 'in_progress']);
+        .in('status', ['pending', 'scheduled', 'verified', 'in_progress']);
 
       if (blockAppointments && blockAppointments.length >= blockCapacity) {
         const blockInfo = formatTimeBlock(time_block!);
@@ -336,9 +336,9 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      // SET INITIAL APPOINTMENT STAGE: All health card appointments start at 'check_in'
-      // This enables the sequential workflow: check_in → laboratory → results → checkup → releasing
-      insertData.appointment_stage = 'check_in';
+      // SET INITIAL APPOINTMENT STAGE: All health card appointments start at 'verification'
+      // This enables the sequential workflow: verification → laboratory → results → checkup → releasing
+      insertData.appointment_stage = 'verification';
     }
 
     if (lab_location) {
@@ -662,7 +662,7 @@ export async function GET(request: NextRequest) {
       if (profile.role === 'patient') {
         // Patients can explicitly see these statuses (includes pending!)
         // Excludes: draft, cancelled (if zero queue number)
-        query = query.in('status', ['pending', 'scheduled', 'checked_in', 'in_progress', 'completed', 'no_show']);
+        query = query.in('status', ['pending', 'scheduled', 'verified', 'in_progress', 'completed', 'no_show']);
       } else {
         // Admins/Staff: exclude draft appointments and cancelled drafts (appointment_number = 0)
         // Use OR filter: (status != draft AND status != cancelled) OR (status != draft AND appointment_number > 0)
@@ -869,7 +869,7 @@ export async function GET(request: NextRequest) {
       // Apply same role-specific filtering as main query
       if (profile.role === 'patient') {
         // Patients can see these statuses (includes pending!)
-        countQuery = countQuery.in('status', ['pending', 'scheduled', 'checked_in', 'in_progress', 'completed', 'no_show']);
+        countQuery = countQuery.in('status', ['pending', 'scheduled', 'verified', 'in_progress', 'completed', 'no_show']);
       } else {
         // Admins/Staff: exclude drafts and cancelled placeholders
         countQuery = countQuery.or('and(status.neq.draft,status.neq.cancelled),and(status.neq.draft,appointment_number.gt.0)');

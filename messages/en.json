@@ -100,9 +100,9 @@
       "title": "Appointment Status Updated",
       "message": "Your appointment #{appointment_number} status was reverted to \"{new_status}\". {reason}"
     },
-    "check_in_success": {
-      "title": "Checked In Successfully",
-      "message": "You have been checked in for appointment #{appointment_number}. Please wait to be called."
+    "verification_success": {
+      "title": "Verified Successfully",
+      "message": "You have been verified for appointment #{appointment_number}. Please wait to be called."
     },
     "consultation_started": {
       "title": "Consultation Started",
@@ -259,14 +259,14 @@
       "reason": "Reason for Visit",
       "status": "Status",
       "timeline": "Timeline",
-      "checked_in": "Checked In",
+      "verified": "Verified",
       "started": "Started",
       "completed": "Completed"
     },
     "status": {
       "pending": "Pending",
       "scheduled": "Scheduled",
-      "checked_in": "Checked In",
+      "verified": "Verified",
       "in_progress": "In Progress",
       "completed": "Completed",
       "cancelled": "Cancelled",
@@ -513,7 +513,7 @@
       "total": "Total",
       "pending": "Pending",
       "scheduled": "Scheduled",
-      "checked_in": "Checked In",
+      "verified": "Verified",
       "in_progress": "In Progress",
       "completed": "Completed",
       "cancelled": "Cancelled",
@@ -523,7 +523,7 @@
       "all": "All Appointments",
       "pending": "Pending",
       "scheduled": "Scheduled",
-      "checked_in": "Checked In",
+      "verified": "Verified",
       "in_progress": "In Progress",
       "completed": "Completed",
       "cancelled": "Cancelled",
@@ -554,8 +554,8 @@
       "reason_for_visit": "Reason for Visit",
       "cancellation_reason": "Cancellation Reason",
       "timeline": "Timeline",
-      "checked_in": "Checked In",
-      "checked_in_at": "Checked In:",
+      "verified": "Verified",
+      "verified_at": "Verified At:",
       "started": "Started",
       "started_at": "Started:",
       "completed": "Completed",
@@ -958,7 +958,7 @@
       "draft": "Draft",
       "pending": "Pending",
       "scheduled": "Scheduled",
-      "checked_in": "Checked In",
+      "verified": "Verified",
       "in_progress": "In Progress",
       "completed": "Completed",
       "cancelled": "Cancelled",

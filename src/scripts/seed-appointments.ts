@@ -89,7 +89,7 @@ interface AppointmentRecord {
   status: AppointmentStatus;
   time_block: 'AM' | 'PM';
   reason: string;
-  checked_in_at: string | null;
+  verified_at: string | null;
   started_at: string | null;
   completed_at: string | null;
   completed_by_id: string | null;
@@ -141,15 +141,15 @@ function generateTimestamps(
   const created_at = new Date(baseDate.getTime() - 7 * 24 * 60 * 60 * 1000); // 7 days before
   const updated_at = new Date(baseDate);
 
-  let checked_in_at = null;
+  let verified_at = null;
   let started_at = null;
   let completed_at = null;
 
   if (status === 'completed') {
     // Checked in 5-15 minutes early
-    checked_in_at = new Date(baseDate.getTime() - (5 + Math.random() * 10) * 60 * 1000);
+    verified_at = new Date(baseDate.getTime() - (5 + Math.random() * 10) * 60 * 1000);
     // Started 0-5 minutes after check-in
-    started_at = new Date(checked_in_at.getTime() + Math.random() * 5 * 60 * 1000);
+    started_at = new Date(verified_at.getTime() + Math.random() * 5 * 60 * 1000);
     // Completed 20-45 minutes after start
     completed_at = new Date(started_at.getTime() + (20 + Math.random() * 25) * 60 * 1000);
   } else if (status === 'cancelled') {
@@ -161,7 +161,7 @@ function generateTimestamps(
   return {
     created_at: created_at.toISOString(),
     updated_at: updated_at.toISOString(),
-    checked_in_at: checked_in_at?.toISOString() || null,
+    verified_at: verified_at?.toISOString() || null,
     started_at: started_at?.toISOString() || null,
     completed_at: completed_at?.toISOString() || null,
   };

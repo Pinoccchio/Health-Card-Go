@@ -100,9 +100,9 @@
       "title": "Na-update ang Katayuan ng Appointment",
       "message": "Ang iyong appointment #{appointment_number} ay na-revert sa \"{new_status}\". {reason}"
     },
-    "check_in_success": {
-      "title": "Matagumpay na Nag-check In",
-      "message": "Nag-check in ka na para sa appointment #{appointment_number}. Mangyaring maghintay na tawagin."
+    "verification_success": {
+      "title": "Matagumpay na Na-verify",
+      "message": "Na-verify ka na para sa appointment #{appointment_number}. Mangyaring maghintay na tawagin."
     },
     "consultation_started": {
       "title": "Nagsimula ang Konsultasyon",
@@ -259,14 +259,14 @@
       "reason": "Dahilan ng Pagbisita",
       "status": "Katayuan",
       "timeline": "Timeline",
-      "checked_in": "Nakarating na",
+      "verified": "Na-verify na",
       "started": "Nagsimula",
       "completed": "Nakumpleto"
     },
     "status": {
       "pending": "Naghihintay",
       "scheduled": "Naka-iskedyul",
-      "checked_in": "Nakarating na",
+      "verified": "Na-verify na",
       "in_progress": "Isinasagawa",
       "completed": "Nakumpleto",
       "cancelled": "Nakansela",
@@ -513,7 +513,7 @@
       "total": "Kabuuan",
       "pending": "Nakabinbin",
       "scheduled": "Nakatakda",
-      "checked_in": "Naka-check In",
+      "verified": "Na-verify na",
       "in_progress": "Isinasagawa",
       "completed": "Tapos Na",
       "cancelled": "Nakansela",
@@ -523,7 +523,7 @@
       "all": "Lahat ng Appointment",
       "pending": "Nakabinbin",
       "scheduled": "Nakatakda",
-      "checked_in": "Naka-check In",
+      "verified": "Na-verify na",
       "in_progress": "Isinasagawa",
       "completed": "Tapos Na",
       "cancelled": "Nakansela",
@@ -554,8 +554,8 @@
       "reason_for_visit": "Dahilan ng Pagbisita",
       "cancellation_reason": "Dahilan ng Kanselasyon",
       "timeline": "Timeline",
-      "checked_in": "Nakarating na",
-      "checked_in_at": "Nakarating na:",
+      "verified": "Na-verify na",
+      "verified_at": "Na-verify noong:",
       "started": "Nagsimula",
       "started_at": "Nagsimula:",
       "completed": "Nakumpleto",
@@ -953,7 +953,7 @@
   "enums": {
     "appointment_status": {
       "scheduled": "Naka-iskedyul",
-      "checked_in": "Nakarating na",
+      "verified": "Na-verify na",
       "in_progress": "Isinasagawa",
       "completed": "Nakumpleto",
       "cancelled": "Nakansela",

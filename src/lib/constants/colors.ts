@@ -15,7 +15,7 @@ export type AppointmentStatus =
   | 'draft'
   | 'pending'
   | 'scheduled'
-  | 'checked_in'
+  | 'verified'
   | 'in_progress'
   | 'completed'
   | 'cancelled'
@@ -48,8 +48,8 @@ export const APPOINTMENT_STATUS_CONFIG: Record<AppointmentStatus, StatusColorCon
     timeline: 'bg-blue-500',
     icon: Calendar,
   },
-  checked_in: {
-    label: 'Checked In',
+  verified: {
+    label: 'Verified',
     color: 'bg-purple-100 text-purple-800',
     timeline: 'bg-purple-500',
     icon: Users,

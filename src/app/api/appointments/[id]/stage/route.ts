@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/server';
  * PUT /api/appointments/[id]/stage
  * Update appointment stage for HealthCard appointments
  *
- * Body: { stage: 'check_in' | 'laboratory' | 'results' | 'checkup' | 'releasing' }
+ * Body: { stage: 'verification' | 'laboratory' | 'results' | 'checkup' | 'releasing' }
  * Access: Healthcare Admin assigned to service
  */
 export async function PUT(
@@ -56,7 +56,7 @@ export async function PUT(
     const { stage, notes } = body;
 
     // Validate stage
-    const validStages = ['check_in', 'laboratory', 'results', 'checkup', 'releasing'];
+    const validStages = ['verification', 'laboratory', 'results', 'checkup', 'releasing'];
     if (!stage || !validStages.includes(stage)) {
       return NextResponse.json(
         { success: false, error: 'Invalid stage. Must be one of: ' + validStages.join(', ') },
@@ -98,14 +98,14 @@ export async function PUT(
         return NextResponse.json(
           {
             success: false,
-            error: 'Patients can only update Laboratory and Results stages. Check-in, Check-up, and Releasing are managed by healthcare staff.',
+            error: 'Patients can only update Laboratory and Results stages. Verification, Check-up, and Releasing are managed by healthcare staff.',
           },
           { status: 403 }
         );
       }
     }
 
-    // If healthcare admin, verify assigned to service and restrict to check_in/releasing only
+    // If healthcare admin, verify assigned to service and restrict to verification/releasing only
     if (isAdmin) {
       // Verify healthcare admin is assigned to this service
       if (
@@ -118,12 +118,12 @@ export async function PUT(
         );
       }
 
-      // Healthcare admins can ONLY update check_in, checkup, and releasing (stages 1, 4, 5)
-      if (!['check_in', 'checkup', 'releasing'].includes(stage)) {
+      // Healthcare admins can ONLY update verification, checkup, and releasing (stages 1, 4, 5)
+      if (!['verification', 'checkup', 'releasing'].includes(stage)) {
         return NextResponse.json(
           {
             success: false,
-            error: 'Healthcare admins can only update Check-in, Check-up, and Releasing stages. Patients control the Laboratory stage.',
+            error: 'Healthcare admins can only update Verification, Check-up, and Releasing stages. Patients control the Laboratory stage.',
           },
           { status: 403 }
         );
@@ -145,19 +145,19 @@ export async function PUT(
       );
     }
 
-    // Verify appointment is checked in
-    if (appointment.status !== 'checked_in' && appointment.status !== 'in_progress') {
+    // Verify appointment is verified
+    if (appointment.status !== 'verified' && appointment.status !== 'in_progress') {
       return NextResponse.json(
         {
           success: false,
-          error: 'Appointment must be checked in before updating stages',
+          error: 'Appointment must be verified before updating stages',
         },
         { status: 400 }
       );
     }
 
     // Validate sequential progression
-    const stageOrder = ['check_in', 'laboratory', 'results', 'checkup', 'releasing'];
+    const stageOrder = ['verification', 'laboratory', 'results', 'checkup', 'releasing'];
     const currentStageIndex = appointment.appointment_stage
       ? stageOrder.indexOf(appointment.appointment_stage)
       : -1;

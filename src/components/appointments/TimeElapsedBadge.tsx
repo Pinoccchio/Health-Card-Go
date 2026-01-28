@@ -80,7 +80,7 @@ export function TimeElapsedBadge({ timestamp, label, type = 'waiting' }: TimeEla
       className={`inline-flex items-center px-2 py-1 rounded-md text-xs font-medium ${colorClass}`}
       title={
         type === 'waiting'
-          ? 'Time elapsed since original check-in (preserved for audit trail and wait time metrics)'
+          ? 'Time elapsed since original verification (preserved for audit trail and wait time metrics)'
           : 'Time elapsed since consultation started'
       }
     >

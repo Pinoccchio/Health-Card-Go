@@ -88,7 +88,7 @@ export async function GET(request: NextRequest) {
       .from('appointments')
       .select('appointment_date, status')
       .eq('service_id', serviceId)
-      .in('status', ['scheduled', 'checked_in', 'in_progress', 'completed'])
+      .in('status', ['scheduled', 'verified', 'in_progress', 'completed'])
       .gte('appointment_date', startDate.toISOString().split('T')[0])
       .lte('appointment_date', endDate.toISOString().split('T')[0])
       .order('appointment_date', { ascending: true });
@@ -106,7 +106,7 @@ export async function GET(request: NextRequest) {
         `)
         .eq('service_id', serviceId)
         .eq('patients.barangay_id', barangayId)
-        .in('status', ['scheduled', 'checked_in', 'in_progress', 'completed'])
+        .in('status', ['scheduled', 'verified', 'in_progress', 'completed'])
         .gte('appointment_date', startDate.toISOString().split('T')[0])
         .lte('appointment_date', endDate.toISOString().split('T')[0])
         .order('appointment_date', { ascending: true });

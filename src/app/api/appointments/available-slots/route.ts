@@ -130,7 +130,7 @@ export async function GET(request: NextRequest) {
       .from('appointments')
       .select('time_block, status')
       .eq('appointment_date', date)
-      .in('status', ['pending', 'scheduled', 'checked_in', 'in_progress']);
+      .in('status', ['pending', 'scheduled', 'verified', 'in_progress']);
 
     if (fetchError) {
       console.error('Error fetching appointments:', fetchError);

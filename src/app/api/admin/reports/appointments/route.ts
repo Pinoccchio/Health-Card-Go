@@ -134,7 +134,7 @@ export async function GET(request: NextRequest) {
       scheduled: filteredAppointments.filter((a: any) => a.status === 'scheduled').length,
       cancelled: filteredAppointments.filter((a: any) => a.status === 'cancelled').length,
       no_show: filteredAppointments.filter((a: any) => a.status === 'no_show').length,
-      checked_in: filteredAppointments.filter((a: any) => a.status === 'checked_in').length,
+      verified: filteredAppointments.filter((a: any) => a.status === 'verified').length,
       in_progress: filteredAppointments.filter((a: any) => a.status === 'in_progress').length,
     };
 
@@ -149,7 +149,7 @@ export async function GET(request: NextRequest) {
       { status: 'scheduled', count: summary.scheduled },
       { status: 'cancelled', count: summary.cancelled },
       { status: 'no_show', count: summary.no_show },
-      { status: 'checked_in', count: summary.checked_in },
+      { status: 'verified', count: summary.verified },
       { status: 'in_progress', count: summary.in_progress },
     ].filter(item => item.count > 0);
 

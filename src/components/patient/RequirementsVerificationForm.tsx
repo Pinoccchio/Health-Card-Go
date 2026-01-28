@@ -153,7 +153,7 @@ export function RequirementsVerificationForm({
           Confirm Requirements
         </h3>
         <p className="text-sm text-gray-600">
-          Please confirm you have the following requirements. These will be verified during check-in.
+          Please confirm you have the following requirements. These will be verified during your appointment.
         </p>
       </div>
 
@@ -238,7 +238,7 @@ export function RequirementsVerificationForm({
         </p>
         <ul className="text-sm text-blue-800 space-y-1 ml-5">
           <li>- Bring all confirmed requirements on your appointment day</li>
-          <li>- Staff will verify your documents during check-in</li>
+          <li>- Staff will verify your documents during your appointment</li>
           <li>- Original documents are required (no photocopies)</li>
           <li>- Keep your payment receipt for your records</li>
         </ul>

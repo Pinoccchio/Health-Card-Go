@@ -45,9 +45,9 @@ export default function LaboratoryStageModal({
 
     try {
       // Determine next stage based on current stage
-      // check_in -> laboratory (starting lab tests)
+      // verification -> laboratory (starting lab tests)
       // laboratory -> results (lab tests completed)
-      const nextStage = currentStage === 'check_in' ? 'laboratory' : 'results';
+      const nextStage = currentStage === 'verification' ? 'laboratory' : 'results';
       const notes =
         nextStage === 'laboratory'
           ? 'Laboratory tests in progress'
@@ -123,7 +123,7 @@ export default function LaboratoryStageModal({
         {/* Content */}
         <div className="p-6 space-y-4">
           <p className="text-gray-600">
-            {currentStage === 'check_in'
+            {currentStage === 'verification'
               ? 'Start the laboratory testing process for this patient.'
               : 'Confirm that all required laboratory tests have been completed for this patient.'}
           </p>
@@ -143,12 +143,12 @@ export default function LaboratoryStageModal({
               />
               <div className="flex-1">
                 <p className="font-medium text-gray-900">
-                  {currentStage === 'check_in'
+                  {currentStage === 'verification'
                     ? 'Begin laboratory testing'
                     : 'Laboratory tests completed'}
                 </p>
                 <p className="text-sm text-gray-600 mt-1">
-                  {currentStage === 'check_in'
+                  {currentStage === 'verification'
                     ? 'Patient is ready to proceed to the laboratory for required tests'
                     : 'All required laboratory tests have been performed and results are ready for review'}
                 </p>
@@ -167,7 +167,7 @@ export default function LaboratoryStageModal({
           <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
             <p className="text-sm text-gray-600">
               <span className="font-medium">Next step:</span>{' '}
-              {currentStage === 'check_in'
+              {currentStage === 'verification'
                 ? 'The appointment will move to the Laboratory stage where tests will be conducted.'
                 : 'After confirming, the appointment will move to the Results stage for doctor review.'}
             </p>
@@ -196,7 +196,7 @@ export default function LaboratoryStageModal({
             ) : (
               <>
                 <CheckCircle className="w-4 h-4" />
-                {currentStage === 'check_in' ? 'Start Laboratory' : 'Proceed to Results'}
+                {currentStage === 'verification' ? 'Start Laboratory' : 'Proceed to Results'}
               </>
             )}
           </button>

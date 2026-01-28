@@ -40,7 +40,7 @@ export default function AppointmentReportTable({
         return 'bg-orange-100 text-orange-800';
       case 'in_progress':
         return 'bg-yellow-100 text-yellow-800';
-      case 'checked_in':
+      case 'verified':
         return 'bg-purple-100 text-purple-800';
       default:
         return 'bg-gray-100 text-gray-800';

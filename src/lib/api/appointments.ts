@@ -5,7 +5,7 @@
 export type AppointmentStatus =
   | 'pending'
   | 'scheduled'
-  | 'checked_in'
+  | 'verified'
   | 'in_progress'
   | 'completed'
   | 'cancelled'
@@ -53,13 +53,13 @@ export async function updateAppointmentStatus(
 }
 
 /**
- * Check in a patient for their appointment
- * Sets status to 'checked_in' and records checked_in_at timestamp
+ * Verify a patient for their appointment
+ * Sets status to 'verified' and records verified_at timestamp
  */
-export async function checkInAppointment(
+export async function verifyAppointment(
   appointmentId: string
 ): Promise<UpdateStatusResponse> {
-  return updateAppointmentStatus(appointmentId, 'checked_in');
+  return updateAppointmentStatus(appointmentId, 'verified');
 }
 
 /**

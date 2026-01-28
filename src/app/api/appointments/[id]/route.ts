@@ -11,9 +11,9 @@ import { createAppointmentConfirmationNotification } from '@/lib/notifications/c
  * Update appointment status (for walk-in queue management)
  *
  * Allowed transitions:
- * - checked_in -> in_progress (Start Consultation)
+ * - verified -> in_progress (Start Consultation)
  * - in_progress -> completed (via /complete endpoint instead)
- * - scheduled -> checked_in (Regular appointments checking in)
+ * - scheduled -> verified (Regular appointments being verified)
  */
 export async function PATCH(
   request: NextRequest,
@@ -203,8 +203,8 @@ export async function PATCH(
       const validTransitions: Record<string, string[]> = {
         'draft': ['pending', 'cancelled'], // Draft → Completed booking or cancelled
         'pending': ['scheduled', 'cancelled'], // HealthCard Outside CHO awaiting verification
-        'scheduled': ['checked_in', 'cancelled'],
-        'checked_in': ['in_progress', 'cancelled'],
+        'scheduled': ['verified', 'cancelled'],
+        'verified': ['in_progress', 'cancelled'],
         'in_progress': ['completed', 'cancelled'],
       };
 
@@ -415,12 +415,12 @@ export async function PATCH(
     // Clear timestamps when reverting to earlier status
     if (isRevertOperation && revert_to_history_id) {
       if (targetStatus === 'scheduled') {
-        updateData.checked_in_at = null;
+        updateData.verified_at = null;
         updateData.started_at = null;
         updateData.completed_at = null;
         updateData.completed_by_id = null;
       }
-      else if (targetStatus === 'checked_in') {
+      else if (targetStatus === 'verified') {
         updateData.started_at = null;
         updateData.completed_at = null;
         updateData.completed_by_id = null;
@@ -432,8 +432,8 @@ export async function PATCH(
     }
 
     // Set timestamp based on new status
-    if (targetStatus === 'checked_in' && !appointment.checked_in_at) {
-      updateData.checked_in_at = now;
+    if (targetStatus === 'verified' && !appointment.verified_at) {
+      updateData.verified_at = now;
     }
 
     if (targetStatus === 'in_progress' && !appointment.started_at) {
@@ -478,17 +478,17 @@ export async function PATCH(
       const patientUserId = appointmentWithPatient.patients.user_id;
 
       try {
-        // Check-in notification
-        if (targetStatus === 'checked_in' && !isRevertOperation) {
+        // Verification notification
+        if (targetStatus === 'verified' && !isRevertOperation) {
           await adminClient.from('notifications').insert({
             user_id: patientUserId,
             type: 'general',
-            title: 'notifications.check_in_success.title',
-            message: 'notifications.check_in_success.message',
+            title: 'notifications.verification_success.title',
+            message: 'notifications.verification_success.message',
             link: '/patient/appointments',
             data: `appointment_number=${queueNumber}`
           });
-          console.log(`✅ [NOTIFICATION] Check-in notification sent for appointment #${queueNumber}`);
+          console.log(`✅ [NOTIFICATION] Verification notification sent for appointment #${queueNumber}`);
         }
 
         // Consultation started notification
@@ -565,8 +565,8 @@ export async function PATCH(
     // Log audit trail
     const auditAction = targetStatus === 'cancelled'
       ? AUDIT_ACTIONS.APPOINTMENT_CANCELLED
-      : targetStatus === 'checked_in'
-      ? AUDIT_ACTIONS.APPOINTMENT_CHECKED_IN
+      : targetStatus === 'verified'
+      ? AUDIT_ACTIONS.APPOINTMENT_VERIFIED
       : AUDIT_ACTIONS.APPOINTMENT_UPDATED;
 
     await logAuditAction({

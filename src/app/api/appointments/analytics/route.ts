@@ -42,7 +42,7 @@ export async function GET(request: NextRequest) {
         appointment_time,
         status,
         created_at,
-        checked_in_at,
+        verified_at,
         completed_at,
         cancelled_at,
         service_id,
@@ -95,7 +95,7 @@ export async function GET(request: NextRequest) {
       cancelled: appointments.filter(a => a.status === 'cancelled').length,
       no_show: appointments.filter(a => a.status === 'no_show').length,
       scheduled: appointments.filter(a => a.status === 'scheduled').length,
-      checked_in: appointments.filter(a => a.status === 'checked_in').length,
+      verified: appointments.filter(a => a.status === 'verified').length,
       in_progress: appointments.filter(a => a.status === 'in_progress').length,
       pending: appointments.filter(a => a.status === 'pending').length,
     };
@@ -197,14 +197,14 @@ export async function GET(request: NextRequest) {
     );
 
     // Calculate average wait times (for completed appointments)
-    const completedApts = appointments.filter(a => a.status === 'completed' && a.checked_in_at && a.completed_at);
+    const completedApts = appointments.filter(a => a.status === 'completed' && a.verified_at && a.completed_at);
     let avgWaitTimeMinutes = 0;
 
     if (completedApts.length > 0) {
       const totalWaitTime = completedApts.reduce((sum, apt) => {
-        const checkIn = new Date(apt.checked_in_at!).getTime();
+        const verifiedTime = new Date(apt.verified_at!).getTime();
         const completed = new Date(apt.completed_at!).getTime();
-        return sum + (completed - checkIn);
+        return sum + (completed - verifiedTime);
       }, 0);
       avgWaitTimeMinutes = Math.round(totalWaitTime / completedApts.length / 1000 / 60);
     }
@@ -218,7 +218,7 @@ export async function GET(request: NextRequest) {
           cancelled: statusCounts.cancelled,
           no_show: statusCounts.no_show,
           scheduled: statusCounts.scheduled,
-          checked_in: statusCounts.checked_in,
+          verified: statusCounts.verified,
           in_progress: statusCounts.in_progress,
           pending: statusCounts.pending,
           completion_rate: Math.round(completionRate * 100) / 100,

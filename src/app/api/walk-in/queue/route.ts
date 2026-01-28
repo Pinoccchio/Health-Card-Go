@@ -53,7 +53,7 @@ export async function GET(request: NextRequest) {
     const today = `${nowPHT.getUTCFullYear()}-${String(nowPHT.getUTCMonth() + 1).padStart(2, '0')}-${String(nowPHT.getUTCDate()).padStart(2, '0')}`;
 
     // 5. Fetch today's walk-in patients for this service
-    // Only show active appointments (checked_in, in_progress) - not completed ones
+    // Only show active appointments (verified, in_progress) - not completed ones
     const { data: appointments, error: appointmentsError } = await supabase
       .from('appointments')
       .select(`
@@ -63,7 +63,7 @@ export async function GET(request: NextRequest) {
         appointment_time,
         time_block,
         status,
-        checked_in_at,
+        verified_at,
         started_at,
         completed_at,
         created_at,
@@ -92,7 +92,7 @@ export async function GET(request: NextRequest) {
       `)
       .eq('service_id', profile.assigned_service_id)
       .eq('appointment_date', today)
-      .in('status', ['checked_in', 'in_progress']) // Only show active walk-ins, not completed
+      .in('status', ['verified', 'in_progress']) // Only show active walk-ins, not completed
       .order('appointment_number', { ascending: true });
 
     if (appointmentsError) {
@@ -124,12 +124,12 @@ export async function GET(request: NextRequest) {
       appointment_date: apt.appointment_date, // Actual appointment date
       appointment_time: apt.appointment_time,
       time_block: apt.time_block,
-      checked_in_at: apt.checked_in_at,
+      verified_at: apt.verified_at,
       started_at: apt.started_at,
       completed_at: apt.completed_at,
       registered_at: apt.created_at,
       status: apt.status === 'in_progress' ? 'in_progress'
-        : apt.status === 'checked_in' ? 'waiting'
+        : apt.status === 'verified' ? 'waiting'
         : 'completed', // Fallback for any completed appointments
     }));
 

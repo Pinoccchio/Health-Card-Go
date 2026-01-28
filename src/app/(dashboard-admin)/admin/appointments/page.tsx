@@ -51,10 +51,10 @@ interface AdminAppointment {
   appointment_date: string;
   appointment_time: string;
   time_block: TimeBlock;
-  status: 'pending' | 'scheduled' | 'checked_in' | 'in_progress' | 'completed' | 'cancelled' | 'no_show';
+  status: 'pending' | 'scheduled' | 'verified' | 'in_progress' | 'completed' | 'cancelled' | 'no_show';
   reason?: string;
   service_id: number;
-  checked_in_at?: string | null;
+  verified_at?: string | null;
   started_at?: string | null;
   completed_at?: string | null;
   patients: {
@@ -92,7 +92,7 @@ export default function SuperAdminAppointmentsPage() {
   const [selectedAppointment, setSelectedAppointment] = useState<AdminAppointment | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [filter, setFilter] = useState<'all' | 'pending' | 'scheduled' | 'checked_in' | 'in_progress' | 'completed' | 'cancelled' | 'no_show'>('all');
+  const [filter, setFilter] = useState<'all' | 'pending' | 'scheduled' | 'verified' | 'in_progress' | 'completed' | 'cancelled' | 'no_show'>('all');
   const [dateFilter, setDateFilter] = useState<string>('all');
   const [serviceFilter, setServiceFilter] = useState<string>('all');
   const [successMessage, setSuccessMessage] = useState('');
@@ -383,9 +383,9 @@ export default function SuperAdminAppointmentsPage() {
       render: (value: AdminAppointment['status'], row: AdminAppointment) => (
         <div className="flex flex-col gap-1">
           {getStatusBadge(value)}
-          {row.checked_in_at && row.status === 'checked_in' && (
+          {row.verified_at && row.status === 'verified' && (
             <TimeElapsedBadge
-              timestamp={row.checked_in_at}
+              timestamp={row.verified_at}
               label="Waiting"
               type="waiting"
             />
@@ -485,7 +485,7 @@ export default function SuperAdminAppointmentsPage() {
                 { id: 'all', label: 'All Appointments', count: statistics.total, color: 'gray', icon: ListChecks },
                 { id: 'pending', label: 'Pending', count: statistics.pending, color: 'orange', icon: Clock },
                 { id: 'scheduled', label: 'Scheduled', count: statistics.scheduled, color: 'blue', icon: Calendar },
-                { id: 'checked_in', label: 'Checked In', count: statistics.checked_in, color: 'purple', icon: UserCheck },
+                { id: 'verified', label: 'Verified', count: statistics.verified, color: 'purple', icon: UserCheck },
                 { id: 'in_progress', label: 'In Progress', count: statistics.in_progress, color: 'amber', icon: Activity },
                 { id: 'completed', label: 'Completed', count: statistics.completed, color: 'green', icon: CheckCircle },
                 { id: 'cancelled', label: 'Cancelled', count: statistics.cancelled, color: 'gray', icon: XCircle },
@@ -855,17 +855,17 @@ export default function SuperAdminAppointmentsPage() {
                 )}
 
                 {/* Timestamps */}
-                {(selectedAppointment.checked_in_at || selectedAppointment.started_at || selectedAppointment.completed_at) && (
+                {(selectedAppointment.verified_at || selectedAppointment.started_at || selectedAppointment.completed_at) && (
                   <div>
                     <h4 className="text-sm font-medium text-gray-700 mb-2 flex items-center">
                       <Clock className="w-4 h-4 mr-2" />
                       Timeline
                     </h4>
                     <div className="bg-gray-50 rounded-md p-3 space-y-1 text-sm">
-                      {selectedAppointment.checked_in_at && (
+                      {selectedAppointment.verified_at && (
                         <div className="flex justify-between">
-                          <span className="text-gray-600">Checked In:</span>
-                          <span className="text-gray-900">{new Date(selectedAppointment.checked_in_at).toLocaleString()}</span>
+                          <span className="text-gray-600">Verified:</span>
+                          <span className="text-gray-900">{new Date(selectedAppointment.verified_at).toLocaleString()}</span>
                         </div>
                       )}
                       {selectedAppointment.started_at && (

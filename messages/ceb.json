@@ -100,9 +100,9 @@
       "title": "Gi-update ang Katayuan sa Appointment",
       "message": "Ang imong appointment #{appointment_number} gi-revert sa \"{new_status}\". {reason}"
     },
-    "check_in_success": {
-      "title": "Malampuson ang Pag-check In",
-      "message": "Nag-check in ka na para sa appointment #{appointment_number}. Palihug paghulat nga tawagon."
+    "verification_success": {
+      "title": "Malampuson ang Pag-verify",
+      "message": "Na-verify ka na para sa appointment #{appointment_number}. Palihug paghulat nga tawagon."
     },
     "consultation_started": {
       "title": "Nagsugod ang Konsultasyon",
@@ -259,14 +259,14 @@
       "reason": "Hinungdan sa Pagbisita",
       "status": "Kahimtang",
       "timeline": "Timeline",
-      "checked_in": "Naabot na",
+      "verified": "Na-verify na",
       "started": "Nagsugod",
       "completed": "Nahuman"
     },
     "status": {
       "pending": "Naghulat",
       "scheduled": "Naka-iskedyul",
-      "checked_in": "Naabot na",
+      "verified": "Na-verify na",
       "in_progress": "Ginahimo",
       "completed": "Nahuman",
       "cancelled": "Nakansela",
@@ -513,7 +513,7 @@
       "total": "Tibuok",
       "pending": "Naghulat",
       "scheduled": "Nakaschedulehedulado",
-      "checked_in": "Naka-check In",
+      "verified": "Na-verify na",
       "in_progress": "Ginahimo",
       "completed": "Nahuman Na",
       "cancelled": "Gikansela",
@@ -523,7 +523,7 @@
       "all": "Tanang Appointment",
       "pending": "Naghulat",
       "scheduled": "Nakahedulo",
-      "checked_in": "Naka-check In",
+      "verified": "Na-verify na",
       "in_progress": "Ginahimo",
       "completed": "Nahuman Na",
       "cancelled": "Gikansela",
@@ -554,8 +554,8 @@
       "reason_for_visit": "Hinungdan sa Pagbisita",
       "cancellation_reason": "Hinungdan sa Kanselasyon",
       "timeline": "Timeline",
-      "checked_in": "Naabot na",
-      "checked_in_at": "Naabot na:",
+      "verified": "Na-verify na",
+      "verified_at": "Na-verify sa:",
       "started": "Nagsugod",
       "started_at": "Nagsugod:",
       "completed": "Nahuman",
@@ -953,7 +953,7 @@
   "enums": {
     "appointment_status": {
       "scheduled": "Naka-iskedyul",
-      "checked_in": "Naabot na",
+      "verified": "Na-verify na",
       "in_progress": "Ginahimo",
       "completed": "Nahuman",
       "cancelled": "Nakansela",

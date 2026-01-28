@@ -32,7 +32,7 @@ export const STATUS_COLORS: Record<string, string> = {
   no_show: '#f59e0b', // amber
   pending: '#6b7280', // gray
   scheduled: '#3b82f6', // blue
-  checked_in: '#06b6d4', // cyan
+  verified: '#06b6d4', // cyan
   in_progress: '#a855f7', // purple
 };
 

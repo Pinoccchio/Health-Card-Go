@@ -9,7 +9,7 @@ import { revalidatePath } from 'next/cache';
  * Business Rules:
  * - Only Healthcare Admins or Super Admins can mark appointments as no-show
  * - Healthcare Admins can only mark no-show for appointments in their assigned service
- * - Appointment must be in 'scheduled', 'checked_in', or 'in_progress' status
+ * - Appointment must be in 'scheduled', 'verified', or 'in_progress' status
  * - Increments patient's no_show_count
  * - If patient reaches 2 no-shows, suspends account for 1 month
  * - Sends notification to patient
@@ -89,10 +89,10 @@ export async function POST(
     }
 
     // Verify appointment can be marked as no-show
-    const validStatuses = ['scheduled', 'checked_in', 'in_progress'];
+    const validStatuses = ['scheduled', 'verified', 'in_progress'];
     if (!validStatuses.includes(appointment.status)) {
       return NextResponse.json(
-        { error: `Cannot mark appointment as no-show. Current status is '${appointment.status}'. Only appointments with status 'scheduled', 'checked_in', or 'in_progress' can be marked as no-show.` },
+        { error: `Cannot mark appointment as no-show. Current status is '${appointment.status}'. Only appointments with status 'scheduled', 'verified', or 'in_progress' can be marked as no-show.` },
         { status: 400 }
       );
     }
@@ -140,7 +140,7 @@ export async function POST(
     }
 
     // Note: Status history is automatically logged by database trigger (log_appointment_status_change)
-    // The trigger captures from_status='scheduled/checked_in/in_progress', to_status='no_show',
+    // The trigger captures from_status='scheduled/verified/in_progress', to_status='no_show',
     // changed_by=user.id, and change_type='no_show' automatically
 
     // Step 3: Send notification to patient

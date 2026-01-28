@@ -42,7 +42,7 @@ export const AUDIT_ACTIONS = {
   APPOINTMENT_UPDATED: 'appointment_updated',
   APPOINTMENT_CANCELLED: 'appointment_cancelled',
   APPOINTMENT_COMPLETED: 'appointment_completed',
-  APPOINTMENT_CHECKED_IN: 'appointment_checked_in',
+  APPOINTMENT_VERIFIED: 'appointment_verified',
   APPOINTMENT_STARTED: 'appointment_started',
 
   // Medical Records

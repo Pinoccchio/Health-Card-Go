@@ -105,7 +105,7 @@ export function getTestAppointmentData(): Appointment {
     status: 'scheduled' as const,
     reason: 'General checkup',
     reminder_sent: false,
-    checked_in_at: null,
+    verified_at: null,
     started_at: null,
     completed_at: null,
     completed_by_id: null,

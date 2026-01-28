@@ -2,20 +2,20 @@
 
 import { CheckCircle2, Circle, Clock } from 'lucide-react';
 
-export type AppointmentStage = 'check_in' | 'laboratory' | 'results' | 'checkup' | 'releasing';
+export type AppointmentStage = 'verification' | 'laboratory' | 'results' | 'checkup' | 'releasing';
 
 interface AppointmentStageTrackerProps {
   currentStage: AppointmentStage | null;
   isHealthCardService: boolean;
-  isCheckedIn: boolean;
+  isVerified: boolean;
   isCompleted?: boolean;
 }
 
 const STAGES: { id: AppointmentStage; label: string; description: string }[] = [
   {
-    id: 'check_in',
-    label: 'Check In',
-    description: 'Patient checked in at facility',
+    id: 'verification',
+    label: 'Verification',
+    description: 'Patient verified at facility',
   },
   {
     id: 'laboratory',
@@ -42,11 +42,11 @@ const STAGES: { id: AppointmentStage; label: string; description: string }[] = [
 export default function AppointmentStageTracker({
   currentStage,
   isHealthCardService,
-  isCheckedIn,
+  isVerified,
   isCompleted = false,
 }: AppointmentStageTrackerProps) {
-  // Only show for health card services after check-in
-  if (!isHealthCardService || !isCheckedIn) {
+  // Only show for health card services after verification
+  if (!isHealthCardService || !isVerified) {
     return null;
   }
 
