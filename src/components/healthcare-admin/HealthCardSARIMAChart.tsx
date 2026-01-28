@@ -268,20 +268,25 @@ export default function HealthCardSARIMAChart({
           fill: false,
           spanGaps: false,
         },
-        // 95% Confidence Interval (shaded area)
+        // Lower Bound (hidden line for fill reference)
+        {
+          label: 'Lower Bound',
+          data: chartData.lowerBound,
+          borderColor: 'transparent',
+          backgroundColor: 'transparent',
+          pointRadius: 0,
+          tension: 0.3,
+          fill: false,
+        },
+        // Upper Bound with fill to Lower Bound (creates shaded confidence interval)
         {
           label: '95% Confidence Interval',
-          data: chartData.upperBound.map((upper, i) => {
-            const lower = chartData.lowerBound[i];
-            if (upper === null || lower === null) return null;
-            return { y: [lower, upper] };
-          }),
-          backgroundColor: lightColor,
+          data: chartData.upperBound,
           borderColor: 'transparent',
-          fill: true,
+          backgroundColor: lightColor,
           pointRadius: 0,
-          showLine: false,
-          type: 'line' as const,
+          tension: 0.3,
+          fill: '-1', // Fill to previous dataset (lower bound)
         },
       ],
     };
@@ -302,6 +307,8 @@ export default function HealthCardSARIMAChart({
             font: {
               size: 12,
             },
+            // Hide the "Lower Bound" dataset from legend (it's only used for fill reference)
+            filter: (legendItem) => legendItem.text !== 'Lower Bound',
           },
         },
         title: {
