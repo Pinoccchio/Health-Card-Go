@@ -22,6 +22,8 @@ export function getCategoryLabel(category: string): string {
     pink_card: 'Pink Card',
     laboratory: 'Laboratory',
     immunization: 'Immunization',
+    child_immunization: 'Child Immunization',
+    adult_vaccination: 'Adult Vaccination',
     general: 'General Health',
   };
   return labels[category] || 'General Health';
@@ -38,6 +40,8 @@ export function getAdminRoleLabel(category: string): string {
     pink_card: 'Pink Card Administrator',
     laboratory: 'Laboratory Administrator',
     immunization: 'Immunization Administrator',
+    child_immunization: 'Child Immunization Administrator',
+    adult_vaccination: 'Adult Vaccination Administrator',
     general: 'General Administrator',
   };
   return roles[category] || 'Healthcare Administrator';
@@ -104,6 +108,20 @@ export function getCategoryColors(category: string): ServiceCategoryInfo {
       textColor: 'text-indigo-800',
       description: 'Vaccination and immunization services',
     },
+    child_immunization: {
+      label: 'Child Immunization',
+      color: '#6366F1', // Indigo
+      bgColor: 'bg-indigo-100',
+      textColor: 'text-indigo-800',
+      description: 'Childhood vaccination and immunization services',
+    },
+    adult_vaccination: {
+      label: 'Adult Vaccination',
+      color: '#06B6D4', // Cyan
+      bgColor: 'bg-cyan-100',
+      textColor: 'text-cyan-800',
+      description: 'Adult vaccination services',
+    },
     general: {
       label: 'General Health',
       color: '#6B7280', // Gray
@@ -156,6 +174,8 @@ export function getCategoryIcon(category: string): string {
     pink_card: 'CreditCard',
     laboratory: 'Briefcase',
     immunization: 'Syringe',
+    child_immunization: 'Baby',
+    adult_vaccination: 'Syringe',
     general: 'Heart',
   };
   return icons[category] || 'Heart';

@@ -17,6 +17,7 @@ import {
   CreditCard,
   DollarSign,
   Heart,
+  Syringe,
 } from 'lucide-react';
 import { MenuItem } from '@/components/dashboard';
 import { RoleId } from '@/types/auth';
@@ -307,6 +308,26 @@ export async function getHealthcareAdminMenuItems(
       icon: CreditCard,
     });
     console.log('✅ Added Pink Card Management menu for pink_card admin');
+  }
+
+  // Add Immunization Statistics for Child Immunization admins
+  if (adminCategory === 'child_immunization') {
+    menuItems.push({
+      label: 'SARIMA Statistics',
+      href: '/healthcare-admin/immunization-statistics',
+      icon: Syringe,
+    });
+    console.log('✅ Added SARIMA Statistics menu for child_immunization admin');
+  }
+
+  // Add Vaccination Statistics for Adult Vaccination admins
+  if (adminCategory === 'adult_vaccination') {
+    menuItems.push({
+      label: 'SARIMA Statistics',
+      href: '/healthcare-admin/immunization-statistics',
+      icon: Syringe,
+    });
+    console.log('✅ Added SARIMA Statistics menu for adult_vaccination admin');
   }
 
   // Add Reports and Announcements at the end

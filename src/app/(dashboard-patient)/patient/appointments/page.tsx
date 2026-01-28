@@ -40,7 +40,7 @@ import {
 } from 'lucide-react';
 import { canCancelAppointment as canCancelByTimezone } from '@/lib/utils/timezone';
 import { APPOINTMENT_STATUS_CONFIG } from '@/lib/constants/colors';
-import { getAdminRoleLabel } from '@/lib/utils/serviceHelpers';
+import { getAdminRoleLabel, getCategoryLabel } from '@/lib/utils/serviceHelpers';
 import { calculateAppointmentStatistics } from '@/lib/utils/appointmentStats';
 import {
   TimeBlock,
@@ -335,7 +335,7 @@ export default function PatientAppointmentsPage() {
           {row.services ? (
             <>
               <div className="font-medium text-gray-900">{row.services.name}</div>
-              <div className="text-xs text-gray-500 capitalize">{row.services.category}</div>
+              <div className="text-xs text-gray-500">{getCategoryLabel(row.services.category)}</div>
             </>
           ) : (
             <span className="text-gray-400 italic">{t('table.not_specified')}</span>
@@ -740,7 +740,7 @@ export default function PatientAppointmentsPage() {
                         <span className="text-gray-600">{t('drawer.service')}:</span>
                         <div className="text-right">
                           <div className="font-medium text-gray-900">{selectedAppointment.services.name}</div>
-                          <div className="text-xs text-gray-500 capitalize">{selectedAppointment.services.category}</div>
+                          <div className="text-xs text-gray-500">{getCategoryLabel(selectedAppointment.services.category)}</div>
                         </div>
                       </div>
                     )}

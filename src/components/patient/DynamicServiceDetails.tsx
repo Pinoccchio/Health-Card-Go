@@ -194,6 +194,81 @@ export default function DynamicServiceDetails({
     );
   }
 
+  // Child Immunization service selected
+  if (selectedServiceCategory === 'child_immunization') {
+    return (
+      <div className="space-y-4">
+        {/* Service Details */}
+        <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-5">
+          <div className="flex items-start gap-3">
+            <Heart className="w-5 h-5 text-indigo-600 flex-shrink-0 mt-0.5" />
+            <div>
+              <h3 className="font-semibold text-gray-900 mb-2">Child Immunization (Free)</h3>
+              <p className="text-sm text-gray-700 mb-4">
+                Free vaccination services for children to protect against preventable diseases.
+              </p>
+
+              <div className="space-y-2">
+                <h4 className="text-sm font-semibold text-gray-900">Requirements:</h4>
+                <ul className="space-y-1 text-sm text-gray-700">
+                  <li>• Child's birth certificate or valid ID</li>
+                  <li>• Immunization record (if available)</li>
+                  <li>• Parent/Guardian valid ID</li>
+                </ul>
+              </div>
+
+              <div className="space-y-2 mt-4">
+                <h4 className="text-sm font-semibold text-gray-900">Available vaccines:</h4>
+                <ul className="space-y-1 text-sm text-gray-700">
+                  <li>• BCG, Hepatitis B, Pentavalent</li>
+                  <li>• OPV, IPV, PCV, MMR</li>
+                  <li>• Other routine childhood vaccines</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Adult Vaccination service selected
+  if (selectedServiceCategory === 'adult_vaccination') {
+    return (
+      <div className="space-y-4">
+        {/* Service Details */}
+        <div className="bg-cyan-50 border border-cyan-200 rounded-lg p-5">
+          <div className="flex items-start gap-3">
+            <Shield className="w-5 h-5 text-cyan-600 flex-shrink-0 mt-0.5" />
+            <div>
+              <h3 className="font-semibold text-gray-900 mb-2">Adult Vaccination</h3>
+              <p className="text-sm text-gray-700 mb-4">
+                Vaccination services for adults including booster shots and preventive vaccines.
+              </p>
+
+              <div className="space-y-2">
+                <h4 className="text-sm font-semibold text-gray-900">Requirements:</h4>
+                <ul className="space-y-1 text-sm text-gray-700">
+                  <li>• Valid ID</li>
+                  <li>• Vaccination record (if available)</li>
+                </ul>
+              </div>
+
+              <div className="space-y-2 mt-4">
+                <h4 className="text-sm font-semibold text-gray-900">Available vaccines:</h4>
+                <ul className="space-y-1 text-sm text-gray-700">
+                  <li>• Flu vaccine</li>
+                  <li>• Tetanus booster</li>
+                  <li>• Other adult vaccines as available</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   // Other service types - placeholder for future expansion
   return (
     <div className="bg-gray-50 rounded-lg p-6 border border-gray-200">

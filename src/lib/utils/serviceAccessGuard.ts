@@ -30,28 +30,28 @@ export async function getServiceProperties(serviceId: number): Promise<ServicePr
 
 /**
  * Check if a Healthcare Admin has access to appointments
- * Pattern 5: ALL 3 services (12, 16, 17) have appointment access
+ * Pattern 5: ALL services (12, 16, 17, 19, 20, 24) have appointment access
  */
 export async function canAccessAppointments(assignedServiceId: number | null): Promise<boolean> {
   if (!assignedServiceId) {
     return false;
   }
 
-  // Pattern 5: Services 12, 16, 17, 24 all have appointment access
-  return [12, 16, 17, 24].includes(assignedServiceId);
+  // Pattern 5: Services 12, 16, 17, 19, 20, 24 all have appointment access
+  return [12, 16, 17, 19, 20, 24].includes(assignedServiceId);
 }
 
 /**
  * Check if a Healthcare Admin should see walk-in queue
- * Pattern 5: ALL 3 services (12, 16, 17) have walk-in queue access
+ * Pattern 5: ALL services (12, 16, 17, 19, 20, 24) have walk-in queue access
  */
 export async function canAccessWalkInQueue(assignedServiceId: number | null): Promise<boolean> {
   if (!assignedServiceId) {
     return false;
   }
 
-  // Pattern 5: Services 12, 16, 17, 24 all have walk-in queue access
-  return [12, 16, 17, 24].includes(assignedServiceId);
+  // Pattern 5: Services 12, 16, 17, 19, 20, 24 all have walk-in queue access
+  return [12, 16, 17, 19, 20, 24].includes(assignedServiceId);
 }
 
 /**
