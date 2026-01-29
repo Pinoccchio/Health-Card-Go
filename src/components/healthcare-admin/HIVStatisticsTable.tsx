@@ -31,12 +31,14 @@ interface HIVStatisticsTableProps {
   statistics: HIVStatistic[];
   onEdit: (record: HIVStatistic) => void;
   onDelete: (record: HIVStatistic) => void;
+  serviceName?: string;
 }
 
 export function HIVStatisticsTable({
   statistics,
   onEdit,
   onDelete,
+  serviceName = 'HIV',
 }: HIVStatisticsTableProps) {
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0 });
@@ -63,7 +65,7 @@ export function HIVStatisticsTable({
           </div>
           <h3 className="text-lg font-semibold text-gray-900 mb-2">No Imported Data Yet</h3>
           <p className="text-sm text-gray-600 max-w-md">
-            No historical HIV appointment statistics have been imported. Use the &quot;Import Appointment Data&quot; button to add aggregate data from past records.
+            No historical {serviceName} appointment statistics have been imported. Use the &quot;Import Appointment Data&quot; button to add aggregate data from past records.
           </p>
         </div>
       </div>

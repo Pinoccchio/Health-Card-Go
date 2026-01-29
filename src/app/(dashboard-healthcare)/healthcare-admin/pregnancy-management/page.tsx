@@ -3,89 +3,34 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { DashboardLayout } from '@/components/dashboard';
-import { Container } from '@/components/ui';
+import { Container, ConfirmDialog } from '@/components/ui';
 import { useToast } from '@/lib/contexts/ToastContext';
 import { useAuth } from '@/lib/auth';
 import {
   Baby,
-  Activity,
-  MapPin,
-  AlertTriangle,
-  TrendingUp,
-  FileText,
   Download,
-  Filter,
   AlertCircle,
-  Heart,
   Sparkles,
   Loader2,
   CheckCircle2,
   Upload,
+  Filter,
 } from 'lucide-react';
-import { format } from 'date-fns';
 import ServiceHistoricalImportModal from '@/components/healthcare-admin/ServiceHistoricalImportModal';
 import ServiceSARIMAChart from '@/components/healthcare-admin/ServiceSARIMAChart';
 import ServiceSARIMAMetrics from '@/components/healthcare-admin/ServiceSARIMAMetrics';
 import { AppointmentStatusChart } from '@/components/charts';
-
-interface PregnancyRecord {
-  id: string;
-  disease_type: string;
-  custom_disease_name?: string;
-  record_date: string;
-  severity?: string;
-  case_count: number;
-  barangay_id: number;
-  patient_id?: string;
-  notes?: string;
-  source?: string;
-  created_at: string;
-  barangays?: {
-    name: string;
-    code: string;
-  };
-  patients?: {
-    patient_number: string;
-    profiles: {
-      first_name: string;
-      last_name: string;
-    };
-  };
-}
-
-const SEVERITY_LEVELS = [
-  { value: 'high_risk', label: 'High Risk' },
-  { value: 'medium_risk', label: 'Medium Risk' },
-  { value: 'low_risk', label: 'Low Risk' },
-];
+import { HIVDataSourceCards } from '@/components/healthcare-admin/HIVDataSourceCards';
+import { HIVStatisticsTable } from '@/components/healthcare-admin/HIVStatisticsTable';
+import { EditHIVStatisticModal } from '@/components/healthcare-admin/EditHIVStatisticModal';
+import type { HIVStatistic } from '@/components/healthcare-admin/HIVStatisticsTable';
 
 export default function PregnancyManagementPage() {
   const router = useRouter();
   const { user } = useAuth();
   const toast = useToast();
 
-  const [records, setRecords] = useState<PregnancyRecord[]>([]);
-  const [barangays, setBarangays] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
   const [hasAccess, setHasAccess] = useState<boolean | null>(null);
-
-  // Filter states
-  const [filters, setFilters] = useState({
-    barangay_id: 'all',
-    severity: 'all',
-    start_date: '',
-    end_date: '',
-  });
-
-  // Summary stats
-  const [summary, setSummary] = useState({
-    total_records: 0,
-    total_cases: 0,
-    high_risk: 0,
-    medium_risk: 0,
-    low_risk: 0,
-    most_affected_barangay: null as string | null,
-  });
 
   // Import and SARIMA state
   const [isAppointmentImportOpen, setIsAppointmentImportOpen] = useState(false);
@@ -96,6 +41,36 @@ export default function PregnancyManagementPage() {
   // Appointment Statistics state (for status breakdown chart)
   const [appointmentStats, setAppointmentStats] = useState<any[]>([]);
   const [appointmentStatsLoading, setAppointmentStatsLoading] = useState(true);
+
+  // Data Source Summary state (for DataSourceCards)
+  const [dataSourceSummary, setDataSourceSummary] = useState({
+    from_appointments: { total: 0, completed: 0, cancelled: 0 },
+    from_historical: { total_appointments: 0, record_count: 0 },
+    combined: { total: 0 },
+    date_range: { earliest: null as string | null, latest: null as string | null },
+  });
+  const [dataSourceLoading, setDataSourceLoading] = useState(true);
+
+  // Imported records state (table)
+  const [statistics, setStatistics] = useState<HIVStatistic[]>([]);
+  const [statisticsLoading, setStatisticsLoading] = useState(true);
+  const [barangays, setBarangays] = useState<any[]>([]);
+
+  // Filter state
+  const [filters, setFilters] = useState({
+    barangay_id: 'all',
+    start_date: '',
+    end_date: '',
+  });
+
+  // Edit Modal State
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [selectedRecord, setSelectedRecord] = useState<HIVStatistic | null>(null);
+
+  // Delete Dialog State
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [recordToDelete, setRecordToDelete] = useState<HIVStatistic | null>(null);
+  const [actionLoading, setActionLoading] = useState(false);
 
   useEffect(() => {
     // Check if the healthcare admin has pregnancy category
@@ -117,10 +92,11 @@ export default function PregnancyManagementPage() {
 
   useEffect(() => {
     if (hasAccess) {
-      fetchPregnancyRecords();
       fetchAppointmentStatistics();
+      fetchDataSourceSummary();
+      fetchStatistics();
     }
-  }, [filters, hasAccess]);
+  }, [hasAccess, filters]);
 
   const fetchBarangays = async () => {
     try {
@@ -132,78 +108,6 @@ export default function PregnancyManagementPage() {
     } catch (err) {
       console.error('Error fetching barangays:', err);
     }
-  };
-
-  const fetchPregnancyRecords = async () => {
-    try {
-      setLoading(true);
-
-      const params = new URLSearchParams();
-      params.append('disease_type', 'pregnancy_complications');
-
-      if (filters.barangay_id !== 'all') {
-        params.append('barangay_id', filters.barangay_id);
-      }
-      if (filters.severity !== 'all') {
-        params.append('severity', filters.severity);
-      }
-      if (filters.start_date) {
-        params.append('start_date', filters.start_date);
-      }
-      if (filters.end_date) {
-        params.append('end_date', filters.end_date);
-      }
-
-      const response = await fetch(`/api/diseases/historical?${params.toString()}`);
-      const data = await response.json();
-
-      if (data.success) {
-        const fetchedRecords = data.data || [];
-        setRecords(fetchedRecords);
-        calculateSummary(fetchedRecords);
-
-        // Reset SARIMA state when no records exist
-        if (fetchedRecords.length === 0) {
-          setPredictionRefreshKey(0);
-          setGenerationStatus({ type: 'idle' });
-          setAppointmentStats([]);
-        }
-      } else {
-        toast.error('Failed to load pregnancy complication records');
-      }
-    } catch (err) {
-      console.error('Error fetching pregnancy records:', err);
-      toast.error('An unexpected error occurred');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const calculateSummary = (data: PregnancyRecord[]) => {
-    const totalCases = data.reduce((sum, r) => sum + (r.case_count || 0), 0);
-
-    const stats = {
-      total_records: data.length,
-      total_cases: totalCases,
-      high_risk: data.filter(r => r.severity === 'high_risk').length,
-      medium_risk: data.filter(r => r.severity === 'medium_risk').length,
-      low_risk: data.filter(r => r.severity === 'low_risk').length,
-      most_affected_barangay: null as string | null,
-    };
-
-    // Most affected barangay by total case_count
-    const barangayCounts: Record<string, number> = {};
-    data.forEach(record => {
-      const name = record.barangays?.name || 'Unknown';
-      barangayCounts[name] = (barangayCounts[name] || 0) + (record.case_count || 0);
-    });
-
-    const sorted = Object.entries(barangayCounts).sort((a, b) => b[1] - a[1]);
-    if (sorted.length > 0) {
-      stats.most_affected_barangay = `${sorted[0][0]} (${sorted[0][1]} cases)`;
-    }
-
-    setSummary(stats);
   };
 
   const fetchAppointmentStatistics = async () => {
@@ -219,6 +123,99 @@ export default function PregnancyManagementPage() {
       console.error('Error fetching appointment statistics:', err);
     } finally {
       setAppointmentStatsLoading(false);
+    }
+  };
+
+  const fetchDataSourceSummary = async () => {
+    try {
+      setDataSourceLoading(true);
+      const response = await fetch('/api/services/historical?service_id=17');
+      const data = await response.json();
+
+      if (data.success) {
+        setDataSourceSummary(data.data.summary);
+      }
+    } catch (err) {
+      console.error('Error fetching data source summary:', err);
+    } finally {
+      setDataSourceLoading(false);
+    }
+  };
+
+  const fetchStatistics = async () => {
+    try {
+      setStatisticsLoading(true);
+
+      const params = new URLSearchParams();
+      params.append('service_id', '17');
+      if (filters.barangay_id !== 'all') {
+        params.append('barangay_id', filters.barangay_id);
+      }
+      if (filters.start_date) {
+        params.append('start_date', filters.start_date);
+      }
+      if (filters.end_date) {
+        params.append('end_date', filters.end_date);
+      }
+
+      const response = await fetch(`/api/services/statistics?${params.toString()}`);
+      const data = await response.json();
+
+      if (data.success) {
+        setStatistics(data.data.records || []);
+      } else {
+        console.error('Failed to fetch statistics:', data.error);
+      }
+    } catch (err) {
+      console.error('Error fetching statistics:', err);
+    } finally {
+      setStatisticsLoading(false);
+    }
+  };
+
+  const handleEdit = (record: HIVStatistic) => {
+    setSelectedRecord(record);
+    setIsEditModalOpen(true);
+  };
+
+  const handleEditSuccess = () => {
+    toast.success('Record updated successfully');
+    fetchStatistics();
+    fetchDataSourceSummary();
+  };
+
+  const handleDelete = (record: HIVStatistic) => {
+    setRecordToDelete(record);
+    setShowDeleteDialog(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!recordToDelete) return;
+
+    try {
+      setActionLoading(true);
+      const response = await fetch(
+        `/api/services/statistics/${recordToDelete.id}`,
+        { method: 'DELETE' }
+      );
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          result.message || result.error || 'Failed to delete record'
+        );
+      }
+
+      toast.success(result.message || 'Record deleted successfully');
+      setShowDeleteDialog(false);
+      setRecordToDelete(null);
+      fetchStatistics();
+      fetchDataSourceSummary();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to delete record');
+    } finally {
+      setActionLoading(false);
     }
   };
 
@@ -309,7 +306,7 @@ export default function PregnancyManagementPage() {
     >
       <Container size="full">
         <div className="space-y-6">
-          {/* Page Header */}
+          {/* 1. Page Header */}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="p-3 bg-teal-100 rounded-lg">
@@ -322,10 +319,21 @@ export default function PregnancyManagementPage() {
             </div>
           </div>
 
-          {/* Action Bar */}
+          {/* 2. Data Source Summary Cards */}
+          <HIVDataSourceCards summary={dataSourceSummary} loading={dataSourceLoading} serviceName="Prenatal Checkup" />
+
+          {/* 3. Appointment Status Breakdown Chart */}
+          <AppointmentStatusChart
+            data={appointmentStats}
+            loading={appointmentStatsLoading}
+            title="Monthly Prenatal Appointment Status Breakdown (Completed, Cancelled, No Show)"
+            height={450}
+          />
+
+          {/* 4. Action Bar */}
           <div className="flex justify-end gap-3">
             <a
-              href="/templates/pregnancy-appointment-import-template.xlsx"
+              href="/templates/pregnancy-appointment-import-template.csv"
               download
               className="px-4 py-2 bg-white text-gray-700 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors flex items-center gap-2 shadow-sm"
               title="Download Excel Template"
@@ -343,66 +351,13 @@ export default function PregnancyManagementPage() {
             </button>
           </div>
 
-          {/* Summary Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
-            <div className="bg-white rounded-lg shadow p-4 border border-gray-200">
-              <div className="flex items-center gap-2 mb-2">
-                <FileText className="w-5 h-5 text-gray-600" />
-                <h3 className="text-sm font-medium text-gray-700">Total Records</h3>
-              </div>
-              <p className="text-2xl font-bold text-gray-900">{summary.total_records}</p>
-            </div>
-
-            <div className="bg-teal-50 rounded-lg shadow p-4 border border-teal-200">
-              <div className="flex items-center gap-2 mb-2">
-                <Activity className="w-5 h-5 text-teal-600" />
-                <h3 className="text-sm font-medium text-teal-700">Total Cases</h3>
-              </div>
-              <p className="text-2xl font-bold text-teal-900">{summary.total_cases}</p>
-            </div>
-
-            <div className="bg-red-50 rounded-lg shadow p-4 border border-red-200">
-              <div className="flex items-center gap-2 mb-2">
-                <AlertTriangle className="w-5 h-5 text-red-600" />
-                <h3 className="text-sm font-medium text-red-700">High Risk</h3>
-              </div>
-              <p className="text-2xl font-bold text-red-900">{summary.high_risk}</p>
-            </div>
-
-            <div className="bg-orange-50 rounded-lg shadow p-4 border border-orange-200">
-              <div className="flex items-center gap-2 mb-2">
-                <Heart className="w-5 h-5 text-orange-600" />
-                <h3 className="text-sm font-medium text-orange-700">Medium Risk</h3>
-              </div>
-              <p className="text-2xl font-bold text-orange-900">{summary.medium_risk}</p>
-            </div>
-
-            <div className="bg-yellow-50 rounded-lg shadow p-4 border border-yellow-200">
-              <div className="flex items-center gap-2 mb-2">
-                <TrendingUp className="w-5 h-5 text-yellow-600" />
-                <h3 className="text-sm font-medium text-yellow-700">Low Risk</h3>
-              </div>
-              <p className="text-2xl font-bold text-yellow-900">{summary.low_risk}</p>
-            </div>
-
-            <div className="bg-pink-50 rounded-lg shadow p-4 border border-pink-200">
-              <div className="flex items-center gap-2 mb-2">
-                <MapPin className="w-5 h-5 text-pink-600" />
-                <h3 className="text-sm font-medium text-pink-700">Most Affected</h3>
-              </div>
-              <p className="text-sm font-bold text-pink-900 truncate">
-                {summary.most_affected_barangay || 'N/A'}
-              </p>
-            </div>
-          </div>
-
-          {/* Filters */}
+          {/* 5. Filters */}
           <div className="bg-white rounded-lg shadow p-4 border border-gray-200">
             <div className="flex items-center gap-2 mb-4">
               <Filter className="w-4 h-4 text-gray-600" />
-              <h3 className="text-sm font-semibold text-gray-900">Filter Records</h3>
+              <h3 className="text-sm font-semibold text-gray-900">Filter Data</h3>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-1">Barangay</label>
                 <select
@@ -411,25 +366,9 @@ export default function PregnancyManagementPage() {
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#20C997] text-sm"
                 >
                   <option value="all">All Barangays</option>
-                  {barangays.map(barangay => (
+                  {barangays.map((barangay: any) => (
                     <option key={barangay.id} value={barangay.id}>
                       {barangay.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">Severity</label>
-                <select
-                  value={filters.severity}
-                  onChange={(e) => setFilters({ ...filters, severity: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#20C997] text-sm"
-                >
-                  <option value="all">All Severity</option>
-                  {SEVERITY_LEVELS.map(level => (
-                    <option key={level.value} value={level.value}>
-                      {level.label}
                     </option>
                   ))}
                 </select>
@@ -457,90 +396,22 @@ export default function PregnancyManagementPage() {
             </div>
           </div>
 
-          {/* Records Table */}
-          <div className="bg-white rounded-lg shadow border border-gray-200">
-            <div className="px-6 py-4 border-b border-gray-200">
-              <h3 className="text-lg font-semibold text-gray-900">Pregnancy Complication Cases</h3>
+          {/* 6. Imported Records Table */}
+          {statisticsLoading ? (
+            <div className="bg-white rounded-lg shadow border border-gray-200 p-12 text-center">
+              <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-[#20C997]"></div>
+              <p className="mt-2 text-sm text-gray-500">Loading imported records...</p>
             </div>
-            <div className="overflow-x-auto">
-              {loading ? (
-                <div className="p-12 text-center">
-                  <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-[#20C997]"></div>
-                  <p className="mt-2 text-sm text-gray-500">Loading pregnancy complication records...</p>
-                </div>
-              ) : records.length === 0 ? (
-                <div className="p-12 text-center">
-                  <Baby className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-                  <p className="text-gray-500">No pregnancy complication cases found matching your filters</p>
-                </div>
-              ) : (
-                <table className="w-full">
-                  <thead className="bg-gray-50 border-b border-gray-200">
-                    <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Date
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Barangay
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Cases
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Severity
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Source
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Notes
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {records.map((record) => (
-                      <tr key={record.id} className="hover:bg-gray-50">
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {record.record_date ? format(new Date(record.record_date), 'MMM dd, yyyy') : 'N/A'}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {record.barangays?.name || 'Unknown'}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                          {record.case_count || 0}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full
-                            ${record.severity === 'high_risk' ? 'bg-red-100 text-red-800' :
-                              record.severity === 'medium_risk' ? 'bg-orange-100 text-orange-800' :
-                              record.severity === 'low_risk' ? 'bg-yellow-100 text-yellow-800' :
-                              'bg-gray-100 text-gray-800'}`}>
-                            {SEVERITY_LEVELS.find(s => s.value === record.severity)?.label || record.severity || 'Unknown'}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {record.source || 'manual'}
-                        </td>
-                        <td className="px-6 py-4 text-sm text-gray-500 max-w-xs truncate">
-                          {record.notes || '-'}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
-            </div>
-          </div>
+          ) : (
+            <HIVStatisticsTable
+              statistics={statistics}
+              onEdit={handleEdit}
+              onDelete={handleDelete}
+              serviceName="Prenatal"
+            />
+          )}
 
-          {/* Appointment Status Breakdown Chart */}
-          <AppointmentStatusChart
-            data={appointmentStats}
-            loading={appointmentStatsLoading}
-            title="Monthly Prenatal Appointment Status Breakdown (Completed, Cancelled, No Show)"
-            height={450}
-          />
-
-          {/* SARIMA Predictions Section */}
+          {/* 7. SARIMA Predictions Section */}
           <div className="bg-white rounded-lg shadow border border-gray-200">
             <div className="p-6 border-b border-gray-200">
               <div className="flex items-center justify-between">
@@ -555,8 +426,8 @@ export default function PregnancyManagementPage() {
                 </div>
                 <button
                   onClick={handleGeneratePredictions}
-                  disabled={isGeneratingPredictions || records.length === 0}
-                  title={records.length === 0 ? 'Import disease data first to generate predictions' : 'Generate SARIMA predictions'}
+                  disabled={isGeneratingPredictions || dataSourceSummary.combined.total === 0}
+                  title={dataSourceSummary.combined.total === 0 ? 'Import appointment data first to generate predictions' : 'Generate SARIMA predictions'}
                   className="inline-flex items-center gap-2 px-4 py-2 bg-[#20C997] text-white rounded-lg hover:bg-[#1AA179] transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-md"
                 >
                   {isGeneratingPredictions ? (
@@ -588,7 +459,7 @@ export default function PregnancyManagementPage() {
               )}
             </div>
             <div className="p-6">
-              <ServiceSARIMAChart key={predictionRefreshKey} serviceId={17} />
+              <ServiceSARIMAChart key={predictionRefreshKey} serviceId={17} serviceName="Prenatal Checkup" />
               <div className="mt-6">
                 <ServiceSARIMAMetrics key={predictionRefreshKey} serviceId={17} />
               </div>
@@ -603,9 +474,45 @@ export default function PregnancyManagementPage() {
           onImportSuccess={() => {
             toast.success('Appointment data imported successfully');
             setPredictionRefreshKey(prev => prev + 1);
+            fetchDataSourceSummary();
+            fetchStatistics();
           }}
           serviceId={17}
           serviceName="Prenatal Checkup"
+        />
+
+        {/* Edit Modal */}
+        <EditHIVStatisticModal
+          isOpen={isEditModalOpen}
+          onClose={() => setIsEditModalOpen(false)}
+          onSuccess={handleEditSuccess}
+          record={selectedRecord}
+          serviceName="Prenatal"
+        />
+
+        {/* Delete Confirmation Dialog */}
+        <ConfirmDialog
+          isOpen={showDeleteDialog}
+          onClose={() => !actionLoading && setShowDeleteDialog(false)}
+          onConfirm={confirmDelete}
+          title="Delete Prenatal Appointment Record"
+          message={
+            recordToDelete
+              ? `Are you sure you want to delete the record from ${new Date(
+                  recordToDelete.record_date
+                ).toLocaleDateString('en-US', {
+                  year: 'numeric',
+                  month: 'long',
+                  day: 'numeric',
+                })} with ${recordToDelete.appointments_completed} appointment${
+                  recordToDelete.appointments_completed !== 1 ? 's' : ''
+                } completed? This action cannot be undone.`
+              : 'Are you sure you want to delete this record?'
+          }
+          confirmText="Delete"
+          cancelText="Cancel"
+          variant="danger"
+          isLoading={actionLoading}
         />
       </Container>
     </DashboardLayout>

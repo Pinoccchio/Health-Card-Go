@@ -98,6 +98,7 @@ export default function ServiceSARIMAChart({
   });
 
   const [availableYears, setAvailableYears] = useState<number[]>([currentYear]);
+  const [yearsLoaded, setYearsLoaded] = useState(false);
   const [selectedMonthsForecast, setSelectedMonthsForecast] = useState(monthsForecast || 12);
 
   // Get service-specific color scheme
@@ -127,11 +128,13 @@ export default function ServiceSARIMAChart({
               setSelectedYear(currentYear);
             }
           }
+          setYearsLoaded(true);
         }
       } catch (err) {
         console.error('[ServiceSARIMAChart] Failed to fetch available years:', err);
         // Fallback to current year if API fails
         setAvailableYears([currentYear]);
+        setYearsLoaded(true);
       }
     }
     fetchAvailableYears();
@@ -166,6 +169,9 @@ export default function ServiceSARIMAChart({
   // Fetch predictions data
   useEffect(() => {
     async function fetchPredictions() {
+      // Don't fetch with stale availableYears when "All Time" is selected
+      if (selectedYear === 'all' && !yearsLoaded) return;
+
       try {
         setLoading(true);
         setError(null);
@@ -214,7 +220,7 @@ export default function ServiceSARIMAChart({
     }
 
     fetchPredictions();
-  }, [serviceId, barangayId, selectedYear, selectedMonthsForecast, granularity]);
+  }, [serviceId, barangayId, selectedYear, selectedMonthsForecast, granularity, availableYears, yearsLoaded]);
 
   // Format date labels based on granularity
   const formatDateLabel = (dateStr: string): string => {

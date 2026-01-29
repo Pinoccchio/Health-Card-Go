@@ -93,6 +93,7 @@ export default function HealthCardSARIMAChart({
   });
 
   const [availableYears, setAvailableYears] = useState<number[]>([currentYear]);
+  const [yearsLoaded, setYearsLoaded] = useState(false);
   const [yearsWithCounts, setYearsWithCounts] = useState<Array<{ year: number; count: number }>>([]);
   const [selectedMonthsForecast, setSelectedMonthsForecast] = useState(monthsForecast || 12);
 
@@ -113,11 +114,13 @@ export default function HealthCardSARIMAChart({
               setSelectedYear(data.years[data.years.length - 1]);
             }
           }
+          setYearsLoaded(true);
         }
       } catch (err) {
         console.error('Failed to fetch available years:', err);
         // Dynamic fallback: use current year only if API fails
         setAvailableYears([currentYear]);
+        setYearsLoaded(true);
       }
     }
     fetchAvailableYears();
@@ -170,6 +173,9 @@ export default function HealthCardSARIMAChart({
   // Fetch predictions data
   useEffect(() => {
     async function fetchPredictions() {
+      // Don't fetch with stale availableYears when "All Time" is selected
+      if (selectedYear === 'all' && !yearsLoaded) return;
+
       try {
         setLoading(true);
         setError(null);
@@ -217,7 +223,7 @@ export default function HealthCardSARIMAChart({
     }
 
     fetchPredictions();
-  }, [healthcardType, barangayId, selectedYear, periodsForecast, granularity]);
+  }, [healthcardType, barangayId, selectedYear, periodsForecast, granularity, availableYears, yearsLoaded]);
 
   // Helper: Format date labels based on granularity
   const formatDateLabel = (dateStr: string): string => {

@@ -27,9 +27,10 @@ interface HIVDataSourceCardsProps {
     appointments_date_range?: DateRange;
   };
   loading?: boolean;
+  serviceName?: string;
 }
 
-export function HIVDataSourceCards({ summary, loading }: HIVDataSourceCardsProps) {
+export function HIVDataSourceCards({ summary, loading, serviceName = 'HIV Testing' }: HIVDataSourceCardsProps) {
   const formatDateRange = (range: DateRange) => {
     if (!range.earliest || !range.latest) {
       return 'No data';
@@ -84,7 +85,7 @@ export function HIVDataSourceCards({ summary, loading }: HIVDataSourceCardsProps
           </div>
           <div>
             <h3 className="text-lg font-bold text-gray-900">Current System Appointments</h3>
-            <p className="text-sm text-gray-600">HIV testing appointments from the booking system</p>
+            <p className="text-sm text-gray-600">{serviceName} appointments from the booking system</p>
           </div>
         </div>
 
@@ -120,7 +121,7 @@ export function HIVDataSourceCards({ summary, loading }: HIVDataSourceCardsProps
           </div>
           <div>
             <h3 className="text-lg font-bold text-gray-900">Historical Data (Excel Imports)</h3>
-            <p className="text-sm text-gray-600">Pre-existing HIV testing records imported from spreadsheets</p>
+            <p className="text-sm text-gray-600">Pre-existing {serviceName.toLowerCase()} records imported from spreadsheets</p>
           </div>
         </div>
 
@@ -166,7 +167,7 @@ export function HIVDataSourceCards({ summary, loading }: HIVDataSourceCardsProps
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="bg-white rounded-lg p-4 border border-green-200">
-            <p className="text-sm font-medium text-gray-600">Total HIV Testing Appointments</p>
+            <p className="text-sm font-medium text-gray-600">Total {serviceName} Appointments</p>
             <p className="text-3xl font-bold text-green-600 mt-1">
               {summary.combined.total.toLocaleString()}
             </p>

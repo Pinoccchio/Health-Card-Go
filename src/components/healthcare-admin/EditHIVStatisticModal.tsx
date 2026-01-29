@@ -15,6 +15,7 @@ interface EditHIVStatisticModalProps {
   onClose: () => void;
   onSuccess: () => void;
   record: HIVStatistic | null;
+  serviceName?: string;
 }
 
 export function EditHIVStatisticModal({
@@ -22,6 +23,7 @@ export function EditHIVStatisticModal({
   onClose,
   onSuccess,
   record,
+  serviceName = 'HIV',
 }: EditHIVStatisticModalProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
@@ -157,7 +159,7 @@ export function EditHIVStatisticModal({
           <div className="px-6 pt-6 pb-4 flex items-center justify-between border-b border-gray-200">
             <div>
               <h2 id="modal-title" className="text-xl font-bold text-gray-900">
-                Edit HIV Appointment Record
+                Edit {serviceName} Appointment Record
               </h2>
               <p className="text-sm text-gray-600 mt-1">
                 Update the imported record details

@@ -46,12 +46,13 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const isHIVAdmin = profile.role === 'healthcare_admin' && profile.admin_category === 'hiv';
     const isSuperAdmin = profile.role === 'super_admin';
+    const isAllowedAdmin = profile.role === 'healthcare_admin' &&
+      ['hiv', 'pregnancy'].includes(profile.admin_category);
 
-    if (!isHIVAdmin && !isSuperAdmin) {
+    if (!isAllowedAdmin && !isSuperAdmin) {
       return NextResponse.json(
-        { success: false, error: 'Forbidden: Only HIV Healthcare Admins and Super Admins can access this endpoint' },
+        { success: false, error: 'Forbidden: Only authorized Healthcare Admins and Super Admins can access this endpoint' },
         { status: 403 }
       );
     }
