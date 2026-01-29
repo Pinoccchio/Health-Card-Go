@@ -100,32 +100,33 @@ export async function GET(request: NextRequest) {
     // (authentication already verified above)
     const adminClient = createAdminClient();
 
+    // Use completed_at + completed status to match the generate-predictions endpoint.
+    // This ensures on-the-fly fallback produces the same results as cached predictions.
     let appointmentsQuery = adminClient
       .from('appointments')
-      .select('appointment_date, status')
+      .select('id, completed_at, service_id')
       .eq('service_id', serviceId)
-      .in('status', ['scheduled', 'verified', 'in_progress', 'completed'])
-      .gte('appointment_date', startDate.toISOString().split('T')[0])
-      .lte('appointment_date', endDate.toISOString().split('T')[0])
-      .order('appointment_date', { ascending: true });
+      .eq('status', 'completed')
+      .not('completed_at', 'is', null)
+      .order('completed_at', { ascending: true });
 
     if (barangayId !== null) {
       // Join with patients to filter by barangay
       appointmentsQuery = adminClient
         .from('appointments')
         .select(`
-          appointment_date,
-          status,
+          id,
+          completed_at,
+          service_id,
           patients!inner (
             barangay_id
           )
         `)
         .eq('service_id', serviceId)
         .eq('patients.barangay_id', barangayId)
-        .in('status', ['scheduled', 'verified', 'in_progress', 'completed'])
-        .gte('appointment_date', startDate.toISOString().split('T')[0])
-        .lte('appointment_date', endDate.toISOString().split('T')[0])
-        .order('appointment_date', { ascending: true });
+        .eq('status', 'completed')
+        .not('completed_at', 'is', null)
+        .order('completed_at', { ascending: true });
     }
 
     const { data: appointments, error: appointmentsError } = await appointmentsQuery;
@@ -151,8 +152,6 @@ export async function GET(request: NextRequest) {
       .from('service_appointment_statistics')
       .select('*')
       .eq('service_id', serviceId)
-      .gte('record_date', startDate.toISOString().split('T')[0])
-      .lte('record_date', endDate.toISOString().split('T')[0])
       .order('record_date', { ascending: true });
 
     if (barangayId !== null) {
@@ -175,14 +174,6 @@ export async function GET(request: NextRequest) {
 
     const appointmentsByDate = new Map<string, number>();
 
-    // Initialize all dates in range with 0
-    const currentDate = new Date(startDate);
-    while (currentDate <= endDate) {
-      const dateStr = currentDate.toISOString().split('T')[0];
-      appointmentsByDate.set(dateStr, 0);
-      currentDate.setDate(currentDate.getDate() + 1);
-    }
-
     // First, add Excel-imported statistics
     importedStats?.forEach((stat: any) => {
       const date = stat.record_date;
@@ -191,27 +182,38 @@ export async function GET(request: NextRequest) {
 
     console.log(`[Service Predictions API] Appointments map after imported data: ${appointmentsByDate.size} dates`);
 
-    // Then, add real appointment data
+    // Then, add real appointment data (using completed_at to match generate endpoint)
     appointments?.forEach((appointment: any) => {
-      const date = appointment.appointment_date;
-      appointmentsByDate.set(date, (appointmentsByDate.get(date) || 0) + 1);
+      const completedAt = appointment.completed_at;
+      if (completedAt) {
+        const date = completedAt.split('T')[0];
+        appointmentsByDate.set(date, (appointmentsByDate.get(date) || 0) + 1);
+      }
     });
 
-    // Convert to array for SARIMA
-    const historicalData = Array.from(appointmentsByDate.entries())
+    // All historical data — for data quality assessment (needs full history for SARIMA)
+    const allHistoricalData = Array.from(appointmentsByDate.entries())
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([date, count]) => ({
         date,
         value: count,
       }));
 
-    console.log('[Service Predictions API] Historical data points:', historicalData.length);
+    // Filtered for chart display — only requested date range
+    const startDateStr = startDate.toISOString().split('T')[0];
+    const endDateStr = endDate.toISOString().split('T')[0];
+    const historicalData = allHistoricalData.filter(d =>
+      d.date >= startDateStr && d.date <= endDateStr
+    );
 
-    // Check data quality
+    console.log('[Service Predictions API] All historical data points:', allHistoricalData.length);
+    console.log('[Service Predictions API] Filtered historical data points (chart):', historicalData.length);
+
+    // Check data quality based on ALL historical data (not just filtered)
     let dataQuality: 'high' | 'moderate' | 'insufficient' = 'high';
-    if (historicalData.length < 7) {
+    if (allHistoricalData.length < 7) {
       dataQuality = 'insufficient';
-    } else if (historicalData.length < 30) {
+    } else if (allHistoricalData.length < 30) {
       dataQuality = 'moderate';
     }
 
@@ -219,23 +221,15 @@ export async function GET(request: NextRequest) {
     // Check for Cached Predictions in Database (Priority #1)
     // ========================================================================
 
-    const forecastStartDate = new Date(endDate);
-    const forecastEndDate = new Date(endDate);
-    if (granularity === 'monthly') {
-      forecastStartDate.setMonth(forecastStartDate.getMonth() + 1);
-      forecastEndDate.setMonth(forecastEndDate.getMonth() + periodsForecast);
-    } else {
-      forecastStartDate.setDate(forecastStartDate.getDate() + 1);
-      forecastEndDate.setDate(forecastEndDate.getDate() + periodsForecast);
-    }
-
+    // Fetch ALL cached predictions for this service/granularity combo.
+    // No date range filter — the predictions table only stores the most recent
+    // generation (old ones are deleted on regenerate), so filtering by date
+    // caused cache misses due to date arithmetic bugs (e.g. Dec 31 + 1 month).
     let predictionsQuery = adminClient
       .from('service_predictions')
       .select('prediction_date, predicted_appointments, prediction_data, granularity')
       .eq('service_id', serviceId)
-      .eq('granularity', granularity) // Filter by granularity
-      .gte('prediction_date', forecastStartDate.toISOString().split('T')[0])
-      .lte('prediction_date', forecastEndDate.toISOString().split('T')[0])
+      .eq('granularity', granularity)
       .order('prediction_date', { ascending: true });
 
     if (barangayId !== null) {
@@ -281,11 +275,11 @@ export async function GET(request: NextRequest) {
     // ========================================================================
     // Fallback: Run SARIMA Predictions On-Fly (if no cached predictions)
     // ========================================================================
-    else if (historicalData.length >= 7) {
+    else if (allHistoricalData.length >= 7) {
       console.log(`[Service Predictions API] No cached predictions found, generating ${granularity} predictions on-fly...`);
 
       try {
-        predictions = await runLocalSARIMA(historicalData, periodsForecast, granularity as 'daily' | 'monthly');
+        predictions = await runLocalSARIMA(allHistoricalData, periodsForecast, granularity as 'daily' | 'monthly');
         console.log(`[Service Predictions API] Generated ${predictions.length} ${granularity} predictions on-fly`);
         usedCache = false;
       } catch (sarimaError) {

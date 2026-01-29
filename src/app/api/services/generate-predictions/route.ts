@@ -273,31 +273,25 @@ export async function POST(request: NextRequest) {
     if (autoSave) {
       console.log('[Generate Service Predictions API] Saving predictions to database...');
 
-      // Delete existing predictions for this service/barangay/date range
-      const firstDate = predictions[0]?.date;
-      const lastDate = predictions[predictions.length - 1]?.date;
+      // Delete ALL existing predictions for this service/barangay combination
+      // This ensures stale predictions with mismatched dates are always cleaned up
+      let deleteQuery = supabase
+        .from('service_predictions')
+        .delete()
+        .eq('service_id', serviceId);
 
-      if (firstDate && lastDate) {
-        const deleteQuery = supabase
-          .from('service_predictions')
-          .delete()
-          .eq('service_id', serviceId)
-          .gte('prediction_date', firstDate)
-          .lte('prediction_date', lastDate);
+      if (barangayId !== null) {
+        deleteQuery = deleteQuery.eq('barangay_id', barangayId);
+      } else {
+        deleteQuery = deleteQuery.is('barangay_id', null);
+      }
 
-        if (barangayId !== null) {
-          deleteQuery.eq('barangay_id', barangayId);
-        } else {
-          deleteQuery.is('barangay_id', null);
-        }
+      const { error: deleteError } = await deleteQuery;
 
-        const { error: deleteError } = await deleteQuery;
-
-        if (deleteError) {
-          console.warn('[Generate Service Predictions API] Failed to delete old predictions:', deleteError);
-        } else {
-          console.log('[Generate Service Predictions API] Deleted old predictions');
-        }
+      if (deleteError) {
+        console.warn('[Generate Service Predictions API] Failed to delete old predictions:', deleteError);
+      } else {
+        console.log('[Generate Service Predictions API] Deleted old predictions for service', serviceId);
       }
 
       // Insert new predictions with granularity

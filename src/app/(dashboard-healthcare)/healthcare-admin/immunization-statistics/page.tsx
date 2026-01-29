@@ -145,7 +145,7 @@ export default function ImmunizationStatisticsPage() {
       const data = await response.json();
 
       if (data.success) {
-        setGenerationStatus({ type: 'success', message: `Generated predictions for ${data.data?.total_predictions || 0} months` });
+        setGenerationStatus({ type: 'success', message: `Generated predictions for ${data.data?.saved_count || data.data?.forecast_periods || 0} months` });
         setPredictionRefreshKey(prev => prev + 1);
         toast.success('Predictions generated successfully');
       } else {

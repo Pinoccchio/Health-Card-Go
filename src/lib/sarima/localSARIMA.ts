@@ -798,6 +798,9 @@ export async function generateDiseaseSARIMAPredictions(
 
       // Increment date based on granularity
       if (granularity === 'monthly' || isMonthlyAggregated) {
+        // Fix: Set to 1st of month before incrementing to avoid day-overflow
+        // (e.g., Jan 31 + 1 month = Mar 3 without this fix)
+        predDate.setDate(1);
         predDate.setMonth(predDate.getMonth() + index + 1);
       } else {
         predDate.setDate(predDate.getDate() + index + 1);
@@ -834,6 +837,7 @@ export async function generateDiseaseSARIMAPredictions(
         const predDate = new Date(lastDate);
 
         if (granularity === 'monthly' || isMonthlyAggregated) {
+          predDate.setDate(1);
           predDate.setMonth(predDate.getMonth() + index + 1);
         } else {
           predDate.setDate(predDate.getDate() + index + 1);
@@ -939,6 +943,7 @@ export async function generateSARIMAPredictions(
 
       // Increment date based on granularity
       if (granularity === 'monthly') {
+        predDate.setDate(1);
         predDate.setMonth(predDate.getMonth() + index + 1);
       } else {
         predDate.setDate(predDate.getDate() + index + 1);
@@ -1289,7 +1294,7 @@ export function aggregateServiceToMonthly(
   console.log(`[Monthly Aggregation] Service: Generating ${allMonths.length} monthly buckets`);
 
   // Bucket data into months
-  const buckets: Array<{ date: string; value: number }> = [];
+  const allBuckets: Array<{ date: string; value: number }> = [];
 
   for (const month of allMonths) {
     const monthStart = startOfMonth(month);
@@ -1308,14 +1313,44 @@ export function aggregateServiceToMonthly(
       0
     );
 
-    // Include all months (zero-fill for Service appointments - predictable patterns)
-    buckets.push({
+    allBuckets.push({
       date: monthStart.toISOString().split('T')[0], // YYYY-MM-DD format (first day of month)
       value: totalAppointments
     });
   }
 
-  console.log(`[Monthly Aggregation] Service: ${buckets.length} monthly buckets created`);
+  // Skip large gaps of zero-filled months between data sources
+  // (e.g., Excel data ends Jan 2025, system data starts Oct 2025 — Feb-Sep 2025 are not real zeros)
+  // Strategy: Only exclude zeros if they form a gap of 3+ consecutive months between data regions
+  const buckets: Array<{ date: string; value: number }> = [];
+  let consecutiveZeros = 0;
+  let zeroBuffer: Array<{ date: string; value: number }> = [];
+
+  for (const bucket of allBuckets) {
+    if (bucket.value === 0) {
+      consecutiveZeros++;
+      zeroBuffer.push(bucket);
+    } else {
+      if (consecutiveZeros >= 3) {
+        // Large gap detected — skip zero-filled months (not real data)
+        console.log(`[Monthly Aggregation] Service: Skipping ${consecutiveZeros} zero-filled gap months`);
+      } else {
+        // Small gap (1-2 months) — likely real zeros, include them
+        buckets.push(...zeroBuffer);
+      }
+      consecutiveZeros = 0;
+      zeroBuffer = [];
+      buckets.push(bucket);
+    }
+  }
+  // Handle trailing zeros (keep them — they represent recent months with no data yet)
+  if (consecutiveZeros < 3) {
+    buckets.push(...zeroBuffer);
+  } else {
+    console.log(`[Monthly Aggregation] Service: Skipping ${consecutiveZeros} trailing zero-filled months`);
+  }
+
+  console.log(`[Monthly Aggregation] Service: ${buckets.length} monthly buckets created (${allBuckets.length - buckets.length} gap months skipped)`);
 
   return buckets;
 }
@@ -1371,6 +1406,8 @@ export async function runLocalSARIMA(
 
       // Increment date based on granularity
       if (granularity === 'monthly') {
+        // Fix: Set to 1st of month before incrementing to avoid day-overflow
+        predDate.setDate(1);
         predDate.setMonth(predDate.getMonth() + index + 1);
       } else {
         predDate.setDate(predDate.getDate() + index + 1);
