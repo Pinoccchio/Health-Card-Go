@@ -80,7 +80,7 @@ export async function POST(request: NextRequest) {
 
     // Super Admins can generate for any healthcard type
     // Healthcare Admins with 'healthcard' category can generate for Yellow and Green (NOT pink)
-    // Healthcare Admins with 'hiv' category can ONLY generate for Pink cards
+    // Healthcare Admins with 'hiv' or 'pink_card' category can ONLY generate for Pink cards
     if (profile.role === 'healthcare_admin') {
       const { data: fullProfile } = await supabase
         .from('profiles')
@@ -103,13 +103,13 @@ export async function POST(request: NextRequest) {
         }
         // Allow food_handler and non_food
       }
-      // HIV admins can ONLY generate for Pink cards
-      else if (adminCategory === 'hiv') {
+      // HIV and Pink Card admins can ONLY generate for Pink cards
+      else if (adminCategory === 'hiv' || adminCategory === 'pink_card') {
         if (healthcardType !== 'pink') {
           return NextResponse.json(
             {
               success: false,
-              error: 'Forbidden: HIV admins can only generate predictions for Pink cards.',
+              error: `Forbidden: ${adminCategory === 'hiv' ? 'HIV' : 'Pink Card'} admins can only generate predictions for Pink cards.`,
             },
             { status: 403 }
           );
@@ -297,7 +297,7 @@ export async function POST(request: NextRequest) {
       const lastDate = validatedPredictions[validatedPredictions.length - 1]?.date;
 
       if (firstDate && lastDate) {
-        const deleteQuery = supabase
+        const deleteQuery = adminClient
           .from('healthcard_predictions')
           .delete()
           .eq('healthcard_type', healthcardType)
@@ -342,7 +342,7 @@ export async function POST(request: NextRequest) {
         },
       }));
 
-      const { data: insertedData, error: insertError } = await supabase
+      const { data: insertedData, error: insertError } = await adminClient
         .from('healthcard_predictions')
         .insert(predictionsToInsert)
         .select();

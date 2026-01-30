@@ -6,11 +6,11 @@ import { getBarangayId, type Barangay } from '@/lib/utils/barangayMatcher';
 /**
  * POST /api/healthcards/historical/import
  * Batch import historical healthcard statistics from Excel
- * (HealthCard Admin and Super Admin only)
+ * (HealthCard Admin, Pink Card Admin, and Super Admin only)
  *
  * Authorization:
  * - Super Admin: Can import any healthcard data
- * - Healthcare Admin with admin_category='healthcard': Can import healthcard data
+ * - Healthcare Admin with admin_category='healthcard' or 'pink_card': Can import healthcard data
  * - All other roles: Forbidden
  *
  * Request body: { records: Array<HealthcardHistoricalRecord> }
@@ -44,17 +44,17 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Authorization: Only HealthCard Admins and Super Admins can import healthcard statistics
+    // Authorization: Only HealthCard/Pink Card Admins and Super Admins can import healthcard statistics
     // Super Admins have unrestricted access
-    // Healthcare Admins must have admin_category = 'healthcard'
+    // Healthcare Admins must have admin_category = 'healthcard' or 'pink_card'
     if (profile.role === 'super_admin') {
       // Super Admins can import any healthcard data
     } else if (profile.role === 'healthcare_admin') {
-      if (profile.admin_category !== 'healthcard') {
+      if (!['healthcard', 'pink_card'].includes(profile.admin_category!)) {
         return NextResponse.json(
           {
             success: false,
-            error: `Forbidden: Only HealthCard admins can import HealthCard historical data. Your category is '${profile.admin_category}'.`
+            error: `Forbidden: Only HealthCard and Pink Card admins can import historical data. Your category is '${profile.admin_category}'.`
           },
           { status: 403 }
         );

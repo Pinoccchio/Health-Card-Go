@@ -8,6 +8,7 @@ interface HealthcardExcelImportModalProps {
   isOpen: boolean;
   onClose: () => void;
   onImportSuccess: () => void;
+  templateUrl?: string;
 }
 
 interface ValidationError {
@@ -24,6 +25,7 @@ export default function HealthcardExcelImportModal({
   isOpen,
   onClose,
   onImportSuccess,
+  templateUrl = '/templates/healthcard-historical-import-template.csv',
 }: HealthcardExcelImportModalProps) {
   const [file, setFile] = useState<File | null>(null);
   const [parseResult, setParseResult] = useState<ParseResult | null>(null);
@@ -193,7 +195,7 @@ export default function HealthcardExcelImportModal({
                     Download the Excel template with pre-filled examples and validation rules.
                   </p>
                   <a
-                    href="/templates/healthcard-historical-import-template.csv"
+                    href={templateUrl}
                     download
                     className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
                   >
@@ -310,7 +312,7 @@ export default function HealthcardExcelImportModal({
                               {parseResult.validRecords.slice(0, 5).map((record, index) => (
                                 <div key={index} className="flex justify-between text-gray-700">
                                   <span>{record.record_date}</span>
-                                  <span className="font-medium">{record.healthcard_type === 'food_handler' ? 'Food Handler' : 'Non-Food'}</span>
+                                  <span className="font-medium">{record.healthcard_type === 'food_handler' ? 'Food Handler' : record.healthcard_type === 'pink' ? 'Pink Card' : 'Non-Food'}</span>
                                   <span>{record.cards_issued} cards</span>
                                   <span className="text-gray-500">{record.barangay || 'System-wide'}</span>
                                 </div>

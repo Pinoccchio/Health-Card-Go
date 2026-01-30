@@ -35,6 +35,7 @@ export function FeedbackProvider({ children }: { children: ReactNode }) {
     const fetchInitialCount = async () => {
       try {
         const response = await fetch('/api/feedback/pending-count');
+        if (!response.ok) return;
         const data = await response.json();
         if (data.success) {
           setPendingCount(data.pendingCount);
@@ -79,6 +80,7 @@ export function FeedbackProvider({ children }: { children: ReactNode }) {
   const refreshCount = useCallback(async () => {
     try {
       const response = await fetch('/api/feedback/pending-count');
+      if (!response.ok) return;
       const data = await response.json();
       if (data.success) {
         setPendingCount(data.pendingCount);

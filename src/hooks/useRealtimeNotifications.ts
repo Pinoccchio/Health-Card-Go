@@ -42,9 +42,14 @@ export function useRealtimeNotifications(options: UseRealtimeNotificationsOption
       if (unreadOnly) params.append('unread', 'true');
 
       const response = await fetch(`/api/notifications?${params.toString()}`);
+      if (!response.ok) {
+        setError(`Failed to fetch notifications (${response.status})`);
+        toast.error('Failed to fetch notifications');
+        return;
+      }
       const data = await response.json();
 
-      if (response.ok && data.success) {
+      if (data.success) {
         setNotifications(data.data);
         setUnreadCount(data.unreadCount);
       } else {
@@ -65,10 +70,14 @@ export function useRealtimeNotifications(options: UseRealtimeNotificationsOption
       const response = await fetch(`/api/notifications/${id}/read`, {
         method: 'PUT',
       });
+      if (!response.ok) {
+        toast.error(`Failed to mark as read (${response.status})`);
+        return;
+      }
 
       const data = await response.json();
 
-      if (response.ok && data.success) {
+      if (data.success) {
         // Update local state
         setNotifications(prevNotifications =>
           prevNotifications.map(notification =>
@@ -94,10 +103,14 @@ export function useRealtimeNotifications(options: UseRealtimeNotificationsOption
       const response = await fetch('/api/notifications/mark-all-read', {
         method: 'PUT',
       });
+      if (!response.ok) {
+        toast.error(`Failed to mark all as read (${response.status})`);
+        return;
+      }
 
       const data = await response.json();
 
-      if (response.ok && data.success) {
+      if (data.success) {
         // Update local state - mark all as read
         setNotifications(prevNotifications =>
           prevNotifications.map(notification => ({

@@ -1,0 +1,73 @@
+Record Date,HealthCard Type,Cards Issued,Barangay,Source,Notes
+2020-01-15,pink,18,Gredu (Poblacion),CHO Manual Records,Q1 2020 - Pink card baseline
+2020-02-15,pink,15,San Pedro,CHO Manual Records,Q1 2020 - Pre-pandemic baseline
+2020-03-15,pink,10,J.P. Laurel,CHO Manual Records,Q1 2020 - COVID lockdown begins
+2020-04-15,pink,5,Kasilak,CHO Manual Records,Q2 2020 - Limited operations due to COVID
+2020-05-15,pink,7,Salvacion,CHO Manual Records,Q2 2020 - Gradual reopening
+2020-06-15,pink,12,New Pandan (Pob.),CHO Manual Records,Q2 2020 - Partial reopening
+2020-07-15,pink,14,San Francisco (Pob.),CHO Manual Records,Q3 2020 - Recovery phase
+2020-08-15,pink,16,Santo Niño (Pob.),CHO Manual Records,Q3 2020 - Continued recovery
+2020-09-15,pink,15,A.O. Floirendo,CHO Manual Records,Q3 2020 - Near pre-pandemic levels
+2020-10-15,pink,17,New Malaga (Dalisay),CHO Manual Records,Q4 2020 - Business recovery
+2020-11-15,pink,19,Cacao,CHO Manual Records,Q4 2020 - Holiday season prep
+2020-12-15,pink,20,Consolacion,CHO Manual Records,Q4 2020 - Year-end processing
+2021-01-15,pink,22,Gredu (Poblacion),CHO Manual Records,Q1 2021 - New year batch
+2021-02-15,pink,20,San Pedro,CHO Manual Records,Q1 2021 - Recovery continues
+2021-03-15,pink,23,J.P. Laurel,CHO Manual Records,Q1 2021 - Vaccination rollout begins
+2021-04-15,pink,26,Kasilak,CHO Manual Records,Q2 2021 - Increased demand
+2021-05-15,pink,24,Salvacion,DOH Regional Data,Q2 2021 - Economic recovery
+2021-06-15,pink,28,New Pandan (Pob.),CHO Manual Records,Q2 2021 - Pink card certifications surge
+2021-07-15,pink,30,San Francisco (Pob.),CHO Manual Records,Q3 2021 - Peak season
+2021-08-15,pink,29,Santo Niño (Pob.),CHO Manual Records,Q3 2021 - Continued high demand
+2021-09-15,pink,27,A.O. Floirendo,CHO Manual Records,Q3 2021 - Stabilizing
+2021-10-15,pink,24,New Malaga (Dalisay),CHO Manual Records,Q4 2021 - Pre-holiday
+2021-11-15,pink,22,Cacao,CHO Manual Records,Q4 2021 - Year-end batch
+2021-12-15,pink,20,Consolacion,CHO Manual Records,Q4 2021 - Final pre-system batch
+2022-01-15,pink,25,Gredu (Poblacion),CHO Manual Records,Q1 2022 - New year
+2022-02-15,pink,23,San Pedro,CHO Manual Records,Q1 2022 - Standard operations
+2022-03-15,pink,26,J.P. Laurel,CHO Manual Records,Q1 2022 - End of restrictions
+2022-04-15,pink,29,Kasilak,CHO Manual Records,Q2 2022 - Full reopening
+2022-05-15,pink,27,Salvacion,DOH Regional Data,Q2 2022 - Workers returning
+2022-06-15,pink,31,New Pandan (Pob.),CHO Manual Records,Q2 2022 - Pink card surge
+2022-07-15,pink,33,San Francisco (Pob.),CHO Manual Records,Q3 2022 - Peak season
+2022-08-15,pink,32,Santo Niño (Pob.),CHO Manual Records,Q3 2022 - High demand
+2022-09-15,pink,29,A.O. Floirendo,CHO Manual Records,Q3 2022 - Stabilizing
+2022-10-15,pink,27,New Malaga (Dalisay),CHO Manual Records,Q4 2022 - Pre-holiday
+2022-11-15,pink,24,Cacao,CHO Manual Records,Q4 2022 - Year-end batch
+2022-12-15,pink,22,Consolacion,CHO Manual Records,Q4 2022 - Final pre-system batch
+2023-01-15,pink,27,Gredu (Poblacion),CHO Manual Records,Q1 2023 - System transition
+2023-02-15,pink,25,San Pedro,CHO Manual Records,Q1 2023 - Hybrid tracking
+2023-03-15,pink,28,J.P. Laurel,CHO Manual Records,Q1 2023 - Growing demand
+2023-04-15,pink,31,Kasilak,CHO Manual Records,Q2 2023 - Summer season
+2023-05-15,pink,29,Salvacion,DOH Regional Data,Q2 2023 - Increased applications
+2023-06-15,pink,33,New Pandan (Pob.),CHO Manual Records,Q2 2023 - Peak processing
+2023-07-15,pink,35,San Francisco (Pob.),CHO Manual Records,Q3 2023 - Highest month
+2023-08-15,pink,34,Santo Niño (Pob.),CHO Manual Records,Q3 2023 - High demand
+2023-09-15,pink,31,A.O. Floirendo,CHO Manual Records,Q3 2023 - Stabilizing
+2023-10-15,pink,29,New Malaga (Dalisay),CHO Manual Records,Q4 2023 - Pre-holiday
+2023-11-15,pink,26,Cacao,CHO Manual Records,Q4 2023 - Year-end batch
+2023-12-15,pink,24,Consolacion,CHO Manual Records,Q4 2023 - Holiday processing
+2024-01-15,pink,29,Gredu (Poblacion),CHO Manual Records,Q1 2024 - New year processing
+2024-02-15,pink,27,San Pedro,CHO Manual Records,Q1 2024 - Standard month
+2024-03-15,pink,30,J.P. Laurel,CHO Manual Records,Q1 2024 - End of quarter
+2024-04-15,pink,33,Kasilak,CHO Manual Records,Q2 2024 - Summer peak
+2024-05-15,pink,31,Salvacion,DOH Regional Data,Q2 2024 - High demand
+2024-06-15,pink,35,New Pandan (Pob.),CHO Manual Records,Q2 2024 - Peak season
+2024-07-15,pink,37,San Francisco (Pob.),CHO Manual Records,Q3 2024 - Highest month
+2024-08-15,pink,36,Santo Niño (Pob.),CHO Manual Records,Q3 2024 - High demand continues
+2024-09-15,pink,33,A.O. Floirendo,CHO Manual Records,Q3 2024 - Stabilizing
+2024-10-15,pink,31,New Malaga (Dalisay),CHO Manual Records,Q4 2024 - Pre-holiday
+2024-11-15,pink,28,Cacao,CHO Manual Records,Q4 2024 - Year-end batch
+2024-12-15,pink,26,Consolacion,CHO Manual Records,Q4 2024 - Holiday processing
+2025-01-15,pink,31,Gredu (Poblacion),CHO Manual Records,Q1 2025 - New year processing
+2025-02-15,pink,29,San Pedro,CHO Manual Records,Q1 2025 - Standard month
+2025-03-15,pink,32,J.P. Laurel,CHO Manual Records,Q1 2025 - End of quarter
+2025-04-15,pink,35,Kasilak,CHO Manual Records,Q2 2025 - Summer peak
+2025-05-15,pink,33,Salvacion,DOH Regional Data,Q2 2025 - High demand
+2025-06-15,pink,37,New Pandan (Pob.),CHO Manual Records,Q2 2025 - Peak season
+2025-07-15,pink,39,San Francisco (Pob.),CHO Manual Records,Q3 2025 - Highest month
+2025-08-15,pink,38,Santo Niño (Pob.),CHO Manual Records,Q3 2025 - High demand continues
+2025-09-15,pink,35,A.O. Floirendo,CHO Manual Records,Q3 2025 - Stabilizing
+2025-10-15,pink,33,New Malaga (Dalisay),CHO Manual Records,Q4 2025 - Pre-holiday
+2025-11-15,pink,30,Cacao,CHO Manual Records,Q4 2025 - Year-end batch
+2025-12-15,pink,28,Consolacion,CHO Manual Records,Q4 2025 - Holiday processing

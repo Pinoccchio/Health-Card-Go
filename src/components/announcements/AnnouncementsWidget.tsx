@@ -37,11 +37,10 @@ export function AnnouncementsWidget({
       });
 
       const response = await fetch(`/api/announcements?${params.toString()}`);
-      const result = await response.json();
-
       if (!response.ok) {
-        throw new Error(result.error || 'Failed to fetch announcements');
+        throw new Error(`Failed to fetch announcements (${response.status})`);
       }
+      const result = await response.json();
 
       setAnnouncements(result.data || []);
     } catch (err) {

@@ -89,6 +89,10 @@ export function AnnouncementProvider({
     try {
       console.log(`🔄 [AnnouncementContext-${roleId}] Manual refresh requested`);
       const response = await fetch('/api/announcements/unread-count');
+      if (!response.ok) {
+        console.error(`❌ [AnnouncementContext-${roleId}] Refresh API error:`, response.status);
+        return;
+      }
       const data = await response.json();
       if (data.success) {
         console.log(`✅ [AnnouncementContext-${roleId}] Refreshed count: ${data.recentCount}`);

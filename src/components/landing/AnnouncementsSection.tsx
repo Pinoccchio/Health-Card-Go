@@ -35,11 +35,9 @@ export function AnnouncementsSection() {
         });
 
         const response = await fetch(`/api/announcements?${params.toString()}`);
-
         if (!response.ok) {
-          const errorData = await response.json();
-          console.error('API Error:', errorData);
-          throw new Error(errorData.error || 'Failed to fetch announcements');
+          console.error('API Error:', response.status, response.statusText);
+          throw new Error('Failed to fetch announcements');
         }
 
         const result = await response.json();

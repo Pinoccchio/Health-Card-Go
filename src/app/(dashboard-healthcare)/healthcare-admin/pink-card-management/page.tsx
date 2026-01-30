@@ -351,7 +351,7 @@ export default function PinkCardStatisticsPage() {
           {/* Action Bar - Import Historical Data */}
           <div className="flex justify-end gap-3">
             <a
-              href="/templates/healthcard-historical-import-template.csv"
+              href="/templates/pinkcard-historical-import-template.csv"
               download
               className="px-4 py-2 bg-white text-gray-700 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors flex items-center gap-2 shadow-sm"
               title="Download CSV Template (open with Excel)"
@@ -496,6 +496,12 @@ export default function PinkCardStatisticsPage() {
                 <HealthCardSARIMAChart
                   key={`pink-${predictionRefreshKey}`}
                   healthcardType="pink"
+                  combinedSummary={{
+                    total_cards_issued: summary.total_cards_issued,
+                    food_handler_cards: summary.food_handler_cards,
+                    non_food_cards: summary.non_food_cards,
+                    pink_cards: summary.pink_cards,
+                  }}
                 />
               </div>
             </div>
@@ -506,6 +512,7 @@ export default function PinkCardStatisticsPage() {
         <HealthcardExcelImportModal
           isOpen={isExcelImportOpen}
           onClose={() => setIsExcelImportOpen(false)}
+          templateUrl="/templates/pinkcard-historical-import-template.csv"
           onImportSuccess={() => {
             toast.success('Pink card data imported from Excel successfully');
             fetchStatistics();

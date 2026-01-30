@@ -143,7 +143,7 @@ export function HealthcardDataSourceCards({
               <p className="text-2xl font-bold text-gray-900 mt-1">
                 {appointmentsData.pink.toLocaleString()}
               </p>
-              <p className="text-xs text-gray-500 mt-1">Tracked via Excel only</p>
+              <p className="text-xs text-gray-500 mt-1">Service 24 appointments</p>
             </div>
           )}
         </div>

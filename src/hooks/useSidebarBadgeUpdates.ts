@@ -36,6 +36,10 @@ export function useSidebarBadgeUpdates(
     const fetchUnreadCount = async () => {
       try {
         const response = await fetch('/api/notifications/unread-count');
+        if (!response.ok) {
+          console.error('Failed to fetch unread count:', response.status);
+          return;
+        }
         const data = await response.json();
         if (data.success) {
           console.log(`📬 Initial unread notifications: ${data.unreadCount}`);

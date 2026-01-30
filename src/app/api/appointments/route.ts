@@ -273,8 +273,8 @@ export async function POST(request: NextRequest) {
 
     if (isDraft) {
       initialStatus = 'draft'; // Incomplete booking (for upload flows)
-    } else if (service_id === 12) {
-      // HealthCard (Service 12) always needs verification (both inside and outside CHO)
+    } else if (service_id === 12 || service_id === 24) {
+      // HealthCard (Service 12) and Pink Card (Service 24) always need verification
       initialStatus = 'pending'; // Awaiting admin verification of uploaded documents
     } else {
       // HIV (16) and Prenatal (17) - auto-confirmed, no verification needed

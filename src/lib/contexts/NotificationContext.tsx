@@ -40,6 +40,10 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     const fetchInitialCount = async () => {
       try {
         const response = await fetch('/api/notifications/unread-count');
+        if (!response.ok) {
+          console.error('❌ [NotificationContext] API returned error:', response.status);
+          return;
+        }
         const data = await response.json();
         if (data.success) {
           console.log(`📬 [NotificationContext] Initial unread count: ${data.unreadCount}`);
@@ -105,9 +109,15 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
         method: 'PUT',
       });
 
+      if (!response.ok) {
+        console.error('❌ [NotificationContext] API call failed:', response.status);
+        setUnreadCount(prev => prev + 1);
+        throw new Error(`Failed to mark notification as read (${response.status})`);
+      }
+
       const data = await response.json();
 
-      if (!response.ok || !data.success) {
+      if (!data.success) {
         console.error('❌ [NotificationContext] API call failed, rolling back');
         // ROLLBACK: Add back the count
         setUnreadCount(prev => prev + 1);
@@ -136,9 +146,15 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
         method: 'PUT',
       });
 
+      if (!response.ok) {
+        console.error('❌ [NotificationContext] API call failed:', response.status);
+        setUnreadCount(previousCount);
+        throw new Error(`Failed to mark all notifications as read (${response.status})`);
+      }
+
       const data = await response.json();
 
-      if (!response.ok || !data.success) {
+      if (!data.success) {
         console.error('❌ [NotificationContext] API call failed, rolling back');
         // ROLLBACK: Restore previous count
         setUnreadCount(previousCount);
@@ -158,6 +174,10 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   const refreshCount = useCallback(async () => {
     try {
       const response = await fetch('/api/notifications/unread-count');
+      if (!response.ok) {
+        console.error('❌ [NotificationContext] Refresh API error:', response.status);
+        return;
+      }
       const data = await response.json();
       if (data.success) {
         console.log(`🔄 [NotificationContext] Refreshed count: ${data.unreadCount}`);

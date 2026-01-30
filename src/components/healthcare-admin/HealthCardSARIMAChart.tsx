@@ -63,6 +63,7 @@ interface HealthCardSARIMAChartProps {
     total_cards_issued: number;
     food_handler_cards: number;
     non_food_cards: number;
+    pink_cards?: number;
   };
 }
 
@@ -574,24 +575,38 @@ export default function HealthCardSARIMAChart({
           </p>
           <p className="text-xs text-gray-500 mt-1">Used for time series forecasting</p>
           <div className="mt-3 space-y-1">
-            <div className="flex items-center justify-between text-xs">
-              <div className="flex items-center gap-1">
-                <span className="w-2 h-2 bg-yellow-500 rounded-full"></span>
-                <span className="text-gray-700">Yellow Cards:</span>
+            {healthcardType === 'pink' ? (
+              <div className="flex items-center justify-between text-xs">
+                <div className="flex items-center gap-1">
+                  <span className="w-2 h-2 bg-pink-500 rounded-full"></span>
+                  <span className="text-gray-700">Pink Cards:</span>
+                </div>
+                <span className="font-semibold text-gray-900">
+                  {combinedSummary?.pink_cards || combinedSummary?.total_cards_issued || 0}
+                </span>
               </div>
-              <span className="font-semibold text-gray-900">
-                {combinedSummary?.food_handler_cards || 0} ({combinedSummary ? Math.round((combinedSummary.food_handler_cards / combinedSummary.total_cards_issued) * 100) : 0}%)
-              </span>
-            </div>
-            <div className="flex items-center justify-between text-xs">
-              <div className="flex items-center gap-1">
-                <span className="w-2 h-2 bg-green-500 rounded-full"></span>
-                <span className="text-gray-700">Green Cards:</span>
-              </div>
-              <span className="font-semibold text-gray-900">
-                {combinedSummary?.non_food_cards || 0} ({combinedSummary ? Math.round((combinedSummary.non_food_cards / combinedSummary.total_cards_issued) * 100) : 0}%)
-              </span>
-            </div>
+            ) : (
+              <>
+                <div className="flex items-center justify-between text-xs">
+                  <div className="flex items-center gap-1">
+                    <span className="w-2 h-2 bg-yellow-500 rounded-full"></span>
+                    <span className="text-gray-700">Yellow Cards:</span>
+                  </div>
+                  <span className="font-semibold text-gray-900">
+                    {combinedSummary?.food_handler_cards || 0} ({combinedSummary ? Math.round((combinedSummary.food_handler_cards / combinedSummary.total_cards_issued) * 100) : 0}%)
+                  </span>
+                </div>
+                <div className="flex items-center justify-between text-xs">
+                  <div className="flex items-center gap-1">
+                    <span className="w-2 h-2 bg-green-500 rounded-full"></span>
+                    <span className="text-gray-700">Green Cards:</span>
+                  </div>
+                  <span className="font-semibold text-gray-900">
+                    {combinedSummary?.non_food_cards || 0} ({combinedSummary ? Math.round((combinedSummary.non_food_cards / combinedSummary.total_cards_issued) * 100) : 0}%)
+                  </span>
+                </div>
+              </>
+            )}
           </div>
         </div>
 
@@ -638,15 +653,23 @@ export default function HealthCardSARIMAChart({
             )}
           </div>
           <p className="text-sm font-bold text-orange-900">
-            Combined (Yellow + Green)
+            {healthcardType === 'pink'
+              ? 'Pink Card (Service/Clinical)'
+              : healthcardType === 'food_handler'
+              ? 'Yellow Card (Food Handler)'
+              : 'Green Card (Non-Food)'}
           </p>
           {/* Service ID Mapping:
               - Food Handler (Yellow): Services 12-13
               - Non-Food (Green): Services 14-15
-              This chart shows combined predictions for both card types.
+              - Pink Card: Service 24
           */}
           <p className="text-xs text-orange-700 mt-1">
-            {healthcardType === 'food_handler' ? 'Services 12-13' : 'Services 14-15'}
+            {healthcardType === 'food_handler'
+              ? 'Services 12-13'
+              : healthcardType === 'pink'
+              ? 'Service 24'
+              : 'Services 14-15'}
           </p>
         </div>
       </div>

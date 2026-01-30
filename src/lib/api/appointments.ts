@@ -41,6 +41,13 @@ export async function updateAppointmentStatus(
       }),
     });
 
+    if (!response.ok) {
+      return {
+        success: false,
+        error: `API error: ${response.status} ${response.statusText}`,
+      };
+    }
+
     const data = await response.json();
     return data;
   } catch (error) {
@@ -109,6 +116,13 @@ export async function completeAppointment(
       }),
     });
 
+    if (!response.ok) {
+      return {
+        success: false,
+        error: `API error: ${response.status} ${response.statusText}`,
+      };
+    }
+
     const data = await response.json();
     return data;
   } catch (error) {
@@ -137,6 +151,13 @@ export async function cancelAppointment(
       },
       body: JSON.stringify({ cancellation_reason: reason }),
     });
+
+    if (!response.ok) {
+      return {
+        success: false,
+        error: `API error: ${response.status} ${response.statusText}`,
+      };
+    }
 
     const data = await response.json();
     return data;
@@ -168,6 +189,13 @@ export async function revertAppointmentStatus(
         revert_to_history_id: historyId,
       }),
     });
+
+    if (!response.ok) {
+      return {
+        success: false,
+        error: `API error: ${response.status} ${response.statusText}`,
+      };
+    }
 
     const data = await response.json();
     return data;
