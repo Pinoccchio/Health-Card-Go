@@ -30,15 +30,18 @@ interface HistoricalStatistic {
 
 interface HistoricalStatisticsTableProps {
   statistics: HistoricalStatistic[];
-  onEdit: (record: HistoricalStatistic) => void;
-  onDelete: (record: HistoricalStatistic) => void;
+  onEdit?: (record: HistoricalStatistic) => void;
+  onDelete?: (record: HistoricalStatistic) => void;
+  readOnly?: boolean;
 }
 
 export function HistoricalStatisticsTable({
   statistics,
   onEdit,
   onDelete,
+  readOnly = false,
 }: HistoricalStatisticsTableProps) {
+  const showActions = !readOnly && (!!onEdit || !!onDelete);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0 });
 
@@ -95,9 +98,11 @@ export function HistoricalStatisticsTable({
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Imported By
               </th>
-              <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Actions
-              </th>
+              {showActions && (
+                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Actions
+                </th>
+              )}
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
@@ -165,6 +170,7 @@ export function HistoricalStatisticsTable({
                 </td>
 
                 {/* Actions */}
+                {showActions && (
                 <td className="px-6 py-4 whitespace-nowrap text-right">
                   <div className="relative inline-block text-left">
                     <button
@@ -193,6 +199,7 @@ export function HistoricalStatisticsTable({
                           }}
                         >
                           <div className="py-1">
+                            {onEdit && (
                             <button
                               onClick={() => {
                                 onEdit(stat);
@@ -203,6 +210,8 @@ export function HistoricalStatisticsTable({
                               <Edit2 className="w-4 h-4 text-gray-400 group-hover:text-gray-600" />
                               Edit Source/Notes
                             </button>
+                            )}
+                            {onDelete && (
                             <button
                               onClick={() => {
                                 onDelete(stat);
@@ -213,12 +222,14 @@ export function HistoricalStatisticsTable({
                               <Trash2 className="w-4 h-4 text-red-400 group-hover:text-red-600" />
                               Delete Record
                             </button>
+                            )}
                           </div>
                         </div>
                       </>
                     )}
                   </div>
                 </td>
+                )}
               </tr>
             ))}
           </tbody>
