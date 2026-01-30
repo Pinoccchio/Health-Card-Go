@@ -19,7 +19,6 @@ import {
   Activity,
   ArrowRight,
 } from 'lucide-react';
-import { format } from 'date-fns';
 
 interface DashboardStats {
   patients: {
@@ -86,95 +85,11 @@ export default function SuperAdminDashboard() {
       else setLoading(true);
       setError('');
 
-      // Fetch data from all API endpoints in parallel
-      const [
-        patientsRes,
-        healthcareAdminsRes,
-        staffRes,
-        appointmentsRes,
-        feedbackRes,
-        barangaysRes,
-        servicesRes,
-        diseasesRes,
-      ] = await Promise.all([
-        fetch('/api/admin/patients?limit=1000'),
-        fetch('/api/admin/healthcare-admins?limit=100'),
-        fetch('/api/admin/staff?limit=100'),
-        fetch('/api/appointments?limit=1000'),
-        fetch('/api/feedback'),
-        fetch('/api/barangays'),
-        fetch('/api/services'),
-        fetch('/api/diseases?limit=1000'),
-      ]);
+      const res = await fetch('/api/admin/dashboard/stats');
+      const result = await res.json();
 
-      // Parse responses
-      const patientsData = await patientsRes.json();
-      const healthcareAdminsData = await healthcareAdminsRes.json();
-      const staffData = await staffRes.json();
-      const appointmentsData = await appointmentsRes.json();
-      const feedbackData = await feedbackRes.json();
-      const barangaysData = await barangaysRes.json();
-      const servicesData = await servicesRes.json();
-      const diseasesData = await diseasesRes.json();
-
-      // Check if all requests succeeded
-      if (
-        patientsData.success &&
-        healthcareAdminsData.success &&
-        staffData.success &&
-        appointmentsData.success &&
-        feedbackData.success &&
-        barangaysData.success &&
-        servicesData.success &&
-        diseasesData.success
-      ) {
-        const patients = patientsData.data || [];
-        const healthcareAdmins = healthcareAdminsData.data || [];
-        const staff = staffData.data || [];
-        const appointments = appointmentsData.data || [];
-        const feedback = feedbackData.data || [];
-        const barangays = barangaysData.data || [];
-        const services = servicesData.data || [];
-        const diseases = diseasesData.data || [];
-
-        // Calculate statistics
-        const today = format(new Date(), 'yyyy-MM-dd');
-
-        setStats({
-          patients: {
-            total: patients.length,
-            active: patients.filter((p: any) => p.status === 'active').length,
-            suspended: patients.filter((p: any) => p.status === 'suspended').length,
-          },
-          healthcareAdmins: {
-            total: healthcareAdmins.length,
-            assigned: healthcareAdmins.filter((ha: any) => ha.assigned_service_id !== null).length,
-          },
-          staff: {
-            total: staff.length,
-          },
-          appointments: {
-            total: appointments.length,
-            today: appointments.filter((a: any) => a.appointment_date === today).length,
-            scheduled: appointments.filter((a: any) => a.status === 'scheduled').length,
-            completed: appointments.filter((a: any) => a.status === 'completed').length,
-          },
-          feedback: {
-            total: feedback.length,
-            pending: feedback.filter((f: any) => !f.admin_response).length,
-          },
-          barangays: {
-            total: barangays.length,
-          },
-          services: {
-            total: services.length,
-            active: services.filter((s: any) => s.is_active === true).length,
-          },
-          diseases: {
-            total: diseases.length,
-            active: diseases.filter((d: any) => d.status === 'active').length,
-          },
-        });
+      if (result.success) {
+        setStats(result.data);
       } else {
         setError('Failed to load dashboard data');
       }
