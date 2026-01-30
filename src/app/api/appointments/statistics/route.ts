@@ -87,6 +87,8 @@ export async function GET(request: NextRequest) {
         serviceIds = [19];
       } else if (adminCategory === 'adult_vaccination') {
         serviceIds = [20];
+      } else if (adminCategory === 'pink_card') {
+        serviceIds = [24];
       } else {
         return NextResponse.json(
           { success: false, error: 'Invalid admin_category' },
@@ -114,6 +116,8 @@ export async function GET(request: NextRequest) {
         serviceIds = [19];
       } else if (profile.admin_category === 'adult_vaccination') {
         serviceIds = [20];
+      } else if (profile.admin_category === 'pink_card') {
+        serviceIds = [24];
       }
     } else {
       return NextResponse.json(

@@ -309,11 +309,11 @@ export async function getHealthcareAdminMenuItems(
   // Add Pink Card Management for pink_card admins
   if (adminCategory === 'pink_card') {
     menuItems.push({
-      label: 'Pink Card Management',
+      label: 'SARIMA Statistics',
       href: '/healthcare-admin/pink-card-management',
       icon: CreditCard,
     });
-    console.log('✅ Added Pink Card Management menu for pink_card admin');
+    console.log('✅ Added SARIMA Statistics menu for pink_card admin');
   }
 
   // Add Immunization Statistics for Child Immunization admins

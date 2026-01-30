@@ -42,14 +42,15 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Allow: Staff, Super Admin, and Healthcare Admins (healthcard, hiv, pregnancy categories)
+    // Allow: Staff, Super Admin, and Healthcare Admins (healthcard, hiv, pregnancy, pink_card categories)
     const isStaff = profile.role === 'staff';
     const isSuperAdmin = profile.role === 'super_admin';
     const isHealthcardAdmin = profile.role === 'healthcare_admin' && profile.admin_category === 'healthcard';
     const isHIVAdmin = profile.role === 'healthcare_admin' && profile.admin_category === 'hiv';
     const isPregnancyAdmin = profile.role === 'healthcare_admin' && profile.admin_category === 'pregnancy';
+    const isPinkCardAdmin = profile.role === 'healthcare_admin' && profile.admin_category === 'pink_card';
 
-    if (!isStaff && !isSuperAdmin && !isHealthcardAdmin && !isHIVAdmin && !isPregnancyAdmin) {
+    if (!isStaff && !isSuperAdmin && !isHealthcardAdmin && !isHIVAdmin && !isPregnancyAdmin && !isPinkCardAdmin) {
       return NextResponse.json(
         { success: false, error: 'Unauthorized to view healthcard statistics' },
         { status: 403 }

@@ -4,23 +4,28 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { DashboardLayout } from '@/components/dashboard';
 import { Container, ConfirmDialog } from '@/components/ui';
+import HealthcardExcelImportModal from '@/components/staff/HealthcardExcelImportModal';
+import { EditHealthcardStatisticModal } from '@/components/staff/EditHealthcardStatisticModal';
+import { HealthcardDataSourceCards } from '@/components/staff/HealthcardDataSourceCards';
+import { HealthcardStatisticsTable } from '@/components/staff/HealthcardStatisticsTable';
 import { useToast } from '@/lib/contexts/ToastContext';
 import { useAuth } from '@/lib/auth';
 import {
   CreditCard,
+  Upload,
+  Download,
   Filter,
-  FileText,
   AlertCircle,
+  Sparkles,
   Loader2,
   CheckCircle2,
-  Calendar,
-  MapPin,
-  TrendingUp,
 } from 'lucide-react';
+import HealthCardSARIMAChart from '@/components/healthcare-admin/HealthCardSARIMAChart';
+import { AppointmentStatusChart } from '@/components/charts';
 
-interface PinkCardStatistic {
+interface HealthcardStatistic {
   id: string;
-  healthcard_type: 'pink';
+  healthcard_type: 'food_handler' | 'non_food' | 'pink';
   record_date: string;
   cards_issued: number;
   barangay_id: number | null;
@@ -40,142 +45,271 @@ interface PinkCardStatistic {
   } | null;
 }
 
-interface Appointment {
-  id: string;
-  patient_id: string;
-  appointment_date: string;
-  appointment_time: string;
-  status: string;
-  card_type: string;
-  lab_location: string;
-  profiles: {
-    first_name: string;
-    last_name: string;
-    email: string;
-  };
-}
-
-export default function PinkCardManagementPage() {
+export default function PinkCardStatisticsPage() {
   const router = useRouter();
   const { user } = useAuth();
-  const [statistics, setStatistics] = useState<PinkCardStatistic[]>([]);
-  const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [statistics, setStatistics] = useState<HealthcardStatistic[]>([]);
   const [barangays, setBarangays] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isExcelImportOpen, setIsExcelImportOpen] = useState(false);
   const [hasAccess, setHasAccess] = useState<boolean | null>(null);
   const toast = useToast();
+
+  // Edit Modal State
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [selectedRecord, setSelectedRecord] = useState<HealthcardStatistic | null>(null);
+
+  // Delete Dialog State
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [recordToDelete, setRecordToDelete] = useState<HealthcardStatistic | null>(null);
+  const [actionLoading, setActionLoading] = useState(false);
 
   // Summary state
   const [summary, setSummary] = useState<any>({
     total_records: 0,
     total_cards_issued: 0,
-    pending_appointments: 0,
-    completed_this_month: 0,
+    food_handler_cards: 0,
+    non_food_cards: 0,
+    pink_cards: 0,
     date_range: {
       earliest: null,
       latest: null,
     },
   });
 
-  // Filter state
+  // Filter state — always pink type
   const [filters, setFilters] = useState({
     barangay_id: 'all',
     start_date: '',
     end_date: '',
-    status: 'all',
   });
 
-  // Check access on mount
+  // SARIMA Prediction state
+  const [predictionRefreshKey, setPredictionRefreshKey] = useState(0);
+  const [isGeneratingPredictions, setIsGeneratingPredictions] = useState(false);
+  const [generationStatus, setGenerationStatus] = useState<{ type: 'idle' | 'success' | 'error'; message?: string }>({ type: 'idle' });
+
+  // Appointment Statistics state (for status breakdown chart)
+  const [appointmentStats, setAppointmentStats] = useState<any[]>([]);
+  const [appointmentStatsLoading, setAppointmentStatsLoading] = useState(true);
+
   useEffect(() => {
-    if (!user) {
-      router.push('/auth/login');
-      return;
+    if (user) {
+      const isPinkCardAdmin = user.role_id === 2 && user.admin_category === 'pink_card';
+      const isSuperAdmin = user.role_id === 1;
+
+      if (!isPinkCardAdmin && !isSuperAdmin) {
+        setHasAccess(false);
+        toast.error('You do not have permission to access this page. This page is only for Healthcare Admins with Pink Card category.');
+        router.push('/healthcare-admin/dashboard');
+      } else {
+        setHasAccess(true);
+        fetchBarangays();
+      }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
 
-    // Only pink_card admins can access
-    if (user.role !== 'healthcare_admin' || user.admin_category !== 'pink_card') {
-      setHasAccess(false);
-      toast.error('Access denied. Pink Card Administrator access required.');
-      router.push('/healthcare-admin/dashboard');
-      return;
-    }
-
-    setHasAccess(true);
-  }, [user, router, toast]);
-
-  // Fetch data
   useEffect(() => {
-    if (hasAccess === true) {
-      fetchData();
+    if (hasAccess) {
+      fetchStatistics();
+      fetchAppointmentStatistics();
     }
-  }, [hasAccess, filters]);
+  }, [filters, hasAccess]);
 
-  const fetchData = async () => {
+  const fetchBarangays = async () => {
+    try {
+      const response = await fetch('/api/barangays');
+      const data = await response.json();
+      if (data.success) {
+        setBarangays(data.data || []);
+      }
+    } catch (err) {
+      console.error('Error fetching barangays:', err);
+    }
+  };
+
+  const fetchStatistics = async () => {
     try {
       setLoading(true);
 
-      // Fetch pink card statistics
-      const statsParams = new URLSearchParams();
-      statsParams.append('healthcard_type', 'pink');
+      const params = new URLSearchParams();
+      // Always filter to pink cards only
+      params.append('healthcard_type', 'pink');
       if (filters.barangay_id !== 'all') {
-        statsParams.append('barangay_id', filters.barangay_id);
+        params.append('barangay_id', filters.barangay_id);
       }
       if (filters.start_date) {
-        statsParams.append('start_date', filters.start_date);
+        params.append('start_date', filters.start_date);
       }
       if (filters.end_date) {
-        statsParams.append('end_date', filters.end_date);
+        params.append('end_date', filters.end_date);
       }
 
-      const [statsRes, appointmentsRes, barangaysRes] = await Promise.all([
-        fetch(`/api/healthcare-admin/healthcard-statistics?${statsParams}`),
-        fetch(`/api/healthcare-admin/appointments?service_id=24${filters.status !== 'all' ? `&status=${filters.status}` : ''}`),
-        fetch('/api/barangays'),
-      ]);
+      const response = await fetch(`/api/healthcards/historical?${params.toString()}`);
+      const data = await response.json();
 
-      if (!statsRes.ok) throw new Error('Failed to fetch statistics');
-      if (!appointmentsRes.ok) throw new Error('Failed to fetch appointments');
-      if (!barangaysRes.ok) throw new Error('Failed to fetch barangays');
-
-      const statsData = await statsRes.json();
-      const appointmentsData = await appointmentsRes.json();
-      const barangaysData = await barangaysRes.json();
-
-      setStatistics(statsData.data || []);
-      setAppointments(appointmentsData.data || []);
-      setBarangays(barangaysData.data || []);
-      setSummary(statsData.summary || {});
-    } catch (error) {
-      console.error('Error fetching data:', error);
-      toast.error('Failed to load pink card data');
+      if (data.success) {
+        setStatistics(data.data.records || []);
+        setSummary(data.data.summary || {
+          total_records: 0,
+          total_cards_issued: 0,
+          food_handler_cards: 0,
+          non_food_cards: 0,
+          pink_cards: 0,
+          date_range: {
+            earliest: null,
+            latest: null,
+          },
+        });
+      } else {
+        toast.error('Failed to load pink card statistics');
+      }
+    } catch (err) {
+      console.error('Error fetching statistics:', err);
+      toast.error('An unexpected error occurred');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleFilterChange = (key: string, value: string) => {
-    setFilters((prev) => ({ ...prev, [key]: value }));
+  const fetchAppointmentStatistics = async () => {
+    try {
+      setAppointmentStatsLoading(true);
+      const response = await fetch('/api/appointments/statistics?admin_category=pink_card');
+      const data = await response.json();
+
+      if (data.success) {
+        setAppointmentStats(data.data.monthly || []);
+      }
+    } catch (err) {
+      console.error('Error fetching appointment statistics:', err);
+    } finally {
+      setAppointmentStatsLoading(false);
+    }
   };
 
-  const handleClearFilters = () => {
-    setFilters({
-      barangay_id: 'all',
-      start_date: '',
-      end_date: '',
-      status: 'all',
-    });
+  const handleEdit = (record: HealthcardStatistic) => {
+    setSelectedRecord(record);
+    setIsEditModalOpen(true);
   };
 
-  if (hasAccess === false) {
-    return null;
+  const handleEditSuccess = () => {
+    toast.success('Record updated successfully');
+    fetchStatistics();
+  };
+
+  const handleDelete = (record: HealthcardStatistic) => {
+    setRecordToDelete(record);
+    setShowDeleteDialog(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!recordToDelete) return;
+
+    try {
+      setActionLoading(true);
+      const response = await fetch(
+        `/api/healthcards/statistics/${recordToDelete.id}`,
+        { method: 'DELETE' }
+      );
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          result.message || result.error || 'Failed to delete record'
+        );
+      }
+
+      toast.success(result.message || 'Record deleted successfully');
+      setShowDeleteDialog(false);
+      setRecordToDelete(null);
+      fetchStatistics();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to delete record');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleGeneratePredictions = async () => {
+    setIsGeneratingPredictions(true);
+    setGenerationStatus({ type: 'idle' });
+
+    try {
+      const response = await fetch('/api/healthcards/generate-predictions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          healthcard_type: 'pink',
+          months_forecast: 12,
+          granularity: 'monthly',
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!data.success) {
+        throw new Error(data.error || 'Failed to generate Pink Card predictions');
+      }
+
+      const totalPredictions = data.data?.predictions?.length || 0;
+      setGenerationStatus({
+        type: 'success',
+        message: `Generated predictions for Pink Cards (${totalPredictions} total)`
+      });
+      setPredictionRefreshKey(prev => prev + 1);
+      toast.success('Predictions generated successfully for Pink Cards');
+    } catch (error) {
+      console.error('Generate predictions error:', error);
+      const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
+      setGenerationStatus({ type: 'error', message: errorMessage });
+      toast.error(errorMessage);
+    } finally {
+      setIsGeneratingPredictions(false);
+    }
+  };
+
+  // Show loading state while checking access
+  if (hasAccess === null) {
+    return (
+      <DashboardLayout
+        roleId={2}
+        pageTitle="Pink Card Statistics"
+        pageDescription="Manage pink card issuance data"
+      >
+        <Container size="full">
+          <div className="flex items-center justify-center min-h-[400px]">
+            <div className="text-center">
+              <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-[#20C997]"></div>
+              <p className="mt-2 text-sm text-gray-500">Checking access permissions...</p>
+            </div>
+          </div>
+        </Container>
+      </DashboardLayout>
+    );
   }
 
-  if (hasAccess === null || loading) {
+  // Show access denied message if no access
+  if (hasAccess === false) {
     return (
-      <DashboardLayout user={user}>
-        <Container>
+      <DashboardLayout
+        roleId={2}
+        pageTitle="Pink Card Statistics"
+        pageDescription="Access Denied"
+      >
+        <Container size="full">
           <div className="flex items-center justify-center min-h-[400px]">
-            <Loader2 className="h-8 w-8 animate-spin text-fuchsia-600" />
+            <div className="text-center max-w-md">
+              <div className="p-3 bg-red-100 rounded-full inline-block mb-4">
+                <AlertCircle className="w-8 h-8 text-red-600" />
+              </div>
+              <h2 className="text-xl font-semibold text-gray-900 mb-2">Access Denied</h2>
+              <p className="text-gray-600">
+                You do not have permission to access this page. This page is only available to Healthcare Admins with Pink Card category.
+              </p>
+            </div>
           </div>
         </Container>
       </DashboardLayout>
@@ -183,281 +317,234 @@ export default function PinkCardManagementPage() {
   }
 
   return (
-    <DashboardLayout user={user}>
-      <Container>
-        {/* Header */}
-        <div className="mb-8">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="p-2 bg-fuchsia-100 rounded-lg">
-              <CreditCard className="h-6 w-6 text-fuchsia-600" />
-            </div>
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">Pink Card Management</h1>
-              <p className="text-sm text-gray-600">
-                HIV-related health card issuance and renewal
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* Summary Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-          <div className="bg-white rounded-lg border border-gray-200 p-4">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-sm font-medium text-gray-600">Total Cards Issued</span>
-              <CreditCard className="h-4 w-4 text-fuchsia-600" />
-            </div>
-            <div className="text-2xl font-bold text-gray-900">
-              {summary.total_cards_issued || 0}
+    <DashboardLayout
+      roleId={2}
+      pageTitle="Pink Card Statistics"
+      pageDescription="Import and manage pink card issuance data"
+    >
+      <Container size="full">
+        <div className="space-y-6">
+          {/* Page Header */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="p-3 bg-fuchsia-100 rounded-lg">
+                <CreditCard className="w-6 h-6 text-fuchsia-600" />
+              </div>
+              <div>
+                <h1 className="text-2xl font-bold text-gray-900">Pink Card Statistics</h1>
+                <p className="text-sm text-gray-600">Manage pink card issuance data and generate forecasts</p>
+              </div>
             </div>
           </div>
 
-          <div className="bg-white rounded-lg border border-gray-200 p-4">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-sm font-medium text-gray-600">Pending Appointments</span>
-              <Calendar className="h-4 w-4 text-orange-600" />
-            </div>
-            <div className="text-2xl font-bold text-gray-900">
-              {appointments.filter((a) => a.status === 'scheduled' || a.status === 'pending').length}
-            </div>
-          </div>
+          {/* Data Source Breakdown */}
+          <HealthcardDataSourceCards summary={summary} loading={loading} showPinkCards={true} pinkCardOnly={true} />
 
-          <div className="bg-white rounded-lg border border-gray-200 p-4">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-sm font-medium text-gray-600">Completed This Month</span>
-              <CheckCircle2 className="h-4 w-4 text-green-600" />
-            </div>
-            <div className="text-2xl font-bold text-gray-900">
-              {appointments.filter((a) => {
-                const isCompleted = a.status === 'completed';
-                const isThisMonth =
-                  new Date(a.appointment_date).getMonth() === new Date().getMonth() &&
-                  new Date(a.appointment_date).getFullYear() === new Date().getFullYear();
-                return isCompleted && isThisMonth;
-              }).length}
-            </div>
-          </div>
+          {/* Appointment Status Breakdown Chart */}
+          <AppointmentStatusChart
+            data={appointmentStats}
+            loading={appointmentStatsLoading}
+            title="Current System Appointments - Monthly Status Breakdown (Completed, Cancelled, No Show)"
+            height={450}
+          />
 
-          <div className="bg-white rounded-lg border border-gray-200 p-4">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-sm font-medium text-gray-600">Total Records</span>
-              <FileText className="h-4 w-4 text-blue-600" />
-            </div>
-            <div className="text-2xl font-bold text-gray-900">
-              {summary.total_records || 0}
-            </div>
-          </div>
-        </div>
-
-        {/* Filters */}
-        <div className="bg-white rounded-lg border border-gray-200 p-4 mb-6">
-          <div className="flex items-center gap-2 mb-4">
-            <Filter className="h-4 w-4 text-gray-600" />
-            <h2 className="text-sm font-semibold text-gray-900">Filters</h2>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            {/* Barangay Filter */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Barangay
-              </label>
-              <select
-                value={filters.barangay_id}
-                onChange={(e) => handleFilterChange('barangay_id', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-fuchsia-500"
-              >
-                <option value="all">All Barangays</option>
-                {barangays.map((b) => (
-                  <option key={b.id} value={b.id}>
-                    {b.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Start Date Filter */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Start Date
-              </label>
-              <input
-                type="date"
-                value={filters.start_date}
-                onChange={(e) => handleFilterChange('start_date', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-fuchsia-500"
-              />
-            </div>
-
-            {/* End Date Filter */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                End Date
-              </label>
-              <input
-                type="date"
-                value={filters.end_date}
-                onChange={(e) => handleFilterChange('end_date', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-fuchsia-500"
-              />
-            </div>
-
-            {/* Status Filter */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Appointment Status
-              </label>
-              <select
-                value={filters.status}
-                onChange={(e) => handleFilterChange('status', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-fuchsia-500"
-              >
-                <option value="all">All Statuses</option>
-                <option value="pending">Pending</option>
-                <option value="scheduled">Scheduled</option>
-                <option value="completed">Completed</option>
-                <option value="cancelled">Cancelled</option>
-              </select>
-            </div>
-          </div>
-
-          <div className="mt-4 flex justify-end">
-            <button
-              onClick={handleClearFilters}
-              className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+          {/* Action Bar - Import Historical Data */}
+          <div className="flex justify-end gap-3">
+            <a
+              href="/templates/healthcard-historical-import-template.csv"
+              download
+              className="px-4 py-2 bg-white text-gray-700 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors flex items-center gap-2 shadow-sm"
+              title="Download CSV Template (open with Excel)"
             >
-              Clear Filters
+              <Download className="w-4 h-4" />
+              Download Template
+            </a>
+            <button
+              onClick={() => setIsExcelImportOpen(true)}
+              className="px-4 py-2 bg-[#20C997] text-white rounded-md hover:bg-[#1AA179] transition-colors flex items-center gap-2 shadow-sm"
+              title="Import from Excel"
+            >
+              <Upload className="w-4 h-4" />
+              Import Excel
             </button>
           </div>
+
+          {/* Filters */}
+          <div className="bg-white rounded-lg shadow p-4 border border-gray-200">
+            <div className="flex items-center gap-2 mb-4">
+              <Filter className="w-4 h-4 text-gray-600" />
+              <h3 className="text-sm font-semibold text-gray-900">Filter Data</h3>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {/* Barangay Filter */}
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  Barangay
+                </label>
+                <select
+                  value={filters.barangay_id}
+                  onChange={(e) => setFilters({ ...filters, barangay_id: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#20C997] text-sm"
+                >
+                  <option value="all">All Barangays</option>
+                  {barangays.map(barangay => (
+                    <option key={barangay.id} value={barangay.id}>
+                      {barangay.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Start Date Filter */}
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  Start Date
+                </label>
+                <input
+                  type="date"
+                  value={filters.start_date}
+                  onChange={(e) => setFilters({ ...filters, start_date: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#20C997] text-sm"
+                />
+              </div>
+
+              {/* End Date Filter */}
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  End Date
+                </label>
+                <input
+                  type="date"
+                  value={filters.end_date}
+                  onChange={(e) => setFilters({ ...filters, end_date: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#20C997] text-sm"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Statistics Table */}
+          {loading ? (
+            <div className="bg-white rounded-lg shadow border border-gray-200 p-12 text-center">
+              <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-[#20C997]"></div>
+              <p className="mt-2 text-sm text-gray-500">Loading pink card statistics...</p>
+            </div>
+          ) : (
+            <HealthcardStatisticsTable
+              statistics={statistics}
+              onEdit={handleEdit}
+              onDelete={handleDelete}
+            />
+          )}
+
+          {/* SARIMA Predictions Section */}
+          <div className="bg-white rounded-lg shadow border border-gray-200">
+            <div className="p-6 border-b border-gray-200">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-gradient-to-br from-teal-500 to-blue-500 rounded-lg">
+                    <Sparkles className="w-5 h-5 text-white" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900">Pink Card Demand Forecast (SARIMA)</h3>
+                    <p className="text-sm text-gray-600">SARIMA predictions for Pink Card issuance</p>
+                  </div>
+                </div>
+                <button
+                  onClick={handleGeneratePredictions}
+                  disabled={isGeneratingPredictions}
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-[#20C997] text-white rounded-lg hover:bg-[#1AA179] transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-md"
+                >
+                  {isGeneratingPredictions ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Generating...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="w-4 h-4" />
+                      Generate Predictions
+                    </>
+                  )}
+                </button>
+              </div>
+              {generationStatus.type !== 'idle' && (
+                <div className={`mt-4 p-3 rounded-lg flex items-start gap-2 ${
+                  generationStatus.type === 'success' ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'
+                }`}>
+                  {generationStatus.type === 'success' ? (
+                    <CheckCircle2 className="w-5 h-5 text-green-600 mt-0.5" />
+                  ) : (
+                    <AlertCircle className="w-5 h-5 text-red-600 mt-0.5" />
+                  )}
+                  <p className={`text-sm ${generationStatus.type === 'success' ? 'text-green-800' : 'text-red-800'}`}>
+                    {generationStatus.message}
+                  </p>
+                </div>
+              )}
+            </div>
+            <div className="p-6">
+              {/* Pink Card Forecast */}
+              <div>
+                <h4 className="text-md font-semibold text-gray-900 mb-2 flex items-center gap-2">
+                  <Sparkles className="w-5 h-5 text-blue-600" />
+                  Pink Card Demand Forecast
+                </h4>
+                <p className="text-sm text-gray-600 mb-6">
+                  Statistical predictions using Pink Card historical data. Click &quot;All Time&quot; button below to view full historical dataset.
+                </p>
+                <HealthCardSARIMAChart
+                  key={`pink-${predictionRefreshKey}`}
+                  healthcardType="pink"
+                />
+              </div>
+            </div>
+          </div>
         </div>
 
-        {/* Appointments Table */}
-        <div className="bg-white rounded-lg border border-gray-200 mb-6">
-          <div className="p-4 border-b border-gray-200">
-            <h2 className="text-lg font-semibold text-gray-900">Pink Card Appointments</h2>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                    Patient
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                    Date
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                    Time
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                    Lab Location
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                    Status
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200">
-                {appointments.length === 0 ? (
-                  <tr>
-                    <td colSpan={5} className="px-4 py-8 text-center text-gray-500">
-                      No appointments found
-                    </td>
-                  </tr>
-                ) : (
-                  appointments.map((appointment) => (
-                    <tr key={appointment.id} className="hover:bg-gray-50">
-                      <td className="px-4 py-3 text-sm text-gray-900">
-                        {appointment.profiles.first_name} {appointment.profiles.last_name}
-                      </td>
-                      <td className="px-4 py-3 text-sm text-gray-900">
-                        {new Date(appointment.appointment_date).toLocaleDateString()}
-                      </td>
-                      <td className="px-4 py-3 text-sm text-gray-900">
-                        {appointment.appointment_time}
-                      </td>
-                      <td className="px-4 py-3 text-sm text-gray-900">
-                        {appointment.lab_location || 'CHO'}
-                      </td>
-                      <td className="px-4 py-3">
-                        <span
-                          className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                            appointment.status === 'completed'
-                              ? 'bg-green-100 text-green-800'
-                              : appointment.status === 'scheduled' || appointment.status === 'pending'
-                              ? 'bg-orange-100 text-orange-800'
-                              : 'bg-gray-100 text-gray-800'
-                          }`}
-                        >
-                          {appointment.status}
-                        </span>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
+        {/* Excel Import Modal */}
+        <HealthcardExcelImportModal
+          isOpen={isExcelImportOpen}
+          onClose={() => setIsExcelImportOpen(false)}
+          onImportSuccess={() => {
+            toast.success('Pink card data imported from Excel successfully');
+            fetchStatistics();
+            setPredictionRefreshKey(prev => prev + 1);
+          }}
+        />
 
-        {/* Statistics Table */}
-        <div className="bg-white rounded-lg border border-gray-200">
-          <div className="p-4 border-b border-gray-200">
-            <h2 className="text-lg font-semibold text-gray-900">Pink Card Statistics</h2>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                    Date
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                    Cards Issued
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                    Barangay
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                    Source
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                    Notes
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200">
-                {statistics.length === 0 ? (
-                  <tr>
-                    <td colSpan={5} className="px-4 py-8 text-center text-gray-500">
-                      No statistics found
-                    </td>
-                  </tr>
-                ) : (
-                  statistics.map((stat) => (
-                    <tr key={stat.id} className="hover:bg-gray-50">
-                      <td className="px-4 py-3 text-sm text-gray-900">
-                        {new Date(stat.record_date).toLocaleDateString()}
-                      </td>
-                      <td className="px-4 py-3 text-sm font-semibold text-fuchsia-600">
-                        {stat.cards_issued}
-                      </td>
-                      <td className="px-4 py-3 text-sm text-gray-900">
-                        {stat.barangays?.name || 'N/A'}
-                      </td>
-                      <td className="px-4 py-3 text-sm text-gray-600">
-                        {stat.source || 'Manual Entry'}
-                      </td>
-                      <td className="px-4 py-3 text-sm text-gray-600">
-                        {stat.notes || '-'}
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
+        {/* Edit Modal */}
+        <EditHealthcardStatisticModal
+          isOpen={isEditModalOpen}
+          onClose={() => setIsEditModalOpen(false)}
+          onSuccess={handleEditSuccess}
+          record={selectedRecord}
+        />
+
+        {/* Delete Confirmation Dialog */}
+        <ConfirmDialog
+          isOpen={showDeleteDialog}
+          onClose={() => !actionLoading && setShowDeleteDialog(false)}
+          onConfirm={confirmDelete}
+          title="Delete Pink Card Record"
+          message={
+            recordToDelete
+              ? `Are you sure you want to delete the record from ${new Date(
+                  recordToDelete.record_date
+                ).toLocaleDateString('en-US', {
+                  year: 'numeric',
+                  month: 'long',
+                  day: 'numeric',
+                })} with ${recordToDelete.cards_issued} card${
+                  recordToDelete.cards_issued !== 1 ? 's' : ''
+                } issued? This action cannot be undone.`
+              : 'Are you sure you want to delete this record?'
+          }
+          confirmText="Delete"
+          cancelText="Cancel"
+          variant="danger"
+          isLoading={actionLoading}
+        />
       </Container>
     </DashboardLayout>
   );
