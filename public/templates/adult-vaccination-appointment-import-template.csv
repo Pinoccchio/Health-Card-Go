@@ -1,0 +1,62 @@
+Appointment Month,Appointments Completed,Barangay,Source,Notes
+2020-01,10,Gredu (Poblacion),CHO Manual Records,Q1 2020 - Flu vaccination season
+2020-02,9,New Malaga (Dalisay),CHO Manual Records,Q1 2020 - Regular schedule
+2020-03,8,Cacao,CHO Manual Records,Q1 2020 - COVID disruptions begin
+2020-04,3,Consolacion,CHO Manual Records,Q2 2020 - Lockdown reduced visits
+2020-05,3,Kasilak,CHO Manual Records,Q2 2020 - Minimal operations
+2020-06,5,J.P. Laurel,CHO Manual Records,Q2 2020 - Gradual reopening
+2020-07,7,Salvacion,CHO Manual Records,Q3 2020 - COVID vaccination prep
+2020-08,8,San Pedro,CHO Manual Records,Q3 2020 - Services resuming
+2020-09,9,San Francisco (Pob.),CHO Manual Records,Q3 2020 - Recovery phase
+2020-10,8,A.O. Floirendo,DOH Regional Data,Q4 2020 - Flu season
+2020-11,7,New Pandan (Pob.),CHO Manual Records,Q4 2020 - Pre-holiday push
+2020-12,6,Santo Niño (Pob.),CHO Manual Records,Q4 2020 - Holiday slowdown
+2021-01,9,Gredu (Poblacion),CHO Manual Records,Q1 2021 - New year schedule
+2021-02,10,New Malaga (Dalisay),CHO Manual Records,Q1 2021 - COVID vaccines rollout
+2021-03,12,Cacao,CHO Manual Records,Q1 2021 - Vaccination drive begins
+2021-04,14,Consolacion,CHO Manual Records,Q2 2021 - Mass vaccination
+2021-05,15,Kasilak,CHO Manual Records,Q2 2021 - Expanded coverage
+2021-06,16,J.P. Laurel,CHO Manual Records,Q2 2021 - Peak vaccination drive
+2021-07,15,Salvacion,CHO Manual Records,Q3 2021 - Continued rollout
+2021-08,14,San Pedro,CHO Manual Records,Q3 2021 - High demand
+2021-09,13,San Francisco (Pob.),CHO Manual Records,Q3 2021 - Stabilizing
+2021-10,12,A.O. Floirendo,CHO Manual Records,Q4 2021 - Booster campaigns
+2021-11,11,New Pandan (Pob.),CHO Manual Records,Q4 2021 - Year-end push
+2021-12,9,Santo Niño (Pob.),CHO Manual Records,Q4 2021 - Holiday period
+2022-01,11,Gredu (Poblacion),CHO Manual Records,Q1 2022 - New year
+2022-02,12,New Malaga (Dalisay),CHO Manual Records,Q1 2022 - Booster rollout
+2022-03,13,Cacao,CHO Manual Records,Q1 2022 - Regular schedule
+2022-04,12,Consolacion,CHO Manual Records,Q2 2022 - Standard month
+2022-05,13,Kasilak,DOH Regional Data,Q2 2022 - Growing demand
+2022-06,14,J.P. Laurel,CHO Manual Records,Q2 2022 - Mid-year campaign
+2022-07,14,Salvacion,CHO Manual Records,Q3 2022 - Regular schedule
+2022-08,13,San Pedro,CHO Manual Records,Q3 2022 - Standard month
+2022-09,12,San Francisco (Pob.),CHO Manual Records,Q3 2022 - Stabilizing
+2022-10,12,A.O. Floirendo,CHO Manual Records,Q4 2022 - Flu season
+2022-11,11,New Pandan (Pob.),CHO Manual Records,Q4 2022 - Year-end
+2022-12,9,Santo Niño (Pob.),CHO Manual Records,Q4 2022 - Holiday period
+2023-01,12,Gredu (Poblacion),CHO Manual Records,Q1 2023 - New year
+2023-02,13,New Malaga (Dalisay),CHO Manual Records,Q1 2023 - Regular schedule
+2023-03,14,Cacao,CHO Manual Records,Q1 2023 - Growing demand
+2023-04,13,Consolacion,CHO Manual Records,Q2 2023 - Standard month
+2023-05,14,Kasilak,DOH Regional Data,Q2 2023 - Outreach programs
+2023-06,15,J.P. Laurel,CHO Manual Records,Q2 2023 - Mid-year campaign
+2023-07,15,Salvacion,CHO Manual Records,Q3 2023 - Regular schedule
+2023-08,14,San Pedro,CHO Manual Records,Q3 2023 - Standard month
+2023-09,13,San Francisco (Pob.),CHO Manual Records,Q3 2023 - Stabilizing
+2023-10,13,A.O. Floirendo,CHO Manual Records,Q4 2023 - Flu season
+2023-11,12,New Pandan (Pob.),CHO Manual Records,Q4 2023 - Year-end
+2023-12,10,Santo Niño (Pob.),CHO Manual Records,Q4 2023 - Holiday period
+2024-01,13,Gredu (Poblacion),CHO Manual Records,Q1 2024 - New year
+2024-02,14,New Malaga (Dalisay),CHO Manual Records,Q1 2024 - Regular schedule
+2024-03,15,Cacao,CHO Manual Records,Q1 2024 - Growing demand
+2024-04,14,Consolacion,CHO Manual Records,Q2 2024 - Standard month
+2024-05,15,Kasilak,DOH Regional Data,Q2 2024 - Outreach programs
+2024-06,16,J.P. Laurel,CHO Manual Records,Q2 2024 - Mid-year campaign
+2024-07,16,Salvacion,CHO Manual Records,Q3 2024 - Regular schedule
+2024-08,15,San Pedro,CHO Manual Records,Q3 2024 - Standard month
+2024-09,14,San Francisco (Pob.),CHO Manual Records,Q3 2024 - Stabilizing
+2024-10,14,A.O. Floirendo,CHO Manual Records,Q4 2024 - Flu season
+2024-11,13,New Pandan (Pob.),CHO Manual Records,Q4 2024 - Year-end
+2024-12,11,Santo Niño (Pob.),CHO Manual Records,Q4 2024 - Holiday period
+2025-01,14,Gredu (Poblacion),CHO Manual Records,Q1 2025 - New year processing

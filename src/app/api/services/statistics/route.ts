@@ -48,7 +48,7 @@ export async function GET(request: NextRequest) {
 
     const isSuperAdmin = profile.role === 'super_admin';
     const isAllowedAdmin = profile.role === 'healthcare_admin' &&
-      ['hiv', 'pregnancy'].includes(profile.admin_category);
+      ['hiv', 'pregnancy', 'child_immunization', 'adult_vaccination'].includes(profile.admin_category);
 
     if (!isAllowedAdmin && !isSuperAdmin) {
       return NextResponse.json(

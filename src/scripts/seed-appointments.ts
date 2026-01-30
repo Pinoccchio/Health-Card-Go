@@ -1,21 +1,24 @@
 /**
  * Seed Script: Generate 12 Months of Realistic Appointment Data for 2025
  *
- * This script generates ~1,150 appointment records for 2025 (Jan - Dec)
- * across three service categories:
+ * This script generates ~1,400 appointment records for 2025 (Jan - Dec)
+ * across four service categories:
  * - HealthCard (Services 12-15): ~600 appointments
  * - HIV (Service 16): ~240 appointments
  * - Pregnancy (Service 17): ~300 appointments
+ * - Immunization (Service 19): ~240 appointments
  *
  * Status Distribution (realistic patterns):
  * - HealthCard: 90% completed, 5% cancelled, 5% no_show
  * - HIV: 85% completed, 8% cancelled, 7% no_show
  * - Pregnancy: 88% completed, 7% cancelled, 5% no_show
+ * - Immunization: 88% completed, 7% cancelled, 5% no_show
  *
  * Seasonal Patterns:
  * - HealthCard: +20% Jan-Mar (CNY season), -15% May-Jun (summer)
  * - HIV: Consistent (no seasonality)
  * - Pregnancy: Slight increase Q3-Q4
+ * - Immunization: +15% Feb/Jun (school seasons), -15% Dec (holidays)
  */
 
 import { createClient } from '@supabase/supabase-js';
@@ -44,6 +47,7 @@ const ADMIN_IDS = {
   healthcard: 'e671daa2-afcb-4fd6-ac81-12c75e2949d5', // Maria Santos
   hiv: '3a7140cc-c6b7-4d8e-89eb-de9da634d58e', // Juan Reyes
   pregnancy: 'e8abb768-6e70-4b0e-a409-cf0a1261d7cb', // Ana Cruz
+  immunization: 'a43ede23-4efc-4053-894e-7a99e61fccbf', // Rosa Mendoza
 };
 
 // Service configurations
@@ -74,6 +78,17 @@ const SERVICES = {
       4: 0.95, 5: 0.95, 6: 0.95,
       7: 1.05, 8: 1.05, 9: 1.10, // Q3: Slight increase
       10: 1.10, 11: 1.08, 12: 1.05, // Q4: Moderate increase
+    },
+  },
+  immunization: {
+    ids: [19],
+    monthlyBase: 20,
+    statusDistribution: { completed: 0.88, cancelled: 0.07, no_show: 0.05 },
+    seasonalMultipliers: {
+      1: 1.0, 2: 1.15, 3: 1.05,     // Feb: back-to-school peak
+      4: 1.0, 5: 1.0, 6: 1.15,       // Jun: school year catch-up
+      7: 1.10, 8: 1.10, 9: 1.0,      // Jul-Aug: campaign continuation
+      10: 1.0, 11: 1.0, 12: 0.85,    // Dec: holiday dip
     },
   },
 };
@@ -178,6 +193,16 @@ function generateReason(serviceId: number): string {
     15: ['Non-food health card renewal', 'Health card update'],
     16: ['HIV testing for peace of mind', 'Pre-marriage HIV test', 'Routine HIV screening'],
     17: ['First prenatal checkup', 'Monthly prenatal visit', 'Pregnancy monitoring'],
+    19: [
+      'Routine childhood vaccination',
+      'BCG vaccine',
+      'OPV/IPV dose',
+      'Measles/MMR vaccine',
+      'Pentavalent vaccine',
+      'Pneumococcal vaccine',
+      'Hepatitis B vaccine',
+      'Vitamin A supplementation',
+    ],
   };
 
   const serviceReasons = reasons[serviceId] || ['General consultation'];
@@ -199,7 +224,7 @@ function generateCardType(serviceId: number): 'food_handler' | 'non_food' | null
 function generateMonthlyAppointments(
   year: number,
   month: number,
-  category: 'healthcard' | 'hiv' | 'pregnancy'
+  category: 'healthcard' | 'hiv' | 'pregnancy' | 'immunization'
 ): AppointmentRecord[] {
   const config = SERVICES[category];
   const adminId = ADMIN_IDS[category];
@@ -291,14 +316,15 @@ async function seedAppointments() {
       const healthcardAppts = generateMonthlyAppointments(year, month, 'healthcard');
       const hivAppts = generateMonthlyAppointments(year, month, 'hiv');
       const pregnancyAppts = generateMonthlyAppointments(year, month, 'pregnancy');
+      const immunizationAppts = generateMonthlyAppointments(year, month, 'immunization');
 
-      allAppointments.push(...healthcardAppts, ...hivAppts, ...pregnancyAppts);
+      allAppointments.push(...healthcardAppts, ...hivAppts, ...pregnancyAppts, ...immunizationAppts);
 
       console.log(
-        `  ✅ HealthCard: ${healthcardAppts.length}, HIV: ${hivAppts.length}, Pregnancy: ${pregnancyAppts.length}`
+        `  ✅ HealthCard: ${healthcardAppts.length}, HIV: ${hivAppts.length}, Pregnancy: ${pregnancyAppts.length}, Immunization: ${immunizationAppts.length}`
       );
 
-      totalGenerated += healthcardAppts.length + hivAppts.length + pregnancyAppts.length;
+      totalGenerated += healthcardAppts.length + hivAppts.length + pregnancyAppts.length + immunizationAppts.length;
     }
   }
 
@@ -306,6 +332,7 @@ async function seedAppointments() {
   console.log(`   - HealthCard: ${allAppointments.filter(a => [12,13,14,15].includes(a.service_id)).length}`);
   console.log(`   - HIV: ${allAppointments.filter(a => a.service_id === 16).length}`);
   console.log(`   - Pregnancy: ${allAppointments.filter(a => a.service_id === 17).length}`);
+  console.log(`   - Immunization: ${allAppointments.filter(a => a.service_id === 19).length}`);
 
   // Status breakdown
   const completed = allAppointments.filter(a => a.status === 'completed').length;

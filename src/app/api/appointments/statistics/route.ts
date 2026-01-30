@@ -7,7 +7,7 @@ import { createClient } from '@/lib/supabase/server';
  * Aggregates appointment data by month and status for SARIMA predictions
  *
  * Query Parameters:
- * - admin_category: 'healthcard' | 'hiv' | 'pregnancy' (required for healthcare admins)
+ * - admin_category: 'healthcard' | 'hiv' | 'pregnancy' | 'child_immunization' | 'adult_vaccination' (required for healthcare admins)
  * - year: Optional year filter (e.g., 2024)
  * - month: Optional month filter (1-12)
  *
@@ -83,6 +83,10 @@ export async function GET(request: NextRequest) {
         serviceIds = [16];
       } else if (adminCategory === 'pregnancy') {
         serviceIds = [17];
+      } else if (adminCategory === 'child_immunization') {
+        serviceIds = [19];
+      } else if (adminCategory === 'adult_vaccination') {
+        serviceIds = [20];
       } else {
         return NextResponse.json(
           { success: false, error: 'Invalid admin_category' },
@@ -106,6 +110,10 @@ export async function GET(request: NextRequest) {
         serviceIds = [16];
       } else if (profile.admin_category === 'pregnancy') {
         serviceIds = [17];
+      } else if (profile.admin_category === 'child_immunization') {
+        serviceIds = [19];
+      } else if (profile.admin_category === 'adult_vaccination') {
+        serviceIds = [20];
       }
     } else {
       return NextResponse.json(

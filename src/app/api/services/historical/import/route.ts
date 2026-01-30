@@ -2,7 +2,7 @@
  * Service Historical Import API Route
  * POST /api/services/historical/import
  *
- * Imports historical appointment data for services (HIV Testing & Counseling, Prenatal Checkup)
+ * Imports historical appointment data for services (HIV, Prenatal, Immunization)
  * Used for SARIMA prediction training data
  *
  * SIMPLIFIED (Jan 2025):
@@ -14,6 +14,8 @@
  * - Super Admin: Can import any service data
  * - Healthcare Admin with admin_category='hiv': Can import service 16 (HIV) data only
  * - Healthcare Admin with admin_category='pregnancy': Can import service 17 (Pregnancy) data only
+ * - Healthcare Admin with admin_category='child_immunization': Can import service 19 (Child Immunization) data only
+ * - Healthcare Admin with admin_category='adult_vaccination': Can import service 20 (Adult Vaccination) data only
  * - All other roles: Forbidden
  */
 
@@ -65,9 +67,9 @@ export async function POST(request: NextRequest) {
     const { records, service_id } = body;
 
     // Validate service_id
-    if (!service_id || ![16, 17].includes(service_id)) {
+    if (!service_id || ![16, 17, 19, 20].includes(service_id)) {
       return NextResponse.json(
-        { success: false, error: 'Invalid service_id. Must be 16 (HIV) or 17 (Pregnancy)' },
+        { success: false, error: 'Invalid service_id. Must be 16 (HIV), 17 (Pregnancy), 19 (Child Immunization), or 20 (Adult Vaccination)' },
         { status: 400 }
       );
     }
@@ -87,16 +89,26 @@ export async function POST(request: NextRequest) {
 
     // For Healthcare Admin, verify admin_category matches service
     if (isHealthcareAdmin && !isSuperAdmin) {
-      // Service 16 = HIV Testing & Counseling (requires admin_category='hiv')
-      // Service 17 = Prenatal Checkup (requires admin_category='pregnancy')
-      const requiredCategory = service_id === 16 ? 'hiv' : 'pregnancy';
+      const categoryMap: Record<number, string> = {
+        16: 'hiv',
+        17: 'pregnancy',
+        19: 'child_immunization',
+        20: 'adult_vaccination',
+      };
+      const serviceNameMap: Record<number, string> = {
+        16: 'HIV',
+        17: 'Pregnancy',
+        19: 'Child Immunization',
+        20: 'Adult Vaccination',
+      };
+      const requiredCategory = categoryMap[service_id];
+      const serviceDisplayName = serviceNameMap[service_id];
 
       if (profile.admin_category !== requiredCategory) {
-        const serviceName = service_id === 16 ? 'HIV' : 'Pregnancy';
         return NextResponse.json(
           {
             success: false,
-            error: `Forbidden: Only ${requiredCategory.toUpperCase()} admins can import ${serviceName} historical data. Your category is '${profile.admin_category}'.`
+            error: `Forbidden: Only ${requiredCategory.toUpperCase()} admins can import ${serviceDisplayName} historical data. Your category is '${profile.admin_category}'.`
           },
           { status: 403 }
         );

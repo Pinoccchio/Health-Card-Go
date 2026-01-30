@@ -3,38 +3,35 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { DashboardLayout } from '@/components/dashboard';
-import { Container } from '@/components/ui';
+import { Container, ConfirmDialog } from '@/components/ui';
 import { useToast } from '@/lib/contexts/ToastContext';
 import { useAuth } from '@/lib/auth';
 import {
   Syringe,
-  Activity,
-  Calendar,
-  MapPin,
-  TrendingUp,
-  FileText,
   Download,
-  Filter,
   AlertCircle,
   Sparkles,
   Loader2,
   CheckCircle2,
   Upload,
+  Filter,
   Baby,
   Users,
 } from 'lucide-react';
-import { format } from 'date-fns';
 import ServiceHistoricalImportModal from '@/components/healthcare-admin/ServiceHistoricalImportModal';
 import ServiceSARIMAChart from '@/components/healthcare-admin/ServiceSARIMAChart';
 import ServiceSARIMAMetrics from '@/components/healthcare-admin/ServiceSARIMAMetrics';
 import { AppointmentStatusChart } from '@/components/charts';
+import { HIVDataSourceCards } from '@/components/healthcare-admin/HIVDataSourceCards';
+import { HIVStatisticsTable } from '@/components/healthcare-admin/HIVStatisticsTable';
+import { EditHIVStatisticModal } from '@/components/healthcare-admin/EditHIVStatisticModal';
+import type { HIVStatistic } from '@/components/healthcare-admin/HIVStatisticsTable';
 
 export default function ImmunizationStatisticsPage() {
   const router = useRouter();
   const { user } = useAuth();
   const toast = useToast();
 
-  const [loading, setLoading] = useState(true);
   const [hasAccess, setHasAccess] = useState<boolean | null>(null);
 
   // Determine which service this admin is assigned to (19 = Child Immunization, 20 = Adult Vaccination)
@@ -51,14 +48,35 @@ export default function ImmunizationStatisticsPage() {
   const [appointmentStats, setAppointmentStats] = useState<any[]>([]);
   const [appointmentStatsLoading, setAppointmentStatsLoading] = useState(true);
 
-  // Summary stats
-  const [summary, setSummary] = useState({
-    total_appointments: 0,
-    completed: 0,
-    scheduled: 0,
-    cancelled: 0,
-    no_show: 0,
+  // Data Source Summary state (for DataSourceCards)
+  const [dataSourceSummary, setDataSourceSummary] = useState({
+    from_appointments: { total: 0, completed: 0, cancelled: 0 },
+    from_historical: { total_appointments: 0, record_count: 0 },
+    combined: { total: 0 },
+    date_range: { earliest: null as string | null, latest: null as string | null },
   });
+  const [dataSourceLoading, setDataSourceLoading] = useState(true);
+
+  // Imported records state (table)
+  const [statistics, setStatistics] = useState<HIVStatistic[]>([]);
+  const [statisticsLoading, setStatisticsLoading] = useState(true);
+  const [barangays, setBarangays] = useState<any[]>([]);
+
+  // Filter state
+  const [filters, setFilters] = useState({
+    barangay_id: 'all',
+    start_date: '',
+    end_date: '',
+  });
+
+  // Edit Modal State
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [selectedRecord, setSelectedRecord] = useState<HIVStatistic | null>(null);
+
+  // Delete Dialog State
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [recordToDelete, setRecordToDelete] = useState<HIVStatistic | null>(null);
+  const [actionLoading, setActionLoading] = useState(false);
 
   useEffect(() => {
     // Check if the healthcare admin has child_immunization or adult_vaccination category
@@ -82,7 +100,7 @@ export default function ImmunizationStatisticsPage() {
             setServiceName('Adult Vaccination');
           }
         }
-        setLoading(false);
+        fetchBarangays();
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -91,34 +109,136 @@ export default function ImmunizationStatisticsPage() {
   useEffect(() => {
     if (hasAccess && assignedServiceId) {
       fetchAppointmentStatistics();
+      fetchDataSourceSummary();
+      fetchStatistics();
     }
-  }, [hasAccess, assignedServiceId]);
+  }, [hasAccess, assignedServiceId, filters]);
+
+  const fetchBarangays = async () => {
+    try {
+      const response = await fetch('/api/barangays');
+      const data = await response.json();
+      if (data.success) {
+        setBarangays(data.data || []);
+      }
+    } catch (err) {
+      console.error('Error fetching barangays:', err);
+    }
+  };
 
   const fetchAppointmentStatistics = async () => {
     if (!assignedServiceId) return;
 
     try {
       setAppointmentStatsLoading(true);
-      const response = await fetch(`/api/appointments/statistics?service_id=${assignedServiceId}`);
+      const adminCategory = assignedServiceId === 19 ? 'child_immunization' : 'adult_vaccination';
+      const response = await fetch(`/api/appointments/statistics?admin_category=${adminCategory}`);
       const data = await response.json();
 
       if (data.success) {
         setAppointmentStats(data.data.monthly || []);
-
-        // Calculate summary from the response
-        const summaryData = data.data.summary || {};
-        setSummary({
-          total_appointments: summaryData.total || 0,
-          completed: summaryData.completed || 0,
-          scheduled: summaryData.scheduled || 0,
-          cancelled: summaryData.cancelled || 0,
-          no_show: summaryData.no_show || 0,
-        });
       }
     } catch (err) {
       console.error('Error fetching appointment statistics:', err);
     } finally {
       setAppointmentStatsLoading(false);
+    }
+  };
+
+  const fetchDataSourceSummary = async () => {
+    if (!assignedServiceId) return;
+
+    try {
+      setDataSourceLoading(true);
+      const response = await fetch(`/api/services/historical?service_id=${assignedServiceId}`);
+      const data = await response.json();
+
+      if (data.success) {
+        setDataSourceSummary(data.data.summary);
+      }
+    } catch (err) {
+      console.error('Error fetching data source summary:', err);
+    } finally {
+      setDataSourceLoading(false);
+    }
+  };
+
+  const fetchStatistics = async () => {
+    if (!assignedServiceId) return;
+
+    try {
+      setStatisticsLoading(true);
+
+      const params = new URLSearchParams();
+      params.append('service_id', String(assignedServiceId));
+      if (filters.barangay_id !== 'all') {
+        params.append('barangay_id', filters.barangay_id);
+      }
+      if (filters.start_date) {
+        params.append('start_date', filters.start_date);
+      }
+      if (filters.end_date) {
+        params.append('end_date', filters.end_date);
+      }
+
+      const response = await fetch(`/api/services/statistics?${params.toString()}`);
+      const data = await response.json();
+
+      if (data.success) {
+        setStatistics(data.data.records || []);
+      } else {
+        console.error('Failed to fetch statistics:', data.error);
+      }
+    } catch (err) {
+      console.error('Error fetching statistics:', err);
+    } finally {
+      setStatisticsLoading(false);
+    }
+  };
+
+  const handleEdit = (record: HIVStatistic) => {
+    setSelectedRecord(record);
+    setIsEditModalOpen(true);
+  };
+
+  const handleEditSuccess = () => {
+    toast.success('Record updated successfully');
+    fetchStatistics();
+    fetchDataSourceSummary();
+  };
+
+  const handleDelete = (record: HIVStatistic) => {
+    setRecordToDelete(record);
+    setShowDeleteDialog(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!recordToDelete) return;
+
+    try {
+      setActionLoading(true);
+      const response = await fetch(
+        `/api/services/statistics/${recordToDelete.id}`,
+        { method: 'DELETE' }
+      );
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          result.message || result.error || 'Failed to delete record'
+        );
+      }
+
+      toast.success(result.message || 'Record deleted successfully');
+      setShowDeleteDialog(false);
+      setRecordToDelete(null);
+      fetchStatistics();
+      fetchDataSourceSummary();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to delete record');
+    } finally {
+      setActionLoading(false);
     }
   };
 
@@ -162,7 +282,7 @@ export default function ImmunizationStatisticsPage() {
   };
 
   // Show loading state while checking access
-  if (hasAccess === null || loading) {
+  if (hasAccess === null) {
     return (
       <DashboardLayout
         roleId={2}
@@ -207,6 +327,7 @@ export default function ImmunizationStatisticsPage() {
   }
 
   const ServiceIcon = assignedServiceId === 19 ? Baby : Users;
+  const templateName = assignedServiceId === 19 ? 'child-immunization' : 'adult-vaccination';
 
   return (
     <DashboardLayout
@@ -216,7 +337,7 @@ export default function ImmunizationStatisticsPage() {
     >
       <Container size="full">
         <div className="space-y-6">
-          {/* Page Header */}
+          {/* 1. Page Header */}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="p-3 bg-teal-100 rounded-lg">
@@ -229,10 +350,21 @@ export default function ImmunizationStatisticsPage() {
             </div>
           </div>
 
-          {/* Action Bar */}
+          {/* 2. Data Source Summary Cards */}
+          <HIVDataSourceCards summary={dataSourceSummary} loading={dataSourceLoading} serviceName={serviceName} />
+
+          {/* 3. Appointment Status Breakdown Chart */}
+          <AppointmentStatusChart
+            data={appointmentStats}
+            loading={appointmentStatsLoading}
+            title={`Monthly ${serviceName} Appointment Status Breakdown (Completed, Cancelled, No Show)`}
+            height={450}
+          />
+
+          {/* 4. Action Bar */}
           <div className="flex justify-end gap-3">
             <a
-              href={`/templates/${assignedServiceId === 19 ? 'child-immunization' : 'adult-vaccination'}-appointment-import-template.xlsx`}
+              href={`/templates/${templateName}-appointment-import-template.csv`}
               download
               className="px-4 py-2 bg-white text-gray-700 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors flex items-center gap-2 shadow-sm"
               title="Download Excel Template"
@@ -250,58 +382,67 @@ export default function ImmunizationStatisticsPage() {
             </button>
           </div>
 
-          {/* Summary Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-            <div className="bg-white rounded-lg shadow p-4 border border-gray-200">
-              <div className="flex items-center gap-2 mb-2">
-                <Activity className="w-5 h-5 text-gray-600" />
-                <h3 className="text-sm font-medium text-gray-700">Total Appointments</h3>
-              </div>
-              <p className="text-2xl font-bold text-gray-900">{summary.total_appointments}</p>
+          {/* 5. Filters */}
+          <div className="bg-white rounded-lg shadow p-4 border border-gray-200">
+            <div className="flex items-center gap-2 mb-4">
+              <Filter className="w-4 h-4 text-gray-600" />
+              <h3 className="text-sm font-semibold text-gray-900">Filter Data</h3>
             </div>
-
-            <div className="bg-green-50 rounded-lg shadow p-4 border border-green-200">
-              <div className="flex items-center gap-2 mb-2">
-                <CheckCircle2 className="w-5 h-5 text-green-600" />
-                <h3 className="text-sm font-medium text-green-700">Completed</h3>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Barangay</label>
+                <select
+                  value={filters.barangay_id}
+                  onChange={(e) => setFilters({ ...filters, barangay_id: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#20C997] text-sm"
+                >
+                  <option value="all">All Barangays</option>
+                  {barangays.map((barangay: any) => (
+                    <option key={barangay.id} value={barangay.id}>
+                      {barangay.name}
+                    </option>
+                  ))}
+                </select>
               </div>
-              <p className="text-2xl font-bold text-green-900">{summary.completed}</p>
-            </div>
 
-            <div className="bg-blue-50 rounded-lg shadow p-4 border border-blue-200">
-              <div className="flex items-center gap-2 mb-2">
-                <Calendar className="w-5 h-5 text-blue-600" />
-                <h3 className="text-sm font-medium text-blue-700">Scheduled</h3>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Start Date</label>
+                <input
+                  type="date"
+                  value={filters.start_date}
+                  onChange={(e) => setFilters({ ...filters, start_date: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#20C997] text-sm"
+                />
               </div>
-              <p className="text-2xl font-bold text-blue-900">{summary.scheduled}</p>
-            </div>
 
-            <div className="bg-yellow-50 rounded-lg shadow p-4 border border-yellow-200">
-              <div className="flex items-center gap-2 mb-2">
-                <TrendingUp className="w-5 h-5 text-yellow-600" />
-                <h3 className="text-sm font-medium text-yellow-700">Cancelled</h3>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">End Date</label>
+                <input
+                  type="date"
+                  value={filters.end_date}
+                  onChange={(e) => setFilters({ ...filters, end_date: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#20C997] text-sm"
+                />
               </div>
-              <p className="text-2xl font-bold text-yellow-900">{summary.cancelled}</p>
-            </div>
-
-            <div className="bg-red-50 rounded-lg shadow p-4 border border-red-200">
-              <div className="flex items-center gap-2 mb-2">
-                <AlertCircle className="w-5 h-5 text-red-600" />
-                <h3 className="text-sm font-medium text-red-700">No Show</h3>
-              </div>
-              <p className="text-2xl font-bold text-red-900">{summary.no_show}</p>
             </div>
           </div>
 
-          {/* Appointment Status Breakdown Chart */}
-          <AppointmentStatusChart
-            data={appointmentStats}
-            loading={appointmentStatsLoading}
-            title={`Monthly ${serviceName} Appointment Status Breakdown (Completed, Cancelled, No Show)`}
-            height={450}
-          />
+          {/* 6. Imported Records Table */}
+          {statisticsLoading ? (
+            <div className="bg-white rounded-lg shadow border border-gray-200 p-12 text-center">
+              <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-[#20C997]"></div>
+              <p className="mt-2 text-sm text-gray-500">Loading imported records...</p>
+            </div>
+          ) : (
+            <HIVStatisticsTable
+              statistics={statistics}
+              onEdit={handleEdit}
+              onDelete={handleDelete}
+              serviceName="Immunization"
+            />
+          )}
 
-          {/* SARIMA Predictions Section */}
+          {/* 7. SARIMA Predictions Section */}
           {assignedServiceId && (
             <div className="bg-white rounded-lg shadow border border-gray-200">
               <div className="p-6 border-b border-gray-200">
@@ -317,7 +458,8 @@ export default function ImmunizationStatisticsPage() {
                   </div>
                   <button
                     onClick={handleGeneratePredictions}
-                    disabled={isGeneratingPredictions}
+                    disabled={isGeneratingPredictions || dataSourceSummary.combined.total === 0}
+                    title={dataSourceSummary.combined.total === 0 ? 'Import appointment data first to generate predictions' : 'Generate SARIMA predictions'}
                     className="inline-flex items-center gap-2 px-4 py-2 bg-[#20C997] text-white rounded-lg hover:bg-[#1AA179] transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-md"
                   >
                     {isGeneratingPredictions ? (
@@ -349,7 +491,7 @@ export default function ImmunizationStatisticsPage() {
                 )}
               </div>
               <div className="p-6">
-                <ServiceSARIMAChart key={predictionRefreshKey} serviceId={assignedServiceId} />
+                <ServiceSARIMAChart key={predictionRefreshKey} serviceId={assignedServiceId} serviceName={serviceName} />
                 <div className="mt-6">
                   <ServiceSARIMAMetrics key={predictionRefreshKey} serviceId={assignedServiceId} />
                 </div>
@@ -365,13 +507,48 @@ export default function ImmunizationStatisticsPage() {
             onClose={() => setIsAppointmentImportOpen(false)}
             onImportSuccess={() => {
               toast.success('Appointment data imported successfully');
-              fetchAppointmentStatistics();
               setPredictionRefreshKey(prev => prev + 1);
+              fetchDataSourceSummary();
+              fetchStatistics();
             }}
             serviceId={assignedServiceId}
             serviceName={serviceName}
           />
         )}
+
+        {/* Edit Modal */}
+        <EditHIVStatisticModal
+          isOpen={isEditModalOpen}
+          onClose={() => setIsEditModalOpen(false)}
+          onSuccess={handleEditSuccess}
+          record={selectedRecord}
+          serviceName="Immunization"
+        />
+
+        {/* Delete Confirmation Dialog */}
+        <ConfirmDialog
+          isOpen={showDeleteDialog}
+          onClose={() => !actionLoading && setShowDeleteDialog(false)}
+          onConfirm={confirmDelete}
+          title={`Delete ${serviceName} Appointment Record`}
+          message={
+            recordToDelete
+              ? `Are you sure you want to delete the record from ${new Date(
+                  recordToDelete.record_date
+                ).toLocaleDateString('en-US', {
+                  year: 'numeric',
+                  month: 'long',
+                  day: 'numeric',
+                })} with ${recordToDelete.appointments_completed} appointment${
+                  recordToDelete.appointments_completed !== 1 ? 's' : ''
+                } completed? This action cannot be undone.`
+              : 'Are you sure you want to delete this record?'
+          }
+          confirmText="Delete"
+          cancelText="Cancel"
+          variant="danger"
+          isLoading={actionLoading}
+        />
       </Container>
     </DashboardLayout>
   );

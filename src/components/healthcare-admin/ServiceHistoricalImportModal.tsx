@@ -147,7 +147,11 @@ export default function ServiceHistoricalImportModal({
     ? '/templates/hiv-appointment-import-template.csv'
     : serviceId === 17
     ? '/templates/pregnancy-appointment-import-template.csv'
-    : '/templates/service-appointment-import-template.csv';
+    : serviceId === 19
+    ? '/templates/child-immunization-appointment-import-template.csv'
+    : serviceId === 20
+    ? '/templates/adult-vaccination-appointment-import-template.csv'
+    : '/templates/child-immunization-appointment-import-template.csv';
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-md z-[1002] flex items-center justify-center p-4">
