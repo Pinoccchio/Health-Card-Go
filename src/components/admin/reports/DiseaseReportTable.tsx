@@ -9,14 +9,13 @@ interface DiseaseReportData {
   disease_type: string;
   disease_display_name: string;
   custom_disease_name?: string | null;
-  diagnosis_date: string;
+  record_date: string;
+  case_count: number;
   severity: string;
-  status: string;
+  source?: string | null;
   barangay_name: string;
-  patient_name: string;
-  patient_number: string;
-  patient_type: 'registered' | 'anonymous' | 'unknown';
   notes?: string | null;
+  created_at?: string;
 }
 
 interface DiseaseReportTableProps {
@@ -72,21 +71,6 @@ export default function DiseaseReportTable({
     }
   };
 
-  const getStatusBadgeClass = (status: string) => {
-    switch (status) {
-      case 'active':
-        return 'bg-red-100 text-red-800';
-      case 'recovered':
-        return 'bg-green-100 text-green-800';
-      case 'deceased':
-        return 'bg-gray-800 text-white';
-      case 'ongoing_treatment':
-        return 'bg-blue-100 text-blue-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
-    }
-  };
-
   const getRowColor = (row: DiseaseReportData) => {
     if (row.severity === 'high_risk' || row.severity === 'critical') {
       return 'bg-red-50 hover:bg-red-100';
@@ -110,20 +94,11 @@ export default function DiseaseReportTable({
       },
     },
     {
-      header: 'Patient',
-      accessor: 'patient_name',
+      header: 'Cases',
+      accessor: 'case_count',
       sortable: true,
-      render: (value: string, row: DiseaseReportData) => (
-        <div>
-          <div className="font-medium">{value}</div>
-          <div className="text-xs text-gray-500">
-            {row.patient_type === 'anonymous' ? (
-              <span className="italic text-orange-600">Anonymous</span>
-            ) : (
-              row.patient_number
-            )}
-          </div>
-        </div>
+      render: (value: number) => (
+        <span className="font-medium">{value ?? 0}</span>
       ),
     },
     {
@@ -132,10 +107,11 @@ export default function DiseaseReportTable({
       sortable: true,
     },
     {
-      header: 'Diagnosis Date',
-      accessor: 'diagnosis_date',
+      header: 'Date',
+      accessor: 'record_date',
       sortable: true,
       render: (value: string) => {
+        if (!value) return '—';
         try {
           return format(new Date(value), 'MMM dd, yyyy');
         } catch {
@@ -154,14 +130,17 @@ export default function DiseaseReportTable({
       ),
     },
     {
-      header: 'Status',
-      accessor: 'status',
+      header: 'Source',
+      accessor: 'source',
       sortable: true,
-      render: (value: string) => (
-        <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusBadgeClass(value)}`}>
-          {value.replace('_', ' ').toUpperCase()}
-        </span>
-      ),
+      render: (value: string | null) => {
+        if (!value) return '—';
+        return (
+          <span className="px-2 py-1 text-xs font-medium rounded-full bg-gray-100 text-gray-800">
+            {value}
+          </span>
+        );
+      },
     },
     {
       header: 'Notes',
@@ -209,7 +188,7 @@ export default function DiseaseReportTable({
         columns={columns}
         data={data}
         searchable={true}
-        searchPlaceholder="Search by disease, patient name, or barangay..."
+        searchPlaceholder="Search by disease, barangay, or source..."
         paginated={true}
         pageSize={50}
         getRowColor={getRowColor}
@@ -228,15 +207,6 @@ export default function DiseaseReportTable({
             </div>
           </div>
           <div>
-            <p className="font-medium mb-1">Status:</p>
-            <div className="flex flex-wrap gap-2">
-              <span className="px-2 py-1 bg-red-100 text-red-800 rounded">Active</span>
-              <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded">Treatment</span>
-              <span className="px-2 py-1 bg-green-100 text-green-800 rounded">Recovered</span>
-              <span className="px-2 py-1 bg-gray-800 text-white rounded">Deceased</span>
-            </div>
-          </div>
-          <div className="md:col-span-2">
             <p className="font-medium mb-1">Row Highlighting:</p>
             <div className="flex flex-wrap gap-3">
               <div className="flex items-center gap-2">
@@ -246,10 +216,6 @@ export default function DiseaseReportTable({
               <div className="flex items-center gap-2">
                 <div className="w-4 h-4 bg-orange-50 border border-orange-200 rounded"></div>
                 <span>Medium risk cases (50-69%)</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="italic text-orange-600 text-xs">Anonymous</span>
-                <span>Walk-in patient (no patient record)</span>
               </div>
             </div>
           </div>
