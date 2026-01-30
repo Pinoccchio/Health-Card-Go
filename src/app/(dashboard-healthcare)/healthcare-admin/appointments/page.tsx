@@ -48,7 +48,7 @@ import { getPhilippineTime } from '@/lib/utils/timezone';
 import { APPOINTMENT_STATUS_CONFIG } from '@/lib/constants/colors';
 import { canAccessAppointments } from '@/lib/utils/serviceAccessGuard';
 import { useToast } from '@/lib/contexts/ToastContext';
-import { calculateAppointmentStatistics } from '@/lib/utils/appointmentStats';
+import type { AppointmentStatistics } from '@/lib/utils/appointmentStats';
 import {
   TimeBlock,
   formatTimeBlock,
@@ -178,6 +178,11 @@ export default function HealthcareAdminAppointmentsPage() {
 
   // Search state
   const [searchQuery, setSearchQuery] = useState('');
+
+  // Server-side statistics for filter badges
+  const [statistics, setStatistics] = useState<AppointmentStatistics>({
+    total: 0, pending: 0, scheduled: 0, verified: 0, in_progress: 0, completed: 0, cancelled: 0, no_show: 0,
+  });
 
   // Approval/Rejection state
   const [showApproveDialog, setShowApproveDialog] = useState(false);
@@ -495,6 +500,21 @@ export default function HealthcareAdminAppointmentsPage() {
           setTotalRecords(dataLength);
           setTotalPages(dataLength > pageSize ? Math.ceil(dataLength / pageSize) : 1);
         }
+
+        // Update server-side statistics for filter badges
+        if (data.statistics) {
+          const stats = data.statistics;
+          setStatistics({
+            total: (stats.pending || 0) + (stats.scheduled || 0) + (stats.verified || 0) + (stats.in_progress || 0) + (stats.completed || 0) + (stats.cancelled || 0) + (stats.no_show || 0),
+            pending: stats.pending || 0,
+            scheduled: stats.scheduled || 0,
+            verified: stats.verified || 0,
+            in_progress: stats.in_progress || 0,
+            completed: stats.completed || 0,
+            cancelled: stats.cancelled || 0,
+            no_show: stats.no_show || 0,
+          });
+        }
       } else {
         setError(data.error || 'Failed to load appointments');
       }
@@ -522,12 +542,7 @@ export default function HealthcareAdminAppointmentsPage() {
     return filtered;
   }, [appointments, filter]);
 
-  // Calculate statistics from appointments (already filtered by date server-side)
-  // This ensures filter button counts remain constant regardless of active status filter
-  const statistics = useMemo(
-    () => calculateAppointmentStatistics(appointments),
-    [appointments]
-  );
+  // Statistics are now computed server-side and set via setStatistics in fetchAppointments
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {

@@ -456,6 +456,93 @@ export async function POST(request: NextRequest) {
  * - page: page number (default: 1)
  * - limit: records per page (default: 20, max: 100)
  */
+
+/**
+ * Apply base filters (role, service category, date, search) to a Supabase query.
+ * This is shared between the main query, count query, and per-status statistics queries.
+ * Does NOT apply the status filter — callers apply that separately.
+ */
+function applyBaseFilters(
+  q: any,
+  opts: {
+    profile: { role: string; admin_category?: string | null; assigned_service_id?: number | null };
+    patientId?: string | null;
+    patientRecordId?: string | null; // For patient role
+    serviceCategoryServiceIds?: number[] | null; // Pre-resolved service IDs for category filter
+    date?: string | null;
+    search?: string | null;
+    matchingPatientIds?: string[];
+  }
+): any {
+  const { profile, patientId, patientRecordId, serviceCategoryServiceIds, date, search, matchingPatientIds } = opts;
+
+  // Role-based filters
+  if (profile.role === 'patient' && patientRecordId) {
+    q = q.eq('patient_id', patientRecordId);
+  } else if (profile.role === 'healthcare_admin') {
+    if (profile.admin_category === 'healthcard') {
+      q = q.in('service_id', [12, 13, 14, 15]);
+      q = q.or('card_type.is.null,card_type.neq.pink');
+    } else if (profile.admin_category === 'hiv') {
+      q = q.eq('service_id', 16);
+    } else if (profile.admin_category === 'pregnancy') {
+      q = q.eq('service_id', 17);
+    } else if (profile.assigned_service_id) {
+      q = q.eq('service_id', profile.assigned_service_id);
+    } else {
+      q = q.eq('id', '00000000-0000-0000-0000-000000000000');
+    }
+    if (patientId) {
+      q = q.eq('patient_id', patientId);
+    }
+  } else if (profile.role === 'super_admin') {
+    if (patientId) {
+      q = q.eq('patient_id', patientId);
+    }
+  } else if (profile.role === 'staff') {
+    if (patientId) {
+      q = q.eq('patient_id', patientId);
+    }
+  }
+
+  // Service category filter
+  if (serviceCategoryServiceIds !== undefined && serviceCategoryServiceIds !== null) {
+    if (serviceCategoryServiceIds.length > 0) {
+      q = q.in('service_id', serviceCategoryServiceIds);
+    } else {
+      q = q.eq('id', '00000000-0000-0000-0000-000000000000');
+    }
+  }
+
+  // Date filter
+  if (date) {
+    q = q.eq('appointment_date', date);
+  }
+
+  // Search filter
+  if (search) {
+    const searchAsNumber = parseInt(search);
+    const isNumericSearch = !isNaN(searchAsNumber);
+    const searchConditions: string[] = [];
+
+    if (isNumericSearch) {
+      searchConditions.push(`appointment_number.eq.${searchAsNumber}`);
+    }
+    if (matchingPatientIds && matchingPatientIds.length > 0) {
+      searchConditions.push(`patient_id.in.(${matchingPatientIds.join(',')})`);
+    }
+    searchConditions.push(`reason.ilike.%${search}%`);
+
+    if (searchConditions.length > 0) {
+      q = q.or(searchConditions.join(','));
+    } else {
+      q = q.eq('id', '00000000-0000-0000-0000-000000000000');
+    }
+  }
+
+  return q;
+}
+
 export async function GET(request: NextRequest) {
   try {
     const supabase = await createClient();
@@ -472,6 +559,7 @@ export async function GET(request: NextRequest) {
     const date = searchParams.get('date');
     const patientId = searchParams.get('patient_id');
     const search = searchParams.get('search')?.trim() || '';
+    const serviceCategory = searchParams.get('service_category');
 
     // Pagination parameters
     const page = Math.max(1, parseInt(searchParams.get('page') || '1'));
@@ -579,6 +667,7 @@ export async function GET(request: NextRequest) {
             hasNextPage: false,
             hasPreviousPage: false,
           },
+          statistics: { pending: 0, scheduled: 0, verified: 0, in_progress: 0, completed: 0, cancelled: 0, no_show: 0 },
           message: 'No service category assigned to your account. Please contact an administrator.'
         });
       }
@@ -616,6 +705,7 @@ export async function GET(request: NextRequest) {
               hasNextPage: false,
               hasPreviousPage: false,
             },
+            statistics: { pending: 0, scheduled: 0, verified: 0, in_progress: 0, completed: 0, cancelled: 0, no_show: 0 },
             message: 'Service configuration incomplete. Please contact an administrator.'
           });
         }
@@ -647,8 +737,32 @@ export async function GET(request: NextRequest) {
             hasNextPage: false,
             hasPreviousPage: false,
           },
+          statistics: { pending: 0, scheduled: 0, verified: 0, in_progress: 0, completed: 0, cancelled: 0, no_show: 0 },
           message: 'Please specify a patient_id to view appointments.'
         });
+      }
+    }
+
+    // Pre-resolve service category IDs (used by main query, count query, and statistics queries)
+    let serviceCategoryServiceIds: number[] | null = null;
+    if (serviceCategory) {
+      const { data: matchingServices } = await adminClient
+        .from('services')
+        .select('id')
+        .eq('category', serviceCategory);
+
+      serviceCategoryServiceIds = matchingServices && matchingServices.length > 0
+        ? matchingServices.map(s => s.id)
+        : [];
+    }
+
+    // Apply service category filter (server-side filtering for Super Admin category dropdown)
+    if (serviceCategoryServiceIds !== null) {
+      if (serviceCategoryServiceIds.length > 0) {
+        query = query.in('service_id', serviceCategoryServiceIds);
+      } else {
+        // No services match this category — return empty result
+        query = query.eq('id', '00000000-0000-0000-0000-000000000000');
       }
     }
 
@@ -809,97 +923,47 @@ export async function GET(request: NextRequest) {
     console.log('🔍 [QUERY] Executing final query for role:', profile.role);
     console.log('🔍 [PAGINATION] Page:', page, 'Limit:', limit, 'Offset:', offset);
 
-    // Get total count for pagination with a separate simple query (no nested joins)
-    // This is necessary because Supabase returns null count with complex nested selects + head: true
-    let countQuery = adminClient
-      .from('appointments')
-      .select('*', { count: 'exact', head: true });
-
-    // Apply the SAME role-based filters to count query
+    // Resolve patient record ID for base filter helper (patient role only)
+    let patientRecordId: string | null = null;
     if (profile.role === 'patient') {
       const { data: patientRecord } = await supabase
         .from('patients')
         .select('id')
         .eq('user_id', user.id)
         .single();
-      if (patientRecord) {
-        countQuery = countQuery.eq('patient_id', patientRecord.id);
-      }
-    } else if (profile.role === 'healthcare_admin') {
-      // Healthcare admins see appointments based on their admin_category
-      // SYNC WITH MAIN QUERY LOGIC (lines 558-615)
-      if (!profile.admin_category) {
-        // No admin category - count will be 0
-        countQuery = countQuery.eq('id', '00000000-0000-0000-0000-000000000000');
-      } else if (profile.admin_category === 'healthcard') {
-        // Healthcard admin sees services 12-15 (yellow and green cards ONLY, excludes pink)
-        countQuery = countQuery.in('service_id', [12, 13, 14, 15]);
-        // Exclude pink cards (healthcard admin only handles yellow and green)
-        countQuery = countQuery.or('card_type.is.null,card_type.neq.pink');
-      } else if (profile.admin_category === 'hiv') {
-        // HIV admin sees service 16 only
-        countQuery = countQuery.eq('service_id', 16);
-      } else if (profile.admin_category === 'pregnancy') {
-        // Pregnancy admin sees service 17 only
-        countQuery = countQuery.eq('service_id', 17);
-      } else {
-        // Other categories: fall back to assigned_service_id if available
-        if (profile.assigned_service_id) {
-          countQuery = countQuery.eq('service_id', profile.assigned_service_id);
-        } else {
-          // No service assigned, count will be 0
-          countQuery = countQuery.eq('id', '00000000-0000-0000-0000-000000000000');
-        }
-      }
-
-      if (patientId) {
-        countQuery = countQuery.eq('patient_id', patientId);
-      }
-    } else if (profile.role === 'super_admin') {
-      if (patientId) {
-        countQuery = countQuery.eq('patient_id', patientId);
-      }
+      patientRecordId = patientRecord?.id || null;
     }
 
-    // Apply common filters to count query (must match main query)
+    // Shared filter options for count and statistics queries
+    const baseFilterOpts = {
+      profile,
+      patientId,
+      patientRecordId,
+      serviceCategoryServiceIds,
+      date,
+      search: search || null,
+      matchingPatientIds,
+    };
+
+    // Get total count for pagination with a separate simple query (no nested joins)
+    // This is necessary because Supabase returns null count with complex nested selects + head: true
+    let countQuery = adminClient
+      .from('appointments')
+      .select('*', { count: 'exact', head: true });
+
+    // Apply base filters
+    countQuery = applyBaseFilters(countQuery, baseFilterOpts);
+
+    // Apply status filter to count query (must match main query)
     if (status) {
       const statusValues = status.split(',').map(s => s.trim());
       countQuery = countQuery.in('status', statusValues);
     } else {
       // Apply same role-specific filtering as main query
       if (profile.role === 'patient') {
-        // Patients can see these statuses (includes pending!)
         countQuery = countQuery.in('status', ['pending', 'scheduled', 'verified', 'in_progress', 'completed', 'no_show']);
       } else {
-        // Admins/Staff: exclude drafts and cancelled placeholders
         countQuery = countQuery.or('and(status.neq.draft,status.neq.cancelled),and(status.neq.draft,appointment_number.gt.0)');
-      }
-    }
-
-    if (date) {
-      countQuery = countQuery.eq('appointment_date', date);
-    }
-
-    // Apply search filter to count query (same logic as main query)
-    if (search) {
-      const searchAsNumber = parseInt(search);
-      const isNumericSearch = !isNaN(searchAsNumber);
-
-      // Use the same matching patient IDs from earlier search
-      const countSearchConditions: string[] = [];
-
-      if (isNumericSearch) {
-        countSearchConditions.push(`appointment_number.eq.${searchAsNumber}`);
-      }
-      if (matchingPatientIds.length > 0) {
-        countSearchConditions.push(`patient_id.in.(${matchingPatientIds.join(',')})`);
-      }
-      countSearchConditions.push(`reason.ilike.%${search}%`);
-
-      if (countSearchConditions.length > 0) {
-        countQuery = countQuery.or(countSearchConditions.join(','));
-      } else {
-        countQuery = countQuery.eq('id', '00000000-0000-0000-0000-000000000000');
       }
     }
 
@@ -911,6 +975,32 @@ export async function GET(request: NextRequest) {
     }
 
     console.log('✅ [COUNT QUERY] Total count:', totalCount);
+
+    // Build per-status statistics (server-side counts for filter badges)
+    // Each query uses the same base filters but with a specific status
+    const statuses = ['pending', 'scheduled', 'verified', 'in_progress', 'completed', 'cancelled', 'no_show'] as const;
+    const statusCountPromises = statuses.map(async (s) => {
+      let statusQuery = adminClient
+        .from('appointments')
+        .select('*', { count: 'exact', head: true });
+
+      statusQuery = applyBaseFilters(statusQuery, baseFilterOpts);
+      statusQuery = statusQuery.eq('status', s);
+
+      const { count, error: statusError } = await statusQuery;
+      if (statusError) {
+        console.error(`❌ [STATISTICS] Error counting ${s}:`, statusError);
+      }
+      return { status: s, count: count || 0 };
+    });
+
+    const statusCountResults = await Promise.all(statusCountPromises);
+    const statistics: Record<string, number> = {};
+    for (const result of statusCountResults) {
+      statistics[result.status] = result.count;
+    }
+
+    console.log('✅ [STATISTICS] Per-status counts:', statistics);
 
     // Apply pagination
     query = query.range(offset, offset + limit - 1);
@@ -1058,6 +1148,7 @@ export async function GET(request: NextRequest) {
         hasNextPage: page < totalPages,
         hasPreviousPage: page > 1,
       },
+      statistics,
     });
 
   } catch (error) {

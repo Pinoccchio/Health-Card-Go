@@ -60,8 +60,8 @@ export interface ServiceWithAdmins extends Service {
   admin_count?: number;
   assigned_admins?: Array<{
     id: string;
-    first_name: string;
-    last_name: string;
+    name: string;
+    status: string;
   }>;
 }
 

@@ -79,7 +79,7 @@ export function StatusHistoryModal({
     }
 
     // For status changes, use the actual status color
-    if (entry.change_type === 'status_change' && entry.to_status) {
+    if (entry.to_status) {
       return getStatusTimelineColor(entry.to_status as AppointmentStatus);
     }
 

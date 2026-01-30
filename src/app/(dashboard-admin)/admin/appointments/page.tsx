@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '@/lib/auth';
 import { DashboardLayout } from '@/components/dashboard';
 import { Container } from '@/components/ui';
@@ -10,6 +10,8 @@ import { EnhancedTable } from '@/components/ui/EnhancedTable';
 import { Drawer } from '@/components/ui/Drawer';
 import { StatusHistoryModal } from '@/components/appointments/StatusHistoryModal';
 import { TimeElapsedBadge } from '@/components/appointments/TimeElapsedBadge';
+import AppointmentStageTracker from '@/components/appointments/AppointmentStageTracker';
+import { DocumentReviewPanel } from '@/components/healthcare-admin/DocumentReviewPanel';
 // Removed: StatusTransitionButtons - Super Admin is view-only
 // Removed: AppointmentCompletionModal - Super Admin is view-only
 import {
@@ -36,12 +38,14 @@ import {
   Briefcase,
 } from 'lucide-react';
 import { getPhilippineTime } from '@/lib/utils/timezone';
+import { getCategoryLabel } from '@/lib/utils/serviceHelpers';
 import { APPOINTMENT_STATUS_CONFIG } from '@/lib/constants/colors';
-import { calculateAppointmentStatistics } from '@/lib/utils/appointmentStats';
+import type { AppointmentStatistics } from '@/lib/utils/appointmentStats';
 import {
   TimeBlock,
   formatTimeBlock,
   getTimeBlockColor,
+  getHealthCardTypeInfo,
   TIME_BLOCKS,
 } from '@/types/appointment';
 
@@ -51,12 +55,22 @@ interface AdminAppointment {
   appointment_date: string;
   appointment_time: string;
   time_block: TimeBlock;
-  status: 'pending' | 'scheduled' | 'verified' | 'in_progress' | 'completed' | 'cancelled' | 'no_show';
+  status: 'pending' | 'scheduled' | 'verified' | 'in_progress' | 'completed' | 'cancelled' | 'no_show' | 'rescheduled';
   reason?: string;
+  cancellation_reason?: string | null;
   service_id: number;
   verified_at?: string | null;
   started_at?: string | null;
   completed_at?: string | null;
+  appointment_stage?: 'verification' | 'laboratory' | 'results' | 'checkup' | 'releasing' | null;
+  lab_location?: 'inside_cho' | 'outside_cho';
+  card_type?: 'food_handler' | 'non_food' | 'pink';
+  verification_status?: 'pending' | 'approved' | 'rejected';
+  services?: {
+    id: number;
+    name: string;
+    category: string;
+  };
   patients: {
     id: string;
     patient_number: string;
@@ -107,6 +121,11 @@ export default function SuperAdminAppointmentsPage() {
   // Search state
   const [searchQuery, setSearchQuery] = useState('');
 
+  // Server-side statistics for filter badges
+  const [statistics, setStatistics] = useState<AppointmentStatistics>({
+    total: 0, pending: 0, scheduled: 0, verified: 0, in_progress: 0, completed: 0, cancelled: 0, no_show: 0,
+  });
+
   // Status history state (view-only)
   const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [selectedHistoryAppointmentId, setSelectedHistoryAppointmentId] = useState<string | null>(null);
@@ -132,7 +151,7 @@ export default function SuperAdminAppointmentsPage() {
   // Fetch appointments when page or filters change
   useEffect(() => {
     fetchAppointments();
-  }, [currentPage, dateFilter, filter]);
+  }, [currentPage, dateFilter, filter, serviceFilter]);
 
   // Removed: fetchAllLastHistoryEntries and its useEffect - only needed for undo functionality
   // Removed: checkAllMedicalRecords and its useEffect - only needed for undo validation
@@ -154,6 +173,11 @@ export default function SuperAdminAppointmentsPage() {
       // Add status filter
       if (filter !== 'all') {
         params.append('status', filter);
+      }
+
+      // Add service category filter (server-side)
+      if (serviceFilter !== 'all') {
+        params.append('service_category', serviceFilter);
       }
 
       // Add date filter
@@ -205,6 +229,21 @@ export default function SuperAdminAppointmentsPage() {
           setTotalRecords(dataLength);
           setTotalPages(dataLength > pageSize ? Math.ceil(dataLength / pageSize) : 1);
         }
+
+        // Update server-side statistics for filter badges
+        if (data.statistics) {
+          const stats = data.statistics;
+          setStatistics({
+            total: (stats.pending || 0) + (stats.scheduled || 0) + (stats.verified || 0) + (stats.in_progress || 0) + (stats.completed || 0) + (stats.cancelled || 0) + (stats.no_show || 0),
+            pending: stats.pending || 0,
+            scheduled: stats.scheduled || 0,
+            verified: stats.verified || 0,
+            in_progress: stats.in_progress || 0,
+            completed: stats.completed || 0,
+            cancelled: stats.cancelled || 0,
+            no_show: stats.no_show || 0,
+          });
+        }
       } else {
         setError(data.error || 'Failed to load appointments');
       }
@@ -216,21 +255,8 @@ export default function SuperAdminAppointmentsPage() {
     }
   };
 
-  // Filter appointments by service category (client-side after API fetch)
-  const filteredAppointments = useMemo(() => {
-    if (serviceFilter === 'all') return appointments;
-
-    return appointments.filter(apt => {
-      const serviceCategory = (apt as any).services?.category;
-      return serviceCategory === serviceFilter;
-    });
-  }, [appointments, serviceFilter]);
-
-  // Calculate statistics from current page appointments using shared utility
-  const statistics = useMemo(
-    () => calculateAppointmentStatistics(filteredAppointments),
-    [filteredAppointments]
-  );
+  // Service category filtering is now done server-side via the API
+  const filteredAppointments = appointments;
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {
@@ -288,8 +314,8 @@ export default function SuperAdminAppointmentsPage() {
       apt.appointment_number,
       `${apt.patients?.profiles?.first_name || 'N/A'} ${apt.patients?.profiles?.last_name || ''}`,
       apt.patients?.patient_number || 'N/A',
-      (apt as any).services?.name || 'N/A',
-      (apt as any).services?.category || 'N/A',
+      apt.services?.name || 'N/A',
+      apt.services?.category ? getCategoryLabel(apt.services.category) : 'N/A',
       apt.appointment_date,
       formatTimeBlock(apt.time_block),
       apt.status,
@@ -337,16 +363,60 @@ export default function SuperAdminAppointmentsPage() {
       accessor: 'service',
       sortable: false,
       render: (_: any, row: AdminAppointment) => {
-        const service = (row as any).services;
+        const service = row.services;
         return (
           <div>
             <p className="text-sm font-medium text-gray-900">
               {service?.name || 'N/A'}
             </p>
-            <p className="text-xs text-gray-500 capitalize">
-              {service?.category || ''}
+            <p className="text-xs text-gray-500">
+              {service?.category ? getCategoryLabel(service.category) : ''}
             </p>
           </div>
+        );
+      },
+    },
+    {
+      header: 'Card Type',
+      accessor: 'card_type',
+      sortable: false,
+      render: (_: any, row: AdminAppointment) => {
+        if (!row.card_type) return <span className="text-gray-400">-</span>;
+        const badgeStyles: Record<string, string> = {
+          food_handler: 'bg-yellow-100 text-yellow-800 border border-yellow-300',
+          non_food: 'bg-green-100 text-green-800 border border-green-300',
+          pink: 'bg-pink-100 text-pink-800 border border-pink-300',
+        };
+        const labels: Record<string, string> = {
+          food_handler: 'Yellow (Food)',
+          non_food: 'Green (Non-Food)',
+          pink: 'Pink Card',
+        };
+        return (
+          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${badgeStyles[row.card_type] || ''}`}>
+            {labels[row.card_type] || row.card_type}
+          </span>
+        );
+      },
+    },
+    {
+      header: 'Lab Location',
+      accessor: 'lab_location',
+      sortable: false,
+      render: (_: any, row: AdminAppointment) => {
+        if (!row.lab_location) return <span className="text-gray-400">-</span>;
+        const labels: Record<string, string> = {
+          inside_cho: 'Inside CHO',
+          outside_cho: 'Outside CHO',
+        };
+        const styles: Record<string, string> = {
+          inside_cho: 'bg-blue-100 text-blue-800',
+          outside_cho: 'bg-orange-100 text-orange-800',
+        };
+        return (
+          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${styles[row.lab_location] || ''}`}>
+            {labels[row.lab_location] || row.lab_location}
+          </span>
         );
       },
     },
@@ -466,15 +536,15 @@ export default function SuperAdminAppointmentsPage() {
               >
                 <option value="all">All Categories</option>
                 <option value="healthcard">Health Card</option>
+                <option value="pink_card">Pink Card</option>
                 <option value="hiv">HIV</option>
                 <option value="pregnancy">Pregnancy</option>
-                <option value="general">General</option>
-                <option value="laboratory">Laboratory</option>
-                <option value="immunization">Immunization</option>
+                <option value="child_immunization">Child Immunization</option>
+                <option value="adult_vaccination">Adult Vaccination</option>
               </select>
               {serviceFilter !== 'all' && (
                 <span className="text-xs text-gray-600 italic">
-                  Showing statistics for <span className="font-semibold capitalize">{serviceFilter}</span> category
+                  Showing statistics for <span className="font-semibold">{getCategoryLabel(serviceFilter)}</span> category
                 </span>
               )}
             </div>
@@ -628,8 +698,35 @@ export default function SuperAdminAppointmentsPage() {
               <div className="mb-6">
                 <div className="flex items-center gap-2 mb-2">
                   {getStatusBadge(selectedAppointment.status)}
+                  {/* Elapsed Time Badges */}
+                  {selectedAppointment.status === 'verified' && selectedAppointment.verified_at && (
+                    <TimeElapsedBadge
+                      timestamp={selectedAppointment.verified_at}
+                      label="Waiting"
+                      type="waiting"
+                    />
+                  )}
+                  {selectedAppointment.status === 'in_progress' && selectedAppointment.started_at && (
+                    <TimeElapsedBadge
+                      timestamp={selectedAppointment.started_at}
+                      label="Consulting"
+                      type="consulting"
+                    />
+                  )}
                 </div>
               </div>
+
+              {/* Appointment Stage Tracker - View Only for Super Admin */}
+              {(selectedAppointment.services?.category === 'healthcard' || selectedAppointment.services?.category === 'pink_card') && selectedAppointment.card_type && (
+                <div className="mb-4">
+                  <AppointmentStageTracker
+                    currentStage={selectedAppointment.appointment_stage || null}
+                    isHealthCardService={true}
+                    isVerified={['verified', 'in_progress', 'completed'].includes(selectedAppointment.status)}
+                    isCompleted={selectedAppointment.status === 'completed'}
+                  />
+                </div>
+              )}
 
               <div className="space-y-4">
                 {/* Appointment Information - Include service info */}
@@ -645,11 +742,11 @@ export default function SuperAdminAppointmentsPage() {
                     </div>
                     <div className="flex justify-between">
                       <span className="text-gray-600">Service:</span>
-                      <span className="font-medium text-gray-900">{(selectedAppointment as any).services?.name || 'N/A'}</span>
+                      <span className="font-medium text-gray-900">{selectedAppointment.services?.name || 'N/A'}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-gray-600">Category:</span>
-                      <span className="font-medium text-gray-900 capitalize">{(selectedAppointment as any).services?.category || 'N/A'}</span>
+                      <span className="font-medium text-gray-900">{selectedAppointment.services?.category ? getCategoryLabel(selectedAppointment.services.category) : 'N/A'}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-gray-600">Date:</span>
@@ -666,6 +763,16 @@ export default function SuperAdminAppointmentsPage() {
                         </span>
                       </div>
                     </div>
+                    {selectedAppointment.card_type && (
+                      <div className="flex justify-between items-center">
+                        <span className="text-gray-600">Health Card Type:</span>
+                        <span className={`inline-flex items-center px-3 py-1 rounded text-sm font-medium border ${
+                          getHealthCardTypeInfo(selectedAppointment.card_type).badgeColor
+                        }`}>
+                          {getHealthCardTypeInfo(selectedAppointment.card_type).label}
+                        </span>
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -841,6 +948,43 @@ export default function SuperAdminAppointmentsPage() {
                   ) : null;
                 })()}
 
+                {/* Requirements Confirmed by Patient - View Only */}
+                {(selectedAppointment.services?.category === 'healthcard' || selectedAppointment.services?.category === 'pink_card') && selectedAppointment.card_type && (
+                  <div>
+                    <h4 className="text-sm font-medium text-gray-700 mb-2 flex items-center">
+                      <FileText className="w-4 h-4 mr-2" />
+                      {selectedAppointment.status === 'pending' ? 'Document Verification' : 'Requirements'}
+                    </h4>
+                    <div className="bg-white rounded-md border border-gray-200 p-4">
+                      <DocumentReviewPanel
+                        appointmentId={selectedAppointment.id}
+                        onVerificationComplete={() => {}}
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* Lab Location - Standalone Section */}
+                {selectedAppointment.lab_location && (
+                  <div>
+                    <h4 className="text-sm font-medium text-gray-700 mb-2 flex items-center">
+                      <MapPin className="w-4 h-4 mr-2" />
+                      Lab Location
+                    </h4>
+                    <div className="bg-gray-50 rounded-md p-3">
+                      <span className={`inline-flex items-center px-2.5 py-1 rounded text-sm font-medium ${
+                        selectedAppointment.lab_location === 'inside_cho'
+                          ? 'bg-blue-100 text-blue-800'
+                          : 'bg-amber-100 text-amber-800'
+                      }`}>
+                        {selectedAppointment.lab_location === 'inside_cho'
+                          ? 'Inside CHO Laboratory'
+                          : 'Outside CHO Laboratory'}
+                      </span>
+                    </div>
+                  </div>
+                )}
+
                 {/* Reason for Visit */}
                 {selectedAppointment.reason && (
                   <div>
@@ -854,29 +998,45 @@ export default function SuperAdminAppointmentsPage() {
                   </div>
                 )}
 
-                {/* Timestamps */}
+                {/* Cancellation Reason */}
+                {selectedAppointment.status === 'cancelled' && selectedAppointment.cancellation_reason && (
+                  <div>
+                    <h4 className="text-sm font-medium text-red-700 mb-2 flex items-center">
+                      <XCircle className="w-4 h-4 mr-2" />
+                      Cancellation Reason
+                    </h4>
+                    <div className="bg-red-50 rounded-md p-3 text-sm text-red-700">
+                      {selectedAppointment.cancellation_reason}
+                    </div>
+                  </div>
+                )}
+
+                {/* Timeline */}
                 {(selectedAppointment.verified_at || selectedAppointment.started_at || selectedAppointment.completed_at) && (
                   <div>
                     <h4 className="text-sm font-medium text-gray-700 mb-2 flex items-center">
                       <Clock className="w-4 h-4 mr-2" />
                       Timeline
                     </h4>
-                    <div className="bg-gray-50 rounded-md p-3 space-y-1 text-sm">
+                    <div className="space-y-2 text-sm">
                       {selectedAppointment.verified_at && (
-                        <div className="flex justify-between">
-                          <span className="text-gray-600">Verified:</span>
+                        <div className="flex items-center gap-2">
+                          <div className="w-2 h-2 rounded-full bg-purple-500"></div>
+                          <span className="text-gray-500">Verified:</span>
                           <span className="text-gray-900">{new Date(selectedAppointment.verified_at).toLocaleString()}</span>
                         </div>
                       )}
                       {selectedAppointment.started_at && (
-                        <div className="flex justify-between">
-                          <span className="text-gray-600">Started:</span>
+                        <div className="flex items-center gap-2">
+                          <div className="w-2 h-2 rounded-full bg-yellow-500"></div>
+                          <span className="text-gray-500">Started:</span>
                           <span className="text-gray-900">{new Date(selectedAppointment.started_at).toLocaleString()}</span>
                         </div>
                       )}
                       {selectedAppointment.completed_at && (
-                        <div className="flex justify-between">
-                          <span className="text-gray-600">Completed:</span>
+                        <div className="flex items-center gap-2">
+                          <div className="w-2 h-2 rounded-full bg-green-500"></div>
+                          <span className="text-gray-500">Completed:</span>
                           <span className="text-gray-900">{new Date(selectedAppointment.completed_at).toLocaleString()}</span>
                         </div>
                       )}
