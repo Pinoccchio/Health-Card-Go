@@ -38,6 +38,8 @@ interface ReportsChartsProps {
   startDate: string;
   endDate: string;
   barangayId?: number;
+  activeTab?: string;
+  onDataLoaded?: (tab: string, data: any) => void;
 }
 
 interface AppointmentStats {
@@ -80,6 +82,8 @@ export default function ReportsCharts({
   startDate,
   endDate,
   barangayId,
+  activeTab,
+  onDataLoaded,
 }: ReportsChartsProps) {
   const [appointmentStats, setAppointmentStats] = useState<AppointmentStats | null>(null);
   const [patientStats, setPatientStats] = useState<PatientStats | null>(null);
@@ -114,6 +118,7 @@ export default function ReportsCharts({
             // Only update state if request wasn't aborted
             if (!signal.aborted) {
               setAppointmentStats(apptData.data);
+              onDataLoaded?.('appointments', apptData.data);
             }
           }
         }
@@ -124,6 +129,7 @@ export default function ReportsCharts({
           const patientData = await patientResponse.json();
           if (!signal.aborted) {
             setPatientStats(patientData.data);
+            onDataLoaded?.('patients', patientData.data);
           }
         }
 
@@ -134,6 +140,7 @@ export default function ReportsCharts({
             const diseaseData = await diseaseResponse.json();
             if (!signal.aborted) {
               setDiseaseStats(diseaseData.data);
+              onDataLoaded?.('diseases', diseaseData.data);
             }
           }
         }
@@ -240,12 +247,16 @@ export default function ReportsCharts({
     },
   };
 
+  const showAppointments = activeTab === 'appointments';
+  const showPatients = activeTab === 'patients';
+  const showDiseases = activeTab === 'diseases';
+
   return (
     <div className="space-y-6">
       {/* Summary Cards */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        {/* Appointments Summary (Pattern 1 & 2) */}
-        {requiresAppointment && appointmentStats && (
+        {/* Appointments Summary */}
+        {showAppointments && requiresAppointment && appointmentStats && (
           <>
             <div className="bg-white rounded-lg shadow p-6">
               <p className="text-sm font-medium text-gray-600">Total Appointments</p>
@@ -259,8 +270,8 @@ export default function ReportsCharts({
           </>
         )}
 
-        {/* Patients Summary (ALL patterns) */}
-        {patientStats && (
+        {/* Patients Summary */}
+        {showPatients && patientStats && (
           <>
             <div className="bg-white rounded-lg shadow p-6">
               <p className="text-sm font-medium text-gray-600">Total Patients</p>
@@ -273,8 +284,8 @@ export default function ReportsCharts({
           </>
         )}
 
-        {/* Disease Summary (Pattern 2 & 3) */}
-        {requiresMedicalRecord && diseaseStats && (
+        {/* Disease Summary */}
+        {showDiseases && requiresMedicalRecord && diseaseStats && (
           <>
             <div className="bg-white rounded-lg shadow p-6">
               <p className="text-sm font-medium text-gray-600">Disease Cases</p>
@@ -290,8 +301,8 @@ export default function ReportsCharts({
 
       {/* Charts Grid */}
       <div className="grid gap-6 md:grid-cols-2">
-        {/* Appointment Status Breakdown - Bar Chart (Pattern 1 & 2) */}
-        {requiresAppointment && appointmentStats && (
+        {/* Appointment Status Breakdown - Bar Chart */}
+        {showAppointments && requiresAppointment && appointmentStats && (
           <div className="bg-white rounded-lg shadow p-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Appointments by Status</h3>
             <div className="h-64">
@@ -328,8 +339,35 @@ export default function ReportsCharts({
           </div>
         )}
 
-        {/* Patients by Status - Pie Chart (ALL patterns) */}
-        {patientStats && (
+        {/* Appointment Trend - Line Chart */}
+        {showAppointments && requiresAppointment && appointmentStats && appointmentStats.trend_data.length > 0 && (
+          <div className="bg-white rounded-lg shadow p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Appointments Trend</h3>
+            <div className="h-64">
+              <Line
+                data={{
+                  labels: appointmentStats.trend_data.map(item =>
+                    new Date(item.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+                  ),
+                  datasets: [
+                    {
+                      label: 'Appointments',
+                      data: appointmentStats.trend_data.map(item => item.count),
+                      borderColor: 'rgba(59, 130, 246, 1)',
+                      backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                      tension: 0.3,
+                      fill: true,
+                    },
+                  ],
+                }}
+                options={lineChartOptions}
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Patients by Status - Pie Chart */}
+        {showPatients && patientStats && (
           <div className="bg-white rounded-lg shadow p-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Patients by Status</h3>
             <div className="h-64">
@@ -360,48 +398,18 @@ export default function ReportsCharts({
           </div>
         )}
 
-        {/* Appointment Trend - Line Chart (Pattern 1 & 2) */}
-        {requiresAppointment && appointmentStats && appointmentStats.trend_data.length > 0 && (
-          <div className="bg-white rounded-lg shadow p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Appointments Trend</h3>
-            <div className="h-64">
-              <Line
-                data={{
-                  labels: appointmentStats.trend_data.map(item =>
-                    new Date(item.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-                  ),
-                  datasets: [
-                    {
-                      label: 'Appointments',
-                      data: appointmentStats.trend_data.map(item => item.count),
-                      borderColor: 'rgba(59, 130, 246, 1)',
-                      backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                      tension: 0.3,
-                      fill: true,
-                    },
-                  ],
-                }}
-                options={lineChartOptions}
-              />
-            </div>
-          </div>
-        )}
-
-        {/* Disease Cases by Type - Bar Chart (Pattern 2 & 3) */}
-        {requiresMedicalRecord && diseaseStats && diseaseStats.disease_breakdown.length > 0 && (
+        {/* Disease Cases by Type - Bar Chart */}
+        {showDiseases && requiresMedicalRecord && diseaseStats && diseaseStats.disease_breakdown.length > 0 && (
           <div className="bg-white rounded-lg shadow p-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Disease Cases by Type</h3>
             <div className="h-64">
               <Bar
                 data={{
                   labels: diseaseStats.disease_breakdown.map(item => {
-                    // Format disease names: handle both standard types (hiv_aids) and custom names (Leptospirosis)
-                    // If the disease_type contains underscores, it's a standard type that needs formatting
-                    // If it doesn't, it's already a custom disease name from the API
                     if (item.disease_type.includes('_')) {
                       return getDiseaseDisplayName(item.disease_type, null);
                     }
-                    return item.disease_type; // Already formatted custom disease name
+                    return item.disease_type;
                   }),
                   datasets: [
                     {

@@ -88,6 +88,9 @@ export async function GET(request: NextRequest) {
     // Apply filters
     if (healthcardType) {
       query = query.eq('healthcard_type', healthcardType);
+    } else {
+      // Default: exclude pink cards (managed by HIV/pink_card admin)
+      query = query.in('healthcard_type', ['food_handler', 'non_food']);
     }
 
     if (barangayId) {
@@ -125,6 +128,9 @@ export async function GET(request: NextRequest) {
 
     if (healthcardType) {
       summaryQuery = summaryQuery.eq('healthcard_type', healthcardType);
+    } else {
+      // Default: exclude pink cards (managed by HIV/pink_card admin)
+      summaryQuery = summaryQuery.in('healthcard_type', ['food_handler', 'non_food']);
     }
 
     const { data: summaryData } = await summaryQuery;
@@ -138,7 +144,8 @@ export async function GET(request: NextRequest) {
     };
 
     // Determine service IDs to query based on healthcard_type filter
-    let appointmentServiceIds: number[] = [12, 13, 14, 15, 24]; // All healthcard + pink card services
+    // Default excludes pink (service 24) — pink cards are managed by HIV/pink_card admin
+    let appointmentServiceIds: number[] = [12, 13, 14, 15]; // Yellow + Green only
     if (healthcardType === 'food_handler') {
       appointmentServiceIds = [12, 13]; // Yellow Card
     } else if (healthcardType === 'non_food') {
