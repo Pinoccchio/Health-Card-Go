@@ -62,7 +62,10 @@ export type AdminCategory =
   | 'pregnancy'
   | 'pink_card'
   | 'laboratory'
-  | 'immunization';
+  | 'immunization'
+  | 'adult_vaccination'
+  | 'child_immunization'
+  | 'general_admin';
 
 export const ADMIN_CATEGORY_NAMES = {
   healthcard: 'Healthcard Admin',
@@ -71,6 +74,9 @@ export const ADMIN_CATEGORY_NAMES = {
   pink_card: 'Pink Card Admin',
   laboratory: 'Laboratory Admin',
   immunization: 'Immunization Admin',
+  adult_vaccination: 'Adult Vaccination',
+  child_immunization: 'Child Immunization',
+  general_admin: 'General Admin',
 } as const;
 
 export type UserStatus = 'pending' | 'active' | 'inactive' | 'rejected' | 'suspended';

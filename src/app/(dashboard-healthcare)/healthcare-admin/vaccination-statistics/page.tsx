@@ -7,7 +7,7 @@ import { Container, ConfirmDialog } from '@/components/ui';
 import { useToast } from '@/lib/contexts/ToastContext';
 import { useAuth } from '@/lib/auth';
 import {
-  Shield,
+  Syringe,
   Download,
   AlertCircle,
   Sparkles,
@@ -15,6 +15,7 @@ import {
   CheckCircle2,
   Upload,
   Filter,
+  Users,
 } from 'lucide-react';
 import ServiceHistoricalImportModal from '@/components/healthcare-admin/ServiceHistoricalImportModal';
 import ServiceSARIMAChart from '@/components/healthcare-admin/ServiceSARIMAChart';
@@ -25,12 +26,15 @@ import { HIVStatisticsTable } from '@/components/healthcare-admin/HIVStatisticsT
 import { EditHIVStatisticModal } from '@/components/healthcare-admin/EditHIVStatisticModal';
 import type { HIVStatistic } from '@/components/healthcare-admin/HIVStatisticsTable';
 
-export default function HIVManagementPage() {
+export default function VaccinationStatisticsPage() {
   const router = useRouter();
   const { user } = useAuth();
   const toast = useToast();
 
   const [hasAccess, setHasAccess] = useState<boolean | null>(null);
+
+  const assignedServiceId = 20;
+  const serviceName = 'Adult Vaccination';
 
   // Import and SARIMA state
   const [isAppointmentImportOpen, setIsAppointmentImportOpen] = useState(false);
@@ -42,7 +46,7 @@ export default function HIVManagementPage() {
   const [appointmentStats, setAppointmentStats] = useState<any[]>([]);
   const [appointmentStatsLoading, setAppointmentStatsLoading] = useState(true);
 
-  // Data Source Summary state (for HIVDataSourceCards)
+  // Data Source Summary state (for DataSourceCards)
   const [dataSourceSummary, setDataSourceSummary] = useState({
     from_appointments: { total: 0, completed: 0, cancelled: 0 },
     from_historical: { total_appointments: 0, record_count: 0 },
@@ -73,14 +77,13 @@ export default function HIVManagementPage() {
   const [actionLoading, setActionLoading] = useState(false);
 
   useEffect(() => {
-    // Check if the healthcare admin has hiv category
     if (user) {
-      const isHIVAdmin = user.role_id === 2 && user.admin_category === 'hiv';
+      const isAdultVaccinationAdmin = user.role_id === 2 && user.admin_category === 'adult_vaccination';
       const isSuperAdmin = user.role_id === 1;
 
-      if (!isHIVAdmin && !isSuperAdmin) {
+      if (!isAdultVaccinationAdmin && !isSuperAdmin) {
         setHasAccess(false);
-        toast.error('You do not have permission to access this page. This page is only for Healthcare Admins with HIV category.');
+        toast.error('You do not have permission to access this page. This page is only for Healthcare Admins with Adult Vaccination category.');
         router.push('/healthcare-admin/dashboard');
       } else {
         setHasAccess(true);
@@ -113,7 +116,7 @@ export default function HIVManagementPage() {
   const fetchAppointmentStatistics = async () => {
     try {
       setAppointmentStatsLoading(true);
-      const response = await fetch('/api/appointments/statistics?admin_category=hiv');
+      const response = await fetch(`/api/appointments/statistics?admin_category=adult_vaccination`);
       const data = await response.json();
 
       if (data.success) {
@@ -129,7 +132,7 @@ export default function HIVManagementPage() {
   const fetchDataSourceSummary = async () => {
     try {
       setDataSourceLoading(true);
-      const response = await fetch('/api/services/historical?service_id=16');
+      const response = await fetch(`/api/services/historical?service_id=${assignedServiceId}`);
       const data = await response.json();
 
       if (data.success) {
@@ -147,7 +150,7 @@ export default function HIVManagementPage() {
       setStatisticsLoading(true);
 
       const params = new URLSearchParams();
-      params.append('service_id', '16');
+      params.append('service_id', String(assignedServiceId));
       if (filters.barangay_id !== 'all') {
         params.append('barangay_id', filters.barangay_id);
       }
@@ -228,7 +231,7 @@ export default function HIVManagementPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          service_id: 16,
+          service_id: assignedServiceId,
           months_forecast: 12,
           granularity: 'monthly',
         }),
@@ -258,13 +261,13 @@ export default function HIVManagementPage() {
     return (
       <DashboardLayout
         roleId={2}
-        pageTitle="HIV Testing & Counseling"
-        pageDescription="Manage HIV testing and counseling appointments"
+        pageTitle="Adult Vaccination Statistics"
+        pageDescription="Manage adult vaccination appointment data"
       >
         <Container size="full">
           <div className="flex items-center justify-center min-h-[400px]">
             <div className="text-center">
-              <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
+              <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-[#20C997]"></div>
               <p className="mt-2 text-sm text-gray-500">Checking access permissions...</p>
             </div>
           </div>
@@ -278,7 +281,7 @@ export default function HIVManagementPage() {
     return (
       <DashboardLayout
         roleId={2}
-        pageTitle="HIV Testing & Counseling"
+        pageTitle="Adult Vaccination Statistics"
         pageDescription="Access Denied"
       >
         <Container size="full">
@@ -289,7 +292,7 @@ export default function HIVManagementPage() {
               </div>
               <h2 className="text-xl font-semibold text-gray-900 mb-2">Access Denied</h2>
               <p className="text-gray-600">
-                You do not have permission to access this page. This page is only available to Healthcare Admins with HIV category.
+                You do not have permission to access this page. This page is only available to Healthcare Admins with Adult Vaccination category.
               </p>
             </div>
           </div>
@@ -298,42 +301,44 @@ export default function HIVManagementPage() {
     );
   }
 
+  const templateName = 'adult-vaccination';
+
   return (
     <DashboardLayout
       roleId={2}
-      pageTitle="HIV Testing & Counseling"
-      pageDescription="Track HIV testing and counseling appointments"
+      pageTitle="Adult Vaccination Statistics"
+      pageDescription={`Track and manage ${serviceName} appointment data`}
     >
       <Container size="full">
         <div className="space-y-6">
           {/* 1. Page Header */}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="p-3 bg-purple-100 rounded-lg">
-                <Shield className="w-6 h-6 text-purple-600" />
+              <div className="p-3 bg-teal-100 rounded-lg">
+                <Users className="w-6 h-6 text-[#20C997]" />
               </div>
               <div>
-                <h1 className="text-2xl font-bold text-gray-900">HIV Testing & Counseling</h1>
-                <p className="text-sm text-gray-600">Manage HIV testing and counseling appointments (Pink Cards managed separately)</p>
+                <h1 className="text-2xl font-bold text-gray-900">{serviceName} Statistics</h1>
+                <p className="text-sm text-gray-600">Monitor and track {serviceName.toLowerCase()} appointments and demand forecasting</p>
               </div>
             </div>
           </div>
 
           {/* 2. Data Source Summary Cards */}
-          <HIVDataSourceCards summary={dataSourceSummary} loading={dataSourceLoading} />
+          <HIVDataSourceCards summary={dataSourceSummary} loading={dataSourceLoading} serviceName={serviceName} />
 
           {/* 3. Appointment Status Breakdown Chart */}
           <AppointmentStatusChart
             data={appointmentStats}
             loading={appointmentStatsLoading}
-            title="Current System Appointments - Monthly Status Breakdown (Completed, Cancelled, No Show)"
+            title={`Monthly ${serviceName} Appointment Status Breakdown (Completed, Cancelled, No Show)`}
             height={450}
           />
 
           {/* 4. Action Bar */}
           <div className="flex justify-end gap-3">
             <a
-              href="/templates/hiv-appointment-import-template.csv"
+              href={`/templates/${templateName}-appointment-import-template.csv`}
               download
               className="px-4 py-2 bg-white text-gray-700 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors flex items-center gap-2 shadow-sm"
               title="Download Excel Template"
@@ -343,7 +348,7 @@ export default function HIVManagementPage() {
             </a>
             <button
               onClick={() => setIsAppointmentImportOpen(true)}
-              className="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors flex items-center gap-2 shadow-sm"
+              className="px-4 py-2 bg-[#20C997] text-white rounded-md hover:bg-[#1AA179] transition-colors flex items-center gap-2 shadow-sm"
               title="Import Appointment Data"
             >
               <Upload className="w-4 h-4" />
@@ -358,15 +363,12 @@ export default function HIVManagementPage() {
               <h3 className="text-sm font-semibold text-gray-900">Filter Data</h3>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {/* Barangay Filter */}
               <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">
-                  Barangay
-                </label>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Barangay</label>
                 <select
                   value={filters.barangay_id}
                   onChange={(e) => setFilters({ ...filters, barangay_id: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#20C997] text-sm"
                 >
                   <option value="all">All Barangays</option>
                   {barangays.map((barangay: any) => (
@@ -377,29 +379,23 @@ export default function HIVManagementPage() {
                 </select>
               </div>
 
-              {/* Start Date Filter */}
               <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">
-                  Start Date
-                </label>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Start Date</label>
                 <input
                   type="date"
                   value={filters.start_date}
                   onChange={(e) => setFilters({ ...filters, start_date: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#20C997] text-sm"
                 />
               </div>
 
-              {/* End Date Filter */}
               <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">
-                  End Date
-                </label>
+                <label className="block text-xs font-medium text-gray-700 mb-1">End Date</label>
                 <input
                   type="date"
                   value={filters.end_date}
                   onChange={(e) => setFilters({ ...filters, end_date: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#20C997] text-sm"
                 />
               </div>
             </div>
@@ -408,7 +404,7 @@ export default function HIVManagementPage() {
           {/* 6. Imported Records Table */}
           {statisticsLoading ? (
             <div className="bg-white rounded-lg shadow border border-gray-200 p-12 text-center">
-              <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
+              <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-[#20C997]"></div>
               <p className="mt-2 text-sm text-gray-500">Loading imported records...</p>
             </div>
           ) : (
@@ -416,6 +412,7 @@ export default function HIVManagementPage() {
               statistics={statistics}
               onEdit={handleEdit}
               onDelete={handleDelete}
+              serviceName="Adult Vaccination"
             />
           )}
 
@@ -424,19 +421,19 @@ export default function HIVManagementPage() {
             <div className="p-6 border-b border-gray-200">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="p-2 bg-gradient-to-br from-purple-500 to-indigo-500 rounded-lg">
+                  <div className="p-2 bg-gradient-to-br from-teal-500 to-blue-500 rounded-lg">
                     <Sparkles className="w-5 h-5 text-white" />
                   </div>
                   <div>
-                    <h3 className="text-lg font-semibold text-gray-900">HIV Testing Appointment Forecast (SARIMA)</h3>
-                    <p className="text-sm text-gray-600">SARIMA predictions for HIV testing and counseling demand</p>
+                    <h3 className="text-lg font-semibold text-gray-900">{serviceName} Appointment Forecast (SARIMA)</h3>
+                    <p className="text-sm text-gray-600">SARIMA predictions for {serviceName.toLowerCase()} demand</p>
                   </div>
                 </div>
                 <button
                   onClick={handleGeneratePredictions}
                   disabled={isGeneratingPredictions || dataSourceSummary.combined.total === 0}
                   title={dataSourceSummary.combined.total === 0 ? 'Import appointment data first to generate predictions' : 'Generate SARIMA predictions'}
-                  className="inline-flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-md"
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-[#20C997] text-white rounded-lg hover:bg-[#1AA179] transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-md"
                 >
                   {isGeneratingPredictions ? (
                     <>
@@ -467,7 +464,7 @@ export default function HIVManagementPage() {
               )}
             </div>
             <div className="p-6">
-              <ServiceSARIMAChart key={predictionRefreshKey} serviceId={16} serviceName="HIV Testing" />
+              <ServiceSARIMAChart key={predictionRefreshKey} serviceId={assignedServiceId} serviceName={serviceName} />
             </div>
           </div>
         </div>
@@ -482,8 +479,8 @@ export default function HIVManagementPage() {
             fetchDataSourceSummary();
             fetchStatistics();
           }}
-          serviceId={16}
-          serviceName="HIV Testing & Counseling"
+          serviceId={assignedServiceId}
+          serviceName={serviceName}
         />
 
         {/* Edit Modal */}
@@ -492,6 +489,7 @@ export default function HIVManagementPage() {
           onClose={() => setIsEditModalOpen(false)}
           onSuccess={handleEditSuccess}
           record={selectedRecord}
+          serviceName="Adult Vaccination"
         />
 
         {/* Delete Confirmation Dialog */}
@@ -499,7 +497,7 @@ export default function HIVManagementPage() {
           isOpen={showDeleteDialog}
           onClose={() => !actionLoading && setShowDeleteDialog(false)}
           onConfirm={confirmDelete}
-          title="Delete HIV Appointment Record"
+          title={`Delete ${serviceName} Appointment Record`}
           message={
             recordToDelete
               ? `Are you sure you want to delete the record from ${new Date(

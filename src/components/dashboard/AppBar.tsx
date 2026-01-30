@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth';
 import { ChevronDown, LogOut, User } from 'lucide-react';
-import { ROLE_NAMES } from '@/types/auth';
+import { ROLE_NAMES, ADMIN_CATEGORY_NAMES } from '@/types/auth';
 import { cn } from '@/lib/utils';
 
 interface AppBarProps {
@@ -95,7 +95,7 @@ export const AppBar: React.FC<AppBarProps> = ({
                 <p className="text-xs text-primary-teal mt-1 font-medium">
                   {user?.role_id && ROLE_NAMES[user.role_id]}
                   {user?.role_id === 2 && user?.admin_category && (
-                    <span className="text-gray-500"> • {user.admin_category}</span>
+                    <span className="text-gray-500"> • {ADMIN_CATEGORY_NAMES[user.admin_category as keyof typeof ADMIN_CATEGORY_NAMES] || user.admin_category}</span>
                   )}
                 </p>
               </div>

@@ -18,7 +18,7 @@ import {
 } from 'lucide-react';
 import ServiceHistoricalImportModal from '@/components/healthcare-admin/ServiceHistoricalImportModal';
 import ServiceSARIMAChart from '@/components/healthcare-admin/ServiceSARIMAChart';
-import ServiceSARIMAMetrics from '@/components/healthcare-admin/ServiceSARIMAMetrics';
+
 import { AppointmentStatusChart } from '@/components/charts';
 import { HIVDataSourceCards } from '@/components/healthcare-admin/HIVDataSourceCards';
 import { HIVStatisticsTable } from '@/components/healthcare-admin/HIVStatisticsTable';
@@ -460,9 +460,6 @@ export default function PregnancyManagementPage() {
             </div>
             <div className="p-6">
               <ServiceSARIMAChart key={predictionRefreshKey} serviceId={17} serviceName="Prenatal Checkup" />
-              <div className="mt-6">
-                <ServiceSARIMAMetrics key={predictionRefreshKey} serviceId={17} />
-              </div>
             </div>
           </div>
         </div>

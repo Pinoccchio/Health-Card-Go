@@ -11,7 +11,7 @@
  * - Confidence Level
  * - Overall Interpretation
  *
- * Used for HIV (Service 16), Pregnancy (Service 17), and other service forecasts
+ * Used by the reports page which passes pre-fetched metrics directly.
  */
 
 import React from 'react';
@@ -24,13 +24,15 @@ interface ServiceModelAccuracy {
   mse: number;
   interpretation?: 'excellent' | 'good' | 'fair' | 'poor';
   confidence_level?: number;
+  data_points_count?: number;
+  data_quality?: 'high' | 'moderate' | 'insufficient';
 }
 
 interface ServiceSARIMAMetricsProps {
   metrics: ServiceModelAccuracy | null;
   showDetails?: boolean;
-  dataPointsCount?: number; // Optional: historical data points count
-  dataQuality?: 'high' | 'moderate' | 'insufficient'; // Optional: overall data quality assessment
+  dataPointsCount?: number;
+  dataQuality?: 'high' | 'moderate' | 'insufficient';
 }
 
 export default function ServiceSARIMAMetrics({
@@ -39,8 +41,6 @@ export default function ServiceSARIMAMetrics({
   dataPointsCount,
   dataQuality,
 }: ServiceSARIMAMetricsProps) {
-  // Component will not render if metrics is null (handled by parent)
-  // This ensures we only display when real metrics exist
   if (!metrics) {
     return null;
   }

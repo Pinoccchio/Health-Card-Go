@@ -330,7 +330,7 @@ export async function getHealthcareAdminMenuItems(
   if (adminCategory === 'adult_vaccination') {
     menuItems.push({
       label: 'SARIMA Statistics',
-      href: '/healthcare-admin/immunization-statistics',
+      href: '/healthcare-admin/vaccination-statistics',
       icon: Syringe,
     });
     console.log('✅ Added SARIMA Statistics menu for adult_vaccination admin');

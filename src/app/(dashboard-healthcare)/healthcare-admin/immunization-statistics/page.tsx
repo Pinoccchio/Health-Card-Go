@@ -16,11 +16,10 @@ import {
   Upload,
   Filter,
   Baby,
-  Users,
 } from 'lucide-react';
 import ServiceHistoricalImportModal from '@/components/healthcare-admin/ServiceHistoricalImportModal';
 import ServiceSARIMAChart from '@/components/healthcare-admin/ServiceSARIMAChart';
-import ServiceSARIMAMetrics from '@/components/healthcare-admin/ServiceSARIMAMetrics';
+
 import { AppointmentStatusChart } from '@/components/charts';
 import { HIVDataSourceCards } from '@/components/healthcare-admin/HIVDataSourceCards';
 import { HIVStatisticsTable } from '@/components/healthcare-admin/HIVStatisticsTable';
@@ -34,9 +33,8 @@ export default function ImmunizationStatisticsPage() {
 
   const [hasAccess, setHasAccess] = useState<boolean | null>(null);
 
-  // Determine which service this admin is assigned to (19 = Child Immunization, 20 = Adult Vaccination)
-  const [assignedServiceId, setAssignedServiceId] = useState<number | null>(null);
-  const [serviceName, setServiceName] = useState<string>('');
+  const assignedServiceId = 19;
+  const serviceName = 'Child Immunization';
 
   // Import and SARIMA state
   const [isAppointmentImportOpen, setIsAppointmentImportOpen] = useState(false);
@@ -79,27 +77,16 @@ export default function ImmunizationStatisticsPage() {
   const [actionLoading, setActionLoading] = useState(false);
 
   useEffect(() => {
-    // Check if the healthcare admin has child_immunization or adult_vaccination category
     if (user) {
       const isChildImmunizationAdmin = user.role_id === 2 && user.admin_category === 'child_immunization';
-      const isAdultVaccinationAdmin = user.role_id === 2 && user.admin_category === 'adult_vaccination';
       const isSuperAdmin = user.role_id === 1;
 
-      if (!isChildImmunizationAdmin && !isAdultVaccinationAdmin && !isSuperAdmin) {
+      if (!isChildImmunizationAdmin && !isSuperAdmin) {
         setHasAccess(false);
-        toast.error('You do not have permission to access this page. This page is only for Healthcare Admins with Child Immunization or Adult Vaccination category.');
+        toast.error('You do not have permission to access this page. This page is only for Healthcare Admins with Child Immunization category.');
         router.push('/healthcare-admin/dashboard');
       } else {
         setHasAccess(true);
-        // Set assigned service info
-        if (user.assigned_service_id) {
-          setAssignedServiceId(user.assigned_service_id);
-          if (user.assigned_service_id === 19) {
-            setServiceName('Child Immunization');
-          } else if (user.assigned_service_id === 20) {
-            setServiceName('Adult Vaccination');
-          }
-        }
         fetchBarangays();
       }
     }
@@ -107,12 +94,12 @@ export default function ImmunizationStatisticsPage() {
   }, [user]);
 
   useEffect(() => {
-    if (hasAccess && assignedServiceId) {
+    if (hasAccess) {
       fetchAppointmentStatistics();
       fetchDataSourceSummary();
       fetchStatistics();
     }
-  }, [hasAccess, assignedServiceId, filters]);
+  }, [hasAccess, filters]);
 
   const fetchBarangays = async () => {
     try {
@@ -127,12 +114,9 @@ export default function ImmunizationStatisticsPage() {
   };
 
   const fetchAppointmentStatistics = async () => {
-    if (!assignedServiceId) return;
-
     try {
       setAppointmentStatsLoading(true);
-      const adminCategory = assignedServiceId === 19 ? 'child_immunization' : 'adult_vaccination';
-      const response = await fetch(`/api/appointments/statistics?admin_category=${adminCategory}`);
+      const response = await fetch(`/api/appointments/statistics?admin_category=child_immunization`);
       const data = await response.json();
 
       if (data.success) {
@@ -146,7 +130,6 @@ export default function ImmunizationStatisticsPage() {
   };
 
   const fetchDataSourceSummary = async () => {
-    if (!assignedServiceId) return;
 
     try {
       setDataSourceLoading(true);
@@ -164,7 +147,6 @@ export default function ImmunizationStatisticsPage() {
   };
 
   const fetchStatistics = async () => {
-    if (!assignedServiceId) return;
 
     try {
       setStatisticsLoading(true);
@@ -243,11 +225,6 @@ export default function ImmunizationStatisticsPage() {
   };
 
   const handleGeneratePredictions = async () => {
-    if (!assignedServiceId) {
-      toast.error('No service assigned');
-      return;
-    }
-
     setIsGeneratingPredictions(true);
     setGenerationStatus({ type: 'idle' });
 
@@ -286,8 +263,8 @@ export default function ImmunizationStatisticsPage() {
     return (
       <DashboardLayout
         roleId={2}
-        pageTitle="Immunization Statistics"
-        pageDescription="Manage immunization appointment data"
+        pageTitle="Child Immunization Statistics"
+        pageDescription="Manage child immunization appointment data"
       >
         <Container size="full">
           <div className="flex items-center justify-center min-h-[400px]">
@@ -306,7 +283,7 @@ export default function ImmunizationStatisticsPage() {
     return (
       <DashboardLayout
         roleId={2}
-        pageTitle="Immunization Statistics"
+        pageTitle="Child Immunization Statistics"
         pageDescription="Access Denied"
       >
         <Container size="full">
@@ -317,7 +294,7 @@ export default function ImmunizationStatisticsPage() {
               </div>
               <h2 className="text-xl font-semibold text-gray-900 mb-2">Access Denied</h2>
               <p className="text-gray-600">
-                You do not have permission to access this page. This page is only available to Healthcare Admins with Immunization category.
+                You do not have permission to access this page. This page is only available to Healthcare Admins with Child Immunization category.
               </p>
             </div>
           </div>
@@ -326,13 +303,13 @@ export default function ImmunizationStatisticsPage() {
     );
   }
 
-  const ServiceIcon = assignedServiceId === 19 ? Baby : Users;
-  const templateName = assignedServiceId === 19 ? 'child-immunization' : 'adult-vaccination';
+  const ServiceIcon = Baby;
+  const templateName = 'child-immunization';
 
   return (
     <DashboardLayout
       roleId={2}
-      pageTitle="Immunization Statistics"
+      pageTitle="Child Immunization Statistics"
       pageDescription={`Track and manage ${serviceName} appointment data`}
     >
       <Container size="full">
@@ -438,7 +415,7 @@ export default function ImmunizationStatisticsPage() {
               statistics={statistics}
               onEdit={handleEdit}
               onDelete={handleDelete}
-              serviceName="Immunization"
+              serviceName="Child Immunization"
             />
           )}
 
@@ -492,9 +469,6 @@ export default function ImmunizationStatisticsPage() {
               </div>
               <div className="p-6">
                 <ServiceSARIMAChart key={predictionRefreshKey} serviceId={assignedServiceId} serviceName={serviceName} />
-                <div className="mt-6">
-                  <ServiceSARIMAMetrics key={predictionRefreshKey} serviceId={assignedServiceId} />
-                </div>
               </div>
             </div>
           )}
@@ -522,7 +496,7 @@ export default function ImmunizationStatisticsPage() {
           onClose={() => setIsEditModalOpen(false)}
           onSuccess={handleEditSuccess}
           record={selectedRecord}
-          serviceName="Immunization"
+          serviceName="Child Immunization"
         />
 
         {/* Delete Confirmation Dialog */}
