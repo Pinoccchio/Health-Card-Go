@@ -266,7 +266,7 @@ export default function CreateStaffForm({ isOpen, onClose, onSuccess }: CreateSt
                 <p className="text-sm font-medium text-purple-800 mt-3 mb-1">❌ This staff member CANNOT:</p>
                 <ul className="text-sm text-purple-700 space-y-1">
                   <li>✗ Handle patient appointments</li>
-                  <li>✗ Create medical records</li>
+                  <li>✗ Manage patient data</li>
                 </ul>
               </div>
             </div>

@@ -45,12 +45,6 @@ export const AUDIT_ACTIONS = {
   APPOINTMENT_VERIFIED: 'appointment_verified',
   APPOINTMENT_STARTED: 'appointment_started',
 
-  // Medical Records
-  MEDICAL_RECORD_CREATED: 'medical_record_created',
-  MEDICAL_RECORD_UPDATED: 'medical_record_updated',
-  MEDICAL_RECORD_DELETED: 'medical_record_deleted',
-  MEDICAL_RECORD_ACCESSED: 'medical_record_accessed',
-
   // Health Cards
   HEALTH_CARD_GENERATED: 'health_card_generated',
   HEALTH_CARD_ACCESSED: 'health_card_accessed',
@@ -96,7 +90,6 @@ export const AUDIT_ACTIONS = {
 export const AUDIT_ENTITIES = {
   PROFILE: 'profile',
   APPOINTMENT: 'appointment',
-  MEDICAL_RECORD: 'medical_record',
   HEALTH_CARD: 'health_card',
   ANNOUNCEMENT: 'announcement',
   SERVICE: 'service',

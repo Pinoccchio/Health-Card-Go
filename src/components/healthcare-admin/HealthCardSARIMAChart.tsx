@@ -287,7 +287,7 @@ export default function HealthCardSARIMAChart({
         },
         // Upper Bound with fill to Lower Bound (creates shaded confidence interval)
         {
-          label: '95% Confidence Interval',
+          label: 'Upper Bound',
           data: chartData.upperBound,
           borderColor: 'transparent',
           backgroundColor: lightColor,

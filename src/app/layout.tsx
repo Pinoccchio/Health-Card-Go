@@ -14,7 +14,7 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: "HealthCardGo | Healthcare Appointment Management System",
   description: "Comprehensive Healthcare Appointment Management and Disease Surveillance System for the City Health Office of Panabo City, Davao del Norte, Philippines.",
-  keywords: ["healthcare", "appointments", "medical records", "disease surveillance", "Panabo City", "health card"],
+  keywords: ["healthcare", "appointments", "disease surveillance", "Panabo City", "health card"],
   authors: [{ name: "HealthCardGo Team" }],
   openGraph: {
     title: "HealthCardGo | Healthcare Management",

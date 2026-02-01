@@ -260,7 +260,7 @@ export default function CreateSuperAdminForm({ isOpen, onClose, onSuccess }: Cre
                   <li>✅ Full system access</li>
                   <li>✅ Create and manage all user types (Super Admins, Healthcare Admins, Staff)</li>
                   <li>✅ Activate/deactivate user accounts</li>
-                  <li>✅ Access all appointments and medical records</li>
+                  <li>✅ Access all appointments and patient data</li>
                   <li>✅ Manage disease surveillance</li>
                   <li>✅ View and manage all reports</li>
                   <li>✅ Configure system settings</li>

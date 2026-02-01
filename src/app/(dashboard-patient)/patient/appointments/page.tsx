@@ -73,7 +73,6 @@ interface Appointment {
   service_id?: number;
   lab_location?: 'inside_cho' | 'outside_cho';
   card_type?: 'food_handler' | 'non_food' | 'pink';
-  has_medical_record?: boolean;
   services?: {
     id: number;
     name: string;
@@ -430,13 +429,7 @@ export default function PatientAppointmentsPage() {
             />
           )}
 
-          {/* Medical Record Created Badge */}
-          {value === 'completed' && row.has_medical_record && (
-            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
-              <CheckCircle className="w-3 h-3 mr-1" />
-              Medical Record Created
-            </span>
-          )}
+
 
           {/* Rejection Badge - Cancelled with reason */}
           {value === 'cancelled' && row.cancellation_reason && (

@@ -226,7 +226,7 @@ export const EDUCATION_ADMIN_MENU_ITEMS: MenuItem[] = [
  * PATTERN 5 - Dual Access (ALL 3 Services: 12, 16, 17):
  * - ALL services show BOTH "Appointments" AND "Walk-in Queue"
  * - Dashboard, Patients, Reports, Announcements (always shown)
- * - Disease Map removed (requires_medical_record = false for all services)
+ * - Disease Map removed (disease surveillance handled by Staff role)
  * - HealthCard Statistics shown only for 'healthcard' admin category
  * - Total: 6-7 menu items depending on admin category
  */

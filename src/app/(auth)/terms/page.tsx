@@ -118,20 +118,12 @@ export default function TermsPage() {
               </ul>
             </section>
 
-            {/* 4. Medical Records and Data Usage */}
+            {/* 4. Data Usage */}
             <section>
               <h2 className="text-xl font-semibold text-gray-900 mb-3">
-                4. Medical Records and Data Usage
+                4. Data Usage
               </h2>
               <ul className="list-disc pl-6 space-y-1">
-                <li>
-                  All medical records are stored securely and encrypted where required
-                  (HIV and pregnancy records)
-                </li>
-                <li>
-                  Medical data may be used for disease surveillance and public health
-                  analytics
-                </li>
                 <li>
                   Patient data is aggregated and anonymized for disease tracking and
                   predictive analytics
@@ -141,8 +133,8 @@ export default function TermsPage() {
                   2012 (Republic Act No. 10173)
                 </li>
                 <li>
-                  Access to medical records is restricted based on user role and
-                  Healthcare Administrator category
+                  Access to patient data is restricted based on user role and
+                  assigned service
                 </li>
               </ul>
             </section>
@@ -180,8 +172,8 @@ export default function TermsPage() {
               </p>
               <ul className="list-disc pl-6 space-y-1 mt-2">
                 <li>
-                  Automated logging of disease cases linked to diagnoses (HIV/AIDS,
-                  Dengue, Malaria, Measles, Rabies, Pregnancy-related complications)
+                  Tracking of disease cases (HIV/AIDS, Dengue, Malaria, Measles,
+                  Rabies, Pregnancy-related complications) by designated staff
                 </li>
                 <li>
                   Aggregation of disease data by barangay for heatmap visualization

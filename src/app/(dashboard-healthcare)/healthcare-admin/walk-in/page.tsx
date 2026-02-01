@@ -113,7 +113,6 @@ export default function WalkInQueuePage() {
   const [showDrawer, setShowDrawer] = useState(false);
   const [showStatusHistory, setShowStatusHistory] = useState(false);
   const [lastHistoryEntries, setLastHistoryEntries] = useState<Record<string, { id: string; from_status: string | null } | null>>({});
-  const [hasMedicalRecords, setHasMedicalRecords] = useState<Record<string, boolean | null>>({});
 
   // Confirmation dialog state
   const [showRevertDialog, setShowRevertDialog] = useState(false);
@@ -263,37 +262,6 @@ export default function WalkInQueuePage() {
     if (walkInQueue.length > 0) {
       fetchAllLastHistoryEntries();
     }
-  }, [walkInQueue]);
-
-  // Check medical records for completed appointments
-  useEffect(() => {
-    async function checkMedicalRecords() {
-      if (walkInQueue.length === 0) return;
-
-      const records: Record<string, boolean | null> = {};
-
-      for (const patient of walkInQueue) {
-        if (patient.status === 'completed') {
-          try {
-            const res = await fetch(`/api/appointments/${patient.appointment_id}/medical-records`);
-            const data = await res.json();
-
-            if (res.ok && data.success) {
-              records[patient.appointment_id] = data.data && data.data.length > 0;
-            } else {
-              records[patient.appointment_id] = null;
-            }
-          } catch (error) {
-            console.error(`Error checking medical records for appointment ${patient.appointment_id}:`, error);
-            records[patient.appointment_id] = null;
-          }
-        }
-      }
-
-      setHasMedicalRecords(records);
-    }
-
-    checkMedicalRecords();
   }, [walkInQueue]);
 
   // Apply search and filters
@@ -1200,7 +1168,7 @@ export default function WalkInQueuePage() {
 
                 {lastHistoryEntries[selectedPatient.appointment_id]?.from_status &&
                   (selectedPatient.status === 'in_progress' ||
-                   (selectedPatient.status === 'completed' && !hasMedicalRecords[selectedPatient.appointment_id])) && (
+                   selectedPatient.status === 'completed') && (
                   <button
                     onClick={() => handleQuickUndo(selectedPatient.appointment_id)}
                     className="w-full px-4 py-2 bg-yellow-100 text-yellow-800 hover:bg-yellow-200 border border-yellow-300 rounded-md font-medium transition-colors flex items-center justify-center"

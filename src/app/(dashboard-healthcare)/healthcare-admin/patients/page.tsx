@@ -74,7 +74,6 @@ export default function HealthcareAdminPatientsPage() {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | PatientStatus>('all');
   const [serviceName, setServiceName] = useState<string>('Loading...');
-  const [requiresMedicalRecords, setRequiresMedicalRecords] = useState<boolean>(true);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
 
@@ -102,7 +101,6 @@ export default function HealthcareAdminPatientsPage() {
           const serviceData = await serviceRes.json();
           if (serviceData.success && serviceData.data) {
             setServiceName(serviceData.data.name);
-            setRequiresMedicalRecords(serviceData.data.requires_medical_record ?? true);
           } else {
             setServiceName('Service Not Found');
           }
@@ -575,8 +573,8 @@ export default function HealthcareAdminPatientsPage() {
                 </div>
               )}
 
-              {/* Medical Information - Only show for services that require medical records */}
-              {requiresMedicalRecords && (() => {
+              {/* Medical Information */}
+              {(() => {
                 // Only show Medical Information section if patient has any medical data
                 const hasMedicalData = selectedPatient.patients && (
                   selectedPatient.patients.medical_history?.blood_type ||

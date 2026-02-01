@@ -91,19 +91,12 @@ export async function markNoShow(
 }
 
 /**
- * Complete an appointment with medical record
+ * Complete an appointment
  * Note: This should use the /api/appointments/[id]/complete endpoint
  * @param appointmentId - The appointment ID
- * @param medicalRecord - Optional medical record data
  */
 export async function completeAppointment(
   appointmentId: string,
-  medicalRecord?: {
-    category: string;
-    diagnosis: string;
-    prescription?: string;
-    notes?: string;
-  }
 ): Promise<UpdateStatusResponse> {
   try {
     const response = await fetch(`/api/appointments/${appointmentId}/complete`, {
@@ -111,9 +104,7 @@ export async function completeAppointment(
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        ...(medicalRecord && { medical_record: medicalRecord }),
-      }),
+      body: JSON.stringify({}),
     });
 
     if (!response.ok) {

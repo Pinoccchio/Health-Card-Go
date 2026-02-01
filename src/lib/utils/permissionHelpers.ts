@@ -10,7 +10,6 @@ export interface ServiceProperties {
   duration_minutes?: number;
   category: 'healthcard' | 'hiv' | 'pregnancy' | 'laboratory' | 'immunization' | 'general';
   requires_appointment: boolean;
-  requires_medical_record: boolean;
 }
 
 export interface Permission {
@@ -39,25 +38,16 @@ export function getServicePermissions(service: ServiceProperties | null): Permis
     return getUnassignedPermissions();
   }
 
-  const isConfidential = ['hiv', 'pregnancy'].includes(service.category);
   const hasAppointments = service.requires_appointment;
-  const hasMedicalRecords = service.requires_medical_record;
 
   const canPermissions: Permission[] = [];
   const cannotPermissions: Permission[] = [];
   const warnings: string[] = [];
 
   // Determine service type
-  let serviceType = '';
-  if (!hasAppointments && !hasMedicalRecords) {
-    serviceType = 'Walk-in Administrative Service';
-  } else if (hasAppointments && !hasMedicalRecords) {
-    serviceType = 'Appointment-based Administrative Service';
-  } else if (hasAppointments && hasMedicalRecords) {
-    serviceType = 'Appointment-based Clinical Service';
-  } else if (!hasAppointments && hasMedicalRecords) {
-    serviceType = 'Walk-in Clinical Service';
-  }
+  const serviceType = hasAppointments
+    ? 'Appointment-based Service'
+    : 'Walk-in Service';
 
   // CORE PERMISSIONS (always granted)
   canPermissions.push({
@@ -129,62 +119,14 @@ export function getServicePermissions(service: ServiceProperties | null): Permis
     warnings.push('This is a walk-in service. Patients do not need appointments.');
   }
 
-  // MEDICAL RECORD PERMISSIONS
-  if (hasMedicalRecords) {
-    canPermissions.push({
-      id: 'create-medical-records',
-      text: 'Create and update medical records',
-      granted: true,
-      category: 'record',
-      importance: 'high',
-    });
-
-    canPermissions.push({
-      id: 'view-patient-history',
-      text: 'View patient medical history',
-      granted: true,
-      category: 'record',
-      importance: 'high',
-    });
-
-    if (isConfidential) {
-      canPermissions.push({
-        id: 'access-confidential-records',
-        text: `Access confidential ${service.category.toUpperCase()} records (encrypted)`,
-        granted: true,
-        category: 'confidential',
-        importance: 'high',
-      });
-
-      warnings.push(
-        `CONFIDENTIAL SERVICE: All ${getCategoryLabel(service.category)} records are encrypted and require strict privacy protocols.`
-      );
-    }
-
-    canPermissions.push({
-      id: 'disease-surveillance',
-      text: 'Log disease cases for surveillance',
-      granted: true,
-      category: 'data',
-      importance: 'medium',
-    });
-  } else {
-    cannotPermissions.push({
-      id: 'no-medical-records',
-      text: 'Create medical records (administrative service only)',
-      granted: false,
-      category: 'record',
-      importance: 'high',
-    });
-
-    cannotPermissions.push({
-      id: 'no-disease-surveillance',
-      text: 'Log disease surveillance data',
-      granted: false,
-      category: 'data',
-      importance: 'low',
-    });
-  }
+  // MEDICAL RECORD PERMISSIONS (not available for any current services)
+  cannotPermissions.push({
+    id: 'no-medical-records',
+    text: 'Create medical records (not available)',
+    granted: false,
+    category: 'record',
+    importance: 'high',
+  });
 
   // HEALTH CARD PERMISSIONS
   if (service.category === 'healthcard') {
@@ -248,7 +190,7 @@ export function getServicePermissions(service: ServiceProperties | null): Permis
     serviceName: service.name,
     serviceDescription: service.description || null,
     serviceType,
-    confidentialityLevel: isConfidential ? 'high' : 'standard',
+    confidentialityLevel: 'standard',
   };
 }
 

@@ -71,7 +71,6 @@ interface AdminAppointment {
   verified_at?: string | null;
   started_at?: string | null;
   completed_at?: string | null;
-  has_medical_record?: boolean; // Indicates if medical record exists
   // Health Card specific fields
   lab_location?: 'inside_cho' | 'outside_cho';
   card_type?: 'food_handler' | 'non_food' | 'pink';
@@ -204,9 +203,6 @@ export default function HealthcareAdminAppointmentsPage() {
     id: string;
     from_status: string | null;
   }>>({});
-
-  // Medical records check for undo validation (keyed by appointment ID)
-  const [hasMedicalRecords, setHasMedicalRecords] = useState<Record<string, boolean | null>>({});
 
   // Start consultation confirmation dialog state
   const [showStartDialog, setShowStartDialog] = useState(false);
@@ -371,39 +367,6 @@ export default function HealthcareAdminAppointmentsPage() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [appointments, isDrawerOpen]);
-
-  // Check medical records for completed appointments
-  useEffect(() => {
-    if (appointments.length > 0) {
-      checkAllMedicalRecords();
-    }
-  }, [appointments.length]);
-
-  const checkAllMedicalRecords = async () => {
-    const records: Record<string, boolean | null> = {};
-
-    await Promise.all(
-      appointments.map(async (appointment) => {
-        if (appointment.status === 'completed') {
-          try {
-            const response = await fetch(`/api/medical-records?appointment_id=${appointment.id}`);
-            const data = await response.json();
-
-            if (data.success) {
-              records[appointment.id] = data.has_records;
-            } else {
-              records[appointment.id] = null;
-            }
-          } catch (err) {
-            console.error(`Failed to check medical records for appointment ${appointment.id}:`, err);
-            records[appointment.id] = null;
-          }
-        }
-      })
-    );
-
-    setHasMedicalRecords(records);
-  };
 
   // Fetch ALL appointments (for dropdown dates only) - no pagination
   const fetchAllAppointmentsForDates = async () => {
@@ -1157,12 +1120,6 @@ export default function HealthcareAdminAppointmentsPage() {
               label="Consulting"
               type="consulting"
             />
-          )}
-          {row.status === 'completed' && row.has_medical_record && (
-            <span className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-green-100 text-green-800">
-              <FileText className="w-3 h-3 mr-1" />
-              Medical Record Created
-            </span>
           )}
         </div>
       ),
@@ -2029,8 +1986,7 @@ export default function HealthcareAdminAppointmentsPage() {
                 {lastHistoryEntries[selectedAppointment.id]?.from_status &&
                  (selectedAppointment.status === 'verified' ||
                   selectedAppointment.status === 'in_progress' ||
-                  (selectedAppointment.status === 'completed' &&
-                   hasMedicalRecords[selectedAppointment.id] === false)) && (
+                  selectedAppointment.status === 'completed') && (
                   <button
                     onClick={() => handleQuickUndo(selectedAppointment.id)}
                     disabled={actionLoading}

@@ -13,7 +13,6 @@ interface Service {
   duration_minutes?: number;
   category: 'healthcard' | 'hiv' | 'pregnancy' | 'laboratory' | 'immunization' | 'general';
   requires_appointment: boolean;
-  requires_medical_record: boolean;
 }
 
 interface CreateHealthcareAdminFormProps {

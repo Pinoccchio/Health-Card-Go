@@ -7,7 +7,7 @@ import { useAuth } from '@/lib/auth/useAuth';
 import ReportsCharts from '@/components/healthcare-admin/ReportsCharts';
 import ReportsFilters from '@/components/healthcare-admin/ReportsFilters';
 import ExportButtons from '@/components/healthcare-admin/ExportButtons';
-import { BarChart3, Users, CalendarCheck, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Users, CalendarCheck, ChevronLeft, ChevronRight } from 'lucide-react';
 
 type TabId = 'appointments' | 'patients' | 'diseases';
 
@@ -25,7 +25,6 @@ export default function HealthcareAdminReportsPage() {
   // Service info
   const [serviceName, setServiceName] = useState('');
   const [requiresAppointment, setRequiresAppointment] = useState(true);
-  const [requiresMedicalRecord, setRequiresMedicalRecord] = useState(false);
   const [serviceLoading, setServiceLoading] = useState(true);
 
   // Filters — default to "All Time" so all data shows on initial load
@@ -63,7 +62,6 @@ export default function HealthcareAdminReportsPage() {
         if (data.success && data.data) {
           setServiceName(data.data.name);
           setRequiresAppointment(data.data.requires_appointment ?? true);
-          setRequiresMedicalRecord(data.data.requires_medical_record ?? false);
 
           // Set initial tab based on service pattern
           if (data.data.requires_appointment) {
@@ -109,9 +107,6 @@ export default function HealthcareAdminReportsPage() {
     tabs.push({ id: 'appointments', label: 'Appointments', icon: CalendarCheck });
   }
   tabs.push({ id: 'patients', label: 'Patients', icon: Users });
-  if (requiresMedicalRecord) {
-    tabs.push({ id: 'diseases', label: 'Diseases', icon: BarChart3 });
-  }
 
   // Current tab's data for export
   const currentTabData = reportData[activeTab] || null;
@@ -250,7 +245,6 @@ export default function HealthcareAdminReportsPage() {
               serviceId={user.assigned_service_id}
               serviceName={serviceName}
               requiresAppointment={requiresAppointment}
-              requiresMedicalRecord={requiresMedicalRecord}
               startDate={appliedStartDate}
               endDate={appliedEndDate}
               barangayId={appliedBarangayId}

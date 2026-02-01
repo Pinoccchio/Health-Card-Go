@@ -103,7 +103,7 @@ function VerifyEmailContent() {
                   <ul className="space-y-1 text-gray-600">
                     <li>• Log in to access your patient dashboard</li>
                     <li>• Book appointments with healthcare providers</li>
-                    <li>• View your medical records and health card</li>
+                    <li>• View your health card</li>
                     <li>• Manage your profile and preferences</li>
                   </ul>
                 </div>

@@ -123,7 +123,7 @@ export function RejectionReasonModal({
               <li>Incomplete or incorrect documents submitted</li>
               <li>Service not available on requested date</li>
               <li>Patient does not meet eligibility requirements</li>
-              <li>Missing required medical records or test results</li>
+              <li>Missing required documents or test results</li>
             </ul>
           </div>
         </div>

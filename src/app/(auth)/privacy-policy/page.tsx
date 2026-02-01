@@ -78,19 +78,12 @@ export default function PrivacyPolicyPage() {
               </ul>
 
               <h3 className="text-lg font-medium text-gray-800 mb-2">
-                1.4 Protected Health Information (PHI)
+                1.4 Healthcare Information
               </h3>
               <ul className="list-disc pl-6 space-y-1 mb-4">
-                <li>Medical history and diagnoses</li>
-                <li>Treatment records and prescriptions</li>
-                <li>Laboratory test results</li>
                 <li>Appointment history</li>
-                <li>
-                  Sensitive health information (HIV status, pregnancy records) -
-                  encrypted at rest and in transit
-                </li>
-                <li>Immunization records</li>
                 <li>Health card QR code data</li>
+                <li>Basic health information (blood type, allergies, medications)</li>
               </ul>
 
               <h3 className="text-lg font-medium text-gray-800 mb-2">
@@ -119,7 +112,6 @@ export default function PrivacyPolicyPage() {
               </h3>
               <ul className="list-disc pl-6 space-y-1 mb-4">
                 <li>Processing appointment bookings and managing healthcare queues</li>
-                <li>Maintaining accurate medical records</li>
                 <li>Generating and managing digital health cards with QR codes</li>
                 <li>Facilitating communication between patients and healthcare providers</li>
                 <li>Providing appointment reminders and notifications</li>
@@ -180,8 +172,7 @@ export default function PrivacyPolicyPage() {
               </h3>
               <ul className="list-disc pl-6 space-y-1 mb-4">
                 <li>
-                  With Healthcare Administrators based on their category permissions
-                  (healthcard, HIV, pregnancy, general, laboratory)
+                  With Healthcare Administrators based on their assigned service
                 </li>
                 <li>
                   With Super Administrators for system management and oversight
@@ -246,8 +237,7 @@ export default function PrivacyPolicyPage() {
               <ul className="list-disc pl-6 space-y-1 mb-4">
                 <li>End-to-end encryption for all data transmission (HTTPS/TLS)</li>
                 <li>
-                  Strong encryption at rest for sensitive medical records (HIV,
-                  pregnancy data)
+                  Encryption at rest for sensitive health data
                 </li>
                 <li>Secure password hashing using industry-standard algorithms</li>
                 <li>Regular security audits and vulnerability assessments</li>
@@ -340,8 +330,8 @@ export default function PrivacyPolicyPage() {
                   active
                 </li>
                 <li>
-                  <strong>Medical Records:</strong> Retained for a minimum of 10 years
-                  as required by Philippine healthcare regulations
+                  <strong>Healthcare Data:</strong> Retained as required by Philippine
+                  healthcare regulations
                 </li>
                 <li>
                   <strong>Audit Logs:</strong> Retained for 7 years for compliance and

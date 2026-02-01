@@ -24,7 +24,6 @@ interface Patient {
 interface PatientListTableProps {
   serviceId: number;
   requiresAppointment: boolean;
-  requiresMedicalRecord: boolean;
   startDate: string;
   endDate: string;
   barangayId?: number;
@@ -33,7 +32,6 @@ interface PatientListTableProps {
 export default function PatientListTable({
   serviceId,
   requiresAppointment,
-  requiresMedicalRecord,
   startDate,
   endDate,
   barangayId,
@@ -82,7 +80,7 @@ export default function PatientListTable({
     };
 
     fetchPatients();
-  }, [serviceId, requiresAppointment, requiresMedicalRecord, startDate, endDate, barangayId]);
+  }, [serviceId, requiresAppointment, startDate, endDate, barangayId]);
 
   // Search and filter
   useEffect(() => {

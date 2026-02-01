@@ -15,7 +15,7 @@ import {
   ChartOptions,
 } from 'chart.js';
 import { Bar, Line, Pie } from 'react-chartjs-2';
-import { getDiseaseDisplayName } from '@/lib/constants/diseaseConstants';
+
 
 // Register Chart.js components
 ChartJS.register(
@@ -34,7 +34,6 @@ interface ReportsChartsProps {
   serviceId: number;
   serviceName: string;
   requiresAppointment: boolean;
-  requiresMedicalRecord: boolean;
   startDate: string;
   endDate: string;
   barangayId?: number;
@@ -65,20 +64,10 @@ interface PatientStats {
   status_breakdown: Array<{ status: string; count: number }>;
 }
 
-interface DiseaseStats {
-  summary: {
-    total_cases: number;
-    unique_patients: number;
-  };
-  disease_breakdown: Array<{ disease_type: string; count: number }>;
-  trend_data: Array<{ date: string; count: number }>;
-}
-
 export default function ReportsCharts({
   serviceId,
   serviceName,
   requiresAppointment,
-  requiresMedicalRecord,
   startDate,
   endDate,
   barangayId,
@@ -87,7 +76,6 @@ export default function ReportsCharts({
 }: ReportsChartsProps) {
   const [appointmentStats, setAppointmentStats] = useState<AppointmentStats | null>(null);
   const [patientStats, setPatientStats] = useState<PatientStats | null>(null);
-  const [diseaseStats, setDiseaseStats] = useState<DiseaseStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -133,17 +121,6 @@ export default function ReportsCharts({
           }
         }
 
-        // Fetch disease data (Pattern 2 & 3)
-        if (requiresMedicalRecord) {
-          const diseaseResponse = await fetch(`/api/healthcare-admin/reports/diseases?${params}`, { signal });
-          if (diseaseResponse.ok) {
-            const diseaseData = await diseaseResponse.json();
-            if (!signal.aborted) {
-              setDiseaseStats(diseaseData.data);
-              onDataLoaded?.('diseases', diseaseData.data);
-            }
-          }
-        }
       } catch (err: any) {
         // Ignore AbortError - it's expected when component unmounts or filters change
         if (err.name === 'AbortError') {
@@ -167,7 +144,7 @@ export default function ReportsCharts({
     return () => {
       abortController.abort();
     };
-  }, [serviceId, startDate, endDate, barangayId, requiresAppointment, requiresMedicalRecord]);
+  }, [serviceId, startDate, endDate, barangayId, requiresAppointment]);
 
   if (loading) {
     return (
@@ -249,7 +226,7 @@ export default function ReportsCharts({
 
   const showAppointments = activeTab === 'appointments';
   const showPatients = activeTab === 'patients';
-  const showDiseases = activeTab === 'diseases';
+
 
   return (
     <div className="space-y-6">
@@ -284,19 +261,6 @@ export default function ReportsCharts({
           </>
         )}
 
-        {/* Disease Summary */}
-        {showDiseases && requiresMedicalRecord && diseaseStats && (
-          <>
-            <div className="bg-white rounded-lg shadow p-6">
-              <p className="text-sm font-medium text-gray-600">Disease Cases</p>
-              <p className="text-3xl font-bold text-red-600 mt-2">{diseaseStats.summary.total_cases}</p>
-            </div>
-            <div className="bg-white rounded-lg shadow p-6">
-              <p className="text-sm font-medium text-gray-600">Unique Patients</p>
-              <p className="text-3xl font-bold text-orange-600 mt-2">{diseaseStats.summary.unique_patients}</p>
-            </div>
-          </>
-        )}
       </div>
 
       {/* Charts Grid */}
@@ -399,33 +363,6 @@ export default function ReportsCharts({
         )}
 
         {/* Disease Cases by Type - Bar Chart */}
-        {showDiseases && requiresMedicalRecord && diseaseStats && diseaseStats.disease_breakdown.length > 0 && (
-          <div className="bg-white rounded-lg shadow p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Disease Cases by Type</h3>
-            <div className="h-64">
-              <Bar
-                data={{
-                  labels: diseaseStats.disease_breakdown.map(item => {
-                    if (item.disease_type.includes('_')) {
-                      return getDiseaseDisplayName(item.disease_type, null);
-                    }
-                    return item.disease_type;
-                  }),
-                  datasets: [
-                    {
-                      label: 'Cases',
-                      data: diseaseStats.disease_breakdown.map(item => item.count),
-                      backgroundColor: 'rgba(239, 68, 68, 0.8)',
-                      borderColor: 'rgba(239, 68, 68, 1)',
-                      borderWidth: 1,
-                    },
-                  ],
-                }}
-                options={barChartOptions}
-              />
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );
